@@ -10,10 +10,11 @@ use fendermint_app_settings::AccountKind;
 use fendermint_crypto::SecretKey;
 use fendermint_rocksdb::{blockstore::NamespaceBlockstore, namespaces, RocksDb, RocksDbConfig};
 use fendermint_vm_actor_interface::eam::EthAddress;
+use fendermint_vm_fingerprint_resolver::rpc::RPCResolver as FingerprintResolver;
 use fendermint_vm_interpreter::chain::ChainEnv;
 use fendermint_vm_interpreter::{
     bytes::{BytesMessageInterpreter, ProposalPrepareMode},
-    chain::{ChainMessageInterpreter, CheckpointPool, ObjectPool},
+    chain::{ChainMessageInterpreter, CheckpointPool, FingerprintPool, ObjectPool},
     fvm::{Broadcaster, FvmMessageInterpreter, ValidatorContext},
     signed::SignedMessageInterpreter,
 };
@@ -129,6 +130,7 @@ async fn run(ipfs_addr: String, settings: Settings) -> anyhow::Result<()> {
 
     let checkpoint_pool = CheckpointPool::new();
     let ipfs_pin_pool = ObjectPool::new();
+    let fingerprint_pool = FingerprintPool::new();
     let parent_finality_votes = VoteTally::empty();
 
     let topdown_enabled = settings.topdown_enabled();
@@ -163,6 +165,8 @@ async fn run(ipfs_addr: String, settings: Settings) -> anyhow::Result<()> {
             ipfs_pin_pool.queue(),
             settings.resolver.retry_delay,
         );
+
+        let fingerprint_resolver = FingerprintResolver::new(fingerprint_pool.queue());
 
         if topdown_enabled {
             if let Some(key) = validator_keypair {
@@ -208,6 +212,9 @@ async fn run(ipfs_addr: String, settings: Settings) -> anyhow::Result<()> {
 
         tracing::info!("starting the IPFS Resolver...");
         tokio::spawn(async move { ipfs_resolver.run().await });
+
+        tracing::info!("starting the RPC Tx Resolver...");
+        tokio::spawn(async move { fingerprint_resolver.run().await });
     } else {
         tracing::info!("IPLD Resolver disabled.")
     }
@@ -275,6 +282,7 @@ async fn run(ipfs_addr: String, settings: Settings) -> anyhow::Result<()> {
             parent_finality_provider: parent_finality_provider.clone(),
             parent_finality_votes: parent_finality_votes.clone(),
             object_pool: ipfs_pin_pool,
+            fingerprint_pool: fingerprint_pool,
         },
         snapshots,
     )?;

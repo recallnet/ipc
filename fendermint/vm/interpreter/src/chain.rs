@@ -12,6 +12,9 @@ use anyhow::{bail, Context};
 use async_stm::atomically;
 use async_trait::async_trait;
 use fendermint_vm_actor_interface::{ipc, objectstore, system};
+use fendermint_vm_fingerprint_resolver::pool::{
+    ResolveKey as FingerprintResolveKey, ResolvePool as FingerprintResolvePool,
+};
 use fendermint_vm_ipfs_resolver::pool::{
     ResolveKey as IpfsResolveKey, ResolvePool as IpfsResolvePool,
 };
@@ -39,6 +42,7 @@ use std::sync::Arc;
 pub type CheckpointPool = ResolvePool<CheckpointPoolItem>;
 pub type TopDownFinalityProvider = Arc<Toggle<CachedFinalityProvider<IPCProviderProxy>>>;
 pub type ObjectPool = IpfsResolvePool<ObjectPoolItem>;
+pub type FingerprintPool = FingerprintResolvePool<FingerprintPoolItem>;
 
 /// These are the extra state items that the chain interpreter needs,
 /// a sort of "environment" supporting IPC.
@@ -51,6 +55,8 @@ pub struct ChainEnv {
     pub parent_finality_votes: VoteTally,
     /// IPFS pin resolution pool.
     pub object_pool: ObjectPool,
+    /// Fingerprint resolution pool.
+    pub fingerprint_pool: FingerprintPool,
 }
 
 #[derive(Clone, Hash, PartialEq, Eq)]
@@ -80,6 +86,17 @@ pub struct ObjectPoolItem {
 impl From<&ObjectPoolItem> for IpfsResolveKey {
     fn from(value: &ObjectPoolItem) -> Self {
         value.obj.value
+    }
+}
+
+#[derive(Clone, Hash, PartialEq, Eq)]
+pub struct FingerprintPoolItem {
+    fingerprint: cid::Cid,
+}
+
+impl From<&FingerprintPoolItem> for FingerprintResolveKey {
+    fn from(value: &FingerprintPoolItem) -> Self {
+        value.fingerprint.clone()
     }
 }
 
@@ -119,7 +136,7 @@ where
     DB: Blockstore + Clone + 'static + Send + Sync,
     I: Sync + Send,
 {
-    type State = ChainEnv;
+    type State = (ChainEnv, crate::fvm::state::FvmQueryState<DB>);
     type Message = ChainMessage;
 
     /// Check whether there are any "ready" messages in the IPLD resolution mempool which can be appended to the proposal.
@@ -128,11 +145,43 @@ where
     /// account the transactions which are part of top-down or bottom-up checkpoints, to stay within gas limits.
     async fn prepare(
         &self,
-        state: Self::State,
+        (env, state): Self::State,
         mut msgs: Vec<Self::Message>,
     ) -> anyhow::Result<Vec<Self::Message>> {
+        let block_height = state.block_height();
+
+        // Fingerprinting Rounds.
+        //
+        // Every 20 blocks, we will submit a task to the background worker
+        // to send the fingerprint to pre-configured chains on an predefined
+        // contract. When the fingerprint will be sent. The block proposer will
+        // included that fingerprint in a new transaction. The validator will
+        // verify that the fingerprint is correct and also exists in the
+        // desitination chain(s).
+        //
+        // If the fingerprint is correct, the validator will mint rewards for
+        // the block proposer.
+        if block_height % 20 == 0 && block_height != 0 {
+            let subnet_fingerprint = state.state_params().state_root;
+            tracing::info!(
+                "state root: {} at block heignt: {}, adding to pool",
+                subnet_fingerprint.to_string(),
+                block_height
+            );
+
+            // Add fingerprinting task to the background resolution pool.
+            // When this task is resolved, we can include a new transaction in the proposal.
+            // This new transaction so validator can validate that this is correct fingerprint.
+            atomically(|| {
+                env.fingerprint_pool.add(FingerprintPoolItem {
+                    fingerprint: subnet_fingerprint,
+                })
+            })
+            .await;
+        }
+
         // Collect resolved CIDs ready to be proposed from the pool.
-        let ckpts = atomically(|| state.checkpoint_pool.collect_resolved()).await;
+        let ckpts = atomically(|| env.checkpoint_pool.collect_resolved()).await;
 
         // Create transactions ready to be included on the chain.
         let ckpts = ckpts.into_iter().map(|ckpt| match ckpt {
@@ -140,23 +189,31 @@ where
         });
 
         // Collect resolved objects ready to be proposed from the pool.
-        let objects = atomically(|| state.object_pool.collect_resolved()).await;
+        let objects = atomically(|| env.object_pool.collect_resolved()).await;
 
         // Create transactions ready to be included on the chain.
         let objects = objects
             .into_iter()
             .map(|item| ChainMessage::Ipc(IpcMessage::ObjectResolved(item.obj)));
 
+        // Collect sent fingerprints ready to be proposed from the pool.
+        let fingerprints = atomically(|| env.fingerprint_pool.collect_resolved()).await;
+
+        // Create transactions ready to be included on the chain.
+        let fingerprints = fingerprints
+            .into_iter()
+            .map(|item| ChainMessage::Ipc(IpcMessage::FingerprintResolved(item.fingerprint)));
+
         // Prepare top down proposals.
         // Before we try to find a quorum, pause incoming votes. This is optional but if there are lots of votes coming in it might hold up proposals.
-        atomically(|| state.parent_finality_votes.pause_votes_until_find_quorum()).await;
+        atomically(|| env.parent_finality_votes.pause_votes_until_find_quorum()).await;
 
         // The pre-requisite for proposal is that there is a quorum of gossiped votes at that height.
         // The final proposal can be at most as high as the quorum, but can be less if we have already,
         // hit some limits such as how many blocks we can propose in a single step.
         let maybe_finality = atomically(|| {
-            if let Some((quorum_height, quorum_hash)) = state.parent_finality_votes.find_quorum()? {
-                if let Some(finality) = state.parent_finality_provider.next_proposal()? {
+            if let Some((quorum_height, quorum_hash)) = env.parent_finality_votes.find_quorum()? {
+                if let Some(finality) = env.parent_finality_provider.next_proposal()? {
                     let finality = if finality.height <= quorum_height {
                         finality
                     } else {
@@ -182,11 +239,19 @@ where
         // Append at the end - if we run out of block space, these are going to be reproposed in the next block.
         msgs.extend(ckpts);
         msgs.extend(objects);
+
+        // extend msgs with fingerprint transactions
+        msgs.extend(fingerprints);
+
         Ok(msgs)
     }
 
     /// Perform finality checks on top-down transactions and availability checks on bottom-up transactions.
-    async fn process(&self, env: Self::State, msgs: Vec<Self::Message>) -> anyhow::Result<bool> {
+    async fn process(
+        &self,
+        (env, _): Self::State,
+        msgs: Vec<Self::Message>,
+    ) -> anyhow::Result<bool> {
         for msg in msgs {
             match msg {
                 ChainMessage::Ipc(IpcMessage::BottomUpExec(msg)) => {
@@ -236,6 +301,22 @@ where
                     }
 
                     atomically(|| env.object_pool.remove(&item)).await;
+                }
+                ChainMessage::Ipc(IpcMessage::FingerprintResolved(key)) => {
+                    let item = FingerprintPoolItem { fingerprint: key };
+
+                    let is_resolved =
+                        atomically(|| match env.fingerprint_pool.get_status(&item)? {
+                            None => Ok(false),
+                            Some(status) => status.is_resolved(),
+                        })
+                        .await;
+
+                    if !is_resolved {
+                        return Ok(false);
+                    }
+
+                    atomically(|| env.fingerprint_pool.remove(&item)).await;
                 }
                 _ => {}
             };
@@ -452,6 +533,67 @@ where
 
                     Ok(((env, state), ChainMessageApplyRet::Ipc(ret)))
                 }
+                IpcMessage::FingerprintResolved(key) => {
+                    let bh = state.block_height();
+                    let st = state.state_tree();
+                    let store = st.store();
+
+                    // Is this a satisfactory check to verify the fingerprint
+                    // that block proposer included in the transaction?
+                    let contains_fingerprint = store.has(&key).unwrap();
+
+                    tracing::info!(
+                        "fingerprint matched: {} at block height: {}",
+                        contains_fingerprint,
+                        bh
+                    );
+
+                    // If the fingerprint is as expected, we can
+                    // mint rewards for the block proposer by sending
+                    // a message to the relevant actor.
+                    //
+                    // The validator must verify that:
+                    // 1. the fingerprint is correct
+                    // 2. the fingerprint exists in the destination chain(s)
+                    //
+                    // (following is just a placeholder transaction
+                    // to test the flow).
+                    let from = system::SYSTEM_ACTOR_ADDR;
+                    let to = objectstore::OBJECTSTORE_ACTOR_ADDR;
+                    let method_num = fendermint_actor_objectstore::Method::ResolveObject as u64;
+                    let gas_limit = 10_000_000_000;
+
+                    let input = fendermint_actor_objectstore::ObjectParams {
+                        key: key.to_bytes(),
+                        value: key,
+                    };
+                    let params = RawBytes::serialize(&input)?;
+                    let msg = Message {
+                        version: Default::default(),
+                        from,
+                        to,
+                        sequence: 0, // TODO This works but is it okay?
+                        value: TokenAmount::zero(),
+                        method_num,
+                        params,
+                        gas_limit,
+                        gas_fee_cap: TokenAmount::zero(),
+                        gas_premium: TokenAmount::zero(),
+                    };
+
+                    let (apply_ret, emitters) = state.execute_implicit(msg)?;
+
+                    let ret = FvmApplyRet {
+                        apply_ret,
+                        from: system::SYSTEM_ACTOR_ADDR,
+                        to,
+                        method_num,
+                        gas_limit,
+                        emitters,
+                    };
+
+                    Ok(((env, state), ChainMessageApplyRet::Ipc(ret)))
+                }
             },
         }
     }
@@ -534,7 +676,8 @@ where
                     }
                     IpcMessage::TopDownExec(_)
                     | IpcMessage::BottomUpExec(_)
-                    | IpcMessage::ObjectResolved(_) => {
+                    | IpcMessage::ObjectResolved(_)
+                    | IpcMessage::FingerprintResolved(_) => {
                         // Users cannot send these messages, only validators can propose them in blocks.
                         Ok((state, Err(IllegalMessage)))
                     }

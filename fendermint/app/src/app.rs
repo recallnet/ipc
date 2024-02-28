@@ -402,7 +402,7 @@ where
         Genesis = Vec<u8>,
         Output = FvmGenesisOutput,
     >,
-    I: ProposalInterpreter<State = ChainEnv, Message = Vec<u8>>,
+    I: ProposalInterpreter<State = (ChainEnv, FvmQueryState<SS>), Message = Vec<u8>>,
     I: ExecInterpreter<
         State = (ChainEnv, FvmExecState<SS>),
         Message = Vec<u8>,
@@ -627,6 +627,10 @@ where
         &self,
         request: request::PrepareProposal,
     ) -> AbciResult<response::PrepareProposal> {
+        let db = self.state_store_clone();
+        let height = FvmQueryHeight::from(request.height.value());
+        let (state_params, block_height) = self.state_params_at_height(height)?;
+
         tracing::debug!(
             height = request.height.value(),
             time = request.time.to_string(),
@@ -634,9 +638,19 @@ where
         );
         let txs = request.txs.into_iter().map(|tx| tx.to_vec()).collect();
 
+        let query_state = FvmQueryState::new(
+            db,
+            self.multi_engine.clone(),
+            block_height.try_into()?,
+            state_params,
+            self.check_state.clone(),
+            height == FvmQueryHeight::Pending,
+        )
+        .context("error creating query state")?;
+
         let txs = self
             .interpreter
-            .prepare(self.chain_env.clone(), txs)
+            .prepare((self.chain_env.clone(), query_state), txs)
             .await
             .context("failed to prepare proposal")?;
 
@@ -651,6 +665,10 @@ where
         &self,
         request: request::ProcessProposal,
     ) -> AbciResult<response::ProcessProposal> {
+        let db = self.state_store_clone();
+        let height = FvmQueryHeight::from(request.height.value());
+        let (state_params, block_height) = self.state_params_at_height(height)?;
+
         tracing::debug!(
             height = request.height.value(),
             time = request.time.to_string(),
@@ -659,9 +677,19 @@ where
         let txs: Vec<_> = request.txs.into_iter().map(|tx| tx.to_vec()).collect();
         let num_txs = txs.len();
 
+        let query_state = FvmQueryState::new(
+            db,
+            self.multi_engine.clone(),
+            block_height.try_into()?,
+            state_params,
+            self.check_state.clone(),
+            height == FvmQueryHeight::Pending,
+        )
+        .context("error creating query state")?;
+
         let accept = self
             .interpreter
-            .process(self.chain_env.clone(), txs)
+            .process((self.chain_env.clone(), query_state), txs)
             .await
             .context("failed to process proposal")?;
 
