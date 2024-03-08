@@ -730,9 +730,11 @@ where
 
         state_params.timestamp = to_timestamp(request.header.time);
 
+        let state_root = state_params.state_root;
         let state = FvmExecState::new(db, self.multi_engine.as_ref(), block_height, state_params)
             .context("error creating new state")?
-            .with_block_hash(block_hash);
+            .with_block_hash(block_hash)
+            .with_state_root_during_exec(state_root);
 
         tracing::debug!("initialized exec state");
 

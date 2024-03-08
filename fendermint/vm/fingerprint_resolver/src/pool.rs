@@ -1,13 +1,12 @@
 // Copyright 2022-2024 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
-
-use std::{collections::HashSet, hash::Hash};
-
 use async_stm::{
     queues::{tchan::TChan, TQueueLike},
     Stm, TVar,
 };
 use cid::Cid;
+use fvm_shared::{address::Address, clock::ChainEpoch};
+use std::{collections::HashSet, hash::Hash};
 
 /// CIDs we need to resolve from a specific source subnet, or our own.
 pub type ResolveKey = Cid;
@@ -27,9 +26,17 @@ pub struct ResolveStatus<T> {
     items: TVar<im::HashSet<T>>,
 }
 
+pub trait FingerprintTask {
+    fn fingerprint(&self) -> Cid;
+
+    fn proposer_address(&self) -> Address;
+
+    fn proposed_at_height(&self) -> ChainEpoch;
+}
+
 impl<T> ResolveStatus<T>
 where
-    T: Clone + Hash + Eq + PartialEq + Sync + Send + 'static,
+    T: Clone + Hash + Eq + PartialEq + Sync + Send + FingerprintTask + 'static,
 {
     pub fn new(item: T) -> Self {
         let mut items = im::HashSet::new();
@@ -52,6 +59,11 @@ pub struct ResolveTask {
     key: ResolveKey,
     /// Flag to flip when the task is done.
     is_resolved: TVar<bool>,
+
+    /// task metadata
+    pub proposer_address: Address,
+    pub proposed_at_height: ChainEpoch,
+    pub fingerprint: cid::Cid,
 }
 
 impl ResolveTask {
@@ -82,7 +94,7 @@ pub type ResolveQueue = TChan<ResolveTask>;
 #[derive(Clone, Default)]
 pub struct ResolvePool<T>
 where
-    T: Clone + Sync + Send + 'static,
+    T: Clone + Sync + Send + FingerprintTask + 'static,
 {
     /// The resolution status of each item.
     items: TVar<im::HashMap<ResolveKey, ResolveStatus<T>>>,
@@ -93,7 +105,7 @@ where
 impl<T> ResolvePool<T>
 where
     for<'a> ResolveKey: From<&'a T>,
-    T: Sync + Send + Clone + Hash + Eq + PartialEq + 'static,
+    T: Sync + Send + Clone + Hash + Eq + PartialEq + FingerprintTask + 'static,
 {
     pub fn new() -> Self {
         Self {
@@ -111,7 +123,7 @@ where
 
     /// Add an item to the resolution targets.
     ///
-    /// If the item is new, enqueue it from background resolution, otherwise just return its existing status.
+    /// If the item is new, enqueue it for background resolution, otherwise just return its existing status.
     pub fn add(&self, item: T) -> Stm<ResolveStatus<T>> {
         let key = ResolveKey::from(&item);
         let mut items = self.items.read_clone()?;
@@ -123,12 +135,15 @@ where
             })?;
             Ok(status)
         } else {
-            let status = ResolveStatus::new(item);
+            let status = ResolveStatus::new(item.clone());
             items.insert(key.clone(), status.clone());
             self.items.write(items)?;
             self.queue.write(ResolveTask {
                 key,
                 is_resolved: status.is_resolved.clone(),
+                proposer_address: item.proposer_address(),
+                proposed_at_height: item.proposed_at_height(),
+                fingerprint: item.fingerprint(),
             })?;
             Ok(status)
         }
@@ -176,6 +191,7 @@ where
 mod tests {
     use async_stm::{atomically, queues::TQueueLike};
     use cid::Cid;
+    use fvm_shared::address::Address;
 
     #[derive(Clone, Hash, Eq, PartialEq, Debug)]
     struct TestItem {
@@ -190,13 +206,29 @@ mod tests {
         }
     }
 
+    impl FingerprintTask for TestItem {
+        fn fingerprint(&self) -> Cid {
+            self.cid
+        }
+
+        // dummy methods
+        fn proposer_address(&self) -> Address {
+            Address::new_id(1)
+        }
+
+        // dummy methods
+        fn proposed_at_height(&self) -> fvm_shared::clock::ChainEpoch {
+            Default::default()
+        }
+    }
+
     impl From<&TestItem> for ResolveKey {
         fn from(value: &TestItem) -> Self {
             value.cid
         }
     }
 
-    use super::{ResolveKey, ResolvePool};
+    use super::{FingerprintTask, ResolveKey, ResolvePool};
 
     #[tokio::test]
     async fn add_new_item() {

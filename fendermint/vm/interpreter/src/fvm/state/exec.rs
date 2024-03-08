@@ -97,6 +97,9 @@ where
     /// execution interpreter without having to add yet another piece to track at the app level.
     block_hash: Option<BlockHash>,
 
+    /// The state root during block execution.
+    current_state_root: Option<Cid>,
+
     /// State of parameters that are outside the control of the FVM but can change and need to be persisted.
     params: FvmUpdatableParams,
 
@@ -140,6 +143,7 @@ where
         Ok(Self {
             executor,
             block_hash: None,
+            current_state_root: None,
             params: FvmUpdatableParams {
                 circ_supply: params.circ_supply,
                 power_scale: params.power_scale,
@@ -151,6 +155,11 @@ where
     /// Set the block hash during execution.
     pub fn with_block_hash(mut self, block_hash: BlockHash) -> Self {
         self.block_hash = Some(block_hash);
+        self
+    }
+
+    pub fn with_state_root_during_exec(mut self, state_root: Cid) -> Self {
+        self.current_state_root = Some(state_root);
         self
     }
 
@@ -196,6 +205,10 @@ where
     /// Identity of the block being executed, if we are indeed executing any blocks.
     pub fn block_hash(&self) -> Option<BlockHash> {
         self.block_hash
+    }
+
+    pub fn current_state_root(&self) -> Option<Cid> {
+        self.current_state_root
     }
 
     /// The timestamp of the currently executing block.

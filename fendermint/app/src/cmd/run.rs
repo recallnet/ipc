@@ -91,7 +91,7 @@ async fn run(ipfs_addr: String, settings: Settings) -> anyhow::Result<()> {
         libp2p::identity::Keypair::from(kp)
     });
 
-    let validator_ctx = validator.map(|(sk, addr)| {
+    let validator_ctx = validator.clone().map(|(sk, addr)| {
         // For now we are using the validator key for submitting transactions.
         // This allows us to identify transactions coming from empowered validators, to give priority to protocol related transactions.
         let broadcaster = Broadcaster::new(
@@ -166,8 +166,6 @@ async fn run(ipfs_addr: String, settings: Settings) -> anyhow::Result<()> {
             settings.resolver.retry_delay,
         );
 
-        let fingerprint_resolver = FingerprintResolver::new(fingerprint_pool.queue());
-
         if topdown_enabled {
             if let Some(key) = validator_keypair {
                 let parent_finality_votes = parent_finality_votes.clone();
@@ -213,8 +211,12 @@ async fn run(ipfs_addr: String, settings: Settings) -> anyhow::Result<()> {
         tracing::info!("starting the IPFS Resolver...");
         tokio::spawn(async move { ipfs_resolver.run().await });
 
-        tracing::info!("starting the RPC Tx Resolver...");
-        tokio::spawn(async move { fingerprint_resolver.run().await });
+        // If the node is configured as a validator, start the fingerprint resolver.
+        if let Some((_, address)) = validator {
+            let fingerprint_resolver = FingerprintResolver::new(fingerprint_pool.queue(), address);
+            tracing::info!("starting the fingerprint Resolver...");
+            tokio::spawn(async move { fingerprint_resolver.run().await });
+        }
     } else {
         tracing::info!("IPLD Resolver disabled.")
     }
@@ -283,6 +285,7 @@ async fn run(ipfs_addr: String, settings: Settings) -> anyhow::Result<()> {
             parent_finality_votes: parent_finality_votes.clone(),
             object_pool: ipfs_pin_pool,
             fingerprint_pool: fingerprint_pool,
+            validator_address: validator.as_ref().map(|(_, addr)| addr.clone()),
         },
         snapshots,
     )?;

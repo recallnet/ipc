@@ -33,8 +33,11 @@ pub enum IpcMessage {
     /// Proposed by validators when an object accompanying a message has been resolved and is ready to be executed.
     ObjectResolved(Object),
 
+    /// Proposed by validator to tell other nodes that they will start to figerprint the object.
+    FingerprintReady(Cid, Address, ChainEpoch),
+
     /// Proposed by validators when an fingerprint accompanying a message has been resolved and is ready to be executed.
-    FingerprintResolved(Cid),
+    FingerprintResolved(Cid, Address, ChainEpoch),
 }
 
 /// A message relayed by a user on the current subnet.
