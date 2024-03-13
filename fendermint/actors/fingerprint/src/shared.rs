@@ -4,8 +4,6 @@
 
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::de::DeserializeOwned;
-use fvm_ipld_encoding::ser::Serialize;
 use fvm_ipld_encoding::tuple::*;
 use fvm_ipld_encoding::tuple::{Deserialize_tuple, Serialize_tuple};
 use fvm_ipld_hamt::{BytesKey, Hamt};
@@ -50,7 +48,7 @@ impl State {
         Ok(Self { fingerprints })
     }
 
-    pub fn set_pending<BS: Blockstore, S: DeserializeOwned + Serialize>(
+    pub fn set_pending<BS: Blockstore>(
         &mut self,
         store: &BS,
         fingerprint: BytesKey,
@@ -73,6 +71,7 @@ impl State {
         Ok(self.fingerprints)
     }
 
+    // TODO: Instead of setting it verified should we just delete it?
     pub fn set_verified<BS: Blockstore>(
         &mut self,
         store: &BS,
@@ -99,6 +98,37 @@ impl State {
         self.fingerprints = hamt.flush()?;
         Ok(self.fingerprints)
     }
+
+    pub fn list<BS: Blockstore>(
+        &self,
+        store: &BS,
+    ) -> anyhow::Result<Vec<(Vec<u8>, FingerprintMetadata)>> {
+        let hamt = Hamt::<_, FingerprintMetadata>::load_with_bit_width(
+            &self.fingerprints,
+            store,
+            BIT_WIDTH,
+        )?;
+        let mut keys = Vec::new();
+        hamt.for_each(|k, v| {
+            keys.push((k.0.to_owned(), v.clone()));
+            Ok(())
+        })?;
+        Ok(keys)
+    }
+
+    pub fn get<BS: Blockstore>(
+        &self,
+        store: &BS,
+        fingerprint: BytesKey,
+    ) -> anyhow::Result<Option<FingerprintMetadata>> {
+        let hamt = Hamt::<_, FingerprintMetadata>::load_with_bit_width(
+            &self.fingerprints,
+            store,
+            BIT_WIDTH,
+        )?;
+        let value = hamt.get(&fingerprint).map(|v| v.cloned())?;
+        Ok(value)
+    }
 }
 
 pub const FINGERPRINT_ACTOR_NAME: &str = "fingerprint";
@@ -116,4 +146,126 @@ pub struct FingerprintParams {
     pub proposer: Vec<u8>,
     pub height: ChainEpoch,
     pub fingerprint: Vec<u8>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::str::FromStr;
+
+    #[test]
+    fn test_constructor() {
+        let store = fvm_ipld_blockstore::MemoryBlockstore::default();
+        let state = State::new(&store);
+        assert!(state.is_ok());
+        let state = state.unwrap();
+        assert_eq!(
+            state.fingerprints,
+            Cid::from_str("bafy2bzaceamp42wmmgr2g2ymg46euououzfyck7szknvfacqscohrvaikwfay")
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn test_set_pending() {
+        let store = fvm_ipld_blockstore::MemoryBlockstore::default();
+        let mut state = State::new(&store).unwrap();
+        let fingerprint = BytesKey(Cid::default().to_bytes());
+        let proposer = "proposer".to_string();
+        let height = 1;
+
+        assert!(state
+            .set_pending(&store, fingerprint.clone(), proposer, height)
+            .is_ok());
+
+        assert_eq!(
+            state.fingerprints,
+            Cid::from_str("bafy2bzacebsjg67pjklb2zvs3n7h3ecxzppaewlsqtfpmv3d2tuaxpa2ngyaa")
+                .unwrap()
+        );
+
+        let result = state.get(&store, fingerprint);
+        assert!(result.is_ok());
+        assert_eq!(
+            result.unwrap(),
+            Some(FingerprintMetadata {
+                proposer: "proposer".to_string(),
+                height: 1,
+                verified: false
+            })
+        );
+    }
+
+    #[test]
+    fn test_set_verified() {
+        let store = fvm_ipld_blockstore::MemoryBlockstore::default();
+        let mut state = State::new(&store).unwrap();
+        let fingerprint = BytesKey(Cid::default().to_bytes());
+        let proposer = "proposer".to_string();
+        let height = 1;
+
+        // Set pending
+        state
+            .set_pending(&store, fingerprint.clone(), proposer, height)
+            .unwrap();
+
+        // Set verified
+        assert!(state.set_verified(&store, fingerprint.clone()).is_ok());
+
+        let result = state.get(&store, fingerprint);
+        assert!(result.is_ok());
+        assert_eq!(
+            result.unwrap(),
+            Some(FingerprintMetadata {
+                proposer: "proposer".to_string(),
+                height: 1,
+                verified: true
+            })
+        );
+    }
+
+    #[test]
+    fn test_get() {
+        let store = fvm_ipld_blockstore::MemoryBlockstore::default();
+        let mut state = State::new(&store).unwrap();
+        let fingerprint = BytesKey(Cid::default().to_bytes());
+        let proposer = "proposer".to_string();
+        let height = 1;
+
+        state
+            .set_pending(&store, fingerprint.clone(), proposer, height)
+            .unwrap();
+        let result = state.get(&store, fingerprint);
+
+        assert!(result.is_ok());
+        assert_eq!(
+            result.unwrap(),
+            Some(FingerprintMetadata {
+                proposer: "proposer".to_string(),
+                height: 1,
+                verified: false
+            })
+        );
+    }
+
+    #[test]
+    fn test_list() {
+        let store = fvm_ipld_blockstore::MemoryBlockstore::default();
+        let mut state = State::new(&store).unwrap();
+        let fingerprint = BytesKey(Cid::default().to_bytes());
+        let proposer = "proposer".to_string();
+        let height = 1;
+
+        state
+            .set_pending(&store, fingerprint.clone(), proposer, height)
+            .unwrap();
+        let result = state.list(&store);
+
+        assert!(result.is_ok());
+        let result = result.unwrap();
+        assert_eq!(result[0].0, fingerprint.0);
+        assert_eq!(result[0].1.proposer, "proposer".to_string());
+        assert_eq!(result[0].1.height, 1);
+        assert_eq!(result[0].1.verified, false);
+    }
 }
