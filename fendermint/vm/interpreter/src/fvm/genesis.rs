@@ -15,8 +15,8 @@ use fendermint_vm_actor_interface::diamond::{EthContract, EthContractMap};
 use fendermint_vm_actor_interface::eam::EthAddress;
 use fendermint_vm_actor_interface::ipc::IPC_CONTRACTS;
 use fendermint_vm_actor_interface::{
-    account, accumulator, burntfunds, chainmetadata, cron, eam, init, ipc, objectstore, reward,
-    system, EMPTY_ARR,
+    account, accumulator, burntfunds, chainmetadata, cron, eam, fingerprint, init, ipc,
+    objectstore, reward, system, EMPTY_ARR,
 };
 use fendermint_vm_core::{chainid, Timestamp};
 use fendermint_vm_genesis::{ActorMeta, Genesis, Power, PowerScale, Validator};
@@ -286,6 +286,18 @@ where
                 None,
             )
             .context("failed to create accumulator actor")?;
+
+        // Initialize the fingerprint actor.
+        let fingerprint_state = fendermint_actor_fingerprint::State::new(&state.store())?;
+        state
+            .create_custom_actor(
+                fendermint_actor_fingerprint::FINGERPRINT_ACTOR_NAME,
+                fingerprint::FINGERPRINT_ACTOR_ID,
+                &fingerprint_state,
+                TokenAmount::zero(),
+                None,
+            )
+            .context("failed to create fingerprint actor")?;
 
         // STAGE 2: Create non-builtin accounts which do not have a fixed ID.
 

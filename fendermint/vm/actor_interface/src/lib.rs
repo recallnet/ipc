@@ -51,6 +51,7 @@ pub mod diamond;
 pub mod eam;
 pub mod ethaccount;
 pub mod evm;
+pub mod fingerprint;
 pub mod init;
 pub mod ipc;
 pub mod multisig;

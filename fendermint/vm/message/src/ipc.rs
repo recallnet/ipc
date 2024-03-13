@@ -37,7 +37,7 @@ pub enum IpcMessage {
     FingerprintReady(Cid, Address, ChainEpoch),
 
     /// Proposed by validators when an fingerprint accompanying a message has been resolved and is ready to be executed.
-    FingerprintResolved(Cid, Address, ChainEpoch),
+    FingerprintVerified(Cid, Address, ChainEpoch),
 }
 
 /// A message relayed by a user on the current subnet.

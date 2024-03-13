@@ -11,7 +11,7 @@ use crate::{
 use anyhow::{bail, Context};
 use async_stm::atomically;
 use async_trait::async_trait;
-use fendermint_vm_actor_interface::{ipc, objectstore, system};
+use fendermint_vm_actor_interface::{fingerprint, ipc, objectstore, system};
 use fendermint_vm_fingerprint_resolver::pool::{
     FingerprintTask, ResolveKey as FingerprintResolveKey, ResolvePool as FingerprintResolvePool,
 };
@@ -186,15 +186,6 @@ where
         // Collect sent fingerprints ready to be proposed from the pool.
         let fingerprints = atomically(|| env.fingerprint_pool.collect_resolved()).await;
 
-        // Create transactions ready to be included on the chain.
-        let fingerprints = fingerprints.into_iter().map(|item| {
-            ChainMessage::Ipc(IpcMessage::FingerprintResolved(
-                item.fingerprint,
-                item.proposer,
-                item.proposed_at,
-            ))
-        });
-
         // Prepare top down proposals.
         // Before we try to find a quorum, pause incoming votes. This is optional but if there are lots of votes coming in it might hold up proposals.
         atomically(|| env.parent_finality_votes.pause_votes_until_find_quorum()).await;
@@ -230,26 +221,47 @@ where
         // Append at the end - if we run out of block space, these are going to be reproposed in the next block.
         msgs.extend(ckpts);
         msgs.extend(objects);
-        msgs.extend(fingerprints);
 
-        // extend msgs with fingerprint transactions
-        // Fingerprinting Rounds.
-        //
-        // Every 20 blocks, we will submit a task to the background worker
-        // to send the fingerprint to pre-configured chains on an predefined
-        // contract. When the fingerprint will be sent. The block proposer will
-        // included that fingerprint in a new transaction. The validator will
-        // verify that the fingerprint is correct and also exists in the
-        // desitination chain(s).
-        //
-        // If the fingerprint is correct, the validator will mint rewards for
-        // the block proposer.
+        // Create transactions ready to be included on the chain.
+        // If the node is validating, then we should peek into the fingerprint pool
+        // and see if there are any fingerprints that are ready to be proposed.
         if let Some(block_proposer) = env.validator_address {
+            let fingerprints = fingerprints.into_iter().filter_map(|item| {
+                if item.proposer != block_proposer {
+                    tracing::info!(
+                        "FingerprintVerified({}, {}, {})",
+                        item.fingerprint.to_string(),
+                        item.proposer.to_string(),
+                        item.proposed_at
+                    );
+                    Some(ChainMessage::Ipc(IpcMessage::FingerprintVerified(
+                        item.fingerprint,
+                        item.proposer,
+                        item.proposed_at,
+                    )))
+                } else {
+                    None
+                }
+            });
+            msgs.extend(fingerprints);
+
+            // extend msgs with fingerprint ready transactions
+            // Fingerprinting Rounds.
+            //
+            // Every 20 blocks, we will submit a task to the background worker
+            // to send the fingerprint to pre-configured chains on an predefined
+            // contract. When the fingerprint will be sent. The block proposer will
+            // included that fingerprint in a new transaction. The validator will
+            // verify that the fingerprint is correct and also exists in the
+            // desitination chain(s).
+            //
+            // If the fingerprint is correct, the validator will mint rewards for
+            // the block proposer.
             let block_height = state.block_height();
             if block_height % 20 == 0 && block_height != 0 {
                 let subnet_fingerprint = state.state_params().state_root;
                 tracing::info!(
-                    "FingerprintReady({}, {}, {}) propsal",
+                    "FingerprintReady({}, {}, {})",
                     subnet_fingerprint.to_string(),
                     block_proposer.to_string(),
                     block_height
@@ -321,7 +333,7 @@ where
 
                     atomically(|| env.object_pool.remove(&item)).await;
                 }
-                ChainMessage::Ipc(IpcMessage::FingerprintResolved(key, address, heght)) => {
+                ChainMessage::Ipc(IpcMessage::FingerprintVerified(key, address, heght)) => {
                     let item = FingerprintPoolItem {
                         fingerprint: key,
                         proposer: address,
@@ -559,12 +571,6 @@ where
                 IpcMessage::FingerprintReady(_, proposer, proposed_at) => {
                     // how to get the state root at height = `proposed_at`?
                     let fingerprint = state.current_state_root().unwrap();
-
-                    tracing::info!(
-                        "current state root during execution: {}",
-                        fingerprint.to_string()
-                    );
-
                     // Schedule the task on the local node
                     // For the block proposer, the task should send the fingerprint to the
                     // external chains.
@@ -582,51 +588,17 @@ where
                     .await;
 
                     let from = system::SYSTEM_ACTOR_ADDR;
-                    let to = objectstore::OBJECTSTORE_ACTOR_ADDR;
-                    let method_num = fendermint_actor_objectstore::Method::ResolveObject as u64;
+                    let to = fingerprint::FINGERPRINT_ACTOR_ADDR;
+                    let method_num = fendermint_actor_fingerprint::Method::SetPending as u64;
                     let gas_limit = 10_000_000_000;
+                    let params = fvm_ipld_encoding::RawBytes::serialize(
+                        fendermint_actor_fingerprint::FingerprintParams {
+                            proposer: proposer.to_bytes(),
+                            height: proposed_at as i64,
+                            fingerprint: fingerprint.to_bytes(),
+                        },
+                    )?;
 
-                    let input = fendermint_actor_objectstore::ObjectParams {
-                        key: fingerprint.to_bytes(),
-                        value: fingerprint,
-                    };
-                    let params = RawBytes::serialize(&input)?;
-                    let msg = Message {
-                        version: Default::default(),
-                        from,
-                        to,
-                        sequence: 0, // TODO This works but is it okay?
-                        value: TokenAmount::zero(),
-                        method_num,
-                        params,
-                        gas_limit,
-                        gas_fee_cap: TokenAmount::zero(),
-                        gas_premium: TokenAmount::zero(),
-                    };
-
-                    todo!("Update fingerprint actor to state: fingerprinting_started")
-                }
-                IpcMessage::FingerprintResolved(fingerprint, proposer, proposed_at) => {
-                    // If the fingerprint is as expected, we can
-                    // mint rewards for the block proposer by sending
-                    // a message to the relevant actor.
-                    //
-                    // The validator must verify that:
-                    // 1. the fingerprint is correct
-                    // 2. the fingerprint exists in the destination chain(s)
-                    //
-                    // (following is just a placeholder transaction
-                    // to test the flow).
-                    let from = system::SYSTEM_ACTOR_ADDR;
-                    let to = objectstore::OBJECTSTORE_ACTOR_ADDR;
-                    let method_num = fendermint_actor_objectstore::Method::ResolveObject as u64;
-                    let gas_limit = 10_000_000_000;
-
-                    let input = fendermint_actor_objectstore::ObjectParams {
-                        key: fingerprint.to_bytes(),
-                        value: fingerprint,
-                    };
-                    let params = RawBytes::serialize(&input)?;
                     let msg = Message {
                         version: Default::default(),
                         from,
@@ -650,6 +622,60 @@ where
                         gas_limit,
                         emitters,
                     };
+
+                    tracing::info!(
+                        "FVM exec: FingerprintReady({}, {}, {})",
+                        fingerprint.to_string(),
+                        proposer.to_string(),
+                        proposed_at
+                    );
+
+                    Ok(((env, state), ChainMessageApplyRet::Ipc(ret)))
+                }
+                IpcMessage::FingerprintVerified(fingerprint, proposer, proposed_at) => {
+                    let from = system::SYSTEM_ACTOR_ADDR;
+                    let to = fingerprint::FINGERPRINT_ACTOR_ADDR;
+                    let method_num = fendermint_actor_fingerprint::Method::SetVerified as u64;
+                    let gas_limit = 10_000_000_000;
+
+                    let params = fvm_ipld_encoding::RawBytes::serialize(
+                        fendermint_actor_fingerprint::FingerprintParams {
+                            proposer: proposer.to_bytes(),
+                            height: proposed_at as i64,
+                            fingerprint: fingerprint.to_bytes(),
+                        },
+                    )?;
+
+                    let msg = Message {
+                        version: Default::default(),
+                        from,
+                        to,
+                        sequence: 0, // TODO This works but is it okay?
+                        value: TokenAmount::zero(),
+                        method_num,
+                        params,
+                        gas_limit,
+                        gas_fee_cap: TokenAmount::zero(),
+                        gas_premium: TokenAmount::zero(),
+                    };
+
+                    let (apply_ret, emitters) = state.execute_implicit(msg)?;
+
+                    let ret = FvmApplyRet {
+                        apply_ret,
+                        from: system::SYSTEM_ACTOR_ADDR,
+                        to,
+                        method_num,
+                        gas_limit,
+                        emitters,
+                    };
+
+                    tracing::info!(
+                        "FVM exec: FingerprintVerified({}, {}, {})",
+                        fingerprint.to_string(),
+                        proposer.to_string(),
+                        proposed_at
+                    );
 
                     Ok(((env, state), ChainMessageApplyRet::Ipc(ret)))
                 }
@@ -737,7 +763,7 @@ where
                     | IpcMessage::BottomUpExec(_)
                     | IpcMessage::ObjectResolved(_)
                     | IpcMessage::FingerprintReady(_, _, _)
-                    | IpcMessage::FingerprintResolved(_, _, _) => {
+                    | IpcMessage::FingerprintVerified(_, _, _) => {
                         // Users cannot send these messages, only validators can propose them in blocks.
                         Ok((state, Err(IllegalMessage)))
                     }

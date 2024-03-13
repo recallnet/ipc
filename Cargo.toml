@@ -30,6 +30,7 @@ members = [
     # tableland
     "fendermint/actors/objectstore",
     "fendermint/actors/accumulator",
+    "fendermint/actors/fingerprint",
     "textile/objectstore_actor_sdk",
     "textile/objectstore_syscall",
 ]
