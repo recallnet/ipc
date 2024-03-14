@@ -197,6 +197,15 @@ mod tests {
     }
 
     #[test]
+    fn test_set_verified_wrong_fingerprint() {
+        let store = fvm_ipld_blockstore::MemoryBlockstore::default();
+        let mut state = State::new(&store).unwrap();
+        let fingerprint = BytesKey(Cid::default().to_bytes());
+        
+        assert!(state.set_verified(&store, fingerprint.clone()).is_err());
+    }
+
+    #[test]
     fn test_set_verified() {
         let store = fvm_ipld_blockstore::MemoryBlockstore::default();
         let mut state = State::new(&store).unwrap();
