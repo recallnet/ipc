@@ -227,8 +227,8 @@ where
         msgs.extend(objects);
 
         // Create transactions ready to be included on the chain.
-        // If the node is validating, then we should peek into the fingerprint pool
-        // and see if there are any fingerprints that are ready to be proposed.
+        // We should peek into the fingerprint task pool and see if
+        // there are any fingerprints that are ready to be proposed.
         if let Some(block_proposer) = env.validator_address {
             let fingerprints = fingerprints.into_iter().filter_map(|item| {
                 if item.proposer != block_proposer {
