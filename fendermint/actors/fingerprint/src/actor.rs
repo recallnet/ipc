@@ -38,27 +38,29 @@ impl Actor {
         rt: &impl Runtime,
         fingerprint_params: FingerprintParams,
     ) -> Result<Cid, ActorError> {
-        rt.validate_immediate_caller_accept_any()?;
+        rt.validate_immediate_caller_is(std::iter::once(&SYSTEM_ACTOR_ADDR))?;
+
         let proposer = Address::from_bytes(&fingerprint_params.proposer).unwrap();
         let height = fingerprint_params.height as u64;
         let fingerprint = BytesKey(fingerprint_params.fingerprint);
+        let chain_ids = fingerprint_params.chain_ids;
 
         rt.transaction(|st: &mut State, rt| {
-            st.set_pending::<_, State>(rt.store(), fingerprint, proposer.to_string(), height)
-                .map_err(|e| {
-                    e.downcast_default(ExitCode::USR_ILLEGAL_STATE, "failed to push object")
-                })
+            st.set_pending(
+                rt.store(),
+                fingerprint,
+                proposer.to_string(),
+                height,
+                chain_ids,
+            )
+            .map_err(|e| e.downcast_default(ExitCode::USR_ILLEGAL_STATE, "failed to push object"))
         })
     }
 
-    fn set_verified(
-        rt: &impl Runtime,
-        fingerprint_params: FingerprintParams,
-    ) -> Result<Cid, ActorError> {
+    fn set_verified(rt: &impl Runtime, fingerprint: Vec<u8>) -> Result<Cid, ActorError> {
         rt.validate_immediate_caller_is(std::iter::once(&SYSTEM_ACTOR_ADDR))?;
-
         rt.transaction(|st: &mut State, rt| {
-            st.set_verified(rt.store(), BytesKey(fingerprint_params.fingerprint))
+            st.set_verified(rt.store(), BytesKey(fingerprint))
                 .map_err(|e| {
                     e.downcast_default(ExitCode::USR_ILLEGAL_STATE, "failed to resolve object")
                 })

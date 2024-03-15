@@ -30,6 +30,9 @@ pub struct FingerprintMetadata {
 
     /// Whether the fingerprint has been verified.
     pub verified: bool,
+
+    /// Chain IDs of the chains where the fingerprint is submitted.
+    pub chain_ids: Vec<u64>,
 }
 
 impl State {
@@ -54,6 +57,7 @@ impl State {
         fingerprint: BytesKey,
         proposer: String,
         height: u64,
+        chain_ids: Vec<u64>,
     ) -> anyhow::Result<Cid> {
         let mut hamt = Hamt::<_, FingerprintMetadata>::load_with_bit_width(
             &self.fingerprints,
@@ -64,6 +68,7 @@ impl State {
             proposer,
             height,
             verified: false,
+            chain_ids,
         };
         hamt.set(fingerprint, meta)?;
 
@@ -146,6 +151,7 @@ pub struct FingerprintParams {
     pub proposer: Vec<u8>,
     pub height: ChainEpoch,
     pub fingerprint: Vec<u8>,
+    pub chain_ids: Vec<u64>,
 }
 
 #[cfg(test)]
@@ -173,9 +179,10 @@ mod tests {
         let fingerprint = BytesKey(Cid::default().to_bytes());
         let proposer = "proposer".to_string();
         let height = 1;
+        let chain_ids = vec![1];
 
         assert!(state
-            .set_pending(&store, fingerprint.clone(), proposer, height)
+            .set_pending(&store, fingerprint.clone(), proposer, height, chain_ids)
             .is_ok());
 
         assert_eq!(
@@ -191,7 +198,8 @@ mod tests {
             Some(FingerprintMetadata {
                 proposer: "proposer".to_string(),
                 height: 1,
-                verified: false
+                verified: false,
+                chain_ids: vec![1]
             })
         );
     }
@@ -212,10 +220,11 @@ mod tests {
         let fingerprint = BytesKey(Cid::default().to_bytes());
         let proposer = "proposer".to_string();
         let height = 1;
+        let chain_ids = vec![1];
 
         // Set pending
         state
-            .set_pending(&store, fingerprint.clone(), proposer, height)
+            .set_pending(&store, fingerprint.clone(), proposer, height, chain_ids)
             .unwrap();
 
         // Set verified
@@ -228,7 +237,8 @@ mod tests {
             Some(FingerprintMetadata {
                 proposer: "proposer".to_string(),
                 height: 1,
-                verified: true
+                verified: true,
+                chain_ids: vec![1]
             })
         );
     }
@@ -240,9 +250,10 @@ mod tests {
         let fingerprint = BytesKey(Cid::default().to_bytes());
         let proposer = "proposer".to_string();
         let height = 1;
+        let chain_ids = vec![1];
 
         state
-            .set_pending(&store, fingerprint.clone(), proposer, height)
+            .set_pending(&store, fingerprint.clone(), proposer, height, chain_ids)
             .unwrap();
         let result = state.get(&store, fingerprint);
 
@@ -252,7 +263,8 @@ mod tests {
             Some(FingerprintMetadata {
                 proposer: "proposer".to_string(),
                 height: 1,
-                verified: false
+                verified: false,
+                chain_ids: vec![1]
             })
         );
     }
@@ -264,9 +276,10 @@ mod tests {
         let fingerprint = BytesKey(Cid::default().to_bytes());
         let proposer = "proposer".to_string();
         let height = 1;
+        let chain_ids = vec![1];
 
         state
-            .set_pending(&store, fingerprint.clone(), proposer, height)
+            .set_pending(&store, fingerprint.clone(), proposer, height, chain_ids)
             .unwrap();
         let result = state.list(&store);
 
@@ -276,5 +289,6 @@ mod tests {
         assert_eq!(result[0].1.proposer, "proposer".to_string());
         assert_eq!(result[0].1.height, 1);
         assert_eq!(result[0].1.verified, false);
+        assert_eq!(result[0].1.chain_ids, vec![1]);
     }
 }

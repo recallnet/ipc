@@ -19,6 +19,8 @@ cid = { workspace = true }
 ipc-api = { workspace = true }
 ipc_ipld_resolver = { workspace = true }
 fvm_shared = { workspace = true }
+fendermint_crypto = { path = "../../crypto" }
+
 
 [dev-dependencies]
 tokio = { workspace = true }

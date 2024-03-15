@@ -3356,6 +3356,7 @@ version = "0.1.0"
 dependencies = [
  "async-stm",
  "cid",
+ "fendermint_crypto",
  "fvm_shared",
  "im",
  "ipc-api",

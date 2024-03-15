@@ -122,6 +122,14 @@ host = "127.0.0.1"
 port = 8001
 
 
+# Fingerprinting
+[fingerprint]
+# Blocks after which to compute the fingerprint.
+interval = 20
+# Chains IDs of the networks to fingerprint should be submitted.
+chain_ids = [1]
+
+
 # IPLD Resolver Configuration
 [resolver]
 # Time to wait between attempts to resolve a CID after an error.

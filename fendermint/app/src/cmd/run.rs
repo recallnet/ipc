@@ -212,8 +212,9 @@ async fn run(ipfs_addr: String, settings: Settings) -> anyhow::Result<()> {
         tokio::spawn(async move { ipfs_resolver.run().await });
 
         // If the node is configured as a validator, start the fingerprint resolver.
-        if let Some((_, address)) = validator {
-            let fingerprint_resolver = FingerprintResolver::new(fingerprint_pool.queue(), address);
+        if let Some((key, address)) = validator.clone() {
+            let fingerprint_resolver =
+                FingerprintResolver::new(fingerprint_pool.queue(), address, key);
             tracing::info!("starting the fingerprint Resolver...");
             tokio::spawn(async move { fingerprint_resolver.run().await });
         }
@@ -286,6 +287,8 @@ async fn run(ipfs_addr: String, settings: Settings) -> anyhow::Result<()> {
             object_pool: ipfs_pin_pool,
             fingerprint_pool: fingerprint_pool,
             validator_address: validator.as_ref().map(|(_, addr)| addr.clone()),
+            fingerprint_chains: settings.fingerprint.chain_ids,
+            fingerprint_interval: settings.fingerprint.interval,
         },
         snapshots,
     )?;

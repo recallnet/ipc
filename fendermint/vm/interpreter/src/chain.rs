@@ -58,6 +58,10 @@ pub struct ChainEnv {
     pub object_pool: ObjectPool,
     /// Fingerprint resolution pool.
     pub fingerprint_pool: FingerprintPool,
+    /// Chain ids of the chains where the fingerprint is submitted.
+    pub fingerprint_chains: Vec<u64>,
+    /// Number of blocks between fingerprinting rounds.
+    pub fingerprint_interval: u64,
     /// Validator address
     pub validator_address: Option<Address>,
 }
@@ -258,7 +262,7 @@ where
             // If the fingerprint is correct, the validator will mint rewards for
             // the block proposer.
             let block_height = state.block_height();
-            if block_height % 20 == 0 && block_height != 0 {
+            if block_height as u64 % env.fingerprint_interval == 0 && block_height != 0 {
                 let subnet_fingerprint = state.state_params().state_root;
                 tracing::info!(
                     "FingerprintReady({}, {}, {})",
@@ -571,6 +575,8 @@ where
                 IpcMessage::FingerprintReady(_, proposer, proposed_at) => {
                     // how to get the state root at height = `proposed_at`?
                     let fingerprint = state.current_state_root().unwrap();
+                    let chain_ids = env.fingerprint_chains.clone();
+
                     // Schedule the task on the local node
                     // For the block proposer, the task should send the fingerprint to the
                     // external chains.
@@ -591,13 +597,13 @@ where
                     let to = fingerprint::FINGERPRINT_ACTOR_ADDR;
                     let method_num = fendermint_actor_fingerprint::Method::SetPending as u64;
                     let gas_limit = 10_000_000_000;
-                    let params = fvm_ipld_encoding::RawBytes::serialize(
-                        fendermint_actor_fingerprint::FingerprintParams {
+                    let params =
+                        RawBytes::serialize(fendermint_actor_fingerprint::FingerprintParams {
                             proposer: proposer.to_bytes(),
                             height: proposed_at as i64,
                             fingerprint: fingerprint.to_bytes(),
-                        },
-                    )?;
+                            chain_ids,
+                        })?;
 
                     let msg = Message {
                         version: Default::default(),
@@ -637,14 +643,7 @@ where
                     let to = fingerprint::FINGERPRINT_ACTOR_ADDR;
                     let method_num = fendermint_actor_fingerprint::Method::SetVerified as u64;
                     let gas_limit = 10_000_000_000;
-
-                    let params = fvm_ipld_encoding::RawBytes::serialize(
-                        fendermint_actor_fingerprint::FingerprintParams {
-                            proposer: proposer.to_bytes(),
-                            height: proposed_at as i64,
-                            fingerprint: fingerprint.to_bytes(),
-                        },
-                    )?;
+                    let params = RawBytes::serialize(fingerprint.to_bytes())?;
 
                     let msg = Message {
                         version: Default::default(),

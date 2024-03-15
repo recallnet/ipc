@@ -17,12 +17,14 @@ use fendermint_vm_encoding::{human_readable_delegate, human_readable_str};
 use fendermint_vm_topdown::BlockHeight;
 
 use self::eth::EthSettings;
+use self::fingerprint::FingerprintSettings;
 use self::fvm::FvmSettings;
 use self::proxy::ProxySettings;
 use self::resolver::ResolverSettings;
 use ipc_provider::config::deserialize::deserialize_eth_address_from_str;
 
 pub mod eth;
+pub mod fingerprint;
 pub mod fvm;
 pub mod proxy;
 pub mod resolver;
@@ -224,6 +226,7 @@ pub struct Settings {
     pub broadcast: BroadcastSettings,
     pub ipc: IpcSettings,
     pub proxy: ProxySettings,
+    pub fingerprint: FingerprintSettings,
 }
 
 impl Settings {
