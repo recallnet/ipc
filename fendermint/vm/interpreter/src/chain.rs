@@ -643,7 +643,7 @@ where
                     let to = fingerprint::FINGERPRINT_ACTOR_ADDR;
                     let method_num = fendermint_actor_fingerprint::Method::SetVerified as u64;
                     let gas_limit = 10_000_000_000;
-                    let params = RawBytes::serialize(fingerprint.to_bytes())?;
+                    let params = RawBytes::serialize(proposed_at)?;
 
                     let msg = Message {
                         version: Default::default(),

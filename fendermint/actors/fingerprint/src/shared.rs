@@ -16,7 +16,7 @@ const BIT_WIDTH: u32 = 3;
 // The state represents a map of fingerprints to fingerpritn metadata
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct State {
-    pub fingerprints: Cid,
+    pub fingerprints_at_height: Cid,
 }
 
 /// An object in the object store
@@ -25,8 +25,8 @@ pub struct FingerprintMetadata {
     /// The address node that calculated the fingerprint.
     pub proposer: String,
 
-    /// The height at which the fingerprint was proposed.
-    pub height: u64,
+    /// Fingerprints are submitted at a specific height.
+    pub fingerprint: Vec<u8>,
 
     /// Whether the fingerprint has been verified.
     pub verified: bool,
@@ -48,7 +48,9 @@ impl State {
                 }
             };
 
-        Ok(Self { fingerprints })
+        Ok(Self {
+            fingerprints_at_height: fingerprints,
+        })
     }
 
     pub fn set_pending<BS: Blockstore>(
@@ -59,63 +61,56 @@ impl State {
         height: u64,
         chain_ids: Vec<u64>,
     ) -> anyhow::Result<Cid> {
-        let mut hamt = Hamt::<_, FingerprintMetadata>::load_with_bit_width(
-            &self.fingerprints,
+        let mut hamt = Hamt::<_, FingerprintMetadata, u64>::load_with_bit_width(
+            &self.fingerprints_at_height,
             store,
             BIT_WIDTH,
         )?;
         let meta = FingerprintMetadata {
             proposer,
-            height,
+            fingerprint: fingerprint.0.to_vec(),
             verified: false,
             chain_ids,
         };
-        hamt.set(fingerprint, meta)?;
+        hamt.set(height, meta)?;
 
-        self.fingerprints = hamt.flush()?;
-        Ok(self.fingerprints)
+        self.fingerprints_at_height = hamt.flush()?;
+        Ok(self.fingerprints_at_height)
     }
 
     // TODO: Instead of setting it verified should we just delete it?
-    pub fn set_verified<BS: Blockstore>(
-        &mut self,
-        store: &BS,
-        fingerprint: BytesKey,
-    ) -> anyhow::Result<Cid> {
-        let mut hamt = Hamt::<_, FingerprintMetadata>::load_with_bit_width(
-            &self.fingerprints,
+    pub fn set_verified<BS: Blockstore>(&mut self, store: &BS, height: u64) -> anyhow::Result<Cid> {
+        let mut hamt = Hamt::<_, FingerprintMetadata, u64>::load_with_bit_width(
+            &self.fingerprints_at_height,
             store,
             BIT_WIDTH,
         )?;
-        match hamt
-            .get(&fingerprint)
-            .map(|v| v.map(|inner| inner.clone()))?
-        {
+        match hamt.get(&height).map(|v| v.map(|inner| inner.clone()))? {
             Some(mut meta) => {
                 meta.verified = true;
-                hamt.set(fingerprint, meta)?;
+                hamt.set(height, meta)?;
             }
             None => {
                 return Err(anyhow::anyhow!("fingerprint not found"));
             }
         }
 
-        self.fingerprints = hamt.flush()?;
-        Ok(self.fingerprints)
+        self.fingerprints_at_height = hamt.flush()?;
+        Ok(self.fingerprints_at_height)
     }
 
     pub fn list<BS: Blockstore>(
         &self,
         store: &BS,
-    ) -> anyhow::Result<Vec<(Vec<u8>, FingerprintMetadata)>> {
-        let hamt = Hamt::<_, FingerprintMetadata>::load_with_bit_width(
-            &self.fingerprints,
+    ) -> anyhow::Result<Vec<(u64, FingerprintMetadata)>> {
+        let hamt = Hamt::<_, FingerprintMetadata, u64>::load_with_bit_width(
+            &self.fingerprints_at_height,
             store,
             BIT_WIDTH,
         )?;
         let mut keys = Vec::new();
         hamt.for_each(|k, v| {
-            keys.push((k.0.to_owned(), v.clone()));
+            keys.push((k.to_owned(), v.clone()));
             Ok(())
         })?;
         Ok(keys)
@@ -124,14 +119,14 @@ impl State {
     pub fn get<BS: Blockstore>(
         &self,
         store: &BS,
-        fingerprint: BytesKey,
+        height: u64,
     ) -> anyhow::Result<Option<FingerprintMetadata>> {
-        let hamt = Hamt::<_, FingerprintMetadata>::load_with_bit_width(
-            &self.fingerprints,
+        let hamt = Hamt::<_, FingerprintMetadata, u64>::load_with_bit_width(
+            &self.fingerprints_at_height,
             store,
             BIT_WIDTH,
         )?;
-        let value = hamt.get(&fingerprint).map(|v| v.cloned())?;
+        let value = hamt.get(&height).map(|v| v.cloned())?;
         Ok(value)
     }
 }
@@ -166,7 +161,7 @@ mod tests {
         assert!(state.is_ok());
         let state = state.unwrap();
         assert_eq!(
-            state.fingerprints,
+            state.fingerprints_at_height,
             Cid::from_str("bafy2bzaceamp42wmmgr2g2ymg46euououzfyck7szknvfacqscohrvaikwfay")
                 .unwrap()
         );
@@ -186,18 +181,18 @@ mod tests {
             .is_ok());
 
         assert_eq!(
-            state.fingerprints,
-            Cid::from_str("bafy2bzacebsjg67pjklb2zvs3n7h3ecxzppaewlsqtfpmv3d2tuaxpa2ngyaa")
+            state.fingerprints_at_height,
+            Cid::from_str("bafy2bzacedfz23idnbvjk4ct6a4f27lqalex4wylyqcr76anwf3e3y4llgspa")
                 .unwrap()
         );
 
-        let result = state.get(&store, fingerprint);
+        let result = state.get(&store, height);
         assert!(result.is_ok());
         assert_eq!(
             result.unwrap(),
             Some(FingerprintMetadata {
                 proposer: "proposer".to_string(),
-                height: 1,
+                fingerprint: fingerprint.0.to_vec(),
                 verified: false,
                 chain_ids: vec![1]
             })
@@ -208,9 +203,9 @@ mod tests {
     fn test_set_verified_wrong_fingerprint() {
         let store = fvm_ipld_blockstore::MemoryBlockstore::default();
         let mut state = State::new(&store).unwrap();
-        let fingerprint = BytesKey(Cid::default().to_bytes());
+        let height = 1;
 
-        assert!(state.set_verified(&store, fingerprint.clone()).is_err());
+        assert!(state.set_verified(&store, height).is_err());
     }
 
     #[test]
@@ -228,15 +223,15 @@ mod tests {
             .unwrap();
 
         // Set verified
-        assert!(state.set_verified(&store, fingerprint.clone()).is_ok());
+        assert!(state.set_verified(&store, height).is_ok());
 
-        let result = state.get(&store, fingerprint);
+        let result = state.get(&store, height);
         assert!(result.is_ok());
         assert_eq!(
             result.unwrap(),
             Some(FingerprintMetadata {
                 proposer: "proposer".to_string(),
-                height: 1,
+                fingerprint: fingerprint.0.to_vec(),
                 verified: true,
                 chain_ids: vec![1]
             })
@@ -255,14 +250,14 @@ mod tests {
         state
             .set_pending(&store, fingerprint.clone(), proposer, height, chain_ids)
             .unwrap();
-        let result = state.get(&store, fingerprint);
+        let result = state.get(&store, height);
 
         assert!(result.is_ok());
         assert_eq!(
             result.unwrap(),
             Some(FingerprintMetadata {
                 proposer: "proposer".to_string(),
-                height: 1,
+                fingerprint: fingerprint.0.to_vec(),
                 verified: false,
                 chain_ids: vec![1]
             })
@@ -285,9 +280,9 @@ mod tests {
 
         assert!(result.is_ok());
         let result = result.unwrap();
-        assert_eq!(result[0].0, fingerprint.0);
+        assert_eq!(result[0].0, height);
         assert_eq!(result[0].1.proposer, "proposer".to_string());
-        assert_eq!(result[0].1.height, 1);
+        assert_eq!(result[0].1.fingerprint, fingerprint.0.to_vec());
         assert_eq!(result[0].1.verified, false);
         assert_eq!(result[0].1.chain_ids, vec![1]);
     }

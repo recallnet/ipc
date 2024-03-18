@@ -57,13 +57,12 @@ impl Actor {
         })
     }
 
-    fn set_verified(rt: &impl Runtime, fingerprint: Vec<u8>) -> Result<Cid, ActorError> {
+    fn set_verified(rt: &impl Runtime, height: u64) -> Result<Cid, ActorError> {
         rt.validate_immediate_caller_is(std::iter::once(&SYSTEM_ACTOR_ADDR))?;
         rt.transaction(|st: &mut State, rt| {
-            st.set_verified(rt.store(), BytesKey(fingerprint))
-                .map_err(|e| {
-                    e.downcast_default(ExitCode::USR_ILLEGAL_STATE, "failed to resolve object")
-                })
+            st.set_verified(rt.store(), height).map_err(|e| {
+                e.downcast_default(ExitCode::USR_ILLEGAL_STATE, "failed to resolve object")
+            })
         })
     }
 }
