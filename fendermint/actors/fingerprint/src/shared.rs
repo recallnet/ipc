@@ -79,7 +79,14 @@ impl State {
     }
 
     // TODO: Instead of setting it verified should we just delete it?
-    pub fn set_verified<BS: Blockstore>(&mut self, store: &BS, height: u64) -> anyhow::Result<Cid> {
+    pub fn set_verified<BS: Blockstore>(
+        &mut self,
+        store: &BS,
+        fingerprint: BytesKey,
+        proposer: String,
+        height: u64,
+        chain_ids: Vec<u64>,
+    ) -> anyhow::Result<Cid> {
         let mut hamt = Hamt::<_, FingerprintMetadata, u64>::load_with_bit_width(
             &self.fingerprints_at_height,
             store,
@@ -87,6 +94,10 @@ impl State {
         )?;
         match hamt.get(&height).map(|v| v.map(|inner| inner.clone()))? {
             Some(mut meta) => {
+                // validate fingerprint metadata
+                assert_eq!(meta.fingerprint, fingerprint.0.to_vec());
+                assert_eq!(meta.proposer, proposer);
+                assert_eq!(meta.chain_ids, chain_ids);
                 meta.verified = true;
                 hamt.set(height, meta)?;
             }
@@ -204,8 +215,13 @@ mod tests {
         let store = fvm_ipld_blockstore::MemoryBlockstore::default();
         let mut state = State::new(&store).unwrap();
         let height = 1;
+        let fingerprint = BytesKey(Cid::default().to_bytes());
+        let proposer = "proposer".to_string();
+        let chain_ids = vec![1];
 
-        assert!(state.set_verified(&store, height).is_err());
+        assert!(state
+            .set_verified(&store, fingerprint, proposer, height, chain_ids)
+            .is_err());
     }
 
     #[test]
@@ -219,11 +235,19 @@ mod tests {
 
         // Set pending
         state
-            .set_pending(&store, fingerprint.clone(), proposer, height, chain_ids)
+            .set_pending(
+                &store,
+                fingerprint.clone(),
+                proposer.clone(),
+                height,
+                chain_ids.clone(),
+            )
             .unwrap();
 
         // Set verified
-        assert!(state.set_verified(&store, height).is_ok());
+        assert!(state
+            .set_verified(&store, fingerprint.clone(), proposer, height, chain_ids)
+            .is_ok());
 
         let result = state.get(&store, height);
         assert!(result.is_ok());

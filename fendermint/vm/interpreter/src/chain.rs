@@ -639,11 +639,18 @@ where
                     Ok(((env, state), ChainMessageApplyRet::Ipc(ret)))
                 }
                 IpcMessage::FingerprintVerified(fingerprint, proposer, proposed_at) => {
+                    let chain_ids = env.fingerprint_chains.clone();
                     let from = system::SYSTEM_ACTOR_ADDR;
                     let to = fingerprint::FINGERPRINT_ACTOR_ADDR;
                     let method_num = fendermint_actor_fingerprint::Method::SetVerified as u64;
                     let gas_limit = 10_000_000_000;
-                    let params = RawBytes::serialize(proposed_at)?;
+                    let params =
+                        RawBytes::serialize(fendermint_actor_fingerprint::FingerprintParams {
+                            proposer: proposer.to_bytes(),
+                            height: proposed_at as i64,
+                            fingerprint: fingerprint.to_bytes(),
+                            chain_ids,
+                        })?;
 
                     let msg = Message {
                         version: Default::default(),
