@@ -8,7 +8,7 @@ use base64::Engine;
 use bytes::Bytes;
 use cid::Cid;
 use fendermint_crypto::SecretKey;
-use fendermint_vm_actor_interface::{accumulator, eam, evm, objectstore};
+use fendermint_vm_actor_interface::{accumulator, eam, evm, objectstore, stringstore};
 use fendermint_vm_message::signed::Object;
 use fendermint_vm_message::{chain::ChainMessage, signed::SignedMessage};
 use fvm_ipld_encoding::{BytesSer, RawBytes};
@@ -273,6 +273,52 @@ impl SignedMessageFactory {
         let message = self.transaction(
             objectstore::OBJECTSTORE_ACTOR_ADDR,
             fendermint_actor_objectstore::Method::ListObjects as u64,
+            RawBytes::default(),
+            value,
+            gas_params,
+            None,
+        )?;
+
+        let message = if let ChainMessage::Signed(signed) = message {
+            signed.into_message()
+        } else {
+            panic!("unexpected message type: {message:?}");
+        };
+
+        // Roll back the sequence, we don't really want to invoke anything.
+        self.inner.set_sequence(message.sequence);
+
+        Ok(message)
+    }
+
+    /// Store a number into the StringStore actor.
+    pub fn ss_store_number(
+        &mut self,
+        number: u64,
+        value: TokenAmount,
+        gas_params: GasParams,
+    ) -> anyhow::Result<ChainMessage> {
+        let params = RawBytes::serialize(number)?;
+        let message = self.transaction(
+            stringstore::STRINGSTORE_ACTOR_ADDR,
+            fendermint_actor_stringstore::Method::StoreNumber as u64,
+            params,
+            value,
+            gas_params,
+            None,
+        )?;
+        Ok(message)
+    }
+
+    /// Get the number stored in a stringstore actor. This will not create a transaction.
+    pub fn ss_get_number(
+        &mut self,
+        value: TokenAmount,
+        gas_params: GasParams,
+    ) -> anyhow::Result<Message> {
+        let message = self.transaction(
+            stringstore::STRINGSTORE_ACTOR_ADDR,
+            fendermint_actor_stringstore::Method::GetNumber as u64,
             RawBytes::default(),
             value,
             gas_params,

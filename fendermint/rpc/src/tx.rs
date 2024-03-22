@@ -23,7 +23,8 @@ use fendermint_vm_message::chain::ChainMessage;
 use crate::message::{GasParams, SignedMessageFactory};
 use crate::query::{QueryClient, QueryResponse};
 use crate::response::{
-    decode_bytes, decode_cid, decode_fevm_create, decode_fevm_invoke, decode_os_get, decode_os_list,
+    decode_bytes, decode_cid, decode_fevm_create, decode_fevm_invoke, decode_number, decode_os_get,
+    decode_os_list,
 };
 
 /// Abstracting away what the return value is based on whether
@@ -111,6 +112,20 @@ pub trait TxClient<M: BroadcastMode = TxCommit>: BoundClient + Send + Sync {
     ) -> anyhow::Result<M::Response<Cid>> {
         let mf = self.message_factory_mut();
         let msg = mf.acc_push(event, value, gas_params)?;
+        let fut = self.perform(msg, decode_cid);
+        let res = fut.await?;
+        Ok(res)
+    }
+
+    /// Store number into the StringStore actor.
+    async fn ss_store_number(
+        &mut self,
+        number: u64,
+        value: TokenAmount,
+        gas_params: GasParams,
+    ) -> anyhow::Result<M::Response<Cid>> {
+        let mf = self.message_factory_mut();
+        let msg = mf.ss_store_number(number, value, gas_params)?;
         let fut = self.perform(msg, decode_cid);
         let res = fut.await?;
         Ok(res)
@@ -223,6 +238,32 @@ pub trait CallClient: QueryClient + BoundClient {
         let response = CallResponse {
             response,
             return_data: Some(root),
+        };
+
+        Ok(response)
+    }
+
+    /// Get the number stored in a stringstore without including a transaction on the blockchain.
+    async fn ss_get_number_call(
+        &mut self,
+        value: TokenAmount,
+        gas_params: GasParams,
+        height: FvmQueryHeight,
+    ) -> anyhow::Result<CallResponse<u64>> {
+        let msg = self
+            .message_factory_mut()
+            .ss_get_number(value, gas_params)?;
+
+        let response = self.call(msg, height).await?;
+        if response.value.code.is_err() {
+            return Err(anyhow!("{}", response.value.info));
+        }
+        let number = decode_number(&response.value)
+            .context("error decoding data from deliver_tx in call")?;
+
+        let response = CallResponse {
+            response,
+            return_data: Some(number),
         };
 
         Ok(response)

@@ -164,7 +164,18 @@ pub enum RpcAccumulatorCommands {
 
 #[derive(Subcommand, Debug, Clone)]
 pub enum RpcStringStoreCommands {
-    // TODO
+    /// Set the value of the stored number
+    StoreNumber {
+        #[arg(long, short)]
+        number: u64,
+    },
+    /// Get the value of the stored number
+    GetNumber {
+        /// Block height to query; 0 means latest.
+        /// TODO: Can this be removed?
+        #[arg(long, short = 'b', default_value_t = 0)]
+        height: u64,
+    },
 }
 
 #[derive(Subcommand, Debug, Clone)]

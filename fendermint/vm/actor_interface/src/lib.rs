@@ -57,4 +57,5 @@ pub mod multisig;
 pub mod objectstore;
 pub mod placeholder;
 pub mod reward;
+pub mod stringstore;
 pub mod system;

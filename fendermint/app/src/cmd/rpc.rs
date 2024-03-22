@@ -37,6 +37,7 @@ use crate::cmd;
 use crate::options::rpc::{BroadcastMode, FevmArgs, RpcFevmCommands, TransArgs};
 use crate::options::rpc::{
     RpcAccumulatorCommands, RpcArgs, RpcCommands, RpcObjectStoreCommands, RpcQueryCommands,
+    RpcStringStoreCommands,
 };
 
 use super::key::read_secret_key;
@@ -81,7 +82,13 @@ cmd! {
                 }
             },
             RpcCommands::Ss { args, command } => match command {
-                // TODO
+                RpcStringStoreCommands::GetNumber { height } => {
+                    let height = Height::try_from(height)?;
+                    ss_get_number(client, args, height).await
+                }
+                RpcStringStoreCommands::StoreNumber { number } => {
+                    ss_store_number(client, args, number).await
+                }
             },
             RpcCommands::Fevm { args, command } => match command {
                 RpcFevmCommands::Create { contract, constructor_args } => {
@@ -284,6 +291,42 @@ async fn os_push(client: FendermintClient, args: TransArgs, event: Bytes) -> any
         cid_to_json,
     )
     .await
+}
+
+async fn ss_store_number(
+    client: FendermintClient,
+    args: TransArgs,
+    number: u64,
+) -> anyhow::Result<()> {
+    broadcast_and_print(
+        client,
+        args,
+        |mut client, value, gas_params| {
+            Box::pin(async move { client.ss_store_number(number, value, gas_params).await })
+        },
+        cid_to_json,
+    )
+    .await
+}
+
+async fn ss_get_number(
+    client: FendermintClient,
+    args: TransArgs,
+    height: Height,
+) -> anyhow::Result<()> {
+    let mut client = TransClient::new(client, &args)?;
+    let gas_params = gas_params(&args);
+    let value = args.value;
+    let height = FvmQueryHeight::from(height.value());
+
+    let res = client
+        .inner
+        .ss_get_number_call(value, gas_params, height)
+        .await?;
+
+    let json = json!({"response": res.response, "return_data": res.return_data});
+
+    print_json(&json)
 }
 
 async fn os_root_call(

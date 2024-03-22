@@ -60,6 +60,7 @@ test: $(BUILTIN_ACTORS_BUNDLE) $(IPC_ACTORS_GEN)
 		-p fendermint_eth_api \
 		-p fendermint_rpc \
 		-p fendermint_actor_accumulator \
+		-p fendermint_actor_stringstore \
 		-p fendermint_vm_message \
 		-p fendermint_rocksdb \
 		-p fendermint_storage \
