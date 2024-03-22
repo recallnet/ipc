@@ -33,36 +33,23 @@ impl Actor {
         rt.create(&state)
     }
 
-    // fn push(rt: &impl Runtime, obj: Vec<u8>) -> Result<Cid, ActorError> {
-    //     // FIXME:(carsonfarmer) We'll want to validate the caller is the owner of the repo.
-    //     rt.validate_immediate_caller_accept_any()?;
-    //
-    //     rt.transaction(|st: &mut State, rt| {
-    //         st.push(rt.store(), obj).map_err(|e| {
-    //             e.downcast_default(ExitCode::USR_ILLEGAL_STATE, "failed to push object")
-    //         })
-    //     })
-    // }
-    //
-    // fn get_root(rt: &impl Runtime) -> Result<Cid, ActorError> {
-    //     rt.validate_immediate_caller_accept_any()?;
-    //     let st: State = rt.state()?;
-    //     st.get_root(rt.store())
-    //         .map_err(|e| e.downcast_default(ExitCode::USR_ILLEGAL_STATE, "failed to bag peaks"))
-    // }
-    //
-    // fn get_peaks(rt: &impl Runtime) -> Result<Vec<Cid>, ActorError> {
-    //     rt.validate_immediate_caller_accept_any()?;
-    //     let st: State = rt.state()?;
-    //     st.get_peaks(rt.store())
-    //         .map_err(|e| e.downcast_default(ExitCode::USR_ILLEGAL_STATE, "failed to get peaks"))
-    // }
-    //
-    // fn get_count(rt: &impl Runtime) -> Result<u64, ActorError> {
-    //     rt.validate_immediate_caller_accept_any()?;
-    //     let st: State = rt.state()?;
-    //     Ok(st.leaf_count)
-    // }
+    fn store_number(rt: &impl Runtime, num: u64) -> Result<(), ActorError> {
+        // FIXME:(carsonfarmer) We'll want to validate the caller is the owner of the repo.
+        rt.validate_immediate_caller_accept_any()?;
+
+        rt.transaction(|st: &mut State, rt| {
+            st.store_number(rt.store(), num).map_err(|e| {
+                e.downcast_default(ExitCode::USR_ILLEGAL_STATE, "failed to store number")
+            })
+        })
+    }
+
+    fn get_number(rt: &impl Runtime) -> Result<u64, ActorError> {
+        rt.validate_immediate_caller_accept_any()?;
+        let st: State = rt.state()?;
+        st.get_number(rt.store())
+            .map_err(|e| e.downcast_default(ExitCode::USR_ILLEGAL_STATE, "failed to get number"))
+    }
 
     /// Fallback method for unimplemented method numbers.
     pub fn fallback(
@@ -88,10 +75,8 @@ impl ActorCode for Actor {
 
     actor_dispatch! {
         Constructor => constructor,
-        // Push => push,
-        // Root => get_root,
-        // Peaks => get_peaks,
-        // Count => get_count,
+        StoreNumber => store_number,
+        GetNumber => get_number,
         _ => fallback,
     }
 }
