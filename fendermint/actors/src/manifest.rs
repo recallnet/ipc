@@ -6,6 +6,7 @@ use fendermint_actor_accumulator::ACCUMULATOR_ACTOR_NAME;
 use fendermint_actor_chainmetadata::CHAINMETADATA_ACTOR_NAME;
 use fendermint_actor_eam::IPC_EAM_ACTOR_NAME;
 use fendermint_actor_objectstore::OBJECTSTORE_ACTOR_NAME;
+use fendermint_actor_stringstore::STRINGSTORE_ACTOR_NAME;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 use std::collections::HashMap;
@@ -16,6 +17,7 @@ pub const REQUIRED_ACTORS: &[&str] = &[
     IPC_EAM_ACTOR_NAME,
     OBJECTSTORE_ACTOR_NAME,
     ACCUMULATOR_ACTOR_NAME,
+    STRINGSTORE_ACTOR_NAME,
 ];
 
 /// A mapping of internal actor CIDs to their respective types.

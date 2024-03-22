@@ -2,22 +2,14 @@
 // Copyright 2021-2023 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use cid::multihash::{Code, MultihashDigest};
-use cid::Cid;
-use fvm_ipld_amt::Amt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{
-    de::DeserializeOwned,
-    ser::Serialize,
-    to_vec,
     tuple::{Deserialize_tuple, Serialize_tuple},
-    CborStore, DAG_CBOR,
 };
 use fvm_shared::METHOD_CONSTRUCTOR;
 use num_derive::FromPrimitive;
 
 pub const STRINGSTORE_ACTOR_NAME: &str = "stringstore";
-const BIT_WIDTH: u32 = 3;
 
 #[derive(FromPrimitive)]
 #[repr(u64)]
@@ -32,13 +24,13 @@ pub enum Method {
 // The state represents an mmr with peaks stored in an Amt
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct State {
-    pub storedNumber: u64, // todo make it a string
+    pub stored_number: u64, // todo make it a string
 }
 
 impl State {
     pub fn new<BS: Blockstore>(store: &BS) -> anyhow::Result<Self> {
         Ok(Self {
-            storedNumber: 0,
+            stored_number: 0,
         })
     }
 }

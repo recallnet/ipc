@@ -2,7 +2,6 @@
 // Copyright 2021-2023 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use cid::Cid;
 use fil_actors_runtime::{
     actor_dispatch, actor_error,
     builtin::singletons::SYSTEM_ACTOR_ADDR,
@@ -12,7 +11,7 @@ use fil_actors_runtime::{
 use fvm_ipld_encoding::ipld_block::IpldBlock;
 use fvm_shared::{error::ExitCode, MethodNum};
 
-use crate::{Method, State, ACCUMULATOR_ACTOR_NAME};
+use crate::{Method, State, STRINGSTORE_ACTOR_NAME};
 
 #[cfg(feature = "fil-actor")]
 fil_actors_runtime::wasm_trampoline!(Actor);
@@ -89,10 +88,10 @@ impl ActorCode for Actor {
 
     actor_dispatch! {
         Constructor => constructor,
-        Push => push,
-        Root => get_root,
-        Peaks => get_peaks,
-        Count => get_count,
+        // Push => push,
+        // Root => get_root,
+        // Peaks => get_peaks,
+        // Count => get_count,
         _ => fallback,
     }
 }

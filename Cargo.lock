@@ -2906,6 +2906,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "fendermint_actor_stringstore"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "cid",
+ "fil_actors_runtime",
+ "frc42_dispatch",
+ "fvm_ipld_amt",
+ "fvm_ipld_blockstore",
+ "fvm_ipld_encoding",
+ "fvm_shared",
+ "num-derive 0.3.3",
+ "num-traits",
+ "serde",
+ "serde_tuple",
+]
+
+[[package]]
 name = "fendermint_actors"
 version = "0.1.0"
 dependencies = [
@@ -2915,6 +2933,7 @@ dependencies = [
  "fendermint_actor_chainmetadata",
  "fendermint_actor_eam",
  "fendermint_actor_objectstore",
+ "fendermint_actor_stringstore",
  "fil_actor_bundler",
  "fil_actors_runtime",
  "fvm_ipld_blockstore",

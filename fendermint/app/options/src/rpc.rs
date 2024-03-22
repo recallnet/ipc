@@ -81,6 +81,13 @@ pub enum RpcCommands {
         #[command(flatten)]
         args: TransArgs,
     },
+    /// Subcommands related to StringStores.
+    Ss {
+        #[command(subcommand)]
+        command: RpcStringStoreCommands,
+        #[command(flatten)]
+        args: TransArgs,
+    },
     /// Subcommands related to FEVM.
     Fevm {
         #[command(subcommand)]
@@ -153,6 +160,11 @@ pub enum RpcAccumulatorCommands {
         #[arg(long, short = 'b', default_value_t = 0)]
         height: u64,
     },
+}
+
+#[derive(Subcommand, Debug, Clone)]
+pub enum RpcStringStoreCommands {
+    // TODO
 }
 
 #[derive(Subcommand, Debug, Clone)]

@@ -16,6 +16,9 @@ fendermint_actor_objectstore = { path = "objectstore", features = [
 fendermint_actor_accumulator = { path = "accumulator", features = [
     "fil-actor",
 ] }
+fendermint_actor_stringstore = { path = "stringstore", features = [
+    "fil-actor",
+] }
 
 [dependencies]
 cid = { workspace = true }
@@ -26,6 +29,7 @@ fendermint_actor_chainmetadata = { path = "chainmetadata" }
 fendermint_actor_eam = { path = "eam" }
 fendermint_actor_objectstore = { path = "objectstore" }
 fendermint_actor_accumulator = { path = "accumulator" }
+fendermint_actor_stringstore = { path = "stringstore" }
 
 [build-dependencies]
 fil_actors_runtime = { workspace = true, features = ["test_utils"] }

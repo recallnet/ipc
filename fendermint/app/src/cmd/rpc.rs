@@ -80,6 +80,9 @@ cmd! {
                     os_root_call(client, args, height).await
                 }
             },
+            RpcCommands::Ss { args, command } => match command {
+                // TODO
+            },
             RpcCommands::Fevm { args, command } => match command {
                 RpcFevmCommands::Create { contract, constructor_args } => {
                     fevm_create(client, args, contract, constructor_args).await
