@@ -1,6 +1,6 @@
 [package]
 name = "fendermint_actor_scalarstore"
-description = "Actor for simple string storage"
+description = "Actor for simple storage of numbers and strings"
 license.workspace = true
 edition.workspace = true
 authors.workspace = true
