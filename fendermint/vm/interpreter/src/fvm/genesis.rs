@@ -16,7 +16,7 @@ use fendermint_vm_actor_interface::eam::EthAddress;
 use fendermint_vm_actor_interface::ipc::IPC_CONTRACTS;
 use fendermint_vm_actor_interface::{
     account, accumulator, burntfunds, chainmetadata, cron, eam, init, ipc, objectstore, reward,
-    system, EMPTY_ARR,
+    scalarstore, system, EMPTY_ARR,
 };
 use fendermint_vm_core::{chainid, Timestamp};
 use fendermint_vm_genesis::{ActorMeta, Genesis, Power, PowerScale, Validator};
@@ -286,6 +286,18 @@ where
                 None,
             )
             .context("failed to create accumulator actor")?;
+
+        // Initialize the ScalarStore actor.
+        let scalarstore_state = fendermint_actor_scalarstore::State::new(&state.store())?;
+        state
+            .create_custom_actor(
+                fendermint_actor_scalarstore::SCALARSTORE_ACTOR_NAME,
+                scalarstore::SCALARSTORE_ACTOR_ID,
+                &scalarstore_state,
+                TokenAmount::zero(),
+                None,
+            )
+            .context("failed to create scalarstore actor")?;
 
         // STAGE 2: Create non-builtin accounts which do not have a fixed ID.
 
