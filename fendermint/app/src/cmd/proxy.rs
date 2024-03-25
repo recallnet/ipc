@@ -113,7 +113,7 @@ cmd! {
                     .and_then(handle_acc_root);
 
                 // ScalarStore routes
-                let store_number_route = warp::path!("v1" / "ss" / String)
+                let store_number_route = warp::path!("v1" / "ss"/ u64)
                     .and(warp::put())
                     .and(with_client(client.clone()))
                     .and(with_args(args.clone()))
@@ -474,7 +474,7 @@ async fn handle_acc_root(
 }
 
 async fn handle_ss_store_number(
-    number_as_string: String,
+    number: u64,
     client: FendermintClient,
     mut args: TransArgs,
     nonce: Arc<Mutex<u64>>,
@@ -483,8 +483,6 @@ async fn handle_ss_store_number(
     let mut nonce_lck = nonce.lock().await;
     args.sequence = *nonce_lck;
     args.gas_limit = gas_limit.unwrap_or(BLOCK_GAS_LIMIT);
-
-    let number = number_as_string.parse::<u64>().unwrap();
 
     let res = ss_store_number(client.clone(), args.clone(), number)
         .await
