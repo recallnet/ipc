@@ -101,16 +101,31 @@ cmd! {
                     .and(warp::body::content_length_limit(MAX_EVENT_LENGTH))
                     .and(with_client(client.clone()))
                     .and(with_args(args.clone()))
-                    .and(with_nonce(nonce))
+                    .and(with_nonce(nonce.clone()))
                     .and(warp::header::optional::<u64>("X-DataRepo-GasLimit"))
                     .and(warp::body::bytes())
                     .and_then(handle_acc_push);
                 let root_route = warp::path!("v1" / "acc")
                     .and(warp::get())
+                    .and(with_client(client.clone()))
+                    .and(with_args(args.clone()))
+                    .and(warp::query::<HeightQuery>())
+                    .and_then(handle_acc_root);
+
+                // ScalarStore routes
+                let store_number_route = warp::path!("v1" / "ss"/ u64)
+                    .and(warp::put())
+                    .and(with_client(client.clone()))
+                    .and(with_args(args.clone()))
+                    .and(with_nonce(nonce))
+                    .and(warp::header::optional::<u64>("X-DataRepo-GasLimit"))
+                    .and_then(handle_ss_store_number);
+                let get_number_route = warp::path!("v1" / "ss")
+                    .and(warp::get())
                     .and(with_client(client))
                     .and(with_args(args))
                     .and(warp::query::<HeightQuery>())
-                    .and_then(handle_acc_root);
+                    .and_then(handle_ss_get_number);
 
                 let router = health_route
                     .or(upload_route)
@@ -119,6 +134,8 @@ cmd! {
                     .or(list_route)
                     .or(push_route)
                     .or(root_route)
+                    .or(store_number_route)
+                    .or(get_number_route)
                     .with(warp::cors().allow_any_origin()
                         .allow_headers(vec!["Content-Type"])
                         .allow_methods(vec!["PUT", "DEL", "GET"]))
@@ -456,6 +473,46 @@ async fn handle_acc_root(
     Ok(warp::reply::json(&json))
 }
 
+async fn handle_ss_store_number(
+    number: u64,
+    client: FendermintClient,
+    mut args: TransArgs,
+    nonce: Arc<Mutex<u64>>,
+    gas_limit: Option<u64>,
+) -> Result<impl Reply, Rejection> {
+    let mut nonce_lck = nonce.lock().await;
+    args.sequence = *nonce_lck;
+    args.gas_limit = gas_limit.unwrap_or(BLOCK_GAS_LIMIT);
+
+    let res = ss_store_number(client.clone(), args.clone(), number)
+        .await
+        .map_err(|e| {
+            Rejection::from(BadRequest {
+                message: format!("store number error: {}", e),
+            })
+        })?;
+
+    *nonce_lck += 1;
+    Ok(warp::reply::json(&res))
+}
+
+async fn handle_ss_get_number(
+    client: FendermintClient,
+    args: TransArgs,
+    hq: HeightQuery,
+) -> Result<impl Reply, Rejection> {
+    let res = ss_get_number(client, args, hq.height.unwrap_or(0))
+        .await
+        .map_err(|e| {
+            Rejection::from(BadRequest {
+                message: format!("root error: {}", e),
+            })
+        })?;
+
+    let json = json!({"root": res.unwrap_or_default().to_string()});
+    Ok(warp::reply::json(&json))
+}
+
 #[derive(Clone, Debug)]
 struct BadRequest {
     message: String,
@@ -647,6 +704,34 @@ async fn acc_root(
     let res = client
         .inner
         .acc_root_call(TokenAmount::default(), gas_params, h)
+        .await?;
+
+    Ok(res.return_data)
+}
+
+async fn ss_store_number(
+    client: FendermintClient,
+    args: TransArgs,
+    number: u64,
+) -> anyhow::Result<Txn> {
+    broadcast(client, args, |mut client, value, gas_params| {
+        Box::pin(async move { client.ss_store_number(number, value, gas_params).await })
+    })
+    .await
+}
+
+async fn ss_get_number(
+    client: FendermintClient,
+    args: TransArgs,
+    height: u64,
+) -> anyhow::Result<Option<u64>> {
+    let mut client = TransClient::new(client, &args)?;
+    let gas_params = gas_params(&args);
+    let h = FvmQueryHeight::from(height);
+
+    let res = client
+        .inner
+        .ss_get_number_call(TokenAmount::default(), gas_params, h)
         .await?;
 
     Ok(res.return_data)
