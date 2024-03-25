@@ -1,5 +1,5 @@
 [package]
-name = "fendermint_actor_stringstore"
+name = "fendermint_actor_scalarstore"
 description = "Actor for simple string storage"
 license.workspace = true
 edition.workspace = true

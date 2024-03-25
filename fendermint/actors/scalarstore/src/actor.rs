@@ -11,7 +11,7 @@ use fil_actors_runtime::{
 use fvm_ipld_encoding::ipld_block::IpldBlock;
 use fvm_shared::{error::ExitCode, MethodNum};
 
-use crate::{Method, State, STRINGSTORE_ACTOR_NAME};
+use crate::{Method, State, SCALARSTORE_ACTOR_NAME};
 
 #[cfg(feature = "fil-actor")]
 fil_actors_runtime::wasm_trampoline!(Actor);
@@ -70,7 +70,7 @@ impl ActorCode for Actor {
     type Methods = Method;
 
     fn name() -> &'static str {
-        STRINGSTORE_ACTOR_NAME
+        SCALARSTORE_ACTOR_NAME
     }
 
     actor_dispatch! {

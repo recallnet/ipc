@@ -37,7 +37,7 @@ use crate::cmd;
 use crate::options::rpc::{BroadcastMode, FevmArgs, RpcFevmCommands, TransArgs};
 use crate::options::rpc::{
     RpcAccumulatorCommands, RpcArgs, RpcCommands, RpcObjectStoreCommands, RpcQueryCommands,
-    RpcStringStoreCommands,
+    RpcScalarStoreCommands,
 };
 
 use super::key::read_secret_key;
@@ -82,11 +82,11 @@ cmd! {
                 }
             },
             RpcCommands::Ss { args, command } => match command {
-                RpcStringStoreCommands::GetNumber { height } => {
+                RpcScalarStoreCommands::GetNumber { height } => {
                     let height = Height::try_from(height)?;
                     ss_get_number(client, args, height).await
                 }
-                RpcStringStoreCommands::StoreNumber { number } => {
+                RpcScalarStoreCommands::StoreNumber { number } => {
                     ss_store_number(client, args, number).await
                 }
             },

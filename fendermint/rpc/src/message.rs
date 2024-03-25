@@ -8,7 +8,7 @@ use base64::Engine;
 use bytes::Bytes;
 use cid::Cid;
 use fendermint_crypto::SecretKey;
-use fendermint_vm_actor_interface::{accumulator, eam, evm, objectstore, stringstore};
+use fendermint_vm_actor_interface::{accumulator, eam, evm, objectstore, scalarstore};
 use fendermint_vm_message::signed::Object;
 use fendermint_vm_message::{chain::ChainMessage, signed::SignedMessage};
 use fvm_ipld_encoding::{BytesSer, RawBytes};
@@ -291,7 +291,7 @@ impl SignedMessageFactory {
         Ok(message)
     }
 
-    /// Store a number into the StringStore actor.
+    /// Store a number into the ScalarStore actor.
     pub fn ss_store_number(
         &mut self,
         number: u64,
@@ -300,8 +300,8 @@ impl SignedMessageFactory {
     ) -> anyhow::Result<ChainMessage> {
         let params = RawBytes::serialize(number)?;
         let message = self.transaction(
-            stringstore::STRINGSTORE_ACTOR_ADDR,
-            fendermint_actor_stringstore::Method::StoreNumber as u64,
+            scalarstore::SCALARSTORE_ACTOR_ADDR,
+            fendermint_actor_scalarstore::Method::StoreNumber as u64,
             params,
             value,
             gas_params,
@@ -310,15 +310,15 @@ impl SignedMessageFactory {
         Ok(message)
     }
 
-    /// Get the number stored in a stringstore actor. This will not create a transaction.
+    /// Get the number stored in a scalarstore actor. This will not create a transaction.
     pub fn ss_get_number(
         &mut self,
         value: TokenAmount,
         gas_params: GasParams,
     ) -> anyhow::Result<Message> {
         let message = self.transaction(
-            stringstore::STRINGSTORE_ACTOR_ADDR,
-            fendermint_actor_stringstore::Method::GetNumber as u64,
+            scalarstore::SCALARSTORE_ACTOR_ADDR,
+            fendermint_actor_scalarstore::Method::GetNumber as u64,
             RawBytes::default(),
             value,
             gas_params,

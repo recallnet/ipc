@@ -28,7 +28,7 @@ fendermint_vm_message = { path = "../vm/message" }
 
 fendermint_actor_objectstore = { path = "../actors/objectstore" }
 fendermint_actor_accumulator = { path = "../actors/accumulator" }
-fendermint_actor_stringstore = { path = "../actors/stringstore" }
+fendermint_actor_scalarstore = { path = "../actors/scalarstore" }
 
 [dev-dependencies]
 clap = { workspace = true }

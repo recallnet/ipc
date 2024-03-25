@@ -65,7 +65,7 @@ rand = { workspace = true, optional = true }
 
 fendermint_actor_objectstore = { path = "../../actors/objectstore" }
 fendermint_actor_accumulator = { path = "../../actors/accumulator" }
-fendermint_actor_stringstore = { path = "../../actors/stringstore" }
+fendermint_actor_scalarstore = { path = "../../actors/scalarstore" }
 objectstore_syscall = { path = "../../../textile/objectstore_syscall" }
 
 [dev-dependencies]

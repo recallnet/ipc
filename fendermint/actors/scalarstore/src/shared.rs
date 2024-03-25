@@ -7,7 +7,7 @@ use fvm_ipld_encoding::tuple::{Deserialize_tuple, Serialize_tuple};
 use fvm_shared::METHOD_CONSTRUCTOR;
 use num_derive::FromPrimitive;
 
-pub const STRINGSTORE_ACTOR_NAME: &str = "stringstore";
+pub const SCALARSTORE_ACTOR_NAME: &str = "scalarstore";
 
 #[derive(FromPrimitive)]
 #[repr(u64)]

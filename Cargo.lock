@@ -2906,7 +2906,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "fendermint_actor_stringstore"
+name = "fendermint_actor_scalarstore"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -2933,7 +2933,7 @@ dependencies = [
  "fendermint_actor_chainmetadata",
  "fendermint_actor_eam",
  "fendermint_actor_objectstore",
- "fendermint_actor_stringstore",
+ "fendermint_actor_scalarstore",
  "fil_actor_bundler",
  "fil_actors_runtime",
  "fvm_ipld_blockstore",
@@ -3235,7 +3235,7 @@ dependencies = [
  "ethers",
  "fendermint_actor_accumulator",
  "fendermint_actor_objectstore",
- "fendermint_actor_stringstore",
+ "fendermint_actor_scalarstore",
  "fendermint_crypto",
  "fendermint_vm_actor_interface",
  "fendermint_vm_genesis",
@@ -3412,7 +3412,7 @@ dependencies = [
  "fendermint_actor_chainmetadata",
  "fendermint_actor_eam",
  "fendermint_actor_objectstore",
- "fendermint_actor_stringstore",
+ "fendermint_actor_scalarstore",
  "fendermint_actors",
  "fendermint_crypto",
  "fendermint_eth_hardhat",

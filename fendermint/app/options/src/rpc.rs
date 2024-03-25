@@ -81,10 +81,10 @@ pub enum RpcCommands {
         #[command(flatten)]
         args: TransArgs,
     },
-    /// Subcommands related to StringStores.
+    /// Subcommands related to ScalarStores.
     Ss {
         #[command(subcommand)]
-        command: RpcStringStoreCommands,
+        command: RpcScalarStoreCommands,
         #[command(flatten)]
         args: TransArgs,
     },
@@ -163,7 +163,7 @@ pub enum RpcAccumulatorCommands {
 }
 
 #[derive(Subcommand, Debug, Clone)]
-pub enum RpcStringStoreCommands {
+pub enum RpcScalarStoreCommands {
     /// Set the value of the stored number
     StoreNumber {
         #[arg(long, short)]

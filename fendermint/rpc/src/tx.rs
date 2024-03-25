@@ -117,7 +117,7 @@ pub trait TxClient<M: BroadcastMode = TxCommit>: BoundClient + Send + Sync {
         Ok(res)
     }
 
-    /// Store number into the StringStore actor.
+    /// Store number into the ScalarStore actor.
     async fn ss_store_number(
         &mut self,
         number: u64,
@@ -243,7 +243,7 @@ pub trait CallClient: QueryClient + BoundClient {
         Ok(response)
     }
 
-    /// Get the number stored in a stringstore without including a transaction on the blockchain.
+    /// Get the number stored in a scalarstore without including a transaction on the blockchain.
     async fn ss_get_number_call(
         &mut self,
         value: TokenAmount,
