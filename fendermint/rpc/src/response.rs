@@ -72,11 +72,7 @@ pub fn decode_cid(deliver_tx: &DeliverTx) -> anyhow::Result<Cid> {
 /// Parse what Tendermint returns in the `data` field of [`DeliverTx`] as bytes.
 pub fn decode_number(deliver_tx: &DeliverTx) -> anyhow::Result<u64> {
     let data = decode_data(&deliver_tx.data)?;
-    let byte_array = data
-        .bytes()
-        .try_into()
-        .expect("Error while parsing bytes into number");
-    return Ok(u64::from_be_bytes(byte_array));
+    fvm_ipld_encoding::from_slice::<u64>(&data).map_err(|e| anyhow!("error parsing as number: {e}"))
 }
 
 /// Parse what Tendermint returns in the `data` field of [`DeliverTx`] as bytes.
