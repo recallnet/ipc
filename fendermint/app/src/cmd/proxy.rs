@@ -509,7 +509,7 @@ async fn handle_ss_get_number(
             })
         })?;
 
-    let json = json!({"root": res.unwrap_or_default().to_string()});
+    let json = json!({"stored_number": res.unwrap_or_default().to_string()});
     Ok(warp::reply::json(&json))
 }
 
