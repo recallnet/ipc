@@ -182,6 +182,23 @@ mod tests {
     }
 
     #[test]
+    fn test_hash_pair() {
+        let store = fvm_ipld_blockstore::MemoryBlockstore::default();
+        let mut state = State::new(&store).unwrap();
+
+        let obj1 = vec![1, 2, 3];
+        let obj2 = vec![1, 2, 3];
+        let cid1 = state.push(&store, obj1).expect("push1 failed");
+        let cid2 = state.push(&store, obj2).expect("push2 failed");
+
+        // Compare hash_pair and hash_and_put_pair and make sure they result in the same CID.
+        let hash1 = hash_pair(Some(&cid1), Some(&cid2)).expect("hash_pair failed");
+        let hash2 =
+            hash_and_put_pair(&store, Some(&cid1), Some(&cid2)).expect("hash_and_put_pair failed");
+        assert_eq!(hash1, hash2);
+    }
+
+    #[test]
     fn test_push_simple() {
         let store = fvm_ipld_blockstore::MemoryBlockstore::default();
         let mut state = State::new(&store).unwrap();
