@@ -8,7 +8,6 @@ use fvm_ipld_amt::Amt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{
     de::DeserializeOwned,
-    from_slice,
     ser::Serialize,
     to_vec,
     tuple::{Deserialize_tuple, Serialize_tuple},
@@ -163,11 +162,11 @@ fn get_at<BS: Blockstore, S: DeserializeOwned + Serialize>(
             None => return Err(anyhow::anyhow!("failed to get root for cid {}", cid)),
         };
     }
-    let mut root = match store.get_cbor::<Vec<u8>>(cid)? {
+
+    let mut pair = match store.get_cbor::<[Cid; 2]>(cid)? {
         Some(value) => value,
         None => return Err(anyhow::anyhow!("failed to get root for cid {}", cid)),
     };
-    let mut pair = from_slice::<[Cid; 2]>(&root)?;
 
     let leading_zeros = path.leading_zeros();
     let significant_bits = 64 - leading_zeros;
@@ -175,11 +174,10 @@ fn get_at<BS: Blockstore, S: DeserializeOwned + Serialize>(
     // Iterate over each bit from the most significant bit to the least
     for i in 1..(significant_bits - 1) {
         let bit = ((path >> (significant_bits - i - 1)) & 1) as usize;
-        root = match store.get_cbor(&pair[bit])? {
+        pair = match store.get_cbor(&pair[bit])? {
             Some(root) => root,
             None => return Err(anyhow::anyhow!("failed to get root at index {}", bit)),
         };
-        pair = from_slice::<[Cid; 2]>(&root)?;
     }
 
     let bit = (path & 1) as usize;
@@ -360,18 +358,50 @@ mod tests {
     }
 
     #[test]
+    fn test_get_obj_basic() {
+        let store = fvm_ipld_blockstore::MemoryBlockstore::default();
+        let mut state = State::new(&store).unwrap();
+
+        state.push(&store, vec![0]).unwrap();
+        assert_eq!(state.peak_count(), 1);
+        assert_eq!(state.leaf_count(), 1);
+        let item0 = state.get_obj::<_, Vec<i32>>(&store, 0u64).unwrap();
+        assert_eq!(item0, vec![0]);
+
+        state.push(&store, vec![1]).unwrap();
+        assert_eq!(state.peak_count(), 1);
+        assert_eq!(state.leaf_count(), 2);
+        let item0 = state.get_obj::<_, Vec<i32>>(&store, 0u64).unwrap();
+        let item1 = state.get_obj::<_, Vec<i32>>(&store, 1u64).unwrap();
+        assert_eq!(item0, vec![0]);
+        assert_eq!(item1, vec![1]);
+
+        state.push(&store, vec![2]).unwrap();
+        assert_eq!(state.peak_count(), 2);
+        assert_eq!(state.leaf_count(), 3);
+        let item0 = state.get_obj::<_, Vec<i32>>(&store, 0u64).unwrap();
+        let item1 = state.get_obj::<_, Vec<i32>>(&store, 1u64).unwrap();
+        let item2 = state.get_obj::<_, Vec<i32>>(&store, 2u64).unwrap();
+        assert_eq!(item0, vec![0]);
+        assert_eq!(item1, vec![1]);
+        assert_eq!(item2, vec![2]);
+    }
+
+    #[test]
     fn test_get_obj() {
         let store = fvm_ipld_blockstore::MemoryBlockstore::default();
         let mut state = State::new(&store).unwrap();
         for i in 0..31 {
             state.push(&store, vec![i]).unwrap();
+            assert_eq!(state.leaf_count(), i + 1);
+
+            // As more items are added to the accumulator, ensure each item remains gettable at
+            // each phase of the growth of the inner tree structures.
+            for j in 0..i {
+                let item = state.get_obj::<_, Vec<u64>>(&store, j).unwrap();
+                assert_eq!(item, vec![j]);
+            }
         }
         assert_eq!(state.peak_count(), 5);
-        assert_eq!(state.leaf_count(), 31);
-
-        for i in 0..31 {
-            let item = state.get_obj::<_, Vec<i32>>(&store, i as u64).unwrap();
-            assert_eq!(item, vec![i]);
-        }
     }
 }
