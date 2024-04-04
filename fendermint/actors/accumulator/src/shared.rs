@@ -191,7 +191,10 @@ mod tests {
 
         let pair_cid =
             hash_and_put_pair(&store, Some(&cid1), Some(&cid2)).expect("hash_and_put_pair failed");
-        let merkle_node = store.get(&pair_cid).expect("get failed").expect("get returned none");
+        let merkle_node = store
+            .get(&pair_cid)
+            .expect("get failed")
+            .expect("get returned none");
         let expected = to_vec(&[cid1, cid2]).expect("encoding merkle node failed");
         assert_eq!(merkle_node, expected);
     }
