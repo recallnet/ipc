@@ -159,13 +159,18 @@ fn get_at<BS: Blockstore, S: DeserializeOwned + Serialize>(
     if path == 1 {
         return match store.get_cbor::<S>(cid)? {
             Some(value) => Ok(value),
-            None => return Err(anyhow::anyhow!("failed to get root for cid {}", cid)),
+            None => return Err(anyhow::anyhow!("failed to get leaf for cid {}", cid)),
         };
     }
 
     let mut pair = match store.get_cbor::<[Cid; 2]>(cid)? {
         Some(value) => value,
-        None => return Err(anyhow::anyhow!("failed to get root for cid {}", cid)),
+        None => {
+            return Err(anyhow::anyhow!(
+                "failed to get eigentree root node for cid {}",
+                cid
+            ))
+        }
     };
 
     let leading_zeros = path.leading_zeros();
@@ -174,16 +179,23 @@ fn get_at<BS: Blockstore, S: DeserializeOwned + Serialize>(
     // Iterate over each bit from the most significant bit to the least
     for i in 1..(significant_bits - 1) {
         let bit = ((path >> (significant_bits - i - 1)) & 1) as usize;
-        pair = match store.get_cbor(&pair[bit])? {
+        let cid = &pair[bit];
+        pair = match store.get_cbor(cid)? {
             Some(root) => root,
-            None => return Err(anyhow::anyhow!("failed to get root at index {}", bit)),
+            None => {
+                return Err(anyhow::anyhow!(
+                    "failed to get eigentree intermediate node for cid {}",
+                    cid
+                ))
+            }
         };
     }
 
     let bit = (path & 1) as usize;
-    let leaf = match store.get_cbor::<S>(&pair[bit])? {
+    let cid = &pair[bit];
+    let leaf = match store.get_cbor::<S>(cid)? {
         Some(root) => root,
-        None => return Err(anyhow::anyhow!("failed to get root at index {}", bit)),
+        None => return Err(anyhow::anyhow!("failed to get leaf for cid {}", cid)),
     };
     Ok(leaf)
 }
