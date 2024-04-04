@@ -59,7 +59,7 @@ fn hash_and_put_pair<BS: Blockstore>(
     if let (Some(left), Some(right)) = (left, right) {
         // Encode the CIDs into a binary format
         let data = to_vec(&[left, right])?;
-        // Compute the CID for the block
+        // Compute the CID for the block.
         store.put_cbor(&data, Code::Blake2b256)
     } else {
         Err(anyhow::anyhow!("hash_pair requires two CIDs"))
@@ -91,6 +91,8 @@ fn push<BS: Blockstore, S: DeserializeOwned + Serialize>(
             peaks.count(),
             hash_and_put_pair(store, left.as_ref(), right.as_ref())?,
         )?;
+        new_peaks -= 1;
+        new_peaks += 1;
         new_peaks -= 1;
     }
     Ok(peaks.flush()?)
