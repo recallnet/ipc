@@ -136,7 +136,7 @@ fn path_for_eigen_root(leaf_index: u64, leaf_count: u64) -> (u64, u32) {
     let local_offset = leaf_index & bitmask;
     // The local_index is the local_offset plus the merge_height for the local eigentree
     let local_index = local_offset + merge_height;
-    (local_index, index as u32)
+    (local_index, index)
 }
 
 fn get_at<BS: Blockstore, S: DeserializeOwned + Serialize>(
