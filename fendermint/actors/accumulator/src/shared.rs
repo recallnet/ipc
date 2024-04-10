@@ -24,6 +24,7 @@ const BIT_WIDTH: u32 = 3;
 pub enum Method {
     Constructor = METHOD_CONSTRUCTOR,
     Push = frc42_dispatch::method_hash!("Push"),
+    Get = frc42_dispatch::method_hash!("Get"),
     Root = frc42_dispatch::method_hash!("Root"),
     Peaks = frc42_dispatch::method_hash!("Peaks"),
     Count = frc42_dispatch::method_hash!("Count"),
