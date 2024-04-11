@@ -30,7 +30,7 @@ use tokio_util::compat::TokioAsyncReadCompatExt;
 use warp::http::{HeaderMap, HeaderValue};
 use warp::{http::StatusCode, Filter, Rejection, Reply};
 
-use fendermint_actor_accumulator::{push_response_to_json, PushResponse};
+use fendermint_actor_accumulator::{PushResponse, PushResponsePretty};
 use fendermint_actor_objectstore::{
     Object, ObjectDeleteParams, ObjectGetParams, ObjectKind, ObjectList, ObjectListItem,
     ObjectListParams, ObjectPutParams,
@@ -549,7 +549,10 @@ async fn handle_acc_push(
 
     *nonce_lck += 1;
 
-    let data = res.data.map(push_response_to_json);
+    let data = res.data.map(|pr| PushResponsePretty {
+        root: pr.root.to_string(),
+        index: pr.index,
+    });
     let res_human_readable = Txn {
         status: res.status,
         hash: res.hash,

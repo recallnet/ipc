@@ -2851,7 +2851,6 @@ dependencies = [
  "num-derive 0.3.3",
  "num-traits",
  "serde",
- "serde_json",
  "serde_tuple",
 ]
 

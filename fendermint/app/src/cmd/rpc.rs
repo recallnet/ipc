@@ -9,7 +9,7 @@ use anyhow::Context;
 use async_trait::async_trait;
 use bytes::Bytes;
 use cid::Cid;
-use fendermint_actor_accumulator::push_response_to_json;
+use fendermint_actor_accumulator::{PushResponse, PushResponsePretty};
 use fendermint_actor_objectstore::{
     ObjectDeleteParams, ObjectGetParams, ObjectKind, ObjectListParams, ObjectPutParams,
 };
@@ -455,6 +455,13 @@ fn create_return_to_json(ret: CreateReturn) -> serde_json::Value {
 /// Print a Cid.
 pub fn cid_to_json(ret: Cid) -> serde_json::Value {
     json!(ret)
+}
+
+pub fn push_response_to_json(pr: PushResponse) -> serde_json::Value {
+    json!(PushResponsePretty {
+        root: pr.root.to_string(),
+        index: pr.index,
+    })
 }
 
 pub enum BroadcastResponse<T> {

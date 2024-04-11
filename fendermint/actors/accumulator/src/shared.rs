@@ -15,7 +15,6 @@ use fvm_ipld_encoding::{
 };
 use fvm_shared::METHOD_CONSTRUCTOR;
 use num_derive::FromPrimitive;
-use serde_json::json;
 
 pub const ACCUMULATOR_ACTOR_NAME: &str = "accumulator";
 const BIT_WIDTH: u32 = 3;
@@ -219,11 +218,11 @@ pub struct PushResponse {
     pub index: u64,
 }
 
-pub fn push_response_to_json(ret: PushResponse) -> serde_json::Value {
-    json!({
-        "root": ret.root.to_string(),
-        "index": ret.index
-    })
+/// Human-readable version of a PushResponse
+#[derive(Serialize_tuple, Deserialize_tuple)]
+pub struct PushResponsePretty {
+    pub root: String,
+    pub index: u64,
 }
 
 impl State {
