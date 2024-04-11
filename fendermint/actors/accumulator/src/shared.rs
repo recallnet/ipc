@@ -211,7 +211,7 @@ pub struct State {
     pub leaf_count: u64,
 }
 
-#[derive(Default, Debug, Serialize_tuple, Deserialize_tuple)]
+#[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct PushResponse {
     /// The new root of the accumulator MMR after the object was pushed into it.
     pub root: Cid,
