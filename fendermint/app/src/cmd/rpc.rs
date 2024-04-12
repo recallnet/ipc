@@ -9,7 +9,7 @@ use anyhow::Context;
 use async_trait::async_trait;
 use bytes::Bytes;
 use cid::Cid;
-use fendermint_actor_accumulator::{PushReturn};
+use fendermint_actor_accumulator::PushReturn;
 use fendermint_actor_objectstore::{
     ObjectDeleteParams, ObjectGetParams, ObjectKind, ObjectListParams, ObjectPutParams,
 };
