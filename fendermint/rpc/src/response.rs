@@ -4,7 +4,7 @@ use anyhow::{anyhow, Context};
 use base64::Engine;
 use bytes::Bytes;
 use cid::Cid;
-use fendermint_actor_accumulator::PushResponse;
+use fendermint_actor_accumulator::PushReturn;
 use fendermint_actor_objectstore::{Object, ObjectList};
 use fendermint_vm_actor_interface::eam::{self, CreateReturn};
 use fvm_ipld_encoding::{BytesDe, RawBytes};
@@ -69,9 +69,9 @@ pub fn decode_cid(deliver_tx: &DeliverTx) -> anyhow::Result<Cid> {
 }
 
 /// Parse what Tendermint returns in the `data` field of [`DeliverTx`] as bytes.
-pub fn decode_acc_push_results(deliver_tx: &DeliverTx) -> anyhow::Result<PushResponse> {
+pub fn decode_acc_push_results(deliver_tx: &DeliverTx) -> anyhow::Result<PushReturn> {
     let data = decode_data(&deliver_tx.data)?;
-    fvm_ipld_encoding::from_slice::<PushResponse>(&data)
+    fvm_ipld_encoding::from_slice::<PushReturn>(&data)
         .map_err(|e| anyhow!("error parsing as accumulator push response: {e}"))
 }
 

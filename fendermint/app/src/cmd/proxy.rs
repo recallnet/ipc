@@ -30,7 +30,7 @@ use tokio_util::compat::TokioAsyncReadCompatExt;
 use warp::http::{HeaderMap, HeaderValue};
 use warp::{http::StatusCode, Filter, Rejection, Reply};
 
-use fendermint_actor_accumulator::{PushResponse, PushResponsePretty};
+use fendermint_actor_accumulator::{PushReturn, PushReturnPretty};
 use fendermint_actor_objectstore::{
     Object, ObjectDeleteParams, ObjectGetParams, ObjectKind, ObjectList, ObjectListItem,
     ObjectListParams, ObjectPutParams,
@@ -549,7 +549,7 @@ async fn handle_acc_push(
 
     *nonce_lck += 1;
 
-    let data = res.data.map(|pr| PushResponsePretty {
+    let data = res.data.map(|pr| PushReturnPretty {
         root: pr.root.to_string(),
         index: pr.index,
     });
@@ -760,7 +760,7 @@ async fn acc_push(
     client: FendermintClient,
     args: TransArgs,
     event: Bytes,
-) -> anyhow::Result<Txn<PushResponse>> {
+) -> anyhow::Result<Txn<PushReturn>> {
     broadcast(client, args, |mut client, value, gas_params| {
         Box::pin(async move { client.acc_push(event, value, gas_params).await })
     })

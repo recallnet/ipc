@@ -211,16 +211,16 @@ pub struct State {
 }
 
 #[derive(Serialize_tuple, Deserialize_tuple)]
-pub struct PushResponse {
+pub struct PushReturn {
     /// The new root of the accumulator MMR after the object was pushed into it.
     pub root: Cid,
     /// The index of the object that was just pushed into the accumulator.
     pub index: u64,
 }
 
-/// Human-readable version of a PushResponse
+/// Human-readable version of a PushReturn
 #[derive(Serialize_tuple, Deserialize_tuple)]
-pub struct PushResponsePretty {
+pub struct PushReturnPretty {
     pub root: String,
     pub index: u64,
 }
@@ -254,13 +254,13 @@ impl State {
         &mut self,
         store: &BS,
         obj: S,
-    ) -> anyhow::Result<PushResponse> {
+    ) -> anyhow::Result<PushReturn> {
         let mut amt = Amt::<Cid, &BS>::load(&self.peaks, store)?;
         self.peaks = push(store, self.leaf_count, &mut amt, obj)?;
         self.leaf_count += 1;
 
         let root = bag_peaks(&amt)?;
-        Ok(PushResponse {
+        Ok(PushReturn {
             root,
             index: self.leaf_count - 1,
         })
