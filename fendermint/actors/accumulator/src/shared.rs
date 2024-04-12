@@ -218,13 +218,6 @@ pub struct PushReturn {
     pub index: u64,
 }
 
-/// Human-readable version of a PushReturn
-#[derive(Serialize_tuple, Deserialize_tuple)]
-pub struct PushReturnPretty {
-    pub root: String,
-    pub index: u64,
-}
-
 impl State {
     pub fn new<BS: Blockstore>(store: &BS) -> anyhow::Result<Self> {
         let peaks = match Amt::<(), _>::new_with_bit_width(store, BIT_WIDTH).flush() {
