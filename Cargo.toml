@@ -213,10 +213,17 @@ fvm_ipld_amt = "0.6.2"
 #
 # The original IPC build fetches a pre-built builtin-actors CAR bundle from a GH release.
 # For ADM, we can do the same at some point, but for now I've included the repo as a submodule.
-fil_actors_evm_shared = { path = "builtin-actors/actors/evm/shared" }
-fil_actor_eam = { path = "builtin-actors/actors/eam" }
-fil_actor_adm = { path = "builtin-actors/actors/adm" }
-fil_actors_runtime = { path = "builtin-actors/runtime" }
+# fil_actors_evm_shared = { path = "builtin-actors/actors/evm/shared" }
+# fil_actor_eam = { path = "builtin-actors/actors/eam" }
+# fil_actor_adm = { path = "builtin-actors/actors/adm" }
+# fil_actors_runtime = { path = "builtin-actors/runtime" }
+
+# Uncomment entries below when working locally on builtin-actors and this repo simultaneously.
+# Assumes the builtin-actors checkout is in a sibling directory with the same name.
+fil_actors_evm_shared = { path = "../builtin-actors/actors/evm/shared" }
+fil_actor_eam = { path = "../builtin-actors/actors/eam" }
+fil_actor_adm = { path = "../builtin-actors/actors/adm" }
+fil_actors_runtime = { path = "../builtin-actors/runtime" }
 
 # Using the same tendermint-rs dependency as tower-abci. From both we are interested in v037 modules.
 tower-abci = { version = "0.7" }

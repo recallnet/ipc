@@ -34,6 +34,7 @@
 [submodule "extras/linked-token/lib/openzeppelin-contracts-upgradeable"]
 	path = extras/linked-token/lib/openzeppelin-contracts-upgradeable
 	url = https://github.com/openzeppelin/openzeppelin-contracts-upgradeable
-[submodule "builtin-actors"]
-	path = builtin-actors
-	url = git@github.com:amazingdatamachine/builtin-actors.git
+# Comment out if running locally
+# [submodule "builtin-actors"]
+# 	path = builtin-actors
+# 	url = git@github.com:amazingdatamachine/builtin-actors.git

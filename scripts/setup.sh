@@ -2,7 +2,13 @@
 set -eu
 
 GOPATH="${GOPATH:-$HOME/go}"
-export FM_NETWORK=test
+# If `FM_NETWORK=test` is set, then use a relative path to `builtin-actors` vs.
+# pulling from the remote repo
+if [ "$FM_NETWORK" = "test" ]; then
+    BUILTIN_ACTORS_PATH="../builtin-actors"
+else
+    BUILTIN_ACTORS_PATH="builtin-actors"
+fi
 
 # Create a new Genesis file
 rm -rf test-network
@@ -61,9 +67,9 @@ mkdir -p "$HOME/.fendermint/contracts"
 cp -r ./contracts/out/* "$HOME/.fendermint/contracts"
 
 # Build actors
-(cd builtin-actors && make bundle-mainnet)
+(cd $BUILTIN_ACTORS_PATH && make bundle-mainnet)
 mkdir -p fendermint/builtin-actors/output
-cp builtin-actors/output/builtin-actors-mainnet.car fendermint/builtin-actors/output/bundle.car
+cp $BUILTIN_ACTORS_PATH/output/builtin-actors-mainnet.car fendermint/builtin-actors/output/bundle.car
 cp fendermint/builtin-actors/output/bundle.car "$HOME/.fendermint/bundle.car"
 cargo build --release -p fendermint_actors
 cp fendermint/actors/output/custom_actors_bundle.car "$HOME/.fendermint/custom_actors_bundle.car"
