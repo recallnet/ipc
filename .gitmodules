@@ -35,6 +35,7 @@
 	path = extras/linked-token/lib/openzeppelin-contracts-upgradeable
 	url = https://github.com/openzeppelin/openzeppelin-contracts-upgradeable
 # Comment out if running locally
+# You'll also have to run: `git rm --cached builtin-actors`
 # [submodule "builtin-actors"]
 # 	path = builtin-actors
 # 	url = git@github.com:amazingdatamachine/builtin-actors.git
