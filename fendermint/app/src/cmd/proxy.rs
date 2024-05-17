@@ -17,13 +17,11 @@ use ethers::core::types::{self as et};
 use fendermint_actor_machine::{Metadata, WriteAccess};
 use fendermint_actor_objectstore::{Object, ObjectKind, ObjectList, ObjectListItem};
 use fendermint_rpc::QueryClient;
-use fendermint_vm_message::conv::from_fvm::to_eth_tokens;
-use fendermint_vm_message::signed::SignedMessage;
+use fendermint_vm_message::{conv::from_fvm::to_eth_tokens, signed::SignedMessage};
 use futures_util::{Stream, StreamExt};
 use fvm_ipld_encoding::strict_bytes::ByteBuf;
 use fvm_shared::{address::Address, econ::TokenAmount, ActorID, BLOCK_GAS_LIMIT};
-use ipfs_api_backend_hyper::request::Add;
-use ipfs_api_backend_hyper::{IpfsApi, IpfsClient, TryFromUri};
+use ipfs_api_backend_hyper::{request::Add, IpfsApi, IpfsClient, TryFromUri};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -45,18 +43,17 @@ use fendermint_actor_accumulator::PushReturn;
 use fendermint_actor_objectstore::{DeleteParams, GetParams, ListParams, PutParams};
 use fendermint_app_options::rpc::BroadcastMode;
 use fendermint_app_settings::proxy::ProxySettings;
-use fendermint_rpc::tx::BoundClient;
 use fendermint_rpc::{
     client::FendermintClient,
     message::GasParams,
-    tx::{CallClient, TxClient},
+    tx::{BoundClient, CallClient, TxClient},
 };
 use fendermint_vm_actor_interface::adm;
 use fendermint_vm_message::query::FvmQueryHeight;
 use fvm_shared::chainid::ChainID;
 
-use super::rpc::{gas_params, BroadcastResponse, TransClient};
 use crate::cmd;
+use crate::cmd::rpc::{gas_params, BroadcastResponse, TransClient};
 use crate::options::{
     proxy::{ProxyArgs, ProxyCommands},
     rpc::TransArgs,
@@ -696,7 +693,7 @@ async fn handle_os_upload(
             })
         })?;
 
-        let add = ipfs_api_backend_hyper::request::Add {
+        let add = Add {
             chunker: Some("size-1048576"),
             pin: Some(false),
             ..Default::default()
@@ -1536,13 +1533,7 @@ mod tests {
             gas_premium: TokenAmount::from_atto(0),
         };
         let chain_id = fvm_shared::chainid::ChainID::from(314159);
-        let signed = fendermint_vm_message::signed::SignedMessage::new_secp256k1(
-            message,
-            Some(object),
-            &sk,
-            &chain_id,
-        )
-        .unwrap();
+        let signed = SignedMessage::new_secp256k1(message, Some(object), &sk, &chain_id).unwrap();
 
         let serialized_signed_message = fvm_ipld_encoding::to_vec(&signed).unwrap();
         let serialized_signed_message_b64 =

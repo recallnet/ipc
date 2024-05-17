@@ -154,7 +154,7 @@ do
       -e PARENT_REGISTRY=${parent_registry_address} \
       -e PARENT_GATEWAY=${parent_gateway_address} \
       -e FM_PULL_SKIP=1 \
-      -e FM_LOG_LEVEL="info" \
+      -e FM_LOG_LEVEL="info,fendermint=debug" \
       child-validator-restart
 done
 

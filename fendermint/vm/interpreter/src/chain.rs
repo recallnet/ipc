@@ -350,6 +350,7 @@ where
                     if let Some(obj) = msg.object {
                         atomically(|| env.object_pool.add(ObjectPoolItem { obj: obj.clone() }))
                             .await;
+                        tracing::debug!(cid = ?obj.value, store = ?obj.address, "object added to pool");
                     }
                 }
 

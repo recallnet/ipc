@@ -3,9 +3,16 @@
 
 use anyhow::anyhow;
 use axum::routing::{get, post};
+use error::{error, JsonRpcError};
 use fvm_shared::econ::TokenAmount;
+use http::{
+    header::{AUTHORIZATION, CONTENT_TYPE, ORIGIN},
+    Method,
+};
 use jsonrpc_v2::Data;
+use state::JsonRpcState;
 use std::{net::ToSocketAddrs, sync::Arc, time::Duration};
+use tower_http::cors::{Any, CorsLayer};
 
 mod apis;
 mod cache;
@@ -18,9 +25,6 @@ mod handlers;
 mod state;
 
 pub use client::{HybridClient, HybridClientDriver};
-
-use error::{error, JsonRpcError};
-use state::JsonRpcState;
 
 /// This is passed to every method handler. It's generic in the client type to facilitate testing with mocks.
 type JsonRpcData<C> = Data<JsonRpcState<C>>;
@@ -84,5 +88,11 @@ fn make_router(state: AppState) -> axum::Router {
     axum::Router::new()
         .route("/", post(handlers::http::handle))
         .route("/", get(handlers::ws::handle))
+        .layer(
+            CorsLayer::new()
+                .allow_headers([ORIGIN, AUTHORIZATION, CONTENT_TYPE])
+                .allow_methods([Method::GET, Method::OPTIONS, Method::POST, Method::PUT])
+                .allow_origin(Any),
+        )
         .with_state(state)
 }
