@@ -209,15 +209,15 @@ fi
 # CREATE MACHINES & CHECK FINAL READINESS
 # ------------------------------------------------------------
 
-# Create the object store and accumulator actors
-echo "Creating object store and accumluator actors..."
-# Capture otuput `robust_address` and `actor_id` of curl command
-read os_robust_address os_actor_id < <(curl -s -X POST -H 'X-ADM-BroadcastMode: commit' $PROXY_URL/v1/machines/objectstores | jq -r '.data | "\(.robust_address) \(.actor_id)"')
-read acc_robust_address acc_actor_id < <(curl -s -X POST -H 'X-ADM-BroadcastMode: commit' $PROXY_URL/v1/machines/accumulators | jq -r '.data | "\(.robust_address) \(.actor_id)"')
+# # Create the object store and accumulator actors
+# echo "Creating object store and accumluator actors..."
+# # Capture otuput `robust_address` and `actor_id` of curl command
+# read os_robust_address os_actor_id < <(curl -s -X POST -H 'X-ADM-BroadcastMode: commit' $PROXY_URL/v1/machines/objectstores | jq -r '.data | "\(.robust_address) \(.actor_id)"')
+# read acc_robust_address acc_actor_id < <(curl -s -X POST -H 'X-ADM-BroadcastMode: commit' $PROXY_URL/v1/machines/accumulators | jq -r '.data | "\(.robust_address) \(.actor_id)"')
 
-echo $'\nActors created at:'
-echo "  - Object store: '$os_robust_address'; machine ID: '$os_actor_id'"
-echo "  - Accumulator: '$acc_robust_address'; machine ID: '$acc_actor_id'"
+# echo $'\nActors created at:'
+# echo "  - Object store: '$os_robust_address'; machine ID: '$os_actor_id'"
+# echo "  - Accumulator: '$acc_robust_address'; machine ID: '$acc_actor_id'"
 
 echo $'\nNetwork is ready to accept requests'
 
