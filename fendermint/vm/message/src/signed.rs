@@ -52,7 +52,7 @@ pub enum DomainHash {
     Eth([u8; 32]),
 }
 
-/// Represents a resolvable key/value object that can accompany a [`SignedMessage`].
+/// Represents a resolvable key/value object that can go a [`With signedMessage`].
 ///
 /// The object's value will be queued for resolution.
 #[derive(PartialEq, Clone, Debug, Serialize_tuple, Deserialize_tuple, Hash, Eq)]

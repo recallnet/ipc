@@ -36,7 +36,7 @@ pub type Object = Bytes;
 pub(crate) const NULL_ROUND_ERR_MSG: &str = "requested epoch was a null round";
 /// Default topdown proposal height range
 pub(crate) const DEFAULT_MAX_PROPOSAL_RANGE: BlockHeight = 100;
-pub(crate) const DEFAULT_MAX_CACHE_BLOCK: BlockHeight = 500;
+pub(crate) const DEFAULT_MAX_CACHE_BLOCK: BlockHeight = 20000;
 pub(crate) const DEFAULT_PROPOSAL_DELAY: BlockHeight = 2;
 
 #[derive(Debug, Clone, Deserialize)]

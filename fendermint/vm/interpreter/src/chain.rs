@@ -201,7 +201,7 @@ where
                 )
                 .await;
 
-            // Remove here otherwise proposal will be rejected
+            // Remove here otherwise the proposal will be rejected
             if is_finalized {
                 tracing::debug!(cid = ?item.obj.value, "object already finalized; removing from pool");
                 atomically(|| state.object_pool.remove(item)).await;
