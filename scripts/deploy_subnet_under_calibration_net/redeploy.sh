@@ -153,6 +153,7 @@ do
       -e IPFS_PROFILE="local-discovery" \
       -e PARENT_REGISTRY=${parent_registry_address} \
       -e PARENT_GATEWAY=${parent_gateway_address} \
+      -e TOPDOWN_MAX_CACHE_BLOCKS=10000 \
       -e FM_PULL_SKIP=1 \
       -e FM_LOG_LEVEL="info,fendermint=debug" \
       child-validator-restart

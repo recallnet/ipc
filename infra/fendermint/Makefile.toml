@@ -57,6 +57,9 @@ TOPDOWN_PROPOSAL_DELAY = { value = "2", condition = { env_not_set = ["TOPDOWN_PR
 TOPDOWN_MAX_PROPOSAL_RANGE = { value = "100", condition = { env_not_set = [
     "TOPDOWN_MAX_PROPOSAL_RANGE",
 ] } }
+TOPDOWN_MAX_CACHE_BLOCKS = { value = "500", condition = { env_not_set = [
+    "TOPDOWN_MAX_CACHE_BLOCKS",
+] } }
 # Comma-separated list of bootstrap nodes to be used by the CometBFT node.
 BOOTSTRAPS = { value = "", condition = { env_not_set = ["BOOTSTRAPS"] } }
 
