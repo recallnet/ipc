@@ -10,12 +10,14 @@ set -e
 export FM_NETWORK=test
 
 # Ports
-FENDERMINT_PORT=26658
-CBFT_PORT=26657
+FM_PORT=26658
+CMT_PORT=26657
 IPFS_PORT=5001
 PROXY_PORT=8001
+EVM_PORT=8545
 HOST=127.0.0.1
 PROXY_URL="http://$HOST:$PROXY_PORT"
+IPC_CONFIG_FOLDER=test-network
 
 # Polling settings
 MAX_ATTEMPTS=10
@@ -103,14 +105,26 @@ check_status() {
     return 1
 }
 
-echo $'Starting local ADM network...\n'
+# Process a secret key file and output the public key (for logging)
+process_keyfile() {
+    local sk_file=$1
+    local temp_dir=$2
+    local name=$(basename "$sk_file" .sk)
+    local secret_key=$(cat "$sk_file" | base64 -d | xxd -p -c 1000000)
+    local public_key=$(fendermint key into-eth --secret-key "$sk_file" --name tmp -o "$temp_dir" && (cat $(find "$temp_dir" -name "*.addr")))
+    
+    echo "$name:  "
+    echo "  Public: 0x$public_key"
+    echo "  Private: $secret_key"
+}
+
 # Check `ipfs daemon` is running, else, start it
+echo $'\nNode setup\n=========='
+echo "Initializing local network (Fendermint, CometBFT, IPFS, EVM, proxy)..."
 if [ -f "${HOME}/.ipfs/api" ]; then
     ipfs_is_running="true"
-    echo "Initializing Fendermint, CometBFT, and proxy API..."
 else
     ipfs_is_running="false"
-    echo "Initializing Fendermint, CometBFT, IPFS, and proxy API..."
 fi
 
 # Check if ports are in use
@@ -121,12 +135,13 @@ check_and_log_port() {
         ports_in_use+=($port)
     fi
 }
-check_and_log_port $FENDERMINT_PORT
-check_and_log_port $CBFT_PORT
+check_and_log_port $FM_PORT
+check_and_log_port $CMT_PORT
 if [ "$ipfs_is_running" = "false" ]; then
     check_and_log_port $IPFS_PORT
 fi
 check_and_log_port $PROXY_PORT
+check_and_log_port $EVM_PORT
 
 # If any ports are in use, exit
 if [ ${#ports_in_use[@]} -gt 0 ]; then
@@ -164,8 +179,8 @@ run_cmd ./scripts/setup.sh
 # Wait for Fendermint to be ready before proceeding
 run_cmd ./scripts/run_fendermint.sh &
 pid1=$!
-if check_status $FENDERMINT_PORT $MAX_ATTEMPTS $INTERVAL; then
-    echo "Fendermint is ready on port '$FENDERMINT_PORT'"
+if check_status $FM_PORT $MAX_ATTEMPTS $INTERVAL; then
+    echo "Fendermint is ready on port '$FM_PORT'"
 else
     echo "Fendermint failed to start...exiting"
     exit 1
@@ -174,8 +189,8 @@ fi
 # Wait for CometBFT to be ready before proceeding
 run_cmd ./scripts/run_cometbft.sh &
 pid2=$!
-if check_status $CBFT_PORT $MAX_ATTEMPTS $INTERVAL; then
-    echo "CometBFT is ready on port '$CBFT_PORT'"
+if check_status $CMT_PORT $MAX_ATTEMPTS $INTERVAL; then
+    echo "CometBFT is ready on port '$CMT_PORT'"
 else
     echo "CometBFT failed to start...exiting"
     exit 1
@@ -195,6 +210,16 @@ else
     echo "IPFS is already running on port '$IPFS_PORT'"
 fi
 
+# Wait for EVM node to be ready before proceeding
+run_cmd ./scripts/run_evm.sh &
+pid2=$!
+if check_status $EVM_PORT $MAX_ATTEMPTS $INTERVAL; then
+    echo "EVM API is ready on port '$EVM_PORT'"
+else
+    echo "EVM API failed to start...exiting"
+    exit 1
+fi
+
 # Wait for proxy readiness via "/health" endpoint
 run_cmd ./scripts/run_proxy.sh &
 pid4=$!
@@ -206,20 +231,50 @@ else
 fi
 
 # ------------------------------------------------------------
-# CREATE MACHINES & CHECK FINAL READINESS
+# CREATE MACHINES & LOG ENVIROMENT INFO
 # ------------------------------------------------------------
 
-# # Create the object store and accumulator actors
-# echo "Creating object store and accumluator actors..."
-# # Capture otuput `robust_address` and `actor_id` of curl command
-# read os_robust_address os_actor_id < <(curl -s -X POST -H 'X-ADM-BroadcastMode: commit' $PROXY_URL/v1/machines/objectstores | jq -r '.data | "\(.robust_address) \(.actor_id)"')
-# read acc_robust_address acc_actor_id < <(curl -s -X POST -H 'X-ADM-BroadcastMode: commit' $PROXY_URL/v1/machines/accumulators | jq -r '.data | "\(.robust_address) \(.actor_id)"')
 
-# echo $'\nActors created at:'
-# echo "  - Object store: '$os_robust_address'; machine ID: '$os_actor_id'"
-# echo "  - Accumulator: '$acc_robust_address'; machine ID: '$acc_actor_id'"
+# Log accounts by iterating through each .sk file in the keys directory, sort
+# them, and process them (note: standard Hardhat accounts are included)
+echo $'\nAccounts\n========'
+temp_dir=$(mktemp -d)
+accounts=()
+for sk_file in $(find "$IPC_CONFIG_FOLDER/keys" -name "*.sk" | sort -V); do
+    result=$(process_keyfile "$sk_file" "$temp_dir")
+    output+=("$result")
+done
+printf "%s\n" "${output[@]}"
+rm -rf "$temp_dir"
 
-echo $'\nNetwork is ready to accept requests'
+# Create the object store and accumulator
+echo $'\nDeployed machines\n================='
+# Capture otuput `robust_address` and `actor_id` of curl command
+read os_robust_address os_actor_id < <(curl -s -X POST -H 'X-ADM-BroadcastMode: commit' $PROXY_URL/v1/machines/objectstores | jq -r '.data | "\(.robust_address) \(.actor_id)"')
+read acc_robust_address acc_actor_id < <(curl -s -X POST -H 'X-ADM-BroadcastMode: commit' $PROXY_URL/v1/machines/accumulators | jq -r '.data | "\(.robust_address) \(.actor_id)"')
+
+echo "Object store:"
+echo "  Addresss: $os_robust_address"
+echo "  Machine ID: $os_actor_id"
+echo "Accumulator:"
+echo "  Addresss: $acc_robust_address"
+echo "  Machine ID: $acc_actor_id"
+
+# Node APIs
+echo $'\nNode APIs\n========='
+echo "Fendermint: http://$HOST:$FM_PORT"
+echo "CometBFT: http://$HOST:$CMT_PORT"
+echo "EVM: http://$HOST:$EVM_PORT"
+echo "Proxy: $PROXY_URL"
+
+# Subnet & chain ID
+echo $'\nChain info\n=========='
+echo "Subnet ID: /r314159/t410f726d2jv6uj4mpkcbgg5ndlpp3l7dd5rlcpgzkoi" # hard coded
+chain_id_hex=$(curl -s --location --request POST 'http://localhost:8545/' --header 'Content-Type: application/json' --data-raw '{ "jsonrpc":"2.0", "method":"eth_chainId", "params":[], "id":1 }' | jq -r '.result')
+chain_id=$(printf "%d" $chain_id_hex)
+echo "Chain ID: $chain_id ($chain_id_hex)"
+
+echo $'\nNetwork is ready to accept requests!'
 
 wait $pid1
 wait $pid2
