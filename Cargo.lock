@@ -3066,6 +3066,7 @@ dependencies = [
  "serde_with 2.3.3",
  "serial_test",
  "tendermint-rpc",
+ "tower-http",
 ]
 
 [[package]]
@@ -3136,7 +3137,6 @@ dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared",
  "hex",
- "http 0.2.12",
  "jsonrpc-v2",
  "lazy_static",
  "lru_time_cache",
@@ -5237,6 +5237,7 @@ dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared",
  "hex",
+ "http 0.2.12",
  "indoc",
  "ipc-api",
  "ipc-types",
@@ -5257,6 +5258,7 @@ dependencies = [
  "tokio",
  "tokio-tungstenite 0.18.0",
  "toml 0.8.12",
+ "tower-http",
  "url",
  "zeroize",
 ]

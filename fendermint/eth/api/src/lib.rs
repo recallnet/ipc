@@ -5,14 +5,10 @@ use anyhow::anyhow;
 use axum::routing::{get, post};
 use error::{error, JsonRpcError};
 use fvm_shared::econ::TokenAmount;
-use http::{
-    header::{AUTHORIZATION, CONTENT_TYPE, ORIGIN},
-    Method,
-};
 use jsonrpc_v2::Data;
 use state::JsonRpcState;
 use std::{net::ToSocketAddrs, sync::Arc, time::Duration};
-use tower_http::cors::{Any, CorsLayer};
+use tower_http::cors::{AllowHeaders, AllowMethods, AllowOrigin, CorsLayer};
 
 mod apis;
 mod cache;
@@ -45,6 +41,13 @@ pub struct GasOpt {
     pub max_fee_hist_size: u64,
 }
 
+#[derive(Debug, Clone)]
+pub struct CorsOpt {
+    pub allowed_origins: AllowOrigin,
+    pub allowed_methods: AllowMethods,
+    pub allowed_headers: AllowHeaders,
+}
+
 /// Start listening to JSON-RPC requests.
 pub async fn listen<A: ToSocketAddrs>(
     listen_addr: A,
@@ -52,6 +55,7 @@ pub async fn listen<A: ToSocketAddrs>(
     filter_timeout: Duration,
     cache_capacity: usize,
     gas_opt: GasOpt,
+    cors_opt: CorsOpt,
 ) -> anyhow::Result<()> {
     if let Some(listen_addr) = listen_addr.to_socket_addrs()?.next() {
         let rpc_state = Arc::new(JsonRpcState::new(
@@ -65,7 +69,7 @@ pub async fn listen<A: ToSocketAddrs>(
             rpc_server,
             rpc_state,
         };
-        let router = make_router(app_state);
+        let router = make_router(app_state, cors_opt);
         let server = axum::Server::try_bind(&listen_addr)?.serve(router.into_make_service());
 
         tracing::info!(?listen_addr, "bound Ethereum API");
@@ -84,15 +88,16 @@ fn make_server(state: Arc<JsonRpcState<HybridClient>>) -> JsonRpcServer {
 }
 
 /// Register routes in the `axum` HTTP router to handle JSON-RPC and WebSocket calls.
-fn make_router(state: AppState) -> axum::Router {
+fn make_router(state: AppState, cors_opt: CorsOpt) -> axum::Router {
+    println!("origins: {:#?}", cors_opt);
     axum::Router::new()
         .route("/", post(handlers::http::handle))
         .route("/", get(handlers::ws::handle))
         .layer(
             CorsLayer::new()
-                .allow_headers([ORIGIN, AUTHORIZATION, CONTENT_TYPE])
-                .allow_methods([Method::GET, Method::OPTIONS, Method::POST, Method::PUT])
-                .allow_origin(Any),
+                .allow_origin(cors_opt.allowed_origins)
+                .allow_methods(cors_opt.allowed_methods)
+                .allow_headers(cors_opt.allowed_headers),
         )
         .with_state(state)
 }

@@ -38,12 +38,18 @@ async fn run(settings: EthSettings, client: HybridClient) -> anyhow::Result<()> 
         num_blocks_max_prio_fee: settings.gas.num_blocks_max_prio_fee,
         max_fee_hist_size: settings.gas.max_fee_hist_size,
     };
+    let cors = fendermint_eth_api::CorsOpt {
+        allowed_origins: settings.cors.allowed_origins,
+        allowed_methods: settings.cors.allowed_methods,
+        allowed_headers: settings.cors.allowed_headers,
+    };
     fendermint_eth_api::listen(
         settings.listen,
         client,
         settings.filter_timeout,
         settings.cache_capacity,
         gas,
+        cors,
     )
     .await
 }

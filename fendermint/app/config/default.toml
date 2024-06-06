@@ -115,6 +115,17 @@ host = "127.0.0.1"
 # JSON-RPC (POST) and WebSockets (GET) requests.
 port = 8545
 
+[eth.cors]
+# A list of origins a cross-domain request can be executed from
+# Default value '[]' disables cors support
+# Use '["*"]' to allow any origin
+allowed_origins = []
+# A list of methods the client is allowed to use with cross-domain requests
+# Suggested methods if allowing origins: "GET", "OPTIONS", "HEAD", "POST"
+allowed_methods = []
+# A list of non-simple headers the client is allowed to use with cross-domain requests
+# Suggested headers if allowing origins: "Accept", "Authorization", "Content-Type", "Origin"
+allowed_headers = []
 
 # Proxy API facade
 [proxy]
