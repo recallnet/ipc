@@ -80,7 +80,7 @@ imported wallet with address "0x406a7a1d002b71ece175cc7e067620ae5b58e9ec"
 As a sanity-check that we have joined the subnet successfully and that the subnet has been registered in IPC successfully can be performed through:
 
 ```bash
-./bin/ipc-cli subnet list --subnet=<PARENT_SUBBNET_ID>
+./bin/ipc-cli subnet list --subnet=<PARENT_SUBNET_ID>
 ```
 ```console
 # Example execution
@@ -118,7 +118,7 @@ $ ./bin/ipc-cli subnet stake --subnet=/r314159/t410fh4ywg4wvxcjzz4vsja3uh4f53joh
 > ```
 
 ## Listing your balance in a subnet
-In order to send messages in a subnet, you'll need to have funds in your subnt account. You can use the following command to list the balance of your wallets in a subnet:
+In order to send messages in a subnet, you'll need to have funds in your subnet account. You can use the following command to list the balance of your wallets in a subnet:
 ```bash
 ./bin/ipc-cli wallet balances --wallet-type evm --subnet <subnet-id>
 ```
@@ -142,7 +142,7 @@ $ ./bin/ipc-cli subnet send-value --subnet /r31415926/t4xwzbdu7z5sam6hc57xxwkctc
 
 At the moment, the IPC agent only expose commands to perform the basic IPC interoperability primitives for cross-net communication, which is the exchange of FIL (the native token for IPC) between the same address of a subnet. Mainly:
 - `fund`, which sends native token from one public key address, to the same public key address in the child.
-- `release` that movesnative token from one account in a child subnet to its counter-part in the parent.
+- `release` that moves native token from one account in a child subnet to its counter-part in the parent.
 
 Complex behavior can be implemented using these primitives: sending value to a user in another subnet can be implemented a set of `release/fund` and `sendValue` operations. Calling  smart contract from one subnet to another works by providing funds to one account in the destination subnet, and then calling the contract. The `ipc-cli` doesn't currently include abstractions for this complex operations, but it will in the future. That being said, users can still leverage the `ipc-cli` or even the `IpcProvider` library to easily compose the basic primitives into complex functionality (in case you want to hack something cool and contribute to the project :) ).
 
@@ -197,7 +197,7 @@ $ ./bin/ipc-cli cross-msg pre-fund --subnet=/r31415926/t4xwzbdu7z5sam6hc57xxwkct
 ```
 
 ### Release
-In order to release funds from a subnet, your account must hold enough funds inside it. Releasing funds to the parent subnet can be permformed with the following commnd:
+In order to release funds from a subnet, your account must hold enough funds inside it. Releasing funds to the parent subnet can be performed with the following command:
 ```bash
 ./bin/ipc-cli cross-msg release --subnet <subnet-id> [--from <from-addr>] [--to <to-addr>] <amount>
 ```
