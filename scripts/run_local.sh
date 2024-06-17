@@ -7,16 +7,15 @@ set -e
 # ------------------------------------------------------------
 
 # Dicatate local behavior in this and `setup.sh` scripts
-export FM_NETWORK=test
+export FM_NETWORK=test # Fendmerint
+export NETWORK=devnet # ADM CLI
 
 # Ports
 FM_PORT=26658
 CMT_PORT=26657
 IPFS_PORT=5001
-PROXY_PORT=8001
 EVM_PORT=8545
 HOST=127.0.0.1
-PROXY_URL="http://$HOST:$PROXY_PORT"
 IPC_CONFIG_FOLDER=test-network
 
 # Polling settings
@@ -24,7 +23,7 @@ MAX_ATTEMPTS=10
 INTERVAL=1
 
 # Optionally, pass "build=true" to build & install Fendermint, or pass
-# "silent=false" to log verbosely from Fendermint, CometBFT, and proxy
+# "silent=false" to log verbosely from Fendermint, CometBFT, and EVM
 # API. Example: `./scripts/run_local.sh build=true silent=false`
 BUILD="false"
 SILENCE_LOG="true"
@@ -67,13 +66,13 @@ cleanup() {
     kill_with_children $pid1 # Fendermint
     kill_with_children $pid2 # CometBFT
     [ ! -z "${pid3+x}" ] && kill_with_children $pid3 # An IPFS daemon might run independent of this script
-    kill_with_children $pid4 # Proxy API
+    kill_with_children $pid4 # EVM API
     exit
 }
 trap cleanup SIGINT
 
 # Function to wait for a port to be open, with optional `path` to check for HTTP
-# 200 response (used for proxy API)
+# 200 response (e.g., if setting up some API)
 check_status() {
     local port=$1
     local max_attempts=${2:-1} # Default to 1 attempts
@@ -120,7 +119,7 @@ process_keyfile() {
 
 # Check `ipfs daemon` is running, else, start it
 echo $'\nNode setup\n=========='
-echo "Initializing local network (Fendermint, CometBFT, IPFS, EVM, proxy)..."
+echo "Initializing local network (Fendermint, CometBFT, IPFS, EVM)..."
 if [ -f "${HOME}/.ipfs/api" ]; then
     ipfs_is_running="true"
 else
@@ -140,7 +139,6 @@ check_and_log_port $CMT_PORT
 if [ "$ipfs_is_running" = "false" ]; then
     check_and_log_port $IPFS_PORT
 fi
-check_and_log_port $PROXY_PORT
 check_and_log_port $EVM_PORT
 
 # If any ports are in use, exit
@@ -156,8 +154,9 @@ if [ ${#ports_in_use[@]} -gt 0 ]; then
     done
     # Remove duplicates
     pids_in_use=($(echo "${pids_in_use[@]}" | tr ' ' '\n' | sort -u | tr '\n' ' '))
-    echo "PIDs: ${pids_in_use[*]}"
-    echo "Run this to kill processes: kill -9 ${pids_in_use[*]}"
+    echo "Run command below to kill PIDs: ${pids_in_use[*]}"
+    echo
+    echo "kill -9 ${pids_in_use[*]}"
     exit 1
 fi
 
@@ -172,7 +171,7 @@ else
   echo "Skipping Fendermint build & installation step..."
 fi
 
-# Start Fendermint, CometBFT, and proxy API after running setup script, which
+# Start Fendermint, CometBFT, and EVM API after running setup script, which
 # builds contracts and seeds the network with test accounts
 run_cmd ./scripts/setup.sh
 
@@ -212,7 +211,7 @@ fi
 
 # Wait for EVM node to be ready before proceeding
 run_cmd ./scripts/run_evm.sh &
-pid2=$!
+pid4=$!
 if check_status $EVM_PORT $MAX_ATTEMPTS $INTERVAL; then
     echo "EVM API is ready on port '$EVM_PORT'"
 else
@@ -220,20 +219,9 @@ else
     exit 1
 fi
 
-# Wait for proxy readiness via "/health" endpoint
-run_cmd ./scripts/run_proxy.sh &
-pid4=$!
-if check_status $PROXY_PORT $MAX_ATTEMPTS $INTERVAL "/health"; then
-    echo "Proxy API is ready on port '$PROXY_PORT'"
-else
-    echo "Proxy API failed to start...exiting"
-    exit 1
-fi
-
 # ------------------------------------------------------------
 # CREATE MACHINES & LOG ENVIROMENT INFO
 # ------------------------------------------------------------
-
 
 # Log accounts by iterating through each .sk file in the keys directory, sort
 # them, and process them (note: standard Hardhat accounts are included)
@@ -250,22 +238,20 @@ rm -rf "$temp_dir"
 # Create the object store and accumulator
 echo $'\nDeployed machines\n================='
 # Capture otuput `robust_address` and `actor_id` of curl command
-read os_robust_address os_actor_id < <(curl -s -X POST -H 'X-ADM-BroadcastMode: commit' $PROXY_URL/v1/machines/objectstores | jq -r '.data | "\(.robust_address) \(.actor_id)"')
-read acc_robust_address acc_actor_id < <(curl -s -X POST -H 'X-ADM-BroadcastMode: commit' $PROXY_URL/v1/machines/accumulators | jq -r '.data | "\(.robust_address) \(.actor_id)"')
+# get the secret key of the file at `test-network/keys/alic.sk`
+secret_key=$(cat test-network/keys/alice.sk | base64 -d | xxd -p -c 1000000)
 
-echo "Object store:"
-echo "  Addresss: $os_robust_address"
-echo "  Machine ID: $os_actor_id"
-echo "Accumulator:"
-echo "  Addresss: $acc_robust_address"
-echo "  Machine ID: $acc_actor_id"
+read os_robust_address os_actor_id < <(PRIVATE_KEY="$secret_key" adm objectstore create | jq -r '.address')
+read acc_robust_address acc_actor_id < <(PRIVATE_KEY="$secret_key" adm accumulator create | jq -r '.address')
+
+echo "Object store: $os_robust_address"
+echo "Accumulator: $acc_robust_address"
 
 # Node APIs
 echo $'\nNode APIs\n========='
 echo "Fendermint: http://$HOST:$FM_PORT"
 echo "CometBFT: http://$HOST:$CMT_PORT"
 echo "EVM: http://$HOST:$EVM_PORT"
-echo "Proxy: $PROXY_URL"
 
 # Subnet & chain ID
 echo $'\nChain info\n=========='
