@@ -21,10 +21,11 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 WORKDIR /usr/src/app
 
 # Copy Ansible playbooks and roles
-COPY ../ansible /ansible
+# NOTE: must run the build with '..' as the context directory
+COPY ./ansible /ansible
 
 # Set the entrypoint
-COPY entrypoint.sh /entrypoint.sh
+COPY test-ansible-docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 ENTRYPOINT ["/entrypoint.sh"]
 
