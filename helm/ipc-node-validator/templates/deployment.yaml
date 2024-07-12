@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ipc-node-validator.fullname" . }}
+  labels:
+    app: {{ include "ipc-node-validator.name" . }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ include "ipc-node-validator.name" . }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "ipc-node-validator.name" . }}
+    spec:
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.service.port }}
+          livenessProbe:
+            httpGet:
+              path: /
+              port: {{ .Values.service.port }}
+          readinessProbe:
+            httpGet:
+              path: /
+              port: {{ .Values.service.port }}
+          env:
+            - name: CONFIG_FILE
+              value: "/etc/ipc/config.yaml"
+          volumeMounts:
+            - name: config-volume
+              mountPath: /etc/ipc
+      volumes:
+        - name: config-volume
+          configMap:
+            name: ipc-config
+      serviceAccountName: {{ include "ipc-node-validator.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+

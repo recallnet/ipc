@@ -61,6 +61,11 @@ make test
 - `contracts`: A reference implementation of all the actors (i.e. smart contracts) responsible for the operation of the IPC (Inter-Planetary Consensus) protocol.
 - `ipld`: IPLD specific types and libraries
 
+## Deploying onto Testnet and Mainnet
+
+- [docs/deploying-helm.md](./docs/ipc/deploying-helm.md) to deploy the IPC blockchain node validators on a Kubernetes cluster using Helm 
+- [docs/deploying-ansible.md](./docs/ipc/deploying-ansible.md) to deploy the IPC blockchain node validators using Ansible without Kubernetes
+
 ## Documentation and Guides
 
 **We've prepared a [quick start guide](https://docs.ipc.space/quickstarts/deploy-a-subnet) that will have you running and validating on your own subnet quickly, at the cost of detailed explanations.**

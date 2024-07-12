@@ -1,0 +1,14 @@
+---
+- hosts: localhost
+  become: yes
+  tasks:
+    - name: Install Helm
+      shell: |
+        curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+
+    - name: Add Helm stable repository
+      command: helm repo add stable https://charts.helm.sh/stable
+
+    - name: Deploy Helm chart
+      command: helm install ipc-node-validator ./helm/ipc-node-validator
+

@@ -1,0 +1,15 @@
+---
+- hosts: localhost
+  become: yes
+  roles:
+    - common
+    - nodejs
+    - ipc-node
+
+  tasks:
+    - name: Add wasm32 target to rust
+      command: rustup target add wasm32-unknown-unknown
+
+    - name: Add user to docker group
+      command: sudo usermod -aG docker {{ ansible_user_id }} && newgrp docker
+

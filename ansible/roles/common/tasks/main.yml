@@ -1,0 +1,22 @@
+---
+- name: Install common system packages
+  apt:
+    name:
+      - build-essential
+      - clang
+      - cmake
+      - pkg-config
+      - libssl-dev
+      - protobuf-compiler
+      - git
+      - curl
+    state: present
+    update_cache: yes
+
+- name: Install Rust
+  shell: |
+    curl https://sh.rustup.rs -sSf | sh -s -- -y
+    source $HOME/.cargo/env
+  args:
+    executable: /bin/bash
+

@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ipc-config
+data:
+  config.yaml: |
+    # IPC Node Validator configuration
+    [validator]
+    # Your configuration details here
+
