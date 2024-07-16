@@ -4,6 +4,7 @@ FROM node:20
 # Install necessary dependencies
 RUN apt-get update && apt-get install -y \
     build-essential \
+    vim \
     clang \
     cmake \
     pkg-config \
@@ -31,5 +32,6 @@ COPY ./ansible /ansible
 # Set the entrypoint
 COPY test-ansible-docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
-ENTRYPOINT ["/entrypoint.sh"]
+#ENTRYPOINT ["/entrypoint.sh"]
+ENTRYPOINT ["sleep", "9999999"]
 
