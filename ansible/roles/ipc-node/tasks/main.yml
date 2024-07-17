@@ -1,7 +1,12 @@
 ---
+# TODO: Remove Github secrets section once this repo is public
+- name: Include GitHub secrets
+  include_vars:
+    file: github_secrets.yml
+
 - name: Clone IPC repository
   git:
-    repo: https://github.com/amazingdatamachine/ipc.git
+    repo: https://{{ github_token }}@github.com/amazingdatamachine/ipc.git
     dest: /home/{{ ansible_user_id }}/ipc
 
 - name: Install NPM dependencies

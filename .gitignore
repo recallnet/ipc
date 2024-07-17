@@ -5,3 +5,4 @@ nohup*
 .vscode
 .DS_Store
 node_modules/
+github_secrets.yml
