@@ -1,0 +1,35 @@
+[tasks.s3-run]
+script = """
+docker run \
+  ${FLAGS} \
+  --name ${S3_CONTAINER_NAME} \
+  --init \
+  --user $(id -u) \
+  --network ${NETWORK_NAME} \
+  --volume ${BASE_DIR}:/data \
+  --publish ${S3_HOST_PORT}:8014 \
+  --env LOG_LEVEL=${S3_LOG_LEVEL} \
+  --env S3_ACCESS_KEY=${S3_ACCESS_KEY} \
+  --env S3_SECRET_KEY=${S3_SECRET_KEY} \
+  --env RUST_BACKTRACE=1 \
+  ${FM_DOCKER_IMAGE} \
+  --network=${FM_NETWORK} \
+  ${CMD}
+"""
+dependencies = ["docker-network-create"]
+
+[tasks.s3-start]
+extend = "s3-run"
+env = { "CMD" = "s3 run", "FLAGS" = "-d" }
+
+[tasks.s3-stop]
+env = { "CONTAINER_NAME" = "${S3_CONTAINER_NAME}" }
+run_task = "docker-stop"
+
+[tasks.s3-destroy]
+env = { "CONTAINER_NAME" = "${S3_CONTAINER_NAME}" }
+run_task = "docker-destroy"
+
+[tasks.s3-logs]
+extend = "docker-logs"
+env = { "CONTAINER_NAME" = "${S3_CONTAINER_NAME}" }

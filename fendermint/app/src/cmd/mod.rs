@@ -19,6 +19,7 @@ pub mod materializer;
 pub mod objects;
 pub mod rpc;
 pub mod run;
+pub mod s3;
 
 #[async_trait]
 pub trait Cmd {
@@ -72,6 +73,7 @@ pub async fn exec(opts: &Options) -> anyhow::Result<()> {
         Commands::Eth(args) => args.exec(settings(opts)?.eth).await,
         Commands::Materializer(args) => args.exec(()).await,
         Commands::Objects(args) => args.exec(settings(opts)?.objects).await,
+        Commands::S3(args) => args.exec(settings(opts)?.s3).await,
     }
 }
 

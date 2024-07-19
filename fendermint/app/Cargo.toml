@@ -86,6 +86,19 @@ async-tempfile = "0.5.0"
 ipfs-api-backend-hyper = { version = "0.6.0", features = ["with-send-sync"] }
 thiserror = { workspace = true }
 
+adm_provider = { git = "https://github.com/textileio/basin.git",  rev = "9d790ef961731f2331eda0d45d5494d73e85c0ad"}
+adm_signer = { git = "https://github.com/textileio/basin.git",  rev = "9d790ef961731f2331eda0d45d5494d73e85c0ad"}
+basin_s3 = { git = "https://github.com/textileio/basin-s3.git"}
+homedir = "0.3.3"
+s3s = "0.10.0"
+hyper-util = { version = "0.1.5", features = [
+    "server-auto",
+    "server-graceful",
+    "http1",
+    "http2",
+    "tokio",
+] }
+
 [dev-dependencies]
 tempfile = { workspace = true }
 quickcheck = { workspace = true }

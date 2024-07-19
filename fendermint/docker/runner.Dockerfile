@@ -17,6 +17,7 @@ WORKDIR $FM_HOME_DIR
 EXPOSE 26658
 EXPOSE 8445
 EXPOSE 8001
+EXPOSE 8014
 EXPOSE 9184
 
 ENTRYPOINT ["docker-entry.sh"]
@@ -28,9 +29,10 @@ ENV FM_ABCI__LISTEN__HOST=0.0.0.0
 ENV FM_ETH__LISTEN__HOST=0.0.0.0
 ENV FM_METRICS__LISTEN__HOST=0.0.0.0
 ENV FM_OBJECTS__LISTEN__HOST=0.0.0.0
+ENV FM_S3__LISTEN__HOST=0.0.0.0
 
 RUN mkdir /fendermint/logs
-RUN chmod 777 /fendermint/logs
+RUN chmod 777 /fendermint
 
 COPY fendermint/docker/.artifacts/bundle.car $FM_HOME_DIR/bundle.car
 COPY fendermint/docker/.artifacts/custom_actors_bundle.car $FM_HOME_DIR/custom_actors_bundle.car

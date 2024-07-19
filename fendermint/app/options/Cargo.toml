@@ -30,3 +30,6 @@ url = { workspace = true }
 fendermint_vm_genesis = { path = "../../vm/genesis" }
 fendermint_vm_actor_interface = { path = "../../vm/actor_interface" }
 fendermint_materializer = { path = "../../testing/materializer" }
+
+adm_sdk = { git = "https://github.com/textileio/basin.git",  rev = "9d790ef961731f2331eda0d45d5494d73e85c0ad"}
+

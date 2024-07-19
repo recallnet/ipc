@@ -8,6 +8,7 @@ extend = [
     { path = "scripts/node.toml" },
     { path = "scripts/promtail.toml" },
     { path = "scripts/objects.toml" },
+    { path = "scripts/s3.toml" },
     { path = "scripts/testnet.toml" },
     { path = "scripts/testnode.toml" },
     { path = "scripts/subnet.toml" },
@@ -39,6 +40,9 @@ RESOLVER_HOST_PORT = { value = "26655", condition = { env_not_set = [
 ] } }
 OBJECTS_HOST_PORT = { value = "8001", condition = { env_not_set = [
     "OBJECTS_HOST_PORT",
+] } }
+S3_HOST_PORT = { value = "8014", condition = { env_not_set = [
+    "S3_HOST_PORT",
 ] } }
 IPFS_SWARM_HOST_PORT = { value = "4001", condition = { env_not_set = [
     "IPFS_SWARM_HOST_PORT",
@@ -140,6 +144,9 @@ FM_CONTAINER_NAME = "${NODE_NAME}-fendermint"
 ETHAPI_CONTAINER_NAME = "${NODE_NAME}-ethapi"
 PROMTAIL_CONTAINER_NAME = "${NODE_NAME}-promtail"
 OBJECTS_CONTAINER_NAME = "${NODE_NAME}-objects"
+S3_CONTAINER_NAME = "${NODE_NAME}-s3"
+S3_ACCESS_KEY = "S3EXAMPLEAK"
+S3_SECRET_KEY = "S3EXAMPLESK"
 IPFS_CONTAINER_NAME = "${NODE_NAME}-ipfs"
 
 CMT_DOCKER_IMAGE = "cometbft/cometbft:v0.37.x"
@@ -169,6 +176,9 @@ FM_LOG_LEVEL = { value = "${LOG_LEVEL}", condition = { env_not_set = [
 ] } }
 OBJECTS_LOG_LEVEL = { value = "${LOG_LEVEL}", condition = { env_not_set = [
     "OBJECTS_LOG_LEVEL",
+] } }
+S3_LOG_LEVEL = { value = "${LOG_LEVEL}", condition = { env_not_set = [
+    "S3_LOG_LEVEL",
 ] } }
 
 [tasks.info]

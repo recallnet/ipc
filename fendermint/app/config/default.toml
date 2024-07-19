@@ -158,6 +158,14 @@ allowed_headers = []
 host = "127.0.0.1"
 port = 8001
 
+# S3 API facade
+[s3]
+
+[s3.listen]
+# Only accept local connections by default.
+host = "127.0.0.1"
+port = 8014
+
 # IPLD Resolver Configuration
 [resolver]
 # Time to wait between attempts to resolve a CID after an error.

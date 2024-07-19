@@ -23,12 +23,14 @@ use self::eth::EthSettings;
 use self::fvm::FvmSettings;
 use self::objects::ObjectsSettings;
 use self::resolver::ResolverSettings;
+use crate::s3::S3Settings;
 use ipc_provider::config::deserialize::deserialize_eth_address_from_str;
 
 pub mod eth;
 pub mod fvm;
 pub mod objects;
 pub mod resolver;
+pub mod s3;
 pub mod testing;
 pub mod utils;
 
@@ -45,7 +47,7 @@ human_readable_delegate!(TokenAmount);
 #[derive(Debug, Deserialize, Clone)]
 pub struct SocketAddress {
     pub host: String,
-    pub port: u32,
+    pub port: u16,
 }
 
 impl Display for SocketAddress {
@@ -289,6 +291,7 @@ pub struct Settings {
     pub ipc: IpcSettings,
     pub testing: Option<TestingSettings>,
     pub objects: ObjectsSettings,
+    pub s3: S3Settings,
 }
 
 impl Settings {

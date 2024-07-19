@@ -59,6 +59,7 @@ run_task = { name = [
     "fendermint-destroy",
     "ethapi-destroy",
     "objects-destroy",
+    "s3-destroy",
     "ipfs-destroy",
     "docker-network-rm",
     "destroy-log-volume",

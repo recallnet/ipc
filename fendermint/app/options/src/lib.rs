@@ -12,7 +12,7 @@ use tracing_subscriber::EnvFilter;
 
 use self::{
     eth::EthArgs, genesis::GenesisArgs, key::KeyArgs, materializer::MaterializerArgs,
-    objects::ObjectsArgs, rpc::RpcArgs, run::RunArgs,
+    objects::ObjectsArgs, rpc::RpcArgs, run::RunArgs, s3::S3Args,
 };
 
 pub mod config;
@@ -24,6 +24,7 @@ pub mod materializer;
 pub mod objects;
 pub mod rpc;
 pub mod run;
+pub mod s3;
 
 mod log;
 mod parse;
@@ -201,6 +202,8 @@ pub enum Commands {
     Materializer(MaterializerArgs),
     /// Object API for data repos
     Objects(ObjectsArgs),
+    /// S3 API
+    S3(S3Args),
 }
 
 #[cfg(test)]

@@ -37,6 +37,98 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f26201604c87b1e01bd3d98f8d5d9a8fcbb815e8cedb41ffccbeb4bf593a35fe"
 
 [[package]]
+name = "adm_provider"
+version = "0.1.0"
+source = "git+https://github.com/textileio/basin.git?rev=9d790ef961731f2331eda0d45d5494d73e85c0ad#9d790ef961731f2331eda0d45d5494d73e85c0ad"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "base64 0.22.0",
+ "bytes",
+ "cid 0.10.1",
+ "ethers",
+ "fendermint_vm_actor_interface 0.1.0 (git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7)",
+ "fendermint_vm_message 0.1.0 (git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7)",
+ "futures-util",
+ "fvm_ipld_encoding",
+ "fvm_shared",
+ "ipc-api 0.1.0 (git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7)",
+ "num-traits",
+ "prost",
+ "reqwest",
+ "serde",
+ "tendermint 0.31.1",
+ "tendermint-proto 0.31.1",
+ "tendermint-rpc",
+ "tokio",
+ "tokio-stream",
+ "tracing",
+]
+
+[[package]]
+name = "adm_sdk"
+version = "0.1.0"
+source = "git+https://github.com/textileio/basin.git?rev=9d790ef961731f2331eda0d45d5494d73e85c0ad#9d790ef961731f2331eda0d45d5494d73e85c0ad"
+dependencies = [
+ "adm_provider",
+ "adm_signer",
+ "anyhow",
+ "async-stream",
+ "async-tempfile",
+ "async-trait",
+ "base64 0.22.0",
+ "bytes",
+ "cid 0.10.1",
+ "console",
+ "ethers",
+ "ethers-contract",
+ "fendermint_actor_accumulator 0.1.0 (git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7)",
+ "fendermint_actor_machine 0.1.0 (git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7)",
+ "fendermint_actor_objectstore 0.1.0 (git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7)",
+ "fendermint_crypto 0.1.0 (git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7)",
+ "fendermint_vm_actor_interface 0.1.0 (git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7)",
+ "fendermint_vm_message 0.1.0 (git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7)",
+ "futures-core",
+ "fvm_ipld_encoding",
+ "fvm_shared",
+ "indicatif",
+ "ipc-api 0.1.0 (git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7)",
+ "ipc_actors_abis 0.1.0 (git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7)",
+ "lazy_static",
+ "num-traits",
+ "rand",
+ "reqwest",
+ "serde",
+ "tendermint 0.31.1",
+ "tendermint-rpc",
+ "tokio",
+ "tokio-stream",
+ "tokio-util 0.7.10",
+ "unixfs-v1",
+]
+
+[[package]]
+name = "adm_signer"
+version = "0.1.0"
+source = "git+https://github.com/textileio/basin.git?rev=9d790ef961731f2331eda0d45d5494d73e85c0ad#9d790ef961731f2331eda0d45d5494d73e85c0ad"
+dependencies = [
+ "adm_provider",
+ "anyhow",
+ "async-trait",
+ "fendermint_crypto 0.1.0 (git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7)",
+ "fendermint_vm_actor_interface 0.1.0 (git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7)",
+ "fendermint_vm_message 0.1.0 (git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7)",
+ "fnv",
+ "fvm_ipld_encoding",
+ "fvm_shared",
+ "hex",
+ "ipc-api 0.1.0 (git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7)",
+ "rand",
+ "tendermint-rpc",
+ "tokio",
+]
+
+[[package]]
 name = "aead"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -471,6 +563,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "async-stream"
+version = "0.3.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cd56dd203fef61ac097dd65721a419ddccb106b2d2b70ba60a6b529f03961a51"
+dependencies = [
+ "async-stream-impl",
+ "futures-core",
+ "pin-project-lite",
+]
+
+[[package]]
+name = "async-stream-impl"
+version = "0.3.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "16e62a023e7c117e27523144c5d2459f4397fcc3cab0085af8e2224f643a0193"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.58",
+]
+
+[[package]]
 name = "async-task"
 version = "4.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -550,6 +664,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "atoi"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f28d99ec8bfea296261ca1af174f24225171fea9664ba9003cbebee704810528"
+dependencies = [
+ "num-traits",
+]
+
+[[package]]
 name = "atomic-waker"
 version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -607,8 +730,8 @@ dependencies = [
  "bytes",
  "futures-util",
  "http 0.2.12",
- "http-body",
- "hyper",
+ "http-body 0.4.6",
+ "hyper 0.14.28",
  "itoa",
  "matchit",
  "memchr",
@@ -639,7 +762,7 @@ dependencies = [
  "bytes",
  "futures-util",
  "http 0.2.12",
- "http-body",
+ "http-body 0.4.6",
  "mime",
  "rustversion",
  "tower-layer",
@@ -698,10 +821,54 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9475866fec1451be56a3c2400fd081ff546538961565ccb5b7142cbd22bc7a51"
 
 [[package]]
+name = "base64-simd"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "339abbe78e73178762e23bea9dfd08e697eb3f3301cd4be981c0f78ba5859195"
+dependencies = [
+ "outref",
+ "vsimd",
+]
+
+[[package]]
 name = "base64ct"
 version = "1.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8c3c1a368f70d6cf7302d78f8f7093da241fb8e8807c05cc9e51a125895a6d5b"
+
+[[package]]
+name = "basin_s3"
+version = "0.1.0"
+source = "git+https://github.com/textileio/basin-s3.git#82df71a611e8995f027cd0f1454287a2e1b4872e"
+dependencies = [
+ "adm_provider",
+ "adm_sdk",
+ "adm_signer",
+ "anyhow",
+ "async-tempfile",
+ "async-trait",
+ "bytes",
+ "bytestring",
+ "fendermint_actor_machine 0.1.0 (git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7)",
+ "fendermint_crypto 0.1.0 (git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7)",
+ "fendermint_vm_message 0.1.0 (git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7)",
+ "futures",
+ "fvm_shared",
+ "hex-simd",
+ "homedir",
+ "md-5",
+ "mime",
+ "s3s",
+ "tempfile",
+ "tendermint-rpc",
+ "time",
+ "tokio",
+ "tokio-util 0.7.10",
+ "tracing",
+ "tracing-error",
+ "transform-stream",
+ "uuid 1.8.0",
+]
 
 [[package]]
 name = "bech32"
@@ -1033,7 +1200,7 @@ dependencies = [
  "futures-util",
  "hex",
  "http 0.2.12",
- "hyper",
+ "hyper 0.14.28",
  "hyperlocal",
  "log",
  "pin-project-lite",
@@ -1098,6 +1265,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "bytestring"
+version = "1.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "74d80203ea6b29df88012294f62733de21cfeab47f17b41af3a38bc30a03ee72"
+dependencies = [
+ "bytes",
+]
+
+[[package]]
 name = "bzip2"
 version = "0.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1116,6 +1292,16 @@ dependencies = [
  "cc",
  "libc",
  "pkg-config",
+]
+
+[[package]]
+name = "cached"
+version = "0.30.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "af4dfac631a8e77b2f327f7852bb6172771f5279c4512efe79fad6067b37be3d"
+dependencies = [
+ "hashbrown 0.11.2",
+ "once_cell",
 ]
 
 [[package]]
@@ -1236,7 +1422,7 @@ dependencies = [
  "iana-time-zone",
  "num-traits",
  "serde",
- "windows-targets 0.52.4",
+ "windows-targets 0.52.6",
 ]
 
 [[package]]
@@ -1244,6 +1430,19 @@ name = "chunked_transfer"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6e4de3bc4ea267985becf712dc6d9eed8b04c953b3fcfb339ebc87acd9804901"
+
+[[package]]
+name = "cid"
+version = "0.8.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f6ed9c8b2d17acb8110c46f1da5bf4a696d745e1474a16db0cd2b49cd0249bf2"
+dependencies = [
+ "core2",
+ "multibase",
+ "multihash 0.16.3",
+ "serde",
+ "unsigned-varint 0.7.2",
+]
 
 [[package]]
 name = "cid"
@@ -1462,6 +1661,19 @@ dependencies = [
  "serde_json",
  "toml 0.5.11",
  "yaml-rust",
+]
+
+[[package]]
+name = "console"
+version = "0.15.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0e1f83fc076bd6dd27517eacdf25fef6c4dfe5f1d7448bafaaf3a26f13b5e4eb"
+dependencies = [
+ "encode_unicode",
+ "lazy_static",
+ "libc",
+ "unicode-width",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -2273,6 +2485,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "encode_unicode"
+version = "0.3.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a357d28ed41a50f9c765dbfe56cbc04a64e53e5fc58ba79fbc34c10ef3df831f"
+
+[[package]]
 name = "encoding_rs"
 version = "0.8.33"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2853,9 +3071,28 @@ name = "fendermint_actor_accumulator"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "cid",
- "fendermint_actor_machine",
- "fil_actors_runtime",
+ "cid 0.10.1",
+ "fendermint_actor_machine 0.1.0",
+ "fil_actors_runtime 12.0.0",
+ "frc42_dispatch",
+ "fvm_ipld_amt",
+ "fvm_ipld_blockstore",
+ "fvm_ipld_encoding",
+ "fvm_shared",
+ "num-derive 0.3.3",
+ "num-traits",
+ "serde",
+ "serde_tuple",
+]
+
+[[package]]
+name = "fendermint_actor_accumulator"
+version = "0.1.0"
+source = "git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7#89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7"
+dependencies = [
+ "anyhow",
+ "cid 0.10.1",
+ "fendermint_actor_machine 0.1.0 (git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7)",
  "frc42_dispatch",
  "fvm_ipld_amt",
  "fvm_ipld_blockstore",
@@ -2872,8 +3109,8 @@ name = "fendermint_actor_chainmetadata"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "cid",
- "fil_actors_runtime",
+ "cid 0.10.1",
+ "fil_actors_runtime 12.0.0",
  "frc42_dispatch",
  "fvm_ipld_amt",
  "fvm_ipld_blockstore",
@@ -2890,10 +3127,31 @@ name = "fendermint_actor_eam"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "cid",
- "fil_actor_eam",
- "fil_actors_evm_shared",
- "fil_actors_runtime",
+ "cid 0.10.1",
+ "fil_actor_eam 12.0.0",
+ "fil_actors_evm_shared 12.0.0",
+ "fil_actors_runtime 12.0.0",
+ "frc42_dispatch",
+ "fvm_ipld_blockstore",
+ "fvm_ipld_encoding",
+ "fvm_shared",
+ "hex-literal 0.4.1",
+ "log",
+ "multihash 0.18.1",
+ "num-derive 0.3.3",
+ "num-traits",
+ "serde",
+]
+
+[[package]]
+name = "fendermint_actor_eam"
+version = "0.1.0"
+source = "git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7#89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7"
+dependencies = [
+ "anyhow",
+ "cid 0.10.1",
+ "fil_actor_eam 12.0.0 (git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7)",
+ "fil_actors_runtime 12.0.0 (git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7)",
  "frc42_dispatch",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding",
@@ -2911,8 +3169,23 @@ name = "fendermint_actor_machine"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "fil_actor_adm",
- "fil_actors_runtime",
+ "fil_actor_adm 12.0.0",
+ "fil_actors_runtime 12.0.0",
+ "frc42_dispatch",
+ "fvm_ipld_encoding",
+ "fvm_shared",
+ "serde",
+ "serde_tuple",
+]
+
+[[package]]
+name = "fendermint_actor_machine"
+version = "0.1.0"
+source = "git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7#89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7"
+dependencies = [
+ "anyhow",
+ "fil_actor_adm 12.0.0 (git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7)",
+ "fil_actors_runtime 12.0.0 (git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7)",
  "frc42_dispatch",
  "fvm_ipld_encoding",
  "fvm_shared",
@@ -2925,10 +3198,10 @@ name = "fendermint_actor_objectstore"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "cid",
- "fendermint_actor_machine",
+ "cid 0.10.1",
+ "fendermint_actor_machine 0.1.0",
  "fendermint_testing",
- "fil_actors_runtime",
+ "fil_actors_runtime 12.0.0",
  "frc42_dispatch",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding",
@@ -2943,17 +3216,36 @@ dependencies = [
 ]
 
 [[package]]
+name = "fendermint_actor_objectstore"
+version = "0.1.0"
+source = "git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7#89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7"
+dependencies = [
+ "anyhow",
+ "cid 0.10.1",
+ "fendermint_actor_machine 0.1.0 (git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7)",
+ "frc42_dispatch",
+ "fvm_ipld_blockstore",
+ "fvm_ipld_encoding",
+ "fvm_ipld_hamt 0.9.0",
+ "fvm_shared",
+ "num-derive 0.3.3",
+ "num-traits",
+ "serde",
+ "serde_tuple",
+]
+
+[[package]]
 name = "fendermint_actors"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "cid",
- "fendermint_actor_accumulator",
+ "cid 0.10.1",
+ "fendermint_actor_accumulator 0.1.0",
  "fendermint_actor_chainmetadata",
- "fendermint_actor_eam",
- "fendermint_actor_objectstore",
+ "fendermint_actor_eam 0.1.0",
+ "fendermint_actor_objectstore 0.1.0",
  "fil_actor_bundler",
- "fil_actors_runtime",
+ "fil_actors_runtime 12.0.0",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding",
  "num-traits",
@@ -2963,35 +3255,38 @@ dependencies = [
 name = "fendermint_app"
 version = "0.1.0"
 dependencies = [
+ "adm_provider",
+ "adm_signer",
  "anyhow",
  "async-stm",
  "async-tempfile",
  "async-trait",
  "base64 0.21.7",
+ "basin_s3",
  "bytes",
- "cid",
+ "cid 0.10.1",
  "ethers",
  "fendermint_abci",
- "fendermint_actor_accumulator",
- "fendermint_actor_machine",
- "fendermint_actor_objectstore",
+ "fendermint_actor_accumulator 0.1.0",
+ "fendermint_actor_machine 0.1.0",
+ "fendermint_actor_objectstore 0.1.0",
  "fendermint_app_options",
  "fendermint_app_settings",
- "fendermint_crypto",
+ "fendermint_crypto 0.1.0",
  "fendermint_eth_api",
  "fendermint_materializer",
  "fendermint_rocksdb",
  "fendermint_rpc",
  "fendermint_storage",
  "fendermint_tracing",
- "fendermint_vm_actor_interface",
- "fendermint_vm_core",
- "fendermint_vm_encoding",
+ "fendermint_vm_actor_interface 0.1.0",
+ "fendermint_vm_core 0.1.0",
+ "fendermint_vm_encoding 0.1.0",
  "fendermint_vm_event",
- "fendermint_vm_genesis",
+ "fendermint_vm_genesis 0.1.0",
  "fendermint_vm_interpreter",
  "fendermint_vm_ipfs_resolver",
- "fendermint_vm_message",
+ "fendermint_vm_message 0.1.0",
  "fendermint_vm_resolver",
  "fendermint_vm_snapshot",
  "fendermint_vm_topdown",
@@ -3002,13 +3297,15 @@ dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared",
  "hex",
- "ipc-api",
+ "homedir",
+ "hyper-util",
+ "ipc-api 0.1.0",
  "ipc-provider",
  "ipc_ipld_resolver",
  "ipfs-api-backend-hyper",
  "k256 0.11.6",
  "lazy_static",
- "libipld",
+ "libipld 0.16.0",
  "libp2p",
  "libp2p-bitswap",
  "literally",
@@ -3022,6 +3319,7 @@ dependencies = [
  "quickcheck",
  "quickcheck_macros",
  "rand_chacha",
+ "s3s",
  "serde",
  "serde_json",
  "serde_with 2.3.3",
@@ -3045,18 +3343,19 @@ dependencies = [
 name = "fendermint_app_options"
 version = "0.1.0"
 dependencies = [
+ "adm_sdk",
  "anyhow",
  "bytes",
- "cid",
+ "cid 0.10.1",
  "clap 4.5.4",
  "fendermint_materializer",
- "fendermint_vm_actor_interface",
- "fendermint_vm_genesis",
+ "fendermint_vm_actor_interface 0.1.0",
+ "fendermint_vm_genesis 0.1.0",
  "fvm_ipld_encoding",
  "fvm_shared",
  "hex",
- "ipc-api",
- "ipc-types",
+ "ipc-api 0.1.0",
+ "ipc-types 0.1.0",
  "lazy_static",
  "num-traits",
  "tendermint-rpc",
@@ -3072,11 +3371,11 @@ dependencies = [
  "anyhow",
  "config 0.13.4",
  "dirs 5.0.1",
- "fendermint_vm_encoding",
+ "fendermint_vm_encoding 0.1.0",
  "fendermint_vm_topdown",
  "fvm_ipld_encoding",
  "fvm_shared",
- "ipc-api",
+ "ipc-api 0.1.0",
  "ipc-provider",
  "lazy_static",
  "multiaddr 0.18.1",
@@ -3100,23 +3399,23 @@ dependencies = [
  "async-trait",
  "byteorder",
  "bytes",
- "cid",
+ "cid 0.10.1",
  "ethers",
- "fendermint_crypto",
+ "fendermint_crypto 0.1.0",
  "fendermint_rpc",
  "fendermint_testing",
- "fendermint_vm_actor_interface",
- "fendermint_vm_core",
- "fendermint_vm_genesis",
+ "fendermint_vm_actor_interface 0.1.0",
+ "fendermint_vm_core 0.1.0",
+ "fendermint_vm_genesis 0.1.0",
  "fendermint_vm_interpreter",
- "fendermint_vm_message",
+ "fendermint_vm_message 0.1.0",
  "fvm",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding",
  "fvm_shared",
  "hex",
- "ipc-api",
- "ipc_actors_abis",
+ "ipc-api 0.1.0",
+ "ipc_actors_abis 0.1.0",
  "lazy_static",
  "multihash 0.18.1",
  "rand",
@@ -3136,24 +3435,36 @@ dependencies = [
 ]
 
 [[package]]
+name = "fendermint_crypto"
+version = "0.1.0"
+source = "git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7#89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7"
+dependencies = [
+ "anyhow",
+ "base64 0.21.7",
+ "libsecp256k1",
+ "rand",
+ "zeroize",
+]
+
+[[package]]
 name = "fendermint_eth_api"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
  "axum",
- "cid",
+ "cid 0.10.1",
  "clap 4.5.4",
  "erased-serde",
  "ethers",
  "ethers-contract",
  "ethers-core",
- "fendermint_crypto",
+ "fendermint_crypto 0.1.0",
  "fendermint_rpc",
  "fendermint_testing",
- "fendermint_vm_actor_interface",
- "fendermint_vm_message",
- "fil_actors_evm_shared",
+ "fendermint_vm_actor_interface 0.1.0",
+ "fendermint_vm_message 0.1.0",
+ "fil_actors_evm_shared 12.0.0",
  "futures",
  "fvm_ipld_encoding",
  "fvm_shared",
@@ -3204,20 +3515,20 @@ dependencies = [
  "either",
  "env_logger 0.10.2",
  "ethers",
- "fendermint_crypto",
+ "fendermint_crypto 0.1.0",
  "fendermint_materializer",
  "fendermint_testing",
- "fendermint_vm_actor_interface",
- "fendermint_vm_core",
- "fendermint_vm_encoding",
- "fendermint_vm_genesis",
- "fendermint_vm_message",
+ "fendermint_vm_actor_interface 0.1.0",
+ "fendermint_vm_core 0.1.0",
+ "fendermint_vm_encoding 0.1.0",
+ "fendermint_vm_genesis 0.1.0",
+ "fendermint_vm_message 0.1.0",
  "futures",
  "fvm_shared",
  "hex",
- "ipc-api",
+ "ipc-api 0.1.0",
  "ipc-provider",
- "ipc_actors_abis",
+ "ipc_actors_abis 0.1.0",
  "lazy_static",
  "multihash 0.18.1",
  "quickcheck",
@@ -3242,7 +3553,7 @@ name = "fendermint_rocksdb"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "cid",
+ "cid 0.10.1",
  "fendermint_storage",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding",
@@ -3262,16 +3573,16 @@ dependencies = [
  "async-trait",
  "base64 0.21.7",
  "bytes",
- "cid",
+ "cid 0.10.1",
  "clap 4.5.4",
  "ethers",
- "fendermint_actor_accumulator",
- "fendermint_actor_machine",
- "fendermint_actor_objectstore",
- "fendermint_crypto",
- "fendermint_vm_actor_interface",
- "fendermint_vm_genesis",
- "fendermint_vm_message",
+ "fendermint_actor_accumulator 0.1.0",
+ "fendermint_actor_machine 0.1.0",
+ "fendermint_actor_objectstore 0.1.0",
+ "fendermint_crypto 0.1.0",
+ "fendermint_vm_actor_interface 0.1.0",
+ "fendermint_vm_genesis 0.1.0",
+ "fendermint_vm_message 0.1.0",
  "fvm_ipld_encoding",
  "fvm_shared",
  "hex",
@@ -3313,13 +3624,13 @@ version = "0.1.0"
 dependencies = [
  "arbitrary",
  "arbtest",
- "cid",
+ "cid 0.10.1",
  "ethers",
  "fendermint_testing",
  "fvm_ipld_encoding",
  "fvm_shared",
  "hex",
- "ipc-api",
+ "ipc-api 0.1.0",
  "lazy_static",
  "num-bigint",
  "quickcheck",
@@ -3342,22 +3653,22 @@ name = "fendermint_vm_actor_interface"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "cid",
+ "cid 0.10.1",
  "ethers",
  "ethers-core",
- "fendermint_actor_machine",
- "fendermint_crypto",
- "fendermint_vm_genesis",
- "fil_actors_evm_shared",
+ "fendermint_actor_machine 0.1.0",
+ "fendermint_crypto 0.1.0",
+ "fendermint_vm_genesis 0.1.0",
+ "fil_actors_evm_shared 12.0.0",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding",
  "fvm_ipld_hamt 0.9.0",
  "fvm_shared",
  "hex",
- "ipc-api",
- "ipc_actors_abis",
+ "ipc-api 0.1.0",
+ "ipc_actors_abis 0.1.0",
  "lazy_static",
- "merkle-tree-rs",
+ "merkle-tree-rs 0.1.0",
  "multihash 0.18.1",
  "paste",
  "quickcheck",
@@ -3369,11 +3680,39 @@ dependencies = [
 ]
 
 [[package]]
+name = "fendermint_vm_actor_interface"
+version = "0.1.0"
+source = "git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7#89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7"
+dependencies = [
+ "anyhow",
+ "cid 0.10.1",
+ "ethers",
+ "fendermint_actor_machine 0.1.0 (git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7)",
+ "fendermint_crypto 0.1.0 (git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7)",
+ "fendermint_vm_genesis 0.1.0 (git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7)",
+ "fil_actors_evm_shared 12.0.0 (git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7)",
+ "fvm_ipld_blockstore",
+ "fvm_ipld_encoding",
+ "fvm_ipld_hamt 0.9.0",
+ "fvm_shared",
+ "hex",
+ "ipc-api 0.1.0 (git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7)",
+ "ipc_actors_abis 0.1.0 (git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7)",
+ "lazy_static",
+ "merkle-tree-rs 0.1.0 (git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7)",
+ "multihash 0.18.1",
+ "paste",
+ "serde",
+ "serde_tuple",
+ "tracing",
+]
+
+[[package]]
 name = "fendermint_vm_core"
 version = "0.1.0"
 dependencies = [
  "arbitrary",
- "cid",
+ "cid 0.10.1",
  "fnv",
  "fvm_shared",
  "lazy_static",
@@ -3385,12 +3724,39 @@ dependencies = [
 ]
 
 [[package]]
+name = "fendermint_vm_core"
+version = "0.1.0"
+source = "git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7#89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7"
+dependencies = [
+ "cid 0.10.1",
+ "fnv",
+ "fvm_shared",
+ "lazy_static",
+ "regex",
+ "serde",
+ "thiserror",
+]
+
+[[package]]
 name = "fendermint_vm_encoding"
 version = "0.1.0"
 dependencies = [
- "cid",
+ "cid 0.10.1",
  "fvm_shared",
- "ipc-api",
+ "ipc-api 0.1.0",
+ "num-traits",
+ "serde",
+ "serde_with 2.3.3",
+]
+
+[[package]]
+name = "fendermint_vm_encoding"
+version = "0.1.0"
+source = "git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7#89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7"
+dependencies = [
+ "cid 0.10.1",
+ "fvm_shared",
+ "ipc-api 0.1.0 (git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7)",
  "num-traits",
  "serde",
  "serde_with 2.3.3",
@@ -3409,17 +3775,17 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "arbitrary",
- "cid",
- "fendermint_actor_eam",
- "fendermint_crypto",
+ "cid 0.10.1",
+ "fendermint_actor_eam 0.1.0",
+ "fendermint_crypto 0.1.0",
  "fendermint_testing",
- "fendermint_vm_core",
- "fendermint_vm_encoding",
- "fendermint_vm_genesis",
+ "fendermint_vm_core 0.1.0",
+ "fendermint_vm_encoding 0.1.0",
+ "fendermint_vm_genesis 0.1.0",
  "fvm_ipld_encoding",
  "fvm_shared",
  "hex",
- "ipc-api",
+ "ipc-api 0.1.0",
  "multihash 0.18.1",
  "num-traits",
  "quickcheck",
@@ -3432,6 +3798,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "fendermint_vm_genesis"
+version = "0.1.0"
+source = "git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7#89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7"
+dependencies = [
+ "anyhow",
+ "fendermint_actor_eam 0.1.0 (git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7)",
+ "fendermint_crypto 0.1.0 (git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7)",
+ "fendermint_vm_core 0.1.0 (git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7)",
+ "fendermint_vm_encoding 0.1.0 (git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7)",
+ "fvm_shared",
+ "ipc-api 0.1.0 (git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7)",
+ "num-traits",
+ "serde",
+ "serde_with 2.3.3",
+ "tendermint 0.31.1",
+]
+
+[[package]]
 name = "fendermint_vm_interpreter"
 version = "0.1.0"
 dependencies = [
@@ -3439,29 +3823,29 @@ dependencies = [
  "arbitrary",
  "async-stm",
  "async-trait",
- "cid",
+ "cid 0.10.1",
  "ethers",
- "fendermint_actor_accumulator",
+ "fendermint_actor_accumulator 0.1.0",
  "fendermint_actor_chainmetadata",
- "fendermint_actor_eam",
- "fendermint_actor_objectstore",
+ "fendermint_actor_eam 0.1.0",
+ "fendermint_actor_objectstore 0.1.0",
  "fendermint_actors",
- "fendermint_crypto",
+ "fendermint_crypto 0.1.0",
  "fendermint_eth_hardhat",
  "fendermint_rpc",
  "fendermint_testing",
  "fendermint_tracing",
- "fendermint_vm_actor_interface",
- "fendermint_vm_core",
- "fendermint_vm_encoding",
+ "fendermint_vm_actor_interface 0.1.0",
+ "fendermint_vm_core 0.1.0",
+ "fendermint_vm_encoding 0.1.0",
  "fendermint_vm_event",
- "fendermint_vm_genesis",
+ "fendermint_vm_genesis 0.1.0",
  "fendermint_vm_interpreter",
  "fendermint_vm_ipfs_resolver",
- "fendermint_vm_message",
+ "fendermint_vm_message 0.1.0",
  "fendermint_vm_resolver",
  "fendermint_vm_topdown",
- "fil_actor_adm",
+ "fil_actor_adm 12.0.0",
  "futures-core",
  "futures-util",
  "fvm",
@@ -3470,9 +3854,9 @@ dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared",
  "hex",
- "ipc-api",
- "ipc_actors_abis",
- "libipld",
+ "ipc-api 0.1.0",
+ "ipc_actors_abis 0.1.0",
+ "libipld 0.16.0",
  "multihash 0.18.1",
  "num-traits",
  "objectstore_syscall",
@@ -3498,10 +3882,10 @@ name = "fendermint_vm_ipfs_resolver"
 version = "0.1.0"
 dependencies = [
  "async-stm",
- "cid",
+ "cid 0.10.1",
  "fendermint_vm_topdown",
  "im",
- "ipc-api",
+ "ipc-api 0.1.0",
  "ipc_ipld_resolver",
  "libp2p",
  "serde",
@@ -3516,18 +3900,18 @@ dependencies = [
  "anyhow",
  "arbitrary",
  "blake2b_simd",
- "cid",
+ "cid 0.10.1",
  "ethers",
  "ethers-core",
- "fendermint_crypto",
+ "fendermint_crypto 0.1.0",
  "fendermint_testing",
- "fendermint_vm_actor_interface",
- "fendermint_vm_encoding",
- "fendermint_vm_message",
+ "fendermint_vm_actor_interface 0.1.0",
+ "fendermint_vm_encoding 0.1.0",
+ "fendermint_vm_message 0.1.0",
  "fvm_ipld_encoding",
  "fvm_shared",
  "hex",
- "ipc-api",
+ "ipc-api 0.1.0",
  "lazy_static",
  "num-traits",
  "quickcheck",
@@ -3540,13 +3924,36 @@ dependencies = [
 ]
 
 [[package]]
+name = "fendermint_vm_message"
+version = "0.1.0"
+source = "git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7#89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7"
+dependencies = [
+ "anyhow",
+ "blake2b_simd",
+ "cid 0.10.1",
+ "ethers-core",
+ "fendermint_crypto 0.1.0 (git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7)",
+ "fendermint_vm_actor_interface 0.1.0 (git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7)",
+ "fendermint_vm_encoding 0.1.0 (git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7)",
+ "fvm_ipld_encoding",
+ "fvm_shared",
+ "ipc-api 0.1.0 (git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7)",
+ "lazy_static",
+ "num-traits",
+ "serde",
+ "serde_tuple",
+ "serde_with 2.3.3",
+ "thiserror",
+]
+
+[[package]]
 name = "fendermint_vm_resolver"
 version = "0.1.0"
 dependencies = [
  "async-stm",
- "cid",
+ "cid 0.10.1",
  "im",
- "ipc-api",
+ "ipc-api 0.1.0",
  "ipc_ipld_resolver",
  "serde",
  "tokio",
@@ -3560,11 +3967,11 @@ dependencies = [
  "anyhow",
  "arbitrary",
  "async-stm",
- "cid",
+ "cid 0.10.1",
  "dircpy",
  "fendermint_testing",
- "fendermint_vm_core",
- "fendermint_vm_genesis",
+ "fendermint_vm_core 0.1.0",
+ "fendermint_vm_genesis 0.1.0",
  "fendermint_vm_interpreter",
  "fendermint_vm_snapshot",
  "futures",
@@ -3597,21 +4004,21 @@ dependencies = [
  "async-stm",
  "async-trait",
  "bytes",
- "cid",
+ "cid 0.10.1",
  "clap 4.5.4",
  "ethers",
- "fendermint_crypto",
+ "fendermint_crypto 0.1.0",
  "fendermint_testing",
  "fendermint_tracing",
  "fendermint_vm_event",
- "fendermint_vm_genesis",
+ "fendermint_vm_genesis 0.1.0",
  "fvm_ipld_encoding",
  "fvm_shared",
  "hex",
  "im",
- "ipc-api",
+ "ipc-api 0.1.0",
  "ipc-provider",
- "ipc_actors_abis",
+ "ipc_actors_abis 0.1.0",
  "ipc_ipld_resolver",
  "libp2p",
  "num-traits",
@@ -3658,8 +4065,28 @@ name = "fil_actor_adm"
 version = "12.0.0"
 dependencies = [
  "anyhow",
- "cid",
- "fil_actors_runtime",
+ "cid 0.10.1",
+ "fil_actors_runtime 12.0.0",
+ "fvm_ipld_blockstore",
+ "fvm_ipld_encoding",
+ "fvm_shared",
+ "hex-literal 0.3.4",
+ "integer-encoding",
+ "log",
+ "multihash 0.18.1",
+ "num-derive 0.3.3",
+ "num-traits",
+ "serde",
+]
+
+[[package]]
+name = "fil_actor_adm"
+version = "12.0.0"
+source = "git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7#89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7"
+dependencies = [
+ "anyhow",
+ "cid 0.10.1",
+ "fil_actors_runtime 12.0.0 (git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7)",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding",
  "fvm_shared",
@@ -3680,7 +4107,7 @@ checksum = "e0b1448c65c9a054c640fc086e03b730919ca4feca697c34ed3bda9f16aa982f"
 dependencies = [
  "anyhow",
  "async-std",
- "cid",
+ "cid 0.10.1",
  "clap 4.5.4",
  "futures",
  "fvm_ipld_blockstore",
@@ -3696,9 +4123,30 @@ name = "fil_actor_eam"
 version = "12.0.0"
 dependencies = [
  "anyhow",
- "cid",
- "fil_actors_evm_shared",
- "fil_actors_runtime",
+ "cid 0.10.1",
+ "fil_actors_evm_shared 12.0.0",
+ "fil_actors_runtime 12.0.0",
+ "fvm_ipld_blockstore",
+ "fvm_ipld_encoding",
+ "fvm_shared",
+ "hex-literal 0.3.4",
+ "log",
+ "multihash 0.18.1",
+ "num-derive 0.3.3",
+ "num-traits",
+ "rlp",
+ "serde",
+]
+
+[[package]]
+name = "fil_actor_eam"
+version = "12.0.0"
+source = "git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7#89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7"
+dependencies = [
+ "anyhow",
+ "cid 0.10.1",
+ "fil_actors_evm_shared 12.0.0 (git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7)",
+ "fil_actors_runtime 12.0.0 (git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7)",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding",
  "fvm_shared",
@@ -3715,7 +4163,20 @@ dependencies = [
 name = "fil_actors_evm_shared"
 version = "12.0.0"
 dependencies = [
- "fil_actors_runtime",
+ "fil_actors_runtime 12.0.0",
+ "fvm_ipld_encoding",
+ "fvm_shared",
+ "hex",
+ "serde",
+ "uint",
+]
+
+[[package]]
+name = "fil_actors_evm_shared"
+version = "12.0.0"
+source = "git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7#89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7"
+dependencies = [
+ "fil_actors_runtime 12.0.0 (git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7)",
  "fvm_ipld_encoding",
  "fvm_shared",
  "hex",
@@ -3732,7 +4193,7 @@ dependencies = [
  "blake2b_simd",
  "byteorder",
  "castaway",
- "cid",
+ "cid 0.10.1",
  "fvm_ipld_amt",
  "fvm_ipld_bitfield",
  "fvm_ipld_blockstore",
@@ -3759,7 +4220,40 @@ dependencies = [
  "sha2 0.10.8",
  "thiserror",
  "unsigned-varint 0.7.2",
- "vm_api",
+ "vm_api 1.0.0",
+]
+
+[[package]]
+name = "fil_actors_runtime"
+version = "12.0.0"
+source = "git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7#89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7"
+dependencies = [
+ "anyhow",
+ "base64 0.21.7",
+ "byteorder",
+ "castaway",
+ "cid 0.10.1",
+ "fvm_ipld_amt",
+ "fvm_ipld_bitfield",
+ "fvm_ipld_blockstore",
+ "fvm_ipld_encoding",
+ "fvm_ipld_hamt 0.8.0",
+ "fvm_shared",
+ "integer-encoding",
+ "itertools 0.10.5",
+ "log",
+ "multihash 0.18.1",
+ "num",
+ "num-derive 0.3.3",
+ "num-traits",
+ "paste",
+ "regex",
+ "serde",
+ "serde_repr",
+ "sha2 0.10.8",
+ "thiserror",
+ "unsigned-varint 0.7.2",
+ "vm_api 1.0.0 (git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7)",
 ]
 
 [[package]]
@@ -3832,6 +4326,18 @@ dependencies = [
  "lazy_static",
  "serde",
  "storage-proofs-core",
+]
+
+[[package]]
+name = "filetime"
+version = "0.2.23"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1ee447700ac8aa0b2f2bd7bc4462ad686ba06baa6727ac149a2d6277f0d240fd"
+dependencies = [
+ "cfg-if",
+ "libc",
+ "redox_syscall",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -4169,7 +4675,7 @@ dependencies = [
  "arbitrary",
  "blake2b_simd",
  "byteorder",
- "cid",
+ "cid 0.10.1",
  "derive_more",
  "filecoin-proofs-api",
  "fvm-wasm-instrument",
@@ -4218,7 +4724,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5fea333475130094f27ce67809aae3f69eb5247541d835950b7c5da733dbbb34"
 dependencies = [
  "anyhow",
- "cid",
+ "cid 0.10.1",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding",
  "itertools 0.11.0",
@@ -4246,7 +4752,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "417f52f6915b9f9a68de8462e1cf46f14a2c16420f484b8d2066873de2ffe420"
 dependencies = [
  "anyhow",
- "cid",
+ "cid 0.10.1",
  "multihash 0.18.1",
 ]
 
@@ -4256,7 +4762,7 @@ version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6190f03442b67b21a3d4e115c4d4dd3468aed24e27ebb074218822c1b3df41ba"
 dependencies = [
- "cid",
+ "cid 0.10.1",
  "futures",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding",
@@ -4272,7 +4778,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "90608092e31d9a06236268c58f7c36668ab4b2a48afafe3a97e08f094ad7ae50"
 dependencies = [
  "anyhow",
- "cid",
+ "cid 0.10.1",
  "fvm_ipld_blockstore",
  "multihash 0.18.1",
  "serde",
@@ -4290,11 +4796,11 @@ checksum = "03a53e14c789449cec999ca0e93d909490c921b967adb7a9ec8f12286fb809bd"
 dependencies = [
  "anyhow",
  "byteorder",
- "cid",
+ "cid 0.10.1",
  "forest_hash_utils",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding",
- "libipld-core",
+ "libipld-core 0.16.0",
  "multihash 0.18.1",
  "once_cell",
  "serde",
@@ -4310,11 +4816,11 @@ checksum = "48c900736087ff87cc51f669eee2f8e000c80717472242eb3f712aaa059ac3b3"
 dependencies = [
  "anyhow",
  "byteorder",
- "cid",
+ "cid 0.10.1",
  "forest_hash_utils",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding",
- "libipld-core",
+ "libipld-core 0.16.0",
  "multihash 0.18.1",
  "once_cell",
  "serde",
@@ -4329,7 +4835,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9e58331aefe4b5592c59abfd4d94c62b23ea61d1e121202fbc2fb6abd2fcb165"
 dependencies = [
  "byteorder",
- "cid",
+ "cid 0.10.1",
  "fvm_ipld_encoding",
  "fvm_shared",
  "lazy_static",
@@ -4349,7 +4855,7 @@ dependencies = [
  "bitflags 2.5.0",
  "blake2b_simd",
  "bls-signatures 0.15.0",
- "cid",
+ "cid 0.10.1",
  "data-encoding",
  "data-encoding-macro",
  "filecoin-proofs-api",
@@ -4524,6 +5030,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "h2"
+version = "0.4.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fa82e28a107a8cc405f0839610bdc9b15f1e25ec7d696aa5cf173edbcb1486ab"
+dependencies = [
+ "atomic-waker",
+ "bytes",
+ "fnv",
+ "futures-core",
+ "futures-sink",
+ "http 1.1.0",
+ "indexmap 2.2.6",
+ "slab",
+ "tokio",
+ "tokio-util 0.7.10",
+ "tracing",
+]
+
+[[package]]
+name = "hashbrown"
+version = "0.11.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ab5ef0d4909ef3724cc8cce6ccc8572c5c817592e9285f5464f8e86f8bd3726e"
+
+[[package]]
 name = "hashbrown"
 version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4652,6 +5183,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6fe2267d4ed49bc07b63801559be28c718ea06c4738b7a03c94df7386d2cde46"
 
 [[package]]
+name = "hex-simd"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1f7685beb53fc20efc2605f32f5d51e9ba18b8ef237961d1760169d2290d3bee"
+dependencies = [
+ "outref",
+ "vsimd",
+]
+
+[[package]]
 name = "hex_fmt"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4752,6 +5293,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "homedir"
+version = "0.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2bed305c13ce3829a09d627f5d43ff738482a09361ae4eb8039993b55fb10e5e"
+dependencies = [
+ "cfg-if",
+ "nix 0.26.4",
+ "widestring",
+ "windows 0.57.0",
+]
+
+[[package]]
 name = "hostname"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4792,6 +5345,29 @@ checksum = "7ceab25649e9960c0311ea418d17bee82c0dcec1bd053b5f9a66e265a693bed2"
 dependencies = [
  "bytes",
  "http 0.2.12",
+ "pin-project-lite",
+]
+
+[[package]]
+name = "http-body"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1efedce1fb8e6913f23e0c92de8e62cd5b772a67e7b3946df930a62566c93184"
+dependencies = [
+ "bytes",
+ "http 1.1.0",
+]
+
+[[package]]
+name = "http-body-util"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "793429d76616a256bcb62c2a2ec2bed781c8307e797e2598c50010f2bee2544f"
+dependencies = [
+ "bytes",
+ "futures-util",
+ "http 1.1.0",
+ "http-body 1.0.1",
  "pin-project-lite",
 ]
 
@@ -4838,9 +5414,9 @@ dependencies = [
  "futures-channel",
  "futures-core",
  "futures-util",
- "h2",
+ "h2 0.3.26",
  "http 0.2.12",
- "http-body",
+ "http-body 0.4.6",
  "httparse",
  "httpdate",
  "itoa",
@@ -4853,6 +5429,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "hyper"
+version = "1.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "50dfd22e0e76d0f662d429a5f80fcaf3855009297eab6a0a9f8543834744ba05"
+dependencies = [
+ "bytes",
+ "futures-channel",
+ "futures-util",
+ "h2 0.4.5",
+ "http 1.1.0",
+ "http-body 1.0.1",
+ "httparse",
+ "httpdate",
+ "itoa",
+ "pin-project-lite",
+ "smallvec",
+ "tokio",
+]
+
+[[package]]
 name = "hyper-multipart-rfc7578"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4862,7 +5458,7 @@ dependencies = [
  "common-multipart-rfc7578",
  "futures-core",
  "http 0.2.12",
- "hyper",
+ "hyper 0.14.28",
 ]
 
 [[package]]
@@ -4875,7 +5471,7 @@ dependencies = [
  "futures",
  "headers",
  "http 0.2.12",
- "hyper",
+ "hyper 0.14.28",
  "hyper-rustls 0.22.1",
  "rustls-native-certs 0.5.0",
  "tokio",
@@ -4892,7 +5488,7 @@ checksum = "5f9f7a97316d44c0af9b0301e65010573a853a9fc97046d7331d7f6bc0fd5a64"
 dependencies = [
  "ct-logs",
  "futures-util",
- "hyper",
+ "hyper 0.14.28",
  "log",
  "rustls 0.19.1",
  "rustls-native-certs 0.5.0",
@@ -4910,7 +5506,7 @@ checksum = "ec3efd23720e2049821a693cbc7e65ea87c72f1c58ff2f9522ff332b1491e590"
 dependencies = [
  "futures-util",
  "http 0.2.12",
- "hyper",
+ "hyper 0.14.28",
  "rustls 0.21.10",
  "tokio",
  "tokio-rustls 0.24.1",
@@ -4923,10 +5519,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d6183ddfa99b85da61a140bea0efc93fdf56ceaa041b37d553518030827f9905"
 dependencies = [
  "bytes",
- "hyper",
+ "hyper 0.14.28",
  "native-tls",
  "tokio",
  "tokio-native-tls",
+]
+
+[[package]]
+name = "hyper-util"
+version = "0.1.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3ab92f4f49ee4fb4f997c784b7a2e0fa70050211e0b6a287f898c3c9785ca956"
+dependencies = [
+ "bytes",
+ "futures-util",
+ "http 1.1.0",
+ "http-body 1.0.1",
+ "hyper 1.4.1",
+ "pin-project-lite",
+ "tokio",
 ]
 
 [[package]]
@@ -4937,7 +5548,7 @@ checksum = "0fafdf7b2b2de7c9784f76e02c0935e65a8117ec3b768644379983ab333ac98c"
 dependencies = [
  "futures-util",
  "hex",
- "hyper",
+ "hyper 0.14.28",
  "pin-project",
  "tokio",
 ]
@@ -5017,7 +5628,7 @@ dependencies = [
  "rtnetlink",
  "system-configuration",
  "tokio",
- "windows",
+ "windows 0.51.1",
 ]
 
 [[package]]
@@ -5031,7 +5642,7 @@ dependencies = [
  "bytes",
  "futures",
  "http 0.2.12",
- "hyper",
+ "hyper 0.14.28",
  "log",
  "rand",
  "tokio",
@@ -5120,6 +5731,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "indicatif"
+version = "0.17.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "763a5a8f45087d6bcea4222e7b72c291a054edf80e4ef6efd2a4979878c7bea3"
+dependencies = [
+ "console",
+ "instant",
+ "number_prefix",
+ "portable-atomic",
+ "unicode-width",
+]
+
+[[package]]
 name = "indoc"
 version = "2.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5175,23 +5799,51 @@ name = "ipc-api"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "cid",
+ "cid 0.10.1",
  "ethers",
- "fil_actors_runtime",
+ "fil_actors_runtime 12.0.0",
  "fnv",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding",
  "fvm_ipld_hamt 0.9.0",
  "fvm_shared",
  "integer-encoding",
- "ipc-types",
- "ipc_actors_abis",
+ "ipc-types 0.1.0",
+ "ipc_actors_abis 0.1.0",
  "lazy_static",
  "log",
  "num-traits",
  "num_enum",
  "serde",
  "serde_json",
+ "serde_tuple",
+ "serde_with 2.3.3",
+ "strum",
+ "thiserror",
+ "tracing",
+]
+
+[[package]]
+name = "ipc-api"
+version = "0.1.0"
+source = "git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7#89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7"
+dependencies = [
+ "anyhow",
+ "cid 0.10.1",
+ "ethers",
+ "fnv",
+ "fvm_ipld_blockstore",
+ "fvm_ipld_encoding",
+ "fvm_ipld_hamt 0.9.0",
+ "fvm_shared",
+ "integer-encoding",
+ "ipc-types 0.1.0 (git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7)",
+ "ipc_actors_abis 0.1.0 (git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7)",
+ "lazy_static",
+ "log",
+ "num-traits",
+ "num_enum",
+ "serde",
  "serde_tuple",
  "serde_with 2.3.3",
  "strum",
@@ -5208,20 +5860,20 @@ dependencies = [
  "async-trait",
  "base64 0.21.7",
  "bytes",
- "cid",
+ "cid 0.10.1",
  "clap 4.5.4",
  "clap_complete",
  "env_logger 0.10.2",
  "ethers",
  "ethers-contract",
- "fil_actors_runtime",
+ "fil_actors_runtime 12.0.0",
  "futures-util",
  "fvm_ipld_encoding",
  "fvm_shared",
  "hex",
- "ipc-api",
+ "ipc-api 0.1.0",
  "ipc-provider",
- "ipc-types",
+ "ipc-types 0.1.0",
  "ipc-wallet",
  "libsecp256k1",
  "log",
@@ -5253,21 +5905,21 @@ dependencies = [
  "async-trait",
  "base64 0.21.7",
  "bytes",
- "cid",
+ "cid 0.10.1",
  "dirs 5.0.1",
  "ethers",
  "ethers-contract",
- "fil_actors_runtime",
+ "fil_actors_runtime 12.0.0",
  "futures-util",
  "fvm_ipld_encoding",
  "fvm_shared",
  "hex",
  "http 0.2.12",
  "indoc",
- "ipc-api",
- "ipc-types",
+ "ipc-api 0.1.0",
+ "ipc-types 0.1.0",
  "ipc-wallet",
- "ipc_actors_abis",
+ "ipc_actors_abis 0.1.0",
  "libsecp256k1",
  "log",
  "num-derive 0.3.3",
@@ -5295,7 +5947,31 @@ name = "ipc-types"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "cid",
+ "cid 0.10.1",
+ "fvm_ipld_amt",
+ "fvm_ipld_blockstore",
+ "fvm_ipld_encoding",
+ "fvm_ipld_hamt 0.9.0",
+ "fvm_shared",
+ "hex",
+ "indexmap 1.9.3",
+ "integer-encoding",
+ "lazy_static",
+ "log",
+ "num-derive 0.3.3",
+ "num-traits",
+ "serde",
+ "thiserror",
+ "uint",
+]
+
+[[package]]
+name = "ipc-types"
+version = "0.1.0"
+source = "git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7#89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7"
+dependencies = [
+ "anyhow",
+ "cid 0.10.1",
  "fvm_ipld_amt",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding",
@@ -5326,7 +6002,7 @@ dependencies = [
  "ethers",
  "fvm_shared",
  "hex",
- "ipc-types",
+ "ipc-types 0.1.0",
  "libc",
  "libsecp256k1",
  "log",
@@ -5353,6 +6029,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ipc_actors_abis"
+version = "0.1.0"
+source = "git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7#89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7"
+dependencies = [
+ "anyhow",
+ "ethers",
+ "fvm_shared",
+]
+
+[[package]]
 name = "ipc_ipld_resolver"
 version = "0.1.0"
 dependencies = [
@@ -5361,18 +6047,18 @@ dependencies = [
  "base64 0.21.7",
  "blake2b_simd",
  "bloom",
- "cid",
+ "cid 0.10.1",
  "env_logger 0.10.2",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding",
  "fvm_ipld_hamt 0.9.0",
  "fvm_shared",
  "gcra",
- "ipc-api",
+ "ipc-api 0.1.0",
  "ipc_ipld_resolver",
  "ipfs-api-backend-hyper",
  "lazy_static",
- "libipld",
+ "libipld 0.16.0",
  "libp2p",
  "libp2p-bitswap",
  "libp2p-mplex",
@@ -5413,7 +6099,7 @@ dependencies = [
  "bytes",
  "futures",
  "http 0.2.12",
- "hyper",
+ "hyper 0.14.28",
  "hyper-multipart-rfc7578",
  "ipfs-api-prelude",
  "thiserror",
@@ -5674,14 +6360,31 @@ checksum = "9c198f91728a82281a64e1f4f9eeb25d82cb32a5de251c6bd1b5154d63a8e7bd"
 
 [[package]]
 name = "libipld"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ac9c3aa309c260aa2f174bac968901eddc546e9d85950c28eae6a7bec402f926"
+dependencies = [
+ "async-trait",
+ "cached",
+ "fnv",
+ "libipld-core 0.14.0",
+ "libipld-macro 0.14.0",
+ "log",
+ "multihash 0.16.3",
+ "parking_lot",
+ "thiserror",
+]
+
+[[package]]
+name = "libipld"
 version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f1ccd6b8ffb3afee7081fcaec00e1b099fd1c7ccf35ba5729d88538fcc3b4599"
 dependencies = [
  "fnv",
  "libipld-cbor",
- "libipld-core",
- "libipld-macro",
+ "libipld-core 0.16.0",
+ "libipld-macro 0.16.0",
  "log",
  "multihash 0.18.1",
  "thiserror",
@@ -5694,7 +6397,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "77d98c9d1747aa5eef1cf099cd648c3fd2d235249f5fed07522aaebc348e423b"
 dependencies = [
  "byteorder",
- "libipld-core",
+ "libipld-core 0.16.0",
+ "thiserror",
+]
+
+[[package]]
+name = "libipld-core"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d44790246ec6b7314cba745992c23d479d018073e66d49ae40ae1b64e5dd8eb5"
+dependencies = [
+ "anyhow",
+ "cid 0.8.6",
+ "core2",
+ "multibase",
+ "multihash 0.16.3",
  "thiserror",
 ]
 
@@ -5705,7 +6422,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5acd707e8d8b092e967b2af978ed84709eaded82b75effe6cb6f6cc797ef8158"
 dependencies = [
  "anyhow",
- "cid",
+ "cid 0.10.1",
  "core2",
  "multibase",
  "multihash 0.18.1",
@@ -5715,11 +6432,20 @@ dependencies = [
 
 [[package]]
 name = "libipld-macro"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "852c011562ae5059b67c3a917f9f5945af5a68df8e39ede4444fff33274d25e2"
+dependencies = [
+ "libipld-core 0.14.0",
+]
+
+[[package]]
+name = "libipld-macro"
 version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "71171c54214f866ae6722f3027f81dff0931e600e5a61e6b1b6a49ca0b5ed4ae"
 dependencies = [
- "libipld-core",
+ "libipld-core 0.16.0",
 ]
 
 [[package]]
@@ -5729,7 +6455,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c2a198fb6b0eada2a8df47933734e6d35d350665a33a3593d7164fa52c75c19"
 dependencies = [
  "cfg-if",
- "windows-targets 0.52.4",
+ "windows-targets 0.52.6",
 ]
 
 [[package]]
@@ -5796,7 +6522,7 @@ dependencies = [
  "fnv",
  "futures",
  "lazy_static",
- "libipld",
+ "libipld 0.16.0",
  "libp2p",
  "prometheus",
  "thiserror",
@@ -6460,6 +7186,15 @@ dependencies = [
 
 [[package]]
 name = "memoffset"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5de893c32cde5f383baa4c04c5d6dbdd735cfd4a794b0debdb2bb1b421da5ff4"
+dependencies = [
+ "autocfg",
+]
+
+[[package]]
+name = "memoffset"
 version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "488016bfae457b036d996092f6cb448677611ce4449e970ceaf42695203f218a"
@@ -6470,6 +7205,19 @@ dependencies = [
 [[package]]
 name = "merkle-tree-rs"
 version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "ethers",
+ "render-tree",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "merkle-tree-rs"
+version = "0.1.0"
+source = "git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7#89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7"
 dependencies = [
  "anyhow",
  "ethers",
@@ -6613,6 +7361,19 @@ dependencies = [
  "base-x",
  "data-encoding",
  "data-encoding-macro",
+]
+
+[[package]]
+name = "multihash"
+version = "0.16.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1c346cf9999c631f002d8f977c4eaeaa0e6386f16007202308d0b3757522c2cc"
+dependencies = [
+ "core2",
+ "digest 0.10.7",
+ "multihash-derive",
+ "sha2 0.10.8",
+ "unsigned-varint 0.7.2",
 ]
 
 [[package]]
@@ -6808,6 +7569,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "nix"
+version = "0.26.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "598beaf3cc6fdd9a5dfb1630c2800c7acd31df7aaf0f565796fba2b53ca1af1b"
+dependencies = [
+ "bitflags 1.3.2",
+ "cfg-if",
+ "libc",
+ "memoffset 0.7.1",
+ "pin-utils",
+]
+
+[[package]]
 name = "nohash-hasher"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6831,6 +7605,15 @@ checksum = "77a8165726e8236064dbb45459242600304b42a5ea24ee2948e18e023bf7ba84"
 dependencies = [
  "overload",
  "winapi",
+]
+
+[[package]]
+name = "nugine-rust-utils"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "04dcd9cfa92246a9c7ca0671e00733c4e9d77ee1fa0ae08c9a181b7c8802aea2"
+dependencies = [
+ "simdutf8",
 ]
 
 [[package]]
@@ -6974,6 +7757,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "number_prefix"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "830b246a0e5f20af87141b25c173cd1b609bd7779a4617d6ec582abaf90870f3"
+
+[[package]]
 name = "object"
 version = "0.31.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7009,7 +7798,7 @@ version = "0.1.0"
 dependencies = [
  "ambassador",
  "anyhow",
- "cid",
+ "cid 0.10.1",
  "fvm",
  "fvm_ipld_blockstore",
  "fvm_shared",
@@ -7134,6 +7923,12 @@ dependencies = [
  "dlv-list",
  "hashbrown 0.12.3",
 ]
+
+[[package]]
+name = "outref"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4030760ffd992bef45b0ae3f10ce1aba99e33464c90d14dd7c039884963ddc7a"
 
 [[package]]
 name = "overload"
@@ -7597,6 +8392,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "portable-atomic"
+version = "1.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7170ef9988bc169ba16dd36a7fa041e5c4cbeb6a35b76d4c03daded371eae7c0"
+
+[[package]]
 name = "positioned-io"
 version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7887,6 +8688,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "quick-xml"
+version = "0.31.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1004a344b30a54e2ee58d66a71b32d2db2feb0a31f9a2d302bf0536f15de2a33"
+dependencies = [
+ "memchr",
+ "serde",
+]
+
+[[package]]
 name = "quickcheck"
 version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8166,16 +8977,17 @@ dependencies = [
  "encoding_rs",
  "futures-core",
  "futures-util",
- "h2",
+ "h2 0.3.26",
  "http 0.2.12",
- "http-body",
- "hyper",
+ "http-body 0.4.6",
+ "hyper 0.14.28",
  "hyper-rustls 0.24.2",
  "hyper-tls",
  "ipnet",
  "js-sys",
  "log",
  "mime",
+ "mime_guess",
  "native-tls",
  "once_cell",
  "percent-encoding",
@@ -8190,10 +9002,12 @@ dependencies = [
  "tokio",
  "tokio-native-tls",
  "tokio-rustls 0.24.1",
+ "tokio-util 0.7.10",
  "tower-service",
  "url",
  "wasm-bindgen",
  "wasm-bindgen-futures",
+ "wasm-streams",
  "web-sys",
  "webpki-roots 0.25.4",
  "winreg",
@@ -8322,7 +9136,7 @@ dependencies = [
  "log",
  "netlink-packet-route",
  "netlink-proto",
- "nix",
+ "nix 0.24.3",
  "thiserror",
  "tokio",
 ]
@@ -8502,6 +9316,47 @@ name = "ryu"
 version = "1.0.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e86697c916019a8588c99b5fac3cead74ec0b4b819707a682fd4d23fa0ce1ba1"
+
+[[package]]
+name = "s3s"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "67e6cdc8002708b435946eec39afa13c43e4288d1de6316a12816e4cfaaa6c2c"
+dependencies = [
+ "arrayvec 0.7.4",
+ "async-trait",
+ "atoi",
+ "base64-simd",
+ "bytes",
+ "bytestring",
+ "chrono",
+ "crc32fast",
+ "futures",
+ "hex-simd",
+ "hmac 0.12.1",
+ "http-body 1.0.1",
+ "http-body-util",
+ "httparse",
+ "hyper 1.4.1",
+ "itoa",
+ "memchr",
+ "mime",
+ "nom",
+ "nugine-rust-utils",
+ "pin-project-lite",
+ "quick-xml",
+ "serde",
+ "serde_urlencoded",
+ "sha1",
+ "sha2 0.10.8",
+ "smallvec",
+ "thiserror",
+ "time",
+ "tracing",
+ "transform-stream",
+ "urlencoding",
+ "zeroize",
+]
 
 [[package]]
 name = "salsa20"
@@ -8715,7 +9570,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8e880e0b1f9c7a8db874642c1217f7e19b29e325f24ab9f0fcb11818adec7f01"
 dependencies = [
  "cbor4ii",
- "cid",
+ "cid 0.10.1",
  "scopeguard",
  "serde",
 ]
@@ -8990,6 +9845,12 @@ dependencies = [
  "digest 0.10.7",
  "rand_core",
 ]
+
+[[package]]
+name = "simdutf8"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f27f6278552951f1f2b8cf9da965d10969b2efdea95a6ec47987ab46edfe263a"
 
 [[package]]
 name = "simple_asn1"
@@ -9608,7 +10469,7 @@ dependencies = [
  "futures",
  "getrandom",
  "http 0.2.12",
- "hyper",
+ "hyper 0.14.28",
  "hyper-proxy",
  "hyper-rustls 0.22.1",
  "peg",
@@ -10060,7 +10921,7 @@ dependencies = [
  "futures-core",
  "futures-util",
  "http 0.2.12",
- "http-body",
+ "http-body 0.4.6",
  "http-range-header",
  "pin-project-lite",
  "tower-layer",
@@ -10125,6 +10986,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "tracing-error"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d686ec1c0f384b1277f097b2f279a2ecc11afe8c133c1aabf036a27cb4cd206e"
+dependencies = [
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "tracing-futures"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10185,6 +11056,15 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 1.0.109",
+]
+
+[[package]]
+name = "transform-stream"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "05034de7a8fcb11796a36478a2a8b16dca6772644dec5f49f709d5c66a38d359"
+dependencies = [
+ "futures-core",
 ]
 
 [[package]]
@@ -10343,6 +11223,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "unixfs-v1"
+version = "0.3.0"
+source = "git+https://github.com/ipfs-rust/unixfsv1?branch=master#01d8d9f70dc69c4ace4d52f6d8d4daf0c32d56bc"
+dependencies = [
+ "either",
+ "filetime",
+ "libipld 0.14.0",
+ "multihash 0.16.3",
+ "quick-protobuf",
+]
+
+[[package]]
 name = "unsafe-libyaml"
 version = "0.2.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10391,6 +11283,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "urlencoding"
+version = "2.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "daf8dba3b7eb870caf1ddeed7bc9d2a049f3cfdfae7cb521b087cc33ae4c49da"
+
+[[package]]
 name = "utf-8"
 version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10417,6 +11315,9 @@ name = "uuid"
 version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a183cf7feeba97b4dd1c0d46788634f6221d87fa961b305bed08c851829efcc0"
+dependencies = [
+ "getrandom",
+]
 
 [[package]]
 name = "valuable"
@@ -10453,7 +11354,25 @@ name = "vm_api"
 version = "1.0.0"
 dependencies = [
  "anyhow",
- "cid",
+ "cid 0.10.1",
+ "fvm_ipld_blockstore",
+ "fvm_ipld_encoding",
+ "fvm_ipld_hamt 0.8.0",
+ "fvm_shared",
+ "num-derive 0.3.3",
+ "num-traits",
+ "rand",
+ "rand_chacha",
+ "serde",
+]
+
+[[package]]
+name = "vm_api"
+version = "1.0.0"
+source = "git+https://github.com/textileio/ipc.git?rev=89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7#89c3871b8ba7eaf30e05ef0f29b6e3fb5c5789d7"
+dependencies = [
+ "anyhow",
+ "cid 0.10.1",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding",
  "fvm_ipld_hamt 0.8.0",
@@ -10470,6 +11389,12 @@ name = "void"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6a02e4885ed3bc0f2de90ea6dd45ebcbb66dacffe03547fadbb0eeae2770887d"
+
+[[package]]
+name = "vsimd"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5c3082ca00d5a5ef149bb8b555a72ae84c9c59f7250f013ac822ac2e49b19c64"
 
 [[package]]
 name = "waker-fn"
@@ -10507,7 +11432,7 @@ dependencies = [
  "futures-util",
  "headers",
  "http 0.2.12",
- "hyper",
+ "hyper 0.14.28",
  "log",
  "mime",
  "mime_guess",
@@ -10613,6 +11538,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "41763f20eafed1399fff1afb466496d3a959f58241436cfdc17e3f5ca954de16"
 dependencies = [
  "leb128",
+]
+
+[[package]]
+name = "wasm-streams"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b65dc4c90b63b118468cf747d8bf3566c1913ef60be765b5730ead9e0a3ba129"
+dependencies = [
+ "futures-util",
+ "js-sys",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
 ]
 
 [[package]]
@@ -10814,7 +11752,7 @@ dependencies = [
  "log",
  "mach",
  "memfd",
- "memoffset",
+ "memoffset 0.9.1",
  "paste",
  "rand",
  "rustix 0.38.32",
@@ -10953,6 +11891,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "windows"
+version = "0.57.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "12342cb4d8e3b046f3d80effd474a7a02447231330ef77d71daa6fbc40681143"
+dependencies = [
+ "windows-core 0.57.0",
+ "windows-targets 0.52.6",
+]
+
+[[package]]
 name = "windows-core"
 version = "0.51.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10967,7 +11915,50 @@ version = "0.52.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "33ab640c8d7e35bf8ba19b884ba838ceb4fba93a4e8c65a9059d08afcfc683d9"
 dependencies = [
- "windows-targets 0.52.4",
+ "windows-targets 0.52.6",
+]
+
+[[package]]
+name = "windows-core"
+version = "0.57.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d2ed2439a290666cd67ecce2b0ffaad89c2a56b976b736e6ece670297897832d"
+dependencies = [
+ "windows-implement",
+ "windows-interface",
+ "windows-result",
+ "windows-targets 0.52.6",
+]
+
+[[package]]
+name = "windows-implement"
+version = "0.57.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9107ddc059d5b6fbfbffdfa7a7fe3e22a226def0b2608f72e9d552763d3e1ad7"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.58",
+]
+
+[[package]]
+name = "windows-interface"
+version = "0.57.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "29bee4b38ea3cde66011baa44dba677c432a78593e202392d1e9070cf2a7fca7"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.58",
+]
+
+[[package]]
+name = "windows-result"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5e383302e8ec8515204254685643de10811af0ed97ea37210dc26fb0032647f8"
+dependencies = [
+ "windows-targets 0.52.6",
 ]
 
 [[package]]
@@ -10985,7 +11976,7 @@ version = "0.52.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "282be5f36a8ce781fad8c8ae18fa3f9beff57ec1b52cb3de0789201425d9a33d"
 dependencies = [
- "windows-targets 0.52.4",
+ "windows-targets 0.52.6",
 ]
 
 [[package]]
@@ -11005,17 +11996,18 @@ dependencies = [
 
 [[package]]
 name = "windows-targets"
-version = "0.52.4"
+version = "0.52.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7dd37b7e5ab9018759f893a1952c9420d060016fc19a472b4bb20d1bdd694d1b"
+checksum = "9b724f72796e036ab90c1021d4780d4d3d648aca59e491e6b98e725b84e99973"
 dependencies = [
- "windows_aarch64_gnullvm 0.52.4",
- "windows_aarch64_msvc 0.52.4",
- "windows_i686_gnu 0.52.4",
- "windows_i686_msvc 0.52.4",
- "windows_x86_64_gnu 0.52.4",
- "windows_x86_64_gnullvm 0.52.4",
- "windows_x86_64_msvc 0.52.4",
+ "windows_aarch64_gnullvm 0.52.6",
+ "windows_aarch64_msvc 0.52.6",
+ "windows_i686_gnu 0.52.6",
+ "windows_i686_gnullvm",
+ "windows_i686_msvc 0.52.6",
+ "windows_x86_64_gnu 0.52.6",
+ "windows_x86_64_gnullvm 0.52.6",
+ "windows_x86_64_msvc 0.52.6",
 ]
 
 [[package]]
@@ -11026,9 +12018,9 @@ checksum = "2b38e32f0abccf9987a4e3079dfb67dcd799fb61361e53e2882c3cbaf0d905d8"
 
 [[package]]
 name = "windows_aarch64_gnullvm"
-version = "0.52.4"
+version = "0.52.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bcf46cf4c365c6f2d1cc93ce535f2c8b244591df96ceee75d8e83deb70a9cac9"
+checksum = "32a4622180e7a0ec044bb555404c800bc9fd9ec262ec147edd5989ccd0c02cd3"
 
 [[package]]
 name = "windows_aarch64_msvc"
@@ -11038,9 +12030,9 @@ checksum = "dc35310971f3b2dbbf3f0690a219f40e2d9afcf64f9ab7cc1be722937c26b4bc"
 
 [[package]]
 name = "windows_aarch64_msvc"
-version = "0.52.4"
+version = "0.52.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "da9f259dd3bcf6990b55bffd094c4f7235817ba4ceebde8e6d11cd0c5633b675"
+checksum = "09ec2a7bb152e2252b53fa7803150007879548bc709c039df7627cabbd05d469"
 
 [[package]]
 name = "windows_i686_gnu"
@@ -11050,9 +12042,15 @@ checksum = "a75915e7def60c94dcef72200b9a8e58e5091744960da64ec734a6c6e9b3743e"
 
 [[package]]
 name = "windows_i686_gnu"
-version = "0.52.4"
+version = "0.52.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b474d8268f99e0995f25b9f095bc7434632601028cf86590aea5c8a5cb7801d3"
+checksum = "8e9b5ad5ab802e97eb8e295ac6720e509ee4c243f69d781394014ebfe8bbfa0b"
+
+[[package]]
+name = "windows_i686_gnullvm"
+version = "0.52.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0eee52d38c090b3caa76c563b86c3a4bd71ef1a819287c19d586d7334ae8ed66"
 
 [[package]]
 name = "windows_i686_msvc"
@@ -11062,9 +12060,9 @@ checksum = "8f55c233f70c4b27f66c523580f78f1004e8b5a8b659e05a4eb49d4166cca406"
 
 [[package]]
 name = "windows_i686_msvc"
-version = "0.52.4"
+version = "0.52.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1515e9a29e5bed743cb4415a9ecf5dfca648ce85ee42e15873c3cd8610ff8e02"
+checksum = "240948bc05c5e7c6dabba28bf89d89ffce3e303022809e73deaefe4f6ec56c66"
 
 [[package]]
 name = "windows_x86_64_gnu"
@@ -11074,9 +12072,9 @@ checksum = "53d40abd2583d23e4718fddf1ebec84dbff8381c07cae67ff7768bbf19c6718e"
 
 [[package]]
 name = "windows_x86_64_gnu"
-version = "0.52.4"
+version = "0.52.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5eee091590e89cc02ad514ffe3ead9eb6b660aedca2183455434b93546371a03"
+checksum = "147a5c80aabfbf0c7d901cb5895d1de30ef2907eb21fbbab29ca94c5b08b1a78"
 
 [[package]]
 name = "windows_x86_64_gnullvm"
@@ -11086,9 +12084,9 @@ checksum = "0b7b52767868a23d5bab768e390dc5f5c55825b6d30b86c844ff2dc7414044cc"
 
 [[package]]
 name = "windows_x86_64_gnullvm"
-version = "0.52.4"
+version = "0.52.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77ca79f2451b49fa9e2af39f0747fe999fcda4f5e241b2898624dca97a1f2177"
+checksum = "24d5b23dc417412679681396f2b49f3de8c1473deb516bd34410872eff51ed0d"
 
 [[package]]
 name = "windows_x86_64_msvc"
@@ -11098,9 +12096,9 @@ checksum = "ed94fce61571a4006852b7389a063ab983c02eb1bb37b47f8272ce92d06d9538"
 
 [[package]]
 name = "windows_x86_64_msvc"
-version = "0.52.4"
+version = "0.52.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32b752e52a2da0ddfbdbcc6fceadfeede4c939ed16d13e648833a61dfb611ed8"
+checksum = "589f6da84c646204747d1270a2a5661ea66ed1cced2631d546fdfb155959f9ec"
 
 [[package]]
 name = "winnow"

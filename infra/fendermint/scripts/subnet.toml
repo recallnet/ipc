@@ -60,6 +60,7 @@ dependencies = [
     "cometbft-wait",
     "ethapi-start",
     "objects-start",
+    "s3-start",
     "ipfs-start",
     "node-report",
 ]
@@ -80,6 +81,7 @@ dependencies = [
     "cometbft-wait",
     "ethapi-start",
     "objects-start",
+    "s3-start",
     "ipfs-start",
     "node-report",
 ]
@@ -90,12 +92,14 @@ run_task = { name = [
     "fendermint-destroy",
     "ethapi-destroy",
     "objects-destroy",
+    "s3-destroy",
     "ipfs-destroy",
     "fendermint-start-validator",
     "cometbft-start",
     "cometbft-wait",
     "ethapi-start",
     "objects-start",
+    "s3-start",
     "ipfs-start",
     "node-report",
 ] }
@@ -106,12 +110,14 @@ run_task = { name = [
     "fendermint-destroy",
     "ethapi-destroy",
     "objects-destroy",
+    "s3-destroy",
     "ipfs-destroy",
     "fendermint-start-validator-no-parent",
     "cometbft-start",
     "cometbft-wait",
     "ethapi-start",
     "objects-start",
+    "s3-start",
     "ipfs-start",
     "node-report",
 ] }
@@ -137,6 +143,7 @@ dependencies = [
     "cometbft-wait",
     "ethapi-start",
     "objects-start",
+    "s3-start",
     "ipfs-start",
     "node-report",
 ]
@@ -198,6 +205,9 @@ Subnet ID:
 
 Object API:
 \thttp://0.0.0.0:${OBJECTS_HOST_PORT}
+
+S3 API:
+\thttp://0.0.0.0:${S3_HOST_PORT}
 
 IPFS API:
 \thttp://0.0.0.0:${IPFS_RPC_HOST_PORT}
