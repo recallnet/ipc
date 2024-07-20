@@ -1,0 +1,4 @@
+role_user: "{{ ansible_user | default('root') }}"
+role_home: "{{ ansible_env.HOME | default('/root') }}"
+IPC_FOLDER: "{{ role_home }}/ipc"
+IPC_BRANCH: "develop"
