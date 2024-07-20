@@ -5,32 +5,30 @@
     file: github_secrets.yml
 
 - name: Provision IPC repository
-  vars:
-    TARGET_DIR: "/home/{{ ansible_user_id }}/ipc"
   block:
-    - name: Ensure target directory exists
+    - name: Ensure IPC folder exists
       file:
-        path: "{{ TARGET_DIR }}"
+        path: "{{ IPC_FOLDER }}"
         state: directory
         mode: '0755'
 
     - name: Clone IPC repository
       git:
         repo: "https://{{ github_token }}@github.com/amazingdatamachine/ipc.git"
-        dest: "{{ TARGET_DIR }}"
-        version: "main"
+        dest: "{{ IPC_FOLDER }}"
+        version: "{{ IPC_BRANCH }}"
         depth: 1
         force: yes
 
     - name: Update submodule URLs to HTTPS with token
       replace:
-        path: "{{ TARGET_DIR }}/.gitmodules"
+        path: "{{ IPC_FOLDER }}/.gitmodules"
         regexp: "git@github.com:(.*).git"
         replace: "https://{{ github_token }}@github.com/\\1.git"
 
     - name: Update submodule URLs for non-IPC repositories
       replace:
-        path: "{{ TARGET_DIR }}/.gitmodules"
+        path: "{{ IPC_FOLDER }}/.gitmodules"
         regexp: "https://github.com/(.*).git"
         replace: "https://{{ github_token }}@github.com/\\1.git"
 
@@ -39,7 +37,7 @@
         git submodule sync
         git submodule update --init --recursive
       args:
-        chdir: "{{ TARGET_DIR }}"
+        chdir: "{{ IPC_FOLDER }}"
 
     - name: Build IPC contracts
       make:
@@ -52,18 +50,13 @@
         target: install
 
   environment:
-    PATH: "{{ ansible_env.PATH }}:/usr/local/bin"  # Ensure npm is in the PATH
+    PATH: "{{ ansible_env.PATH }}:/usr/local/bin:{{ FOUNDRY_BIN_PATH }}
 
-
-- name: Configure IPC node
-  copy:
-    src: /path/to/local/config.yaml
-    dest: /home/{{ ansible_user_id }}/ipc/config.yaml
 
 - name: Start IPC node
   shell: |
-    cd /home/{{ ansible_user_id }}/ipc
+    cd {{ IPC_FOLDER }}
     npm start
   args:
-    chdir: /home/{{ ansible_user_id }}/ipc
+    chdir: {{ IPC_FOLDER }}
 

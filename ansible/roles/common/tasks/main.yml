@@ -38,16 +38,17 @@
 - name: Install Foundry
   shell: |
     curl -L https://foundry.paradigm.xyz | bash
-    source ~/.bashrc
-    foundryup
-    echo 'export PATH=$PATH:$HOME/.foundry/bin' >> $HOME/.bashrc
-    source ~/.bashrc
+    ~/.foundry/bin/foundryup
   args:
     executable: /bin/bash
-    creates: ~/.foundry/bin/forge
+    creates: "~/.foundry/bin/forge"
   register: foundry_install
 
-- name: Update Ansible environment PATH
+- name: Get Foundry bin path
+  shell: echo ~/.foundry/bin
+  register: foundry_bin_path_result
+  changed_when: false
+
+- name: Set fact for Foundry bin path
   set_fact:
-    ansible_env: "{{ ansible_env | combine({'PATH': ansible_env.PATH ~ ':' ~ ansible_env.HOME ~ '/.foundry/bin'}) }}"
-  when: foundry_install.changed
+    FOUNDRY_BIN_PATH: "{{ foundry_bin_path_result.stdout }}"
