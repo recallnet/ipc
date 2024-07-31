@@ -8,6 +8,8 @@ Visit the [IPC project page](https://www.ipc.space/) for news and guides.
 
 ## Prerequisites
 
+Alternatively, you may use the [Ansible deployment](https://github.com/amazingdatamachine/ipc-deploy)
+
 On Linux (links and instructions for Ubuntu):
 
 - Install system packages: `sudo apt install build-essential clang cmake pkg-config libssl-dev protobuf-compiler git curl`.
