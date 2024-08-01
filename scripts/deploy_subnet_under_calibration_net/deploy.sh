@@ -183,7 +183,7 @@ cp /tmp/config.toml.0 ${IPC_CONFIG_FOLDER}/config.toml
 # Step 4.3: Deploy IPC contracts
 cd ${IPC_FOLDER}/contracts
 npm install
-export RPC_URL=https://calibration.filfox.info/rpc/v1
+export RPC_URL="https://api.calibration.node.glif.io/"
 export PRIVATE_KEY=$(cat ${IPC_CONFIG_FOLDER}/validator_0.sk)
 deploy_contracts_output=$(make deploy-ipc NETWORK=calibrationnet)
 
