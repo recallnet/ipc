@@ -327,7 +327,7 @@ const config: HardhatUserConfig = {
             url: process.env.RPC_URL!,
             accounts: [process.env.PRIVATE_KEY!],
             // timeout to support also slow networks (like calibration/mainnet)
-            timeout: 1000000,
+            timeout: 10000000,
         },
     },
     solidity: {
