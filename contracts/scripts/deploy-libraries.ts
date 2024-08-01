@@ -8,8 +8,7 @@ export async function deploy() {
     await hre.run('compile')
 
     const [deployer] = await ethers.getSigners()
-    console.log('Deploying libraries with provider:', ethers.provider);
-    const balance = await ethers.provider.getBalance(deployer.address);
+    console.log('Deploying libraries with provider:', ethers.provider);    const balance = await ethers.provider.getBalance(deployer.address)
     console.log(
         'Deploying libraries with the account:',
         deployer.address,
