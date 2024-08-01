@@ -23,8 +23,6 @@ if [ "$NETWORK" = "auto" ]; then
   source ops/chain-id.sh
 fi
 
-echo "[*] CHAIN_ID=$CHAIN_ID"
-
 echo "[*] Deploying libraries"
 (npx hardhat deploy-libraries --network ${NETWORK} |  sed -n '/{/,/}/p') > scripts/${LIB_OUTPUT}
 echo "const LIBMAP =" | cat - scripts/${LIB_OUTPUT}  > temp && mv temp scripts/${LIB_OUTPUT}
