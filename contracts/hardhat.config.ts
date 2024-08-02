@@ -364,3 +364,15 @@ const config: HardhatUserConfig = {
 }
 
 export default config
+
+require("@nomicfoundation/hardhat-tracer");
+
+module.exports = {
+  networks: {
+    auto: {
+      tracing: {
+        enabled: true,
+      },
+    },
+  },
+};
