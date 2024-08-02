@@ -38,6 +38,7 @@ IPFS_SWARM_HOST_PORTS=(4001 4002 4003)
 IPFS_RPC_HOST_PORTS=(5001 5002 5003)
 IPFS_GATEWAY_HOST_PORTS=(8080 8081 8082)
 PROMETHEUS_HOST_PORTS=(9090 9091 9092)
+SUPPLY_SOURCE_ADDRESSES="0xEa944dEf4fd96A70f0B53D98E6945f643491B960"
 
 if (($# != 1)); then
   echo "Arguments: <Specify github remote branch name to use to deploy. Or use 'local' (without quote) to indicate using local repo instead. If not provided, will default to main branch"
@@ -199,7 +200,7 @@ cp /tmp/config.toml.2 ${IPC_CONFIG_FOLDER}/config.toml
 
 # Step 5: Create a subnet
 echo "$DASHES Creating a child subnet..."
-create_subnet_output=$(ipc-cli subnet create --parent /r314159 --min-validators 3 --min-validator-stake 1 --bottomup-check-period 600 --from $default_wallet_address --permission-mode collateral --supply-source-kind native 2>&1)
+create_subnet_output=$(ipc-cli subnet create --parent /r314159 --min-validators 3 --min-validator-stake 1 --bottomup-check-period 600 --from $default_wallet_address --permission-mode collateral --supply-source-kind erc20 --supply-source-address $SUPPLY_SOURCE_ADDRESSES 2>&1)
 echo $create_subnet_output
 subnet_id=$(echo $create_subnet_output | sed 's/.*with id: \([^ ]*\).*/\1/')
 echo "Created new subnet id: $subnet_id"
