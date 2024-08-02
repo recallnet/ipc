@@ -45,7 +45,7 @@
         "hardhat-contract-sizer": "^2.6.1",
         "hardhat-deploy": "^0.11.14",
         "hardhat-deploy-ethers": "^0.3.0-beta.13",
-        "hardhat-tracer": "^2.2.1",
+        "hardhat-tracer": "^3.0.3",
         "husky": "^8.0.3",
         "lint-staged": "^15.0.2",
         "prettier": "^2.8.8",
