@@ -365,7 +365,7 @@ const config: HardhatUserConfig = {
 
 export default config
 
-require("@nomicfoundation/hardhat-tracer");
+require("hardhat-tracer");
 
 module.exports = {
   networks: {
