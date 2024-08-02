@@ -9,6 +9,8 @@ import 'hardhat-storage-layout-changes'
 import { HardhatUserConfig, task } from 'hardhat/config'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 
+require("hardhat-tracer");
+
 const lazyImport = async (module: any) => {
     return await import(module)
 }
@@ -329,6 +331,9 @@ const config: HardhatUserConfig = {
             accounts: [process.env.PRIVATE_KEY!],
             // timeout to support also slow networks (like calibration/mainnet)
             timeout: 50000000,
+            tracing: {
+                enabled: true,
+            }
         },
     },
     solidity: {
@@ -365,14 +370,5 @@ const config: HardhatUserConfig = {
 
 export default config
 
-require("hardhat-tracer");
 
-module.exports = {
-  networks: {
-    auto: {
-      tracing: {
-        enabled: true,
-      },
-    },
-  },
-};
+
