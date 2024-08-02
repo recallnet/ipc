@@ -1,6 +1,7 @@
 import '@nomicfoundation/hardhat-foundry'
 import '@nomiclabs/hardhat-ethers'
 import '@typechain/hardhat'
+import 'hardhat-tracer'
 import * as fs from 'fs'
 import 'hardhat-contract-sizer'
 import 'hardhat-deploy'
