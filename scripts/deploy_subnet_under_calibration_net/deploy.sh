@@ -183,9 +183,10 @@ cp /tmp/config.toml.0 ${IPC_CONFIG_FOLDER}/config.toml
 # Step 4.3: Deploy IPC contracts
 cd ${IPC_FOLDER}/contracts
 npm install
-export RPC_URL="https://api.calibration.node.glif.io/"
+# export RPC_URL="https://api.calibration.node.glif.io/"
+export RPC_URL="https://eth-sepolia.g.alchemy.com/v2/6n4KPMt_jj9qW7g9W3zHKpyTP9nkzIlI"
 export PRIVATE_KEY=$(cat ${IPC_CONFIG_FOLDER}/validator_0.sk)
-deploy_contracts_output=$(make deploy-ipc NETWORK=calibrationnet)
+deploy_contracts_output=$(make deploy-ipc NETWORK=auto)
 
 parent_gateway_address=$(echo "$deploy_contracts_output" | grep '"Gateway"' | awk -F'"' '{print $4}')
 parent_registry_address=$(echo "$deploy_contracts_output" | grep '"SubnetRegistry"' | awk -F'"' '{print $4}')
