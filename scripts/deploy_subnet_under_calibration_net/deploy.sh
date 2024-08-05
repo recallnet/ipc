@@ -184,7 +184,7 @@ cp /tmp/config.toml.0 ${IPC_CONFIG_FOLDER}/config.toml
 cd ${IPC_FOLDER}/contracts
 npm install
 # export RPC_URL="https://api.calibration.node.glif.io/"
-export RPC_URL="https://eth-sepolia.g.alchemy.com/v2/6n4KPMt_jj9qW7g9W3zHKpyTP9nkzIlI"
+export RPC_URL="http://127.0.0.1:8545"
 export PRIVATE_KEY=$(cat ${IPC_CONFIG_FOLDER}/validator_0.sk)
 deploy_contracts_output=$(make deploy-ipc NETWORK=auto)
 
