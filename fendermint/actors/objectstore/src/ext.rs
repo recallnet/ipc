@@ -3,16 +3,16 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 pub mod blobs {
+    use cid::Cid;
     use fvm_ipld_encoding::tuple::*;
     use fvm_shared::{address::Address, bigint::BigInt, clock::ChainEpoch, ActorID};
-    use iroh_base::hash::Hash;
-    use iroh_base::key::PublicKey;
+    use serde::{Deserialize, Serialize};
 
     pub const BLOBS_ACTOR_ID: ActorID = 49;
     pub const BLOBS_ACTOR_ADDR: Address = Address::new_id(BLOBS_ACTOR_ID);
 
     pub const ADD_BLOB_METHOD: u64 = frc42_dispatch::method_hash!("AddBlob");
-    // pub const DELETE_BLOB_METHOD: u64 = frc42_dispatch::method_hash!("DeleteBlob");
+    pub const DELETE_BLOB_METHOD: u64 = frc42_dispatch::method_hash!("DeleteBlob");
     // pub const GET_BLOB_METHOD: u64 = frc42_dispatch::method_hash!("GetBlob");
 
     /// Account storage and credit details.
@@ -31,15 +31,18 @@ pub mod blobs {
     /// Params for adding a blob.
     #[derive(Clone, Debug, Serialize_tuple, Deserialize_tuple)]
     pub struct AddBlobParams {
-        /// Robust address of caller. Required if the caller is a machine.
-        pub from: Option<Address>,
-        /// Source Iroh node ID used for ingestion.
-        pub source: PublicKey,
-        /// Blob blake3 hash.
-        pub hash: Hash,
+        /// Blob content identifier.
+        pub cid: Cid,
         /// Blob size.
         pub size: u64,
         /// Blob expiry epoch.
         pub expiry: ChainEpoch,
+        /// Optional source actor robust address. Required is source is a machine.
+        pub source: Option<Address>,
     }
+
+    /// Params for deleting a blob.
+    #[derive(Clone, Debug, Serialize, Deserialize)]
+    #[serde(transparent)]
+    pub struct DeleteBlobParams(pub Cid);
 }
