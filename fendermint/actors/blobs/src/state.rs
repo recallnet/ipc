@@ -172,14 +172,6 @@ impl State {
                     ));
                 }
 
-                // Debit for existing usage
-                let debit_blocks = current_epoch - account.last_debit_epoch;
-                let debit = (debit_blocks as u64) * &account.capacity_used;
-                self.credit_debited += &debit;
-                self.credit_committed -= &debit;
-                account.credit_committed -= &debit;
-                account.last_debit_epoch = current_epoch;
-
                 // Account for new size and move free credit to committed credit
                 self.capacity_used += &size;
                 account.capacity_used += &size;
@@ -242,5 +234,26 @@ impl State {
         let key = cid.to_bytes();
         let blob = self.blobs.get(&key).cloned();
         Ok(blob)
+    }
+
+    pub fn debit_accounts(&mut self, current_epoch: ChainEpoch) -> anyhow::Result<()> {
+        let mut total_debited = BigInt::zero();
+        for account in self.accounts.values_mut() {
+            let debit_period = current_epoch - account.last_debit_epoch;
+            let debit = (debit_period as u64) * account.capacity_used.clone();
+
+            total_debited += debit.clone();
+
+            account.last_debit_epoch = current_epoch;
+            account.credit_committed = if account.credit_committed > debit {
+                account.credit_committed.clone() - debit
+            } else {
+                BigInt::zero()
+            };
+        }
+        self.credit_debited += total_debited.clone();
+        self.credit_committed -= total_debited;
+
+        Ok(())
     }
 }

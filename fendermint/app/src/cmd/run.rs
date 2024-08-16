@@ -41,7 +41,7 @@ use crate::{cmd, options::run::RunArgs, settings::Settings};
 
 cmd! {
   RunArgs(self, settings) {
-    run(self.ipfs_addr.clone(), settings).await
+    run(self.ipfs_addr.clone(), self.debit_period, settings).await
   }
 }
 
@@ -58,7 +58,12 @@ namespaces! {
 /// Run the Fendermint ABCI Application.
 ///
 /// This method acts as our composition root.
-async fn run(ipfs_addr: String, settings: Settings) -> anyhow::Result<()> {
+async fn run(ipfs_addr: String, debit_period: u64, settings: Settings) -> anyhow::Result<()> {
+    // ====
+    tracing::info!("cron cycle is set to {}", debit_period);
+
+    // ====
+
     let tendermint_rpc_url = settings.tendermint_rpc_url()?;
     tracing::info!("Connecting to Tendermint at {tendermint_rpc_url}");
 

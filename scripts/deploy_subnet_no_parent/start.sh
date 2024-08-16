@@ -79,6 +79,7 @@ bootstrap_output=$(cargo make --makefile infra/fendermint/Makefile.toml \
     -e PROMETHEUS_METRICS_PORT="${PROMETHEUS_METRICS_PORTS[0]}" \
     -e IPFS_PROFILE="local-discovery" \
     -e FM_PULL_SKIP=1 \
+    -e DEBIT_PERIOD=6 \
     -e FM_LOG_LEVEL="info,fendermint=debug" \
     child-validator-no-parent 2>&1)
 echo "$bootstrap_output"
@@ -105,6 +106,7 @@ do
       -e RESOLVER_BOOTSTRAPS="$bootstrap_resolver_endpoint" \
       -e BOOTSTRAPS="$bootstrap_node_endpoint" \
       -e FM_PULL_SKIP=1 \
+      -e DEBIT_PERIOD=6 \
       -e FM_LOG_LEVEL="info,fendermint=debug" \
       child-validator-no-parent
 done

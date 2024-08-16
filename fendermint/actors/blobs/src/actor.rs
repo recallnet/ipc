@@ -174,6 +174,18 @@ impl BlobsActor {
             .map_err(|e| e.downcast_default(ExitCode::USR_ILLEGAL_STATE, "failed to get blob"))
     }
 
+    fn debit_accounts(rt: &impl Runtime) -> Result<(), ActorError> {
+        rt.validate_immediate_caller_is(std::iter::once(&SYSTEM_ACTOR_ADDR))?;
+
+        rt.transaction(|st: &mut State, _| {
+            st.debit_accounts(rt.curr_epoch()).map_err(|e| {
+                e.downcast_default(ExitCode::USR_ILLEGAL_STATE, "failed to resolve blob")
+            })
+        })?;
+
+        Ok(())
+    }
+
     /// Fallback method for unimplemented method numbers.
     pub fn fallback(
         rt: &impl Runtime,
@@ -208,6 +220,7 @@ impl ActorCode for BlobsActor {
         ResolveBlob => resolve_blob,
         DeleteBlob => delete_blob,
         GetBlob => get_blob,
+        DebitAccounts => debit_accounts,
         _ => fallback,
     }
 }
@@ -281,7 +294,9 @@ mod tests {
     use rand::Rng;
 
     use crate::actor::BlobsActor;
-    use crate::{Account, AddBlobParams, BuyCreditParams, ConstructorParams, Method};
+    use crate::{
+        Account, AddBlobParams, BuyCreditParams, ConstructorParams, GetAccountParams, Method,
+    };
 
     pub fn new_cid() -> Cid {
         let mut rng = rand::thread_rng();
@@ -438,9 +453,40 @@ mod tests {
                 capacity_used: BigInt::from(1024),
                 credit_free: BigInt::from(999999999999989760u64),
                 credit_committed: BigInt::from(10240),
-                last_debit_epoch: 5,
+                last_debit_epoch: 0,
             }
         );
+        rt.verify();
+
+        // Debit all accounts at epoch 10
+        rt.set_caller(*SYSTEM_ACTOR_CODE_ID, SYSTEM_ACTOR_ADDR);
+        rt.expect_validate_caller_addr(vec![SYSTEM_ACTOR_ADDR]);
+        rt.set_epoch(ChainEpoch::from(10));
+        rt.call::<BlobsActor>(Method::DebitAccounts as u64, None)
+            .unwrap();
+
+        // Verify that _this_ account is debited
+        let get_account_params = GetAccountParams(f4_eth_addr);
+        rt.expect_validate_caller_any();
+        let acc = rt
+            .call::<BlobsActor>(
+                Method::GetAccount as u64,
+                IpldBlock::serialize_cbor(&get_account_params).unwrap(),
+            )
+            .unwrap()
+            .unwrap()
+            .deserialize::<Account>()
+            .unwrap();
+        assert_eq!(
+            acc,
+            Account {
+                capacity_used: BigInt::from(1024),
+                credit_free: BigInt::from(999999999999989760u64),
+                credit_committed: BigInt::from(0),
+                last_debit_epoch: 10,
+            }
+        );
+
         rt.verify();
     }
 }

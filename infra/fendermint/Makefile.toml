@@ -53,6 +53,7 @@ IPFS_GATEWAY_HOST_PORT = { value = "8080", condition = { env_not_set = [
 PROMETHEUS_HOST_PORT = { value = "9090", condition = { env_not_set = [
     "PROMETHEUS_HOST_PORT",
 ] } }
+DEBIT_PERIOD = { value = "6", condition = { env_not_set = ["DEBIT_PERIOD"] } }
 
 BALANCE = { value = "1000", condition = { env_not_set = ["BALANCE"] } }
 BASE_FEE = { value = "1000", condition = { env_not_set = ["BASE_FEE"] } }

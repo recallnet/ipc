@@ -101,4 +101,5 @@ pub enum Method {
     ResolveBlob = frc42_dispatch::method_hash!("ResolveBlob"),
     DeleteBlob = frc42_dispatch::method_hash!("DeleteBlob"),
     GetBlob = frc42_dispatch::method_hash!("GetBlob"),
+    DebitAccounts = frc42_dispatch::method_hash!("DebitAccounts"),
 }

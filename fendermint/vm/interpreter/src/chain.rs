@@ -15,7 +15,7 @@ use async_stm::atomically;
 use async_trait::async_trait;
 use cid::Cid;
 use fendermint_actor_blobs::{
-    Method::{GetResolvingBlobs, IsBlobResolving, ResolveBlob},
+    Method::{DebitAccounts, GetResolvingBlobs, IsBlobResolving, ResolveBlob},
     ResolveBlobParams,
 };
 use fendermint_tracing::emit;
@@ -198,6 +198,18 @@ where
 
         // Append at the end - if we run out of block space, these are going to be reproposed in the next block.
         msgs.extend(ckpts);
+
+        // if block height is a multiple of 10, we should a message to
+        // delete expired blobs and deduct the debited credits
+        let current_height = state.block_height();
+        if current_height % 10 == 0 && current_height > 0 {
+            state.state_tree_mut().begin_transaction();
+            debit_accounts(&mut state)?;
+            state
+                .state_tree_mut()
+                .end_transaction(true)
+                .expect("we just started a transaction");
+        }
 
         // Collect and enqueue blobs that need to be resolved.
         state.state_tree_mut().begin_transaction();
@@ -785,4 +797,26 @@ where
     let resolving = fvm_ipld_encoding::from_slice::<bool>(&data)
         .map_err(|e| anyhow!("error parsing as bool: {e}"))?;
     Ok(!resolving)
+}
+
+/// debit accounts method to deduct credits for storage rent
+fn debit_accounts<DB>(state: &mut FvmExecState<ReadOnlyBlockstore<DB>>) -> anyhow::Result<()>
+where
+    DB: Blockstore + Clone + 'static + Send + Sync,
+{
+    let msg = FvmMessage {
+        version: 0,
+        from: system::SYSTEM_ACTOR_ADDR,
+        to: blobs::BLOBS_ACTOR_ADDR,
+        sequence: 0,
+        value: Default::default(),
+        method_num: DebitAccounts as u64,
+        params: Default::default(),
+        gas_limit: fvm_shared::BLOCK_GAS_LIMIT,
+        gas_fee_cap: Default::default(),
+        gas_premium: Default::default(),
+    };
+    let (apply_ret, _) = state.execute_implicit(msg)?;
+    apply_ret.msg_receipt.return_data.to_vec();
+    Ok(())
 }
