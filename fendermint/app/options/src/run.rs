@@ -14,5 +14,5 @@ pub struct RunArgs {
     pub ipfs_addr: String,
 
     #[arg(long, short, default_value = "10", env = "DEBIT_PERIOD")]
-    pub debit_period: u64,
+    pub debit_period: i64,
 }

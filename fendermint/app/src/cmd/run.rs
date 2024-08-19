@@ -58,12 +58,7 @@ namespaces! {
 /// Run the Fendermint ABCI Application.
 ///
 /// This method acts as our composition root.
-async fn run(ipfs_addr: String, debit_period: u64, settings: Settings) -> anyhow::Result<()> {
-    // ====
-    tracing::info!("cron cycle is set to {}", debit_period);
-
-    // ====
-
+async fn run(ipfs_addr: String, debit_period: i64, settings: Settings) -> anyhow::Result<()> {
     let tendermint_rpc_url = settings.tendermint_rpc_url()?;
     tracing::info!("Connecting to Tendermint at {tendermint_rpc_url}");
 
@@ -145,7 +140,8 @@ async fn run(ipfs_addr: String, debit_period: u64, settings: Settings) -> anyhow
     .with_push_chain_meta(testing_settings.map_or(true, |t| t.push_chain_meta));
 
     let interpreter = SignedMessageInterpreter::new(interpreter);
-    let interpreter = ChainMessageInterpreter::<_, NamespaceBlockstore>::new(interpreter);
+    let interpreter =
+        ChainMessageInterpreter::<_, NamespaceBlockstore>::new(interpreter, debit_period);
     let interpreter = BytesMessageInterpreter::new(
         interpreter,
         ProposalPrepareMode::PrependOnly,

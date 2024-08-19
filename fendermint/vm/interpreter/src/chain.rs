@@ -112,13 +112,15 @@ pub type ChainMessageCheckRes = Result<SignedMessageCheckRes, IllegalMessage>;
 pub struct ChainMessageInterpreter<I, DB> {
     inner: I,
     gateway_caller: GatewayCaller<DB>,
+    debit_period: ChainEpoch,
 }
 
 impl<I, DB> ChainMessageInterpreter<I, DB> {
-    pub fn new(inner: I) -> Self {
+    pub fn new(inner: I, debit_period: ChainEpoch) -> Self {
         Self {
             inner,
             gateway_caller: GatewayCaller::default(),
+            debit_period,
         }
     }
 }
@@ -202,7 +204,7 @@ where
         // if block height is a multiple of 10, we should a message to
         // delete expired blobs and deduct the debited credits
         let current_height = state.block_height();
-        if current_height % 10 == 0 && current_height > 0 {
+        if current_height % self.debit_period == 0 && current_height > 0 {
             state.state_tree_mut().begin_transaction();
             debit_accounts(&mut state)?;
             state
@@ -818,5 +820,6 @@ where
     };
     let (apply_ret, _) = state.execute_implicit(msg)?;
     apply_ret.msg_receipt.return_data.to_vec();
+    tracing::info!("Creating debit accounts transaction");
     Ok(())
 }
