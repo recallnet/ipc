@@ -2,12 +2,11 @@
 // Copyright 2021-2023 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use cid::Cid;
 use fendermint_actor_machine::GET_METADATA_METHOD;
 use fvm_ipld_encoding::{strict_bytes, tuple::*};
 use fvm_shared::address::Address;
 use fvm_shared::METHOD_CONSTRUCTOR;
-use iroh_base::hash::Hash;
-use iroh_base::key::PublicKey;
 use num_derive::FromPrimitive;
 use std::collections::HashMap;
 
@@ -19,30 +18,18 @@ pub const OBJECTSTORE_ACTOR_NAME: &str = "objectstore";
 #[derive(Clone, Debug, Serialize_tuple, Deserialize_tuple)]
 pub struct AddParams {
     /// Target object store address.
-    pub to: Address,
-    /// Source Iroh node ID used for ingestion.
-    pub source: PublicKey,
+    pub store: Address,
     /// Object key.
     #[serde(with = "strict_bytes")]
     pub key: Vec<u8>,
-    /// Object blake3 hash.
-    pub hash: Hash,
+    /// Object value.
+    pub cid: Cid,
     /// Object size.
     pub size: usize,
     /// Object metadata.
     pub metadata: HashMap<String, String>,
     /// Whether to overwrite a key if it already exists.
     pub overwrite: bool,
-}
-
-/// Params for resolving an object.
-#[derive(Clone, Debug, Serialize_tuple, Deserialize_tuple)]
-pub struct ResolveParams {
-    /// Object key.
-    #[serde(with = "strict_bytes")]
-    pub key: Vec<u8>,
-    /// Object blake3 hash.
-    pub hash: Hash,
 }
 
 /// Params for deleting an object.
@@ -82,7 +69,6 @@ pub enum Method {
     Constructor = METHOD_CONSTRUCTOR,
     GetMetadata = GET_METADATA_METHOD,
     AddObject = frc42_dispatch::method_hash!("AddObject"),
-    ResolveObject = frc42_dispatch::method_hash!("ResolveObject"),
     DeleteObject = frc42_dispatch::method_hash!("DeleteObject"),
     GetObject = frc42_dispatch::method_hash!("GetObject"),
     ListObjects = frc42_dispatch::method_hash!("ListObjects"),
