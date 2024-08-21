@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 pub mod blobs {
-    use fendermint_actor_blobs_shared::{Hash, PublicKey};
+    use cid::Cid;
     use fvm_ipld_encoding::tuple::*;
     use fvm_shared::{address::Address, bigint::BigInt, clock::ChainEpoch, ActorID};
     use serde::{Deserialize, Serialize};
@@ -13,7 +13,7 @@ pub mod blobs {
 
     pub const ADD_BLOB_METHOD: u64 = frc42_dispatch::method_hash!("AddBlob");
     pub const DELETE_BLOB_METHOD: u64 = frc42_dispatch::method_hash!("DeleteBlob");
-    // pub const GET_BLOB_METHOD: u64 = frc42_dispatch::method_hash!("GetBlob");
+    pub const GET_BLOB_METHOD: u64 = frc42_dispatch::method_hash!("GetBlob");
 
     /// Account storage and credit details.
     #[derive(Clone, Debug, PartialEq, Serialize_tuple, Deserialize_tuple)]
@@ -31,20 +31,38 @@ pub mod blobs {
     /// Params for adding a blob.
     #[derive(Clone, Debug, Serialize_tuple, Deserialize_tuple)]
     pub struct AddBlobParams {
-        /// Robust address of caller. Required if the caller is a machine.
-        pub from: Option<Address>,
-        /// Source Iroh node ID used for ingestion.
-        pub source: PublicKey,
-        /// Blob blake3 hash.
-        pub hash: Hash,
+        /// Blob content identifier.
+        pub cid: Cid,
         /// Blob size.
         pub size: u64,
         /// Blob expiry epoch.
         pub expiry: ChainEpoch,
+        /// Optional source actor robust address. Required is source is a machine.
+        pub source: Option<Address>,
     }
 
     /// Params for deleting a blob.
     #[derive(Clone, Debug, Serialize, Deserialize)]
     #[serde(transparent)]
-    pub struct DeleteBlobParams(pub Hash);
+    pub struct DeleteBlobParams(pub Cid);
+
+    /// Params for getting a blob.
+    #[derive(Clone, Debug, Serialize, Deserialize)]
+    #[serde(transparent)]
+    pub struct GetBlobParams(pub Cid);
+
+    /// The stored representation of a blob.
+    /// Copied from fendermint/actors/blobs/src/state.rs
+    #[derive(Clone, Debug, PartialEq, Serialize_tuple, Deserialize_tuple)]
+    pub struct Blob {
+        /// The size of the content.
+        pub size: u64,
+        /// Expiry block.
+        pub expiry: ChainEpoch,
+        /// TODO: add subs
+        //pub subs: HashMap<Address, Subscription>,
+        /// Whether the blob has been resolved.
+        /// TODO: change to enum: resolving, resolved, failed
+        pub resolved: bool,
+    }
 }
