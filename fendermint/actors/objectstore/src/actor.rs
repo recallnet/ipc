@@ -47,11 +47,10 @@ impl Actor {
         let key = BytesKey(params.key);
         if let Some(object) = Self::retrieve_object(rt, &key)? {
             if params.overwrite {
-                let cid = Self::cid_from_object(object)?;
                 extract_send_result(rt.send_simple(
                     &ext::blobs::BLOBS_ACTOR_ADDR,
                     ext::blobs::DELETE_BLOB_METHOD,
-                    IpldBlock::serialize_cbor(&ext::blobs::DeleteBlobParams(cid))?,
+                    IpldBlock::serialize_cbor(&ext::blobs::DeleteBlobParams(object.hash))?,
                     rt.message().value_received(),
                 ))?;
             } else {
@@ -62,10 +61,11 @@ impl Actor {
         }
 
         let add_params = IpldBlock::serialize_cbor(&ext::blobs::AddBlobParams {
-            cid: params.cid,
+            from: Some(params.to),
+            source: params.source,
+            hash: params.hash,
             size: params.size as u64,
             expiry: rt.curr_epoch() + 100,
-            source: Some(params.store),
         })?;
         extract_send_result(rt.send_simple(
             &ext::blobs::BLOBS_ACTOR_ADDR,
@@ -78,7 +78,7 @@ impl Actor {
             st.add(
                 rt.store(),
                 key,
-                params.cid,
+                params.hash,
                 params.size,
                 params.metadata,
                 params.overwrite,
@@ -100,12 +100,11 @@ impl Actor {
             ExitCode::USR_ILLEGAL_STATE,
             "no object stored".to_string(),
         ))?;
-        let cid = Self::cid_from_object(object)?;
         // 2. Delete from the blobs actor
         extract_send_result(rt.send_simple(
             &ext::blobs::BLOBS_ACTOR_ADDR,
             ext::blobs::DELETE_BLOB_METHOD,
-            IpldBlock::serialize_cbor(&ext::blobs::DeleteBlobParams(cid))?,
+            IpldBlock::serialize_cbor(&ext::blobs::DeleteBlobParams(object.hash))?,
             rt.message().value_received(),
         ))?;
         // 3. Delete from the state
@@ -173,13 +172,6 @@ impl Actor {
             e.downcast_default(ExitCode::USR_ILLEGAL_STATE, "failed to retrieve object")
         })
     }
-
-    // Get CID of an object, and cast an error to ActorError if it happens
-    fn cid_from_object(object: Object) -> Result<Cid, ActorError> {
-        Cid::try_from(object.cid.0).map_err(|e| {
-            anyhow::Error::from(e).downcast_default(ExitCode::USR_ILLEGAL_STATE, "invalid cid")
-        })
-    }
 }
 
 impl MachineActor for Actor {
@@ -206,7 +198,13 @@ impl ActorCode for Actor {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
+    use cid::Cid;
+    use fendermint_actor_blobs_shared::{Hash, PublicKey};
+    use fendermint_actor_machine::WriteAccess;
     use fil_actors_evm_shared::address::EthAddress;
+    use fil_actors_runtime::runtime::Runtime;
     use fil_actors_runtime::test_utils::{
         expect_empty, MockRuntime, ETHACCOUNT_ACTOR_CODE_ID, SYSTEM_ACTOR_CODE_ID,
     };
@@ -214,13 +212,8 @@ mod tests {
     use fvm_ipld_encoding::ipld_block::IpldBlock;
     use fvm_shared::address::Address;
     use fvm_shared::econ::TokenAmount;
-
-    use crate::{actor::Actor, ext, AddParams, DeleteParams, Method, State};
-    use cid::{multihash, Cid};
-    use fendermint_actor_machine::WriteAccess;
-    use fil_actors_runtime::runtime::Runtime;
     use fvm_shared::error::ExitCode;
-    use rand::Rng;
+    use rand::RngCore;
     use std::collections::HashMap;
 
     fn construct_and_verify(creator: Address) -> MockRuntime {
@@ -235,7 +228,7 @@ mod tests {
         let actor_construction = rt
             .call::<Actor>(
                 Method::Constructor as u64,
-                IpldBlock::serialize_cbor(&fendermint_actor_machine::ConstructorParams {
+                IpldBlock::serialize_cbor(&ConstructorParams {
                     creator,
                     write_access,
                     metadata,
@@ -249,14 +242,21 @@ mod tests {
         rt
     }
 
-    fn new_cid() -> Cid {
+    pub fn new_hash(size: usize) -> (Hash, u64) {
         let mut rng = rand::thread_rng();
-        let mut hash = [0u8; 32];
-        rng.fill(&mut hash);
-        Cid::new_v1(
-            0x55,
-            multihash::Multihash::wrap(multihash::Code::Blake2b256.into(), &hash).unwrap(),
+        let mut data = vec![0u8; size];
+        rng.fill_bytes(&mut data);
+        (
+            Hash(iroh_base::hash::Hash::new(&data).as_bytes().clone()),
+            size as u64,
         )
+    }
+
+    pub fn new_pk() -> PublicKey {
+        let mut rng = rand::thread_rng();
+        let mut data = [0u8; 32];
+        rng.fill_bytes(&mut data);
+        PublicKey(data)
     }
 
     #[test]
@@ -272,11 +272,13 @@ mod tests {
         rt.set_caller(*ETHACCOUNT_ACTOR_CODE_ID, id_addr);
         rt.set_origin(id_addr);
         rt.expect_validate_caller_any();
+        let hash = new_hash(256);
         let add_params: AddParams = AddParams {
-            store: f4_eth_addr,
+            to: f4_eth_addr,
+            source: new_pk(),
             key: vec![0, 1, 2],
-            cid: new_cid(),
-            size: 20,
+            hash: hash.0,
+            size: hash.1 as usize,
             metadata: HashMap::new(),
             overwrite: false,
         };
@@ -284,10 +286,11 @@ mod tests {
             ext::blobs::BLOBS_ACTOR_ADDR,
             ext::blobs::ADD_BLOB_METHOD,
             IpldBlock::serialize_cbor(&ext::blobs::AddBlobParams {
-                cid: add_params.cid,
+                from: Some(add_params.to),
+                source: add_params.source,
+                hash: add_params.hash,
                 size: add_params.size as u64,
                 expiry: 100,
-                source: Some(add_params.store),
             })
             .unwrap(),
             TokenAmount::from_whole(0),
@@ -320,11 +323,13 @@ mod tests {
         rt.set_caller(*ETHACCOUNT_ACTOR_CODE_ID, id_addr);
         rt.set_origin(id_addr);
         rt.expect_validate_caller_any();
+        let hash = new_hash(256);
         let add_params: AddParams = AddParams {
-            store: f4_eth_addr,
+            to: f4_eth_addr,
+            source: new_pk(),
             key: vec![0, 1, 2],
-            cid: new_cid(),
-            size: 20,
+            hash: hash.0,
+            size: hash.1 as usize,
             metadata: HashMap::new(),
             overwrite: false,
         };
@@ -332,10 +337,11 @@ mod tests {
             ext::blobs::BLOBS_ACTOR_ADDR,
             ext::blobs::ADD_BLOB_METHOD,
             IpldBlock::serialize_cbor(&ext::blobs::AddBlobParams {
-                cid: add_params.cid,
+                from: Some(add_params.to),
+                source: add_params.source,
+                hash: add_params.hash,
                 size: add_params.size as u64,
                 expiry: 100,
-                source: Some(add_params.store),
             })
             .unwrap(),
             TokenAmount::from_whole(0),
@@ -354,11 +360,13 @@ mod tests {
         let state = rt.state::<State>().unwrap();
         assert_eq!(state.root, result);
 
+        let hash = new_hash(256);
         let add_params2 = AddParams {
-            store: add_params.store,
+            to: add_params.to,
+            source: add_params.source,
             key: add_params.key,
-            cid: new_cid(),
-            size: add_params.size,
+            hash: hash.0,
+            size: hash.1 as usize,
             metadata: HashMap::new(),
             overwrite: true,
         };
@@ -366,7 +374,7 @@ mod tests {
         rt.expect_send_simple(
             ext::blobs::BLOBS_ACTOR_ADDR,
             ext::blobs::DELETE_BLOB_METHOD,
-            IpldBlock::serialize_cbor(&ext::blobs::DeleteBlobParams(add_params.cid)).unwrap(),
+            IpldBlock::serialize_cbor(&ext::blobs::DeleteBlobParams(add_params.hash)).unwrap(),
             TokenAmount::from_whole(0),
             None,
             ExitCode::OK,
@@ -375,10 +383,11 @@ mod tests {
             ext::blobs::BLOBS_ACTOR_ADDR,
             ext::blobs::ADD_BLOB_METHOD,
             IpldBlock::serialize_cbor(&ext::blobs::AddBlobParams {
-                cid: add_params2.cid,
+                from: Some(add_params2.to),
+                source: add_params2.source,
+                hash: add_params2.hash,
                 size: add_params2.size as u64,
                 expiry: 100,
-                source: Some(add_params2.store),
             })
             .unwrap(),
             TokenAmount::from_whole(0),
@@ -411,11 +420,13 @@ mod tests {
         rt.set_caller(*ETHACCOUNT_ACTOR_CODE_ID, id_addr);
         rt.set_origin(id_addr);
         rt.expect_validate_caller_any();
+        let hash = new_hash(256);
         let add_params: AddParams = AddParams {
-            store: f4_eth_addr,
+            to: f4_eth_addr,
+            source: new_pk(),
             key: vec![0, 1, 2],
-            cid: new_cid(),
-            size: 20,
+            hash: hash.0,
+            size: hash.1 as usize,
             metadata: HashMap::new(),
             overwrite: false,
         };
@@ -423,10 +434,11 @@ mod tests {
             ext::blobs::BLOBS_ACTOR_ADDR,
             ext::blobs::ADD_BLOB_METHOD,
             IpldBlock::serialize_cbor(&ext::blobs::AddBlobParams {
-                cid: add_params.cid,
+                from: Some(add_params.to),
+                source: add_params.source,
+                hash: add_params.hash,
                 size: add_params.size as u64,
                 expiry: 100,
-                source: Some(add_params.store),
             })
             .unwrap(),
             TokenAmount::from_whole(0),
@@ -445,11 +457,13 @@ mod tests {
         let state = rt.state::<State>().unwrap();
         assert_eq!(state.root, result);
 
+        let hash = new_hash(256);
         let add_params2 = AddParams {
-            store: add_params.store,
+            to: add_params.to,
+            source: add_params.source,
             key: add_params.key,
-            cid: new_cid(),
-            size: add_params.size,
+            hash: hash.0,
+            size: hash.1 as usize,
             metadata: HashMap::new(),
             overwrite: false,
         };
@@ -477,14 +491,15 @@ mod tests {
         rt.set_origin(id_addr);
         rt.expect_validate_caller_any();
         let key = vec![0, 1, 2];
-        let cid = new_cid();
+        let hash = new_hash(256);
 
         // Prerequisite for a delete operation: add to have a proper state of the actor.
         let add_params: AddParams = AddParams {
-            store: f4_eth_addr,
+            to: f4_eth_addr,
+            source: new_pk(),
             key: key.clone(),
-            cid,
-            size: 20,
+            hash: hash.0,
+            size: hash.1 as usize,
             metadata: HashMap::new(),
             overwrite: false,
         };
@@ -492,10 +507,11 @@ mod tests {
             ext::blobs::BLOBS_ACTOR_ADDR,
             ext::blobs::ADD_BLOB_METHOD,
             IpldBlock::serialize_cbor(&ext::blobs::AddBlobParams {
-                cid: add_params.cid,
+                from: Some(add_params.to),
+                source: add_params.source,
+                hash: add_params.hash,
                 size: add_params.size as u64,
                 expiry: 100,
-                source: Some(add_params.store),
             })
             .unwrap(),
             TokenAmount::from_whole(0),
@@ -520,7 +536,7 @@ mod tests {
         rt.expect_send_simple(
             ext::blobs::BLOBS_ACTOR_ADDR,
             ext::blobs::DELETE_BLOB_METHOD,
-            IpldBlock::serialize_cbor(&ext::blobs::DeleteBlobParams(cid)).unwrap(),
+            IpldBlock::serialize_cbor(&ext::blobs::DeleteBlobParams(hash.0)).unwrap(),
             TokenAmount::from_whole(0),
             None,
             ExitCode::OK,

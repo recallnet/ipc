@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 pub mod blobs {
-    use cid::Cid;
+    use fendermint_actor_blobs_shared::{Hash, PublicKey};
     use fvm_ipld_encoding::tuple::*;
     use fvm_shared::{address::Address, bigint::BigInt, clock::ChainEpoch, ActorID};
     use serde::{Deserialize, Serialize};
@@ -31,18 +31,20 @@ pub mod blobs {
     /// Params for adding a blob.
     #[derive(Clone, Debug, Serialize_tuple, Deserialize_tuple)]
     pub struct AddBlobParams {
-        /// Blob content identifier.
-        pub cid: Cid,
+        /// Robust address of caller. Required if the caller is a machine.
+        pub from: Option<Address>,
+        /// Source Iroh node ID used for ingestion.
+        pub source: PublicKey,
+        /// Blob blake3 hash.
+        pub hash: Hash,
         /// Blob size.
         pub size: u64,
         /// Blob expiry epoch.
         pub expiry: ChainEpoch,
-        /// Optional source actor robust address. Required is source is a machine.
-        pub source: Option<Address>,
     }
 
     /// Params for deleting a blob.
     #[derive(Clone, Debug, Serialize, Deserialize)]
     #[serde(transparent)]
-    pub struct DeleteBlobParams(pub Cid);
+    pub struct DeleteBlobParams(pub Hash);
 }
