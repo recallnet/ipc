@@ -13,9 +13,11 @@ use crate::{
 use anyhow::{anyhow, bail, Context};
 use async_stm::atomically;
 use async_trait::async_trait;
-use fendermint_actor_blobs::{
-    Method::{GetResolvingBlobs, IsBlobResolving, ResolveBlob},
-    ResolveBlobParams,
+use fendermint_actor_blobs_shared::params::GetBlobParams;
+use fendermint_actor_blobs_shared::state::BlobStatus;
+use fendermint_actor_blobs_shared::{
+    params::ResolveBlobParams,
+    Method::{GetBlobStatus, GetResolvingBlobs, ResolveBlob},
 };
 use fendermint_tracing::emit;
 use fendermint_vm_actor_interface::{blobs, ipc, system};
@@ -235,7 +237,7 @@ where
             state.state_tree_mut().begin_transaction();
             for item in local_resolved_blobs.iter() {
                 if is_blob_resolved(&mut state, item.hash)? {
-                    tracing::debug!(cid = ?item.hash, "blob already finalized; removing from pool");
+                    tracing::debug!(cid = ?item.hash, "blob already finalized or deleted; removing from pool");
                     atomically(|| env.blob_pool.remove(item)).await;
                     continue;
                 }
@@ -322,7 +324,7 @@ where
                     // Start a blockstore transaction that can be reverted.
                     state.state_tree_mut().begin_transaction();
                     if is_blob_resolved(&mut state, item.hash)? {
-                        tracing::debug!(hash = ?item.hash, "blob is already finalized; rejecting proposal");
+                        tracing::debug!(hash = ?item.hash, "blob is already finalized or deleted; rejecting proposal");
                         return Ok(false);
                     }
                     state
@@ -529,7 +531,7 @@ where
                     let method_num = ResolveBlob as u64;
                     let gas_limit = fvm_shared::BLOCK_GAS_LIMIT;
 
-                    let hash = fendermint_actor_blobs_shared::Hash(*blob.hash.as_bytes());
+                    let hash = fendermint_actor_blobs_shared::state::Hash(*blob.hash.as_bytes());
                     let params = ResolveBlobParams(hash);
                     let params = RawBytes::serialize(params)?;
                     let msg = Message {
@@ -775,8 +777,8 @@ fn is_blob_resolved<DB>(
 where
     DB: Blockstore + Clone + 'static + Send + Sync,
 {
-    let hash = fendermint_actor_blobs_shared::Hash(*hash.as_bytes());
-    let params = ResolveBlobParams(hash);
+    let hash = fendermint_actor_blobs_shared::state::Hash(*hash.as_bytes());
+    let params = GetBlobParams(hash);
     let params = RawBytes::serialize(params)?;
     let msg = FvmMessage {
         version: 0,
@@ -784,7 +786,7 @@ where
         to: blobs::BLOBS_ACTOR_ADDR,
         sequence: 0,
         value: Default::default(),
-        method_num: IsBlobResolving as u64,
+        method_num: GetBlobStatus as u64,
         params,
         gas_limit: fvm_shared::BLOCK_GAS_LIMIT,
         gas_fee_cap: Default::default(),
@@ -793,7 +795,16 @@ where
     let (apply_ret, _) = state.execute_implicit(msg)?;
 
     let data: bytes::Bytes = apply_ret.msg_receipt.return_data.to_vec().into();
-    let resolving = fvm_ipld_encoding::from_slice::<bool>(&data)
-        .map_err(|e| anyhow!("error parsing as bool: {e}"))?;
-    Ok(!resolving)
+    let status = fvm_ipld_encoding::from_slice::<Option<BlobStatus>>(&data)
+        .map_err(|e| anyhow!("error parsing as Option<BlobStatus>: {e}"))?;
+    let resolved = if let Some(status) = status {
+        match status {
+            BlobStatus::Added(_) | BlobStatus::Failed => false,
+            BlobStatus::Resolved => true,
+        }
+    } else {
+        // Not found, consider it resolved
+        true
+    };
+    Ok(resolved)
 }

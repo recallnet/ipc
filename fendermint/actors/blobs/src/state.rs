@@ -2,18 +2,19 @@
 // Copyright 2021-2023 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use anyhow::anyhow;
-use fendermint_actor_blobs_shared::{Hash, PublicKey};
+use fendermint_actor_blobs_shared::params::GetStatsReturn;
+use fendermint_actor_blobs_shared::state::{
+    Account, Blob, BlobStatus, Hash, PublicKey, Subscription,
+};
 use fvm_ipld_encoding::tuple::*;
 use fvm_shared::address::Address;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::econ::TokenAmount;
 use num_traits::{ToPrimitive, Zero};
-
-use crate::GetStatsReturn;
 
 /// The state represents all accounts and stored blobs.
 /// TODO: use raw HAMTs
@@ -36,42 +37,8 @@ pub struct State {
     pub accounts: HashMap<Address, Account>,
     /// Map containing all blobs.
     pub blobs: HashMap<Hash, Blob>,
-    /// Set of currently resolving blob hashes.
-    pub resolving: BTreeMap<Hash, PublicKey>,
-}
-
-/// The stored representation of a credit account.
-#[derive(Clone, Debug, PartialEq, Serialize_tuple, Deserialize_tuple)]
-pub struct Account {
-    /// Total size of all blobs managed by the account.
-    pub capacity_used: BigInt,
-    /// Current free credit in byte-blocks that can be used for new commitments.
-    pub credit_free: BigInt,
-    /// Current committed credit in byte-blocks that will be used for debits.
-    pub credit_committed: BigInt,
-    /// The chain epoch of the last debit.
-    pub last_debit_epoch: ChainEpoch,
-}
-
-/// The stored representation of a blob.
-#[derive(Clone, Debug, Serialize_tuple, Deserialize_tuple)]
-pub struct Blob {
-    /// The size of the content.
-    pub size: u64,
-    /// Expiry block.
-    pub expiry: ChainEpoch,
-    /// TODO: add subs
-    //pub subs: HashMap<Address, Subscription>,
-    /// Whether the blob has been resolved.
-    pub source_node_id: PublicKey,
-    /// TODO: change to enum: resolving, resolved, failed
-    pub resolved: bool,
-}
-
-#[derive(Clone, Debug, Serialize_tuple, Deserialize_tuple)]
-pub struct Subscription {
-    /// Expiry block.
-    pub expiry: ChainEpoch,
+    /// Map of currently resolving blob hashes to source Iroh node IDs.
+    pub resolving: BTreeMap<Hash, HashSet<PublicKey>>,
 }
 
 impl State {
@@ -145,7 +112,7 @@ impl State {
         Ok(account)
     }
 
-    // TODO: check for already existing blob _for the sender_
+    // TODO: expiry should be optional, ie, pay for as long as there's credit
     pub fn add_blob(
         &mut self,
         sender: Address,
@@ -153,7 +120,7 @@ impl State {
         hash: Hash,
         size: u64,
         expiry: ChainEpoch,
-        source_node_id: PublicKey,
+        source: PublicKey,
     ) -> anyhow::Result<Account> {
         if expiry <= current_epoch {
             return Err(anyhow!("expiry must be in the future"));
@@ -161,9 +128,56 @@ impl State {
 
         match self.accounts.get_mut(&sender) {
             Some(account) => {
-                // Check free credit
                 let size = BigInt::from(size);
-                let required_credit = (expiry as u64) * &size;
+                // Capacity updates and required credit depend on whether the sender is already
+                // subcribing to this blob
+                let mut new_capacity = BigInt::zero();
+                let mut new_account_capacity = BigInt::zero();
+                let required_credit: BigInt;
+                let blob = if let Some(blob) = self.blobs.get(&hash) {
+                    // We could get_mut to begin with, but the logic below is simpler if we
+                    // have transactional control
+                    let mut blob = blob.clone();
+                    if let Some(sub) = blob.subs.get(&sender) {
+                        let mut sub = sub.clone();
+                        // Required credit can be negative if sender is reducing expiry
+                        required_credit = (sub.expiry - expiry) as u64 * &size;
+                        sub.expiry = expiry;
+                        // Overwrite source allows sender to retry resolving
+                        sub.source = source;
+                    } else {
+                        // One or more accounts have already committed credit.
+                        // However, we still need to reserve the full required credit from the new
+                        // subscriber, as the existing account(s) may decide to change the
+                        // expiry or cancel.
+                        required_credit = expiry as u64 * &size;
+                        new_account_capacity = size.clone();
+                        // Add new subscription
+                        blob.subs.insert(sender, Subscription { expiry, source });
+                    }
+                    match blob.status {
+                        BlobStatus::Added(_) | BlobStatus::Failed => {
+                            // It's pending or failed, reset with current epoch
+                            blob.status = BlobStatus::Added(current_epoch)
+                        }
+                        BlobStatus::Resolved => {
+                            // No-op, already resolved
+                        }
+                    }
+                    blob
+                } else {
+                    required_credit = expiry as u64 * &size;
+                    new_capacity = size.clone();
+                    new_account_capacity = size.clone();
+
+                    // Create new blob
+                    Blob {
+                        size: size.to_u64().unwrap(),
+                        subs: HashMap::from([(sender, Subscription { expiry, source })]),
+                        status: BlobStatus::Added(current_epoch),
+                    }
+                };
+
                 if account.credit_free < required_credit {
                     return Err(anyhow!(
                         "account {} has insufficient credit (available: {}; required: {})",
@@ -175,29 +189,29 @@ impl State {
 
                 // Debit for existing usage
                 let debit_blocks = current_epoch - account.last_debit_epoch;
-                let debit = (debit_blocks as u64) * &account.capacity_used;
+                let debit = debit_blocks as u64 * &account.capacity_used;
                 self.credit_debited += &debit;
                 self.credit_committed -= &debit;
                 account.credit_committed -= &debit;
                 account.last_debit_epoch = current_epoch;
 
                 // Account for new size and move free credit to committed credit
-                self.capacity_used += &size;
-                account.capacity_used += &size;
+                self.capacity_used += &new_capacity;
+                account.capacity_used += &new_account_capacity;
                 self.credit_committed += &required_credit;
                 account.credit_committed += &required_credit;
                 account.credit_free -= &required_credit;
 
-                self.resolving.insert(hash, source_node_id);
-                self.blobs.insert(
-                    hash,
-                    Blob {
-                        size: size.to_u64().unwrap(),
-                        expiry,
-                        source_node_id,
-                        resolved: false,
-                    },
-                );
+                // Add/update hash and its source to resolving
+                self.resolving
+                    .entry(hash)
+                    .and_modify(|sources| {
+                        sources.insert(source);
+                    })
+                    .or_insert(HashSet::from([source]));
+
+                // Add/update blob
+                self.blobs.insert(hash, blob);
 
                 Ok(account.clone())
             }
@@ -205,39 +219,43 @@ impl State {
         }
     }
 
-    pub fn get_resolving_blobs(&self) -> anyhow::Result<BTreeMap<Hash, PublicKey>> {
-        Ok(self.resolving.clone())
+    pub fn get_blob(&self, hash: Hash) -> anyhow::Result<Option<Blob>> {
+        let blob = self.blobs.get(&hash).cloned();
+        Ok(blob)
     }
 
-    pub fn is_blob_resolving(&self, hash: Hash) -> anyhow::Result<bool> {
-        let resolving = self.resolving.contains_key(&hash);
-        Ok(resolving)
-    }
-
-    // TODO: Need method for unresolving, ie, if a blob can't be fetched, the account
-    // shouldn't have to pay for it since there's no way to know who's at fault (account user or too
-    // many bad validators).
     pub fn resolve_blob(&mut self, hash: Hash) -> anyhow::Result<()> {
         self.resolving.remove(&hash);
         match self.blobs.get_mut(&hash) {
             Some(blob) => {
-                blob.resolved = true;
+                blob.status = BlobStatus::Resolved;
                 Ok(())
             }
-            // Don't error here in case the key was deleted before the value was resolved.
+            // Don't error here in case the key was already deleted
+            None => Ok(()),
+        }
+    }
+
+    pub fn get_resolving_blobs(&self) -> anyhow::Result<BTreeMap<Hash, HashSet<PublicKey>>> {
+        Ok(self.resolving.clone())
+    }
+
+    // TODO: give back credit and capacity
+    pub fn fail_blob(&mut self, hash: Hash) -> anyhow::Result<()> {
+        self.resolving.remove(&hash);
+        match self.blobs.get_mut(&hash) {
+            Some(blob) => {
+                blob.status = BlobStatus::Failed;
+                Ok(())
+            }
+            // Don't error here in case the key was already deleted
             None => Ok(()),
         }
     }
 
     // TODO: Reverse accounting in add and return Account.
-    // We need a syscall to delete the actual data (or at least untangle it from new data).
     pub fn delete_blob(&mut self, hash: Hash) -> anyhow::Result<()> {
         self.blobs.remove(&hash);
         Ok(())
-    }
-
-    pub fn get_blob(&self, hash: Hash) -> anyhow::Result<Option<Blob>> {
-        let blob = self.blobs.get(&hash).cloned();
-        Ok(blob)
     }
 }
