@@ -36,6 +36,7 @@ fvm_ipld_blockstore = { workspace = true, optional = true }
 ipc-api = { path = "../../ipc/api", default-features = false }
 
 iroh = { workspace = true }
+maybe_iroh = { path = "../../textile/maybe_iroh" }
 
 [dev-dependencies]
 cid = { workspace = true }
