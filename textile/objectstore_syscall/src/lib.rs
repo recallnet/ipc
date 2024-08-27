@@ -12,11 +12,13 @@ use fvm_shared::error::ErrorNumber;
 use ipfs_api_backend_hyper::{IpfsApi, IpfsClient, TryFromUri};
 use num_traits::FromPrimitive;
 use std::fmt::Display;
+use iroh::blobs::Hash;
+use maybe_iroh::MaybeIroh;
 
 pub const SYSCALL_MODULE_NAME: &str = "objectstore";
 pub const CIDRM_SYSCALL_FUNCTION_NAME: &str = "cid_rm";
 
-const ENV_IPFS_ADDR: &str = "IPFS_RPC_ADDR";
+const ENV_IROH_ADDR: &str = "IROH_RPC_ADDR";
 const CIDRM_SYSCALL_ERROR_CODE: u32 = 101; // TODO(sander): Is the okay?
 
 fn syscall_error<D: Display>(error_number: u32) -> impl FnOnce(D) -> ExecutionError {
@@ -32,25 +34,25 @@ pub fn cid_rm(context: Context<'_, impl ObjectStoreOps>, cid_off: u32, cid_len: 
     let cid = context.memory.try_slice(cid_off, cid_len)?;
     let cid = Cid::try_from(cid).map_err(syscall_error(CIDRM_SYSCALL_ERROR_CODE))?;
 
-    let ipfs_addr = std::env::var(ENV_IPFS_ADDR);
-    match ipfs_addr {
-        Ok(ipfs_addr) => {
-            // Don't block the chain with this.
-            tokio::spawn(async move {
-                match IpfsClient::from_multiaddr_str(&ipfs_addr) {
-                    Ok(ipfs) => match ipfs.pin_rm(&cid.to_string(), true).await {
-                        Ok(_) => tracing::debug!(cid = ?cid, "unresolved content from ipfs"),
-                        Err(e) => {
-                            tracing::error!(cid = ?cid, error = e.to_string(), "unresolving content from ipfs failed")
-                        }
-                    },
-                    Err(e) => {
-                        tracing::error!(cid = ?cid, error = e.to_string(), "unresolving content from ipfs failed")
-                    }
+    let iroh_addr = std::env::var(ENV_IROH_ADDR).map_err(|e| {
+        syscall_error(CIDRM_SYSCALL_ERROR_CODE)(e)
+    })?;
+    let mut  iroh = MaybeIroh::from_addr(iroh_addr);
+    // TODO Continue actual blob removal
+
+    // Don't block the chain with this.
+    tokio::spawn(async move {
+        match IpfsClient::from_multiaddr_str(&iroh_addr) {
+            Ok(ipfs) => match ipfs.pin_rm(&cid.to_string(), true).await {
+                Ok(_) => tracing::debug!(cid = ?cid, "unresolved content from ipfs"),
+                Err(e) => {
+                    tracing::error!(cid = ?cid, error = e.to_string(), "unresolving content from ipfs failed")
                 }
-            });
-            Ok(())
+            },
+            Err(e) => {
+                tracing::error!(cid = ?cid, error = e.to_string(), "unresolving content from ipfs failed")
+            }
         }
-        Err(e) => Err(syscall_error(CIDRM_SYSCALL_ERROR_CODE)(e)),
-    }
+    });
+    Ok(())
 }
