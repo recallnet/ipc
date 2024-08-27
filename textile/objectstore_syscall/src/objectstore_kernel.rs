@@ -75,8 +75,8 @@ where
         DefaultKernel::<K::CallManager>::link_syscalls(linker)?;
         linker.link_syscall(
             crate::SYSCALL_MODULE_NAME,
-            crate::CIDRM_SYSCALL_FUNCTION_NAME,
-            crate::cid_rm,
+            crate::HASHRM_SYSCALL_FUNCTION_NAME,
+            crate::hash_rm,
         )?;
 
         Ok(())
