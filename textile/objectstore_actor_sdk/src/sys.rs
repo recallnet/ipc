@@ -7,5 +7,5 @@ use fvm_sdk::sys::fvm_syscalls;
 fvm_syscalls! {
     module = "objectstore";
 
-    pub fn hash_rm(hash: *const u8) -> Result<()>;
+    pub fn hash_rm(hash_offset: *const u8) -> Result<()>;
 }

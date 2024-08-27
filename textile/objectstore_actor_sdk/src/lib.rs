@@ -6,6 +6,6 @@ mod sys;
 
 use fvm_shared::error::ErrorNumber;
 
-pub fn hash_rm(hash: [u8; 32]) -> Result<(), ErrorNumber> {
-    unsafe { sys::hash_rm(hash.as_ptr()) }
+pub fn hash_rm(hash_bytes: [u8; 32]) -> Result<(), ErrorNumber> {
+    unsafe { sys::hash_rm(hash_bytes.as_ptr()) }
 }

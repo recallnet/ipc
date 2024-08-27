@@ -145,6 +145,16 @@ impl BlobsActor {
     // TODO: use syscall to delete from actual storage
     fn delete_blob(rt: &impl Runtime, params: DeleteBlobParams) -> Result<(), ActorError> {
         rt.validate_immediate_caller_accept_any()?;
+
+        objectstore_actor_sdk::hash_rm(params.0.0).map_err(|en| {
+            ActorError::assertion_failed(format!("hash_rm syscall failed with {en}"))
+        })?;
+
+        // objectstore_actor_sdk::load_car(params.file).map_err(|en| {
+        //     let msg = format!("load_car syscall failed with {en}");
+        //     ActorError::checked(ExitCode::new(SYSCALL_FAILED_EXIT_CODE), msg, None)
+        // })?;
+
         rt.transaction(|st: &mut State, _| {
             st.delete_blob(params.0)
                 .map_err(to_state_error("failed to delete blob"))

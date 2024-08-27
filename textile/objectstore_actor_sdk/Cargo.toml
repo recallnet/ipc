@@ -9,3 +9,4 @@ license.workspace = true
 fvm_shared = { workspace = true }
 fvm_sdk = { workspace = true }
 num-traits = { workspace = true }
+iroh = { workspace = true }

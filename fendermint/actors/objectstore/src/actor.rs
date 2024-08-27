@@ -659,7 +659,7 @@ mod tests {
                     source: add_params.source,
                 },
             )]),
-            status: BlobStatus::Added(rt.curr_epoch()),
+            status: BlobStatus::Resolved,
         };
         rt.expect_validate_caller_any();
         rt.expect_send_simple(
