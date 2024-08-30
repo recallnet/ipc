@@ -11,7 +11,9 @@
     "circ_supply": "93362016975129332347987662062653906832",
     "chain_id": 503525136242505,
     "power_scale": 0,
-    "app_version": 0
+    "app_version": 0,
+    "credit_debit_interval": 0,
+    "capacity": 0
   },
   "version": 0
 }
