@@ -38,23 +38,22 @@ cmd! {
 cmd! {
     GenesisNewArgs(self, genesis_file: PathBuf) {
         let genesis = Genesis {
-      timestamp: Timestamp(self.timestamp),
-      chain_name: self.chain_name.clone(),
-      network_version: self.network_version,
-      base_fee: self.base_fee.clone(),
-      power_scale: self.power_scale,
-      validators: Vec::new(),
-      accounts: Vec::new(),
-      eam_permission_mode: PermissionMode::Unrestricted,
-      ipc: None,
-      credit_debit_interval: self.credit_debit_interval,
-        capacity: self.capacity,
-    };
+            timestamp: Timestamp(self.timestamp),
+            chain_name: self.chain_name.clone(),
+            network_version: self.network_version,
+            base_fee: self.base_fee.clone(),
+            power_scale: self.power_scale,
+            validators: Vec::new(),
+            accounts: Vec::new(),
+            eam_permission_mode: PermissionMode::Unrestricted,
+            ipc: None,
+            credit_debit_interval: self.credit_debit_interval,
+            capacity: self.capacity,
+        };
 
-    let json = serde_json::to_string_pretty(&genesis)?;
-    std::fs::write(genesis_file, json)?;
-
-    Ok(())
+        let json = serde_json::to_string_pretty(&genesis)?;
+        std::fs::write(genesis_file, json)?;
+        Ok(())
   }
 }
 
