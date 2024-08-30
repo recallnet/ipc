@@ -36,8 +36,8 @@ cmd! {
 }
 
 cmd! {
-  GenesisNewArgs(self, genesis_file: PathBuf) {
-    let genesis = Genesis {
+    GenesisNewArgs(self, genesis_file: PathBuf) {
+        let genesis = Genesis {
       timestamp: Timestamp(self.timestamp),
       chain_name: self.chain_name.clone(),
       network_version: self.network_version,
@@ -48,6 +48,7 @@ cmd! {
       eam_permission_mode: PermissionMode::Unrestricted,
       ipc: None,
       credit_debit_interval: self.credit_debit_interval,
+        capacity: self.capacity,
     };
 
     let json = serde_json::to_string_pretty(&genesis)?;
@@ -328,6 +329,7 @@ async fn new_genesis_from_parent(
         eam_permission_mode: PermissionMode::Unrestricted,
         ipc: Some(ipc_params),
         credit_debit_interval: args.credit_debit_interval,
+        capacity: args.capacity,
     };
 
     for v in genesis_info.validators {

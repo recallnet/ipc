@@ -43,6 +43,7 @@ pub struct FvmGenesisOutput {
     pub circ_supply: TokenAmount,
     pub validators: Vec<Validator<Power>>,
     pub credit_debit_interval: ChainEpoch,
+    pub capacity: u64,
 }
 
 #[async_trait]
@@ -111,6 +112,7 @@ where
             power_scale: genesis.power_scale,
             validators,
             credit_debit_interval: genesis.credit_debit_interval,
+            capacity: genesis.capacity,
         };
 
         // STAGE 0: Declare the built-in EVM contracts we'll have to deploy.
@@ -344,6 +346,7 @@ where
                 out.chain_id.into(),
                 out.power_scale,
                 out.credit_debit_interval,
+                out.capacity
             )
             .context("failed to init exec state")?;
 

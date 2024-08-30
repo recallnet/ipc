@@ -91,6 +91,9 @@ pub struct GenesisNewArgs {
     /// Block interval at which to debit all credit accounts.
     #[arg(long, default_value = "3600")]
     pub credit_debit_interval: ChainEpoch,
+    /// Subnet capacity
+    #[arg(long, default_value = "4294967296")]
+    pub capacity: u64,
 }
 
 #[derive(Args, Debug)]
@@ -212,4 +215,8 @@ pub struct GenesisFromParentArgs {
     /// Block interval at which to debit all credit accounts.
     #[arg(long, default_value = "3600")]
     pub credit_debit_interval: ChainEpoch,
+
+    /// Subnet capacity in bytes.
+    #[arg(long, default_value = "4294967296")]
+    pub capacity: u64,
 }
