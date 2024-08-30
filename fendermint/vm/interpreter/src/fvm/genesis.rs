@@ -285,8 +285,7 @@ where
         // Make rate a config?
         // Currently using 1e18, i.e., one atto token (1e-18 tokens) buys you one byte-block,
         // i.e., you can store one byte for one block.
-        let capacity = 1024 * 1024 * 1024u64;
-        let blobs_state = fendermint_actor_blobs::State::new(capacity, 1)?;
+        let blobs_state = fendermint_actor_blobs::State::new(genesis.capacity, 1)?;
         state
             .create_custom_actor(
                 fendermint_actor_blobs::BLOBS_ACTOR_NAME,
