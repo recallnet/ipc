@@ -49,6 +49,8 @@ pub struct Genesis {
     pub ipc: Option<ipc::IpcParams>,
     /// Block interval at which to debit all credit accounts.
     pub credit_debit_interval: ChainEpoch,
+    /// Subnet capacity
+    pub capacity: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

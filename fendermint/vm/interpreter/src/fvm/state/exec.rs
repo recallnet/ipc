@@ -69,6 +69,8 @@ pub struct FvmStateParams {
     pub app_version: u64,
     /// Block interval at which to debit all credit accounts.
     pub credit_debit_interval: ChainEpoch,
+    /// Subnet capacity
+    pub capacity: u64,
 }
 
 /// Parts of the state which can be updated by message execution, apart from the actor state.
