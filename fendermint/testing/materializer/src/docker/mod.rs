@@ -697,7 +697,7 @@ impl Materializer<DockerMaterials> for DockerMaterializer {
                     },
                 }),
                 credit_debit_interval: 3600,
-                capacity: 4_294_967_296
+                capacity: 4_294_967_296,
             };
             Ok(genesis)
         })

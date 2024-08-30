@@ -346,7 +346,7 @@ where
                 out.chain_id.into(),
                 out.power_scale,
                 out.credit_debit_interval,
-                out.capacity
+                out.capacity,
             )
             .context("failed to init exec state")?;
 
