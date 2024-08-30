@@ -6,5 +6,7 @@
   "circ_supply": "250860824295515106050023062062359002052",
   "chain_id": 0,
   "power_scale": 3,
-  "app_version": 1
+  "app_version": 1,
+  "credit_debit_interval": 0,
+  "capacity": 0
 }
