@@ -23,6 +23,7 @@ impl Arbitrary for FvmStateParams {
             power_scale: *g.choose(&[-1, 0, 3]).unwrap(),
             app_version: *g.choose(&[0, 1, 2]).unwrap(),
             credit_debit_interval: ChainEpoch::arbitrary(g),
+            capacity: u64::arbitrary(g),
         }
     }
 }

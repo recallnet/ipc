@@ -376,6 +376,7 @@ mod tests {
             power_scale: 0,
             app_version: 0,
             credit_debit_interval: 0,
+            capacity: 4_294_967_296,
         };
         let block_height = 2048;
 
