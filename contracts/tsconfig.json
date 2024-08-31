@@ -1,1 +1,14 @@
-{}
+{
+    "compilerOptions": {
+        "target": "es2018",
+        "lib": ["es2021"],
+        "module": "commonjs",
+        "strict": false,
+        "esModuleInterop": true,
+        "moduleResolution": "node",
+        "outDir": "dist",
+        "declaration": true
+    },
+    "include": ["./typechain"],
+    "files": ["./hardhat.config.ts"]
+}

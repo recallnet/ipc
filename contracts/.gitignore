@@ -36,3 +36,6 @@ report.json
 
 #vim
 *.un~
+
+hardhat.config.d*
+hardhat.config.js*

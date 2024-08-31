@@ -1,0 +1,12 @@
+{
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        "outDir": null,
+        "declaration": true,
+        "sourceMap": true,
+        "declarationMap": true,
+        "skipLibCheck": true
+    },
+    "include": ["./typechain/**/*"],
+    "files": ["hardhat.config.ts"]
+}

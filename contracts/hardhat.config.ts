@@ -1,5 +1,5 @@
 import '@nomicfoundation/hardhat-foundry'
-import '@nomiclabs/hardhat-ethers'
+import '@nomicfoundation/hardhat-ethers'
 import '@typechain/hardhat'
 import * as fs from 'fs'
 import 'hardhat-contract-sizer'
@@ -283,6 +283,7 @@ task(
     async (args, hre: HardhatRuntimeEnvironment) => {
         await hre.run('compile')
         const network = hre.network.name
+        // @ts-expect-error allow accessing unknown args
         if (!args.address) {
             console.error(
                 'No address provided. Usage: npx hardhat upgrade-sa-diamond --address 0x80afa...',
@@ -290,6 +291,7 @@ task(
             process.exit(1)
         }
 
+        // @ts-expect-error allow accessing unknown args
         const deployments = await readSubnetActor(args.address, network)
 
         const { upgradeDiamond } = await lazyImport(
@@ -298,6 +300,7 @@ task(
         const updatedFacets = await upgradeDiamond(deployments)
         await saveSubnetActor(deployments, updatedFacets)
     },
+    // @ts-expect-error allow accessing unknown args
 ).addParam('address', 'The address to upgrade', undefined, types.string, false)
 
 /** @type import('hardhat/config').HardhatUserConfig */
@@ -346,7 +349,7 @@ const config: HardhatUserConfig = {
     },
     typechain: {
         outDir: 'typechain',
-        target: 'ethers-v5',
+        target: 'ethers-v6',
     },
     paths: {
         storageLayouts: '.storage-layouts',

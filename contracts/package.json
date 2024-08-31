@@ -7,14 +7,25 @@
         "lib": "lib",
         "test": "test"
     },
+    "main": "typechain/index.js",
+    "types": "typechain/index.d.ts",
+    "exports": {
+        "./typechain": "./typechain",
+        "./contracts/": "./contracts/src/",
+        "./sdk/": "./sdk/"
+    },
     "files": [
         "contracts",
         "sdk",
+        "typechain/**/*.js?(.map)",
+        "typechain/**/*.ts",
+        "hardhat.config.*",
         "README.md",
         "LICENSE-APACHE",
         "LICENSE-MIT"
     ],
     "scripts": {
+        "build": "npx hardhat compile && npx tsc -p ./tsconfig.build.json",
         "prepack": "node scripts/npm-prepack.js",
         "postpack": "node scripts/npm-postpack.js",
         "test": "echo \"Error: no test specified\" && exit 1"
@@ -32,19 +43,19 @@
     },
     "homepage": "https://github.com/consensus-shipyard/ipc/",
     "devDependencies": {
-        "@nomicfoundation/hardhat-foundry": "^1.0.1",
-        "@nomiclabs/hardhat-ethers": "^2.2.3",
-        "@openzeppelin/contracts": "5.0.1",
-        "@typechain/ethers-v5": "^11.1.2",
-        "@typechain/hardhat": "^7.0.0",
+        "@nomicfoundation/hardhat-ethers": "^3.0.6",
+        "@nomicfoundation/hardhat-foundry": "^1.1.2",
+        "@openzeppelin/contracts": "^5.0.1",
+        "@typechain/ethers-v6": "^0.5.1",
+        "@typechain/hardhat": "^9.1.0",
         "dotenv": "^16.0.1",
         "elliptic-curve-solidity": "github:witnet/elliptic-curve-solidity#3475478",
-        "ethers": "^5.7.0",
+        "ethers": "^6.13.2",
         "fevmate": "github:wadealexc/fevmate#6a80e98",
         "fs-extra": "^11.2.0",
-        "hardhat-contract-sizer": "^2.6.1",
-        "hardhat-deploy": "^0.11.14",
-        "hardhat-deploy-ethers": "^0.3.0-beta.13",
+        "hardhat-contract-sizer": "^2.10.0",
+        "hardhat-deploy": "^0.12.4",
+        "hardhat-deploy-ethers": "^0.4.2",
         "husky": "^8.0.3",
         "lint-staged": "^15.0.2",
         "prettier": "^2.8.8",
@@ -53,7 +64,7 @@
         "solhint-plugin-prettier": "^0.0.5",
         "ts-node": "^10.9.1",
         "typechain": "^8.3.2",
-        "typescript": "^4.8.3"
+        "typescript": "^5.5.4"
     },
     "dependencies": {
         "@solidity-parser/parser": "^0.16.2",
