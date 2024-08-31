@@ -191,7 +191,7 @@ mod arb {
                     power_scale: *g.choose(&[-1, 0, 3]).unwrap(),
                     app_version: 0,
                     credit_debit_interval: 0,
-                    capacity: u64::arbitrary(g),
+                    blob_storage_capacity: u64::arbitrary(g),
                 },
                 version: Arbitrary::arbitrary(g),
             }

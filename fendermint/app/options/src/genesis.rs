@@ -93,7 +93,7 @@ pub struct GenesisNewArgs {
     pub credit_debit_interval: ChainEpoch,
     /// Subnet capacity
     #[arg(long, default_value = "4294967296")]
-    pub capacity: u64,
+    pub blob_storage_capacity: u64,
 }
 
 #[derive(Args, Debug)]
@@ -218,5 +218,5 @@ pub struct GenesisFromParentArgs {
 
     /// Subnet capacity in bytes.
     #[arg(long, default_value = "4294967296")]
-    pub capacity: u64,
+    pub blob_storage_capacity: u64,
 }

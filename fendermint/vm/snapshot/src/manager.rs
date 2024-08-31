@@ -484,7 +484,7 @@ mod tests {
             power_scale: out.power_scale,
             app_version: 0,
             credit_debit_interval: out.credit_debit_interval,
-            capacity: out.capacity,
+            blob_storage_capacity: out.blob_storage_capacity,
         };
 
         (state_params, store)

@@ -1,19 +1,19 @@
 {
-  "block_height": 18446744073709551615,
-  "size": 11344242012067624990,
-  "chunks": 22076,
-  "checksum": "A3B844BB3068947681E591126B1AAC925B7BF1BB56BA6DB77D87745365B0949E",
+  "block_height": 2135065121,
+  "size": 6750771696864281872,
+  "chunks": 1,
+  "checksum": "052DC0FA24FF3782762887EC767CB0505E37BF293F00013F24FFFB38753817C2",
   "state_params": {
-    "state_root": "QmYbxwhLej3Te1etMuFqWb3Gwy7CpVaXAe5deWmqrphMhg",
-    "timestamp": 1,
+    "state_root": "bae4hypg22bdk264hdk6cwrzi2h462vrvy3y4kxywm47voqhb7daqc7adtezfqhpzbuemrzwduaztsiu5oxwxqfex4it7gkfuyq3xd2y",
+    "timestamp": 5872502315685614306,
     "network_version": 4294967295,
-    "base_fee": "299246354255658060378714945246048246606",
-    "circ_supply": "93362016975129332347987662062653906832",
-    "chain_id": 503525136242505,
+    "base_fee": "228331560438826069566880344500051831669",
+    "circ_supply": "128337858285462764782342310775649935516",
+    "chain_id": 1670081249155243,
     "power_scale": 0,
     "app_version": 0,
     "credit_debit_interval": 0,
-    "capacity": 0
+    "blob_storage_capacity": 15227326765965419201
   },
-  "version": 0
+  "version": 3502850281
 }

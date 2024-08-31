@@ -222,7 +222,7 @@ async fn test_applying_upgrades() {
         eam_permission_mode: PermissionMode::Unrestricted,
         ipc: None,
         credit_debit_interval: 0,
-        capacity: 4_294_967_296,
+        blob_storage_capacity: 4_294_967_296,
     };
 
     tester.init(genesis).await.unwrap();

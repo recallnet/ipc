@@ -70,7 +70,7 @@ pub struct FvmStateParams {
     /// Block interval at which to debit all credit accounts.
     pub credit_debit_interval: ChainEpoch,
     /// Subnet capacity
-    pub capacity: u64,
+    pub blob_storage_capacity: u64,
 }
 
 /// Parts of the state which can be updated by message execution, apart from the actor state.
