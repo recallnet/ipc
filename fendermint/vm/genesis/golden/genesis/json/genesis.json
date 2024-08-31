@@ -65,6 +65,19 @@
       "balance": "150156286888343983811452727080431420215"
     },
     {
+      "public_key": "BN7om6Rtn9AW58a582MIXV1wV3rUOHMJwAmSv7rqLOnoaJ9D6/y8M9GwO8InGZFxeq1fHYqS+GVnoxw1B9SUThc=",
+      "power": "75758188350819344134361527670772146683"
+    }
+  ],
+  "eam_permission_mode": {
+    "mode": "allowlist",
+    "addresses": [
+      "f1rai3wqribaieprywdv55jh5psggh2vmvoyg2a2a",
+      "f14mqisvkx7rpkcwlwjidldtbp57c7zyp6ds2bkuq"
+    ]
+  },
+  "accounts": [
+    {
       "meta": {
         "Account": {
           "owner": "f410fntwkec77ekxn5hlx4eu32vuyi22xv4y7akiwjrq"
@@ -81,9 +94,6 @@
       "balance": "12139584572629085303753587527363587723"
     }
   ],
-  "eam_permission_mode": {
-    "mode": "unrestricted"
-  },
-  "credit_debit_interval": -876839395823536487,
+  "credit_debit_interval": 3600,
   "blob_storage_capacity": 6226268527330430301
 }
