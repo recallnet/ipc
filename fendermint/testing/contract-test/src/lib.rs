@@ -114,7 +114,7 @@ where
                 power_scale: 0,
                 app_version: 0,
                 credit_debit_interval: 0,
-                capacity: 4_294_967_296,
+                blob_storage_capacity: 4_294_967_296,
             },
         }
     }
@@ -160,7 +160,7 @@ where
             power_scale: out.power_scale,
             app_version: 0,
             credit_debit_interval: out.credit_debit_interval,
-            capacity: out.capacity,
+            blob_storage_capacity: out.blob_storage_capacity,
         };
 
         Ok(())

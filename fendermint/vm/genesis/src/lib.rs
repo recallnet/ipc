@@ -50,7 +50,7 @@ pub struct Genesis {
     /// Block interval at which to debit all credit accounts.
     pub credit_debit_interval: ChainEpoch,
     /// Subnet capacity
-    pub capacity: u64,
+    pub blob_storage_capacity: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
