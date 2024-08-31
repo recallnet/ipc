@@ -1,113 +1,82 @@
 {
-  "chain_name": "£8ª:\u00107",
-  "timestamp": 18446744073709551615,
+  "chain_name": "l",
+  "timestamp": 13118654904661894111,
   "network_version": 21,
-  "base_fee": "206715443523488386537230819080108519018",
-  "power_scale": -1,
+  "base_fee": "295189338358586741336982727392336216534",
+  "power_scale": 3,
   "validators": [
     {
-      "public_key": "BDLsy7MlisWsqyiQY0ZxGg0YH1Jt3FqqD8ogaNciocV3YxBsfVe+a6cV/zZ5o3QUNo/28Sdf8D9XVIshFugDKQE=",
-      "power": "303325574980953745306008851209962443234"
+      "public_key": "BOP8FwdrVEtocz7b+y2JSOEOYquvPuRIteCKc8Q0G3ItTjWAqaLF9AgUD2s9W5Rq1s4T20ERXa14cuW3mj4zg+c=",
+      "power": "0"
     },
     {
-      "public_key": "BEYOB3Iip6YL+pZNwaTlYlaGYPISNZ+UotqU6dYTL96Y9lPH6qG4kQ40V9zV/ejUiX/IzI5V+vMMe+0WZXY4Sss=",
-      "power": "32356985823244719504501002195865414311"
+      "public_key": "BGOjwayV6ssNhntesMO9XWt/tZgAM0pKxTNvRsKBJkzU51rXKYGzVxwlQkobeh/TzvQjmyGLa7+QK+dbBUmIUqc=",
+      "power": "121424091727633819445218385660754547609"
     },
     {
-      "public_key": "BBwYO3My4GsKHbgCH422R6VGjg8HZVWZumeGr8q28UiAE0yD815GgYgzjWApi2JtyN7/qmpM2mR79dJDxQHotXU=",
-      "power": "244290736666970599622291731485906421686"
+      "public_key": "BL0Z6GO6E+8GPiBy2KUKuF48g6MLVluTHZieuUelKbmovhMNtk7gWBCLo9VBZQNb8KW8Fa11BwTkufjw+l/Ixh0=",
+      "power": "285429473877131149044079432187083328783"
     },
     {
-      "public_key": "BB4x89inpVUq751VXMP0uCp/GLGIUup4M5p7fIlqsxLnJ8KgagHoqUQUCAHfSj+9f0/u0970H1BgfDEo8otVQCE=",
-      "power": "297888251404054690281419821368796495567"
+      "public_key": "BOBvTIFqdn7uNiKnHS4hLPrzgu1c633MEf4L7GUhuZhjhFWOauk/t/hdS7Q2B0oQp6MPzczjhh58cZndaPpgjzg=",
+      "power": "0"
     },
     {
-      "public_key": "BK3WLa5/+bcrnTfHaJ23jao8erQKlmRZIcx4fF1J5XJEdxk+oJu80zwimzggVr9RNhJVPMju1r7ryAvdWdf8QM0=",
-      "power": "229568009195022381646429724922877450553"
+      "public_key": "BLeTu6fEJFswXKzduGWB9WQn4RqYBZBFqubx4GdfmWxuJWh8v+4joSdKXc5y7gADC77KRmLisOeyjhrbGhsHP4U=",
+      "power": "339337827636181644342454498417936158561"
     },
     {
-      "public_key": "BFpBoQPdvOB0zU72KtpWM/zrImq2HVKD/Xr0fiu34eJim9fJrLvndw/7J9YnmTlSdGO/yp9KAXSRLvcGr4ZrDhA=",
-      "power": "231192530022756047610227408051952653179"
+      "public_key": "BGle2JsGARHUVHF8gx7fVFRuyqE05rAUMBzMfHsoc3pBXULL+2+AMOJAIKTyzQxMfEzSMaSN5FRCCBoyLLcvbR4=",
+      "power": "256505448522349814107772652896010939828"
     },
     {
-      "public_key": "BPg54pzgQjNv6+nHkGMqkK9PP/4KVxJqx3cLr5sAW5gU9WrPz3yTxGOB/Qv4K4sPEDyu58JmLZI9pDi9ILTWCa4=",
-      "power": "336487194075941060548912060998276072018"
+      "public_key": "BM4dT/WzYy2k8wWptbqHMdOaK/CgBqEQ1CyggkQH5et7FfeIw4l3AyOMA33OKB+p6Y9nch5rv5GS9nDnqbNzyMk=",
+      "power": "101013808659692168748072416428578512636"
     },
     {
-      "public_key": "BApzPmGhcwUO72HVgktNMyNNkfdJrn2fJHEWy1pQh1LDUorcZO1RCa7+ueprnyDd1uunnRu6/f9wGs8VAsLtK/I=",
-      "power": "89381261314251159243797459204060737139"
+      "public_key": "BF/HDTBg6m+NtdH8SBGyyFknwGJtZgd5QbpakEhsqHvyXS5TYMDFG/KxqgZ8hGFO6sey0DYETn4ulmwtEFsKwfk=",
+      "power": "135629522709847208245707155164557673753"
+    },
+    {
+      "public_key": "BE0rSStCZ2zN6BaL0ZRMBvS+eLSlYM5M8D//xyiWA34s+pn9sn/IH+5xWAenqGKwUzjgOM+tVeS10VdbpgNb4ss=",
+      "power": "8638661263217171226"
+    },
+    {
+      "public_key": "BN7om6Rtn9AW58a582MIXV1wV3rUOHMJwAmSv7rqLOnoaJ9D6/y8M9GwO8InGZFxeq1fHYqS+GVnoxw1B9SUThc=",
+      "power": "75758188350819344134361527670772146683"
     }
   ],
+  "eam_permission_mode": {
+    "mode": "allowlist",
+    "addresses": [
+      "f1rai3wqribaieprywdv55jh5psggh2vmvoyg2a2a",
+      "f14mqisvkx7rpkcwlwjidldtbp57c7zyp6ds2bkuq"
+    ]
+  },
   "accounts": [
     {
       "meta": {
         "Multisig": {
           "signers": [
-            "f12pu7qlettxeh5tjuhewfgtifogrkrpssxyzplky",
-            "f132xpgthqikcqneykr4heht2iaprod2kjitxtyca",
-            "f17j6ivxhbm55joadxdy3jh3n2257m5brz7t2xyta",
-            "f1gzaio3ps6qwen2sbpvsagkiuawbt5oxvnloudei",
-            "f1wb7gwfpeix27qu5bzhtgchlvju4xduywn4gw5wy"
-          ],
-          "threshold": 4,
-          "vesting_duration": 8127604713015919387,
-          "vesting_start": 5533246971525860554
-        }
-      },
-      "balance": "250106169405422123534786012827123866970"
-    },
-    {
-      "meta": {
-        "Multisig": {
-          "signers": [
-            "f1ktk65pcx7rs54rvbocg2v3wyrjiuevuxuboanya",
-            "f123ffy5fvkemkdtnwxiqocp5tzcic7kwp4epkw7i",
-            "f166pbupe6xrp2cogr3cazfjpxupnwawm3n3p774q"
+            "f1rai3wqribaieprywdv55jh5psggh2vmvoyg2a2a",
+            "f14mqisvkx7rpkcwlwjidldtbp57c7zyp6ds2bkuq",
+            "f12g37ph43dox3k2dxv3bmsnstj3hvhksvgpc67fa"
           ],
           "threshold": 3,
-          "vesting_duration": 12962550561033204268,
-          "vesting_start": 1369547566886991461
+          "vesting_duration": 1543697760962329766,
+          "vesting_start": 515254189863871537
         }
       },
-      "balance": "187510736322197372537468316477761823186"
+      "balance": "282192802992080846557556722789958589427"
     },
     {
       "meta": {
         "Account": {
-          "owner": "f1dazdpyd4ya7onif43cchi336xjfbhqzm6icpjni"
+          "owner": "f1eg363r3r5cluzx6qbgjcwaw73wwir2jzxopxhqy"
         }
       },
-      "balance": "340282366920938463459420509969765924203"
-    },
-    {
-      "meta": {
-        "Account": {
-          "owner": "f1if37puttqh5diiytkumiwmxujljh2dnpljoxw3a"
-        }
-      },
-      "balance": "248826851270388705167527064850360340576"
-    },
-    {
-      "meta": {
-        "Account": {
-          "owner": "f410fwcwyibnwkm2t3upvi3uxw6hj2ggk67buarotekq"
-        }
-      },
-      "balance": "194953516707622255587299584545344597629"
+      "balance": "11228563589977199064736433241216043389"
     }
   ],
-  "eam_permission_mode": {
-    "mode": "unrestricted"
-  },
-  "ipc": {
-    "gateway": {
-      "subnet_id": "/r0",
-      "bottom_up_check_period": 5047410911354832481,
-      "majority_percentage": 51,
-      "active_validators_limit": 18
-    }
-  },
-  "credit_debit_interval": -8694573588049913706,
-  "blob_storage_capacity": 15066820184395436606,
-  "blob_debit_rate": 1
+  "credit_debit_interval": 3600
 }
