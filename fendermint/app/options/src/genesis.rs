@@ -94,6 +94,9 @@ pub struct GenesisNewArgs {
     /// Subnet capacity
     #[arg(long, default_value = "4294967296")]
     pub blob_storage_capacity: u64,
+    /// Subnet debit rate
+    #[arg(long, default_value = "1")]
+    pub blob_debit_rate: u64,
 }
 
 #[derive(Args, Debug)]
@@ -219,4 +222,8 @@ pub struct GenesisFromParentArgs {
     /// Subnet capacity in bytes.
     #[arg(long, default_value = "4294967296")]
     pub blob_storage_capacity: u64,
+
+    /// Subnet debit rate
+    #[arg(long, default_value = "1")]
+    pub blob_debit_rate: u64,
 }

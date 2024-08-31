@@ -51,6 +51,8 @@ pub struct Genesis {
     pub credit_debit_interval: ChainEpoch,
     /// Subnet capacity
     pub blob_storage_capacity: u64,
+    /// Subnet debit rate
+    pub blob_debit_rate: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
