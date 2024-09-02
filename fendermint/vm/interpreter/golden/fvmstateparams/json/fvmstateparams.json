@@ -1,12 +1,13 @@
 {
-  "state_root": "QmSfynLXc3hVoymJR3h4y98YqwZU5bxmkLW5QbQDnQuXZ4",
-  "timestamp": 18062335451835558544,
+  "state_root": "QmVLwQaBJX5tFEHFRdARUzG9C2sWcgU9dX89RWhkUcBBiR",
+  "timestamp": 10127864295203469251,
   "network_version": 21,
-  "base_fee": "114365631383948504394152953508281095242",
-  "circ_supply": "221816560478884220562246532055355643803",
-  "chain_id": 644217821032209,
-  "power_scale": 3,
+  "base_fee": "246891759187193752694645052852586323069",
+  "circ_supply": "63967856294120759015198774973260157178",
+  "chain_id": 836777164663682,
+  "power_scale": 0,
   "app_version": 2,
-  "credit_debit_interval": 8363747058074652626,
-  "blob_storage_capacity": 12273638749766864234
+  "credit_debit_interval": 5682393454670388957,
+  "blob_storage_capacity": 8290862196636839677,
+  "blob_debit_rate": 11847437791841898046
 }

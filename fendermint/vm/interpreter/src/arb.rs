@@ -24,6 +24,7 @@ impl Arbitrary for FvmStateParams {
             app_version: *g.choose(&[0, 1, 2]).unwrap(),
             credit_debit_interval: ChainEpoch::arbitrary(g),
             blob_storage_capacity: u64::arbitrary(g),
+            blob_debit_rate: u64::arbitrary(g),
         }
     }
 }

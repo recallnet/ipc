@@ -245,7 +245,7 @@ where
                     app_version: 0,
                     credit_debit_interval: 0,
                     blob_storage_capacity: 4_294_967_296,
-                    blob_debit_rate: 1
+                    blob_debit_rate: 1,
                 },
             };
             self.set_committed_state(state)?;
