@@ -141,6 +141,7 @@ where
         power_scale: PowerScale,
         credit_debit_interval: ChainEpoch,
         blob_storage_capacity: u64,
+        blob_debit_rate: u64,
     ) -> anyhow::Result<()> {
         self.stage = match self.stage {
             Stage::Exec(_) => bail!("execution engine already initialized"),
@@ -159,6 +160,7 @@ where
                     app_version: 0,
                     credit_debit_interval,
                     blob_storage_capacity,
+                    blob_debit_rate,
                 };
 
                 let exec_state =
