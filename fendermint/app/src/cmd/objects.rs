@@ -265,7 +265,7 @@ async fn handle_health() -> Result<impl Reply, Rejection> {
 }
 
 async fn handle_node_addr(iroh: iroh::client::Iroh) -> Result<impl Reply, Rejection> {
-    let node_addr = iroh.node_addr().await.map_err(|e| {
+    let node_addr = iroh.net().node_addr().await.map_err(|e| {
         Rejection::from(BadRequest {
             message: format!("failed to get iroh node address info: {}", e),
         })
@@ -640,11 +640,11 @@ mod tests {
         serialized_signed_message_b64: &str,
         hash: Hash,
         source: NodeAddr,
+        size: u64,
     ) -> Vec<u8> {
         let mut body = Vec::new();
-        body.extend_from_slice(
-            format!(
-                "\
+        let form_data = format!(
+            "\
             --{0}\r\n\
             content-disposition: form-data; name=\"chain_id\"\r\n\r\n\
             314159\r\n\
@@ -655,17 +655,20 @@ mod tests {
             content-disposition: form-data; name=\"hash\"\r\n\r\n\
             {2}\r\n\
             --{0}\r\n\
-            content-disposition: form-data; name=\"source\"\r\n\r\n\
+            content-disposition: form-data; name=\"size\"\r\n\r\n\
             {3}\r\n\
+            --{0}\r\n\
+            content-disposition: form-data; name=\"source\"\r\n\r\n\
+            {4}\r\n\
             --{0}--\r\n\
             ",
-                boundary,
-                serialized_signed_message_b64,
-                hash,
-                serde_json::to_string_pretty(&source).unwrap(),
-            )
-            .as_bytes(),
+            boundary,
+            serialized_signed_message_b64,
+            hash,
+            size,
+            serde_json::to_string_pretty(&source).unwrap(),
         );
+        body.extend_from_slice(form_data.as_bytes());
 
         dbg!(std::str::from_utf8(&body)).unwrap();
         body
@@ -675,9 +678,10 @@ mod tests {
         serialized_signed_message_b64: &str,
         hash: Hash,
         source: NodeAddr,
+        size: u64,
     ) -> warp::multipart::FormData {
         let boundary = "--abcdef1234--";
-        let body = form_body(boundary, serialized_signed_message_b64, hash, source);
+        let body = form_body(boundary, serialized_signed_message_b64, hash, source, size);
         warp::test::request()
             .method("POST")
             .header("content-length", body.len())
@@ -726,16 +730,17 @@ mod tests {
             .await
             .unwrap()
             .hash;
-        let client_node_addr = client_iroh.node_addr().await.unwrap();
+        let client_node_addr = client_iroh.net().node_addr().await.unwrap();
 
         let store = Address::new_id(90);
         let key = b"key";
+        let size = 11;
         let params = AddParams {
             to: store,
-            source: fendermint_actor_blobs_shared::PublicKey(*iroh.node_id().as_bytes()),
+            source: fendermint_actor_blobs_shared::state::PublicKey(*iroh.node_id().as_bytes()),
             key: key.to_vec(),
-            hash: fendermint_actor_blobs_shared::Hash(*hash.as_bytes()),
-            size: 11,
+            hash: fendermint_actor_blobs_shared::state::Hash(*hash.as_bytes()),
+            size,
             ttl: 3600,
             metadata: HashMap::new(),
             overwrite: true,
@@ -765,7 +770,7 @@ mod tests {
             general_purpose::URL_SAFE.encode(&serialized_signed_message);
 
         let multipart_form =
-            multipart_form(&serialized_signed_message_b64, hash, client_node_addr).await;
+            multipart_form(&serialized_signed_message_b64, hash, client_node_addr, size).await;
 
         let reply = handle_object_upload(client, iroh.client().clone(), multipart_form)
             .await
