@@ -56,8 +56,9 @@ impl BlobsActor {
         params: TransferCreditParams,
     ) -> Result<(Account, Account), ActorError> {
         rt.validate_immediate_caller_accept_any()?;
+        let caller = resolve_caller(rt, None)?;
         rt.transaction(|st: &mut State, rt| {
-            st.transfer_credit(params.from, params.to, params.amount, rt.curr_epoch())
+            st.transfer_credit(caller, params.to, params.amount, rt.curr_epoch())
                 .map_err(to_state_error("failed to transfer credit"))
         })
     }
@@ -453,7 +454,6 @@ mod tests {
             .call::<BlobsActor>(
                 Method::TransferCredit as u64,
                 IpldBlock::serialize_cbor(&TransferCreditParams {
-                    from: f4_from_address,
                     to: f4_to_address,
                     amount: TokenAmount::from_atto(credits_sent.clone()),
                 })
@@ -525,7 +525,6 @@ mod tests {
             .call::<BlobsActor>(
                 Method::TransferCredit as u64,
                 IpldBlock::serialize_cbor(&TransferCreditParams {
-                    from: f4_from_address,
                     to: f4_to_address,
                     amount: TokenAmount::from_atto(credits_sent.clone()),
                 })
