@@ -338,6 +338,7 @@ mod tests {
         rt
     }
 
+    /// Retrieve account state from actor by calling `GetAccount`.
     fn get_account(rt: &MockRuntime, address: Address) -> Option<Account> {
         rt.expect_validate_caller_any();
         rt.call::<BlobsActor>(
