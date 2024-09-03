@@ -104,7 +104,7 @@ impl State {
         if amount.is_negative() {
             return Err(anyhow!("can only transfer positive amounts"));
         }
-        // Can not debit over present balance
+        // Can not transfer more than you have
         let credit_free_from = self
             .accounts
             .get(&from_address)
