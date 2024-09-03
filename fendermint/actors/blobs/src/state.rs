@@ -93,6 +93,57 @@ impl State {
         })
     }
 
+    pub fn transfer_credit(
+        &mut self,
+        from_address: Address,
+        to_address: Address,
+        amount: TokenAmount,
+        current_epoch: ChainEpoch,
+    ) -> anyhow::Result<(Account, Account)> {
+        // Allow only positive values
+        if amount.is_negative() {
+            return Err(anyhow!("can only transfer positive amounts"));
+        }
+        // Can not debit over present balance
+        let credit_free_from = self
+            .accounts
+            .get(&from_address)
+            .ok_or(anyhow!("account {:?} not found", from_address))?
+            .credit_free
+            .clone();
+        let debit = credit_free_from - amount.atto();
+        if debit.is_negative() {
+            return Err(anyhow!("not enough credits"));
+        }
+        if !self.accounts.contains_key(&from_address) {
+            return Err(anyhow!("sender account {:?} not found", from_address));
+        }
+        // Create empty account if not present
+        self.accounts.entry(to_address).or_insert_with(|| Account {
+            capacity_used: BigInt::zero(),
+            credit_free: BigInt::zero(),
+            credit_committed: BigInt::zero(),
+            last_debit_epoch: current_epoch,
+        });
+
+        // Update credit_free
+        let from_account = self
+            .accounts
+            .get_mut(&from_address)
+            // Impossible case
+            .ok_or(anyhow!("sender account {:?} not found", from_address))?;
+        from_account.credit_free = debit;
+        let from_account = from_account.clone();
+        // Must be found
+        let to_account = self
+            .accounts
+            .get_mut(&to_address)
+            // Impossible case
+            .ok_or(anyhow!("receiver account {:?} not found", to_address))?;
+        to_account.credit_free += amount.atto();
+        Ok((from_account, to_account.clone()))
+    }
+
     pub fn buy_credit(
         &mut self,
         address: Address,

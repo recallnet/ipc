@@ -4,7 +4,7 @@
 
 use fendermint_actor_blobs_shared::params::{
     AddBlobParams, BuyCreditParams, DeleteBlobParams, FinalizeBlobParams, GetAccountParams,
-    GetBlobParams, GetStatsReturn,
+    GetBlobParams, GetStatsReturn, TransferCreditParams,
 };
 use fendermint_actor_blobs_shared::state::{Account, Blob, BlobStatus, Hash, PublicKey};
 use fendermint_actor_blobs_shared::Method;
@@ -48,6 +48,17 @@ impl BlobsActor {
         rt.transaction(|st: &mut State, rt| {
             st.buy_credit(params.0, rt.message().value_received(), rt.curr_epoch())
                 .map_err(to_state_error("failed to buy credit"))
+        })
+    }
+
+    fn transfer_credit(
+        rt: &impl Runtime,
+        params: TransferCreditParams,
+    ) -> Result<(Account, Account), ActorError> {
+        rt.validate_immediate_caller_accept_any()?;
+        rt.transaction(|st: &mut State, rt| {
+            st.transfer_credit(params.from, params.to, params.amount, rt.curr_epoch())
+                .map_err(to_state_error("failed to transfer credit"))
         })
     }
 
@@ -192,6 +203,7 @@ impl ActorCode for BlobsActor {
         GetPendingBlobs => get_pending_blobs,
         FinalizeBlob => finalize_blob,
         DeleteBlob => delete_blob,
+        TransferCredit => transfer_credit,
         _ => fallback,
     }
 }
@@ -326,6 +338,18 @@ mod tests {
         rt
     }
 
+    fn get_account(rt: &MockRuntime, address: Address) -> Option<Account> {
+        rt.expect_validate_caller_any();
+        rt.call::<BlobsActor>(
+            Method::GetAccount as u64,
+            IpldBlock::serialize_cbor(&GetAccountParams(address)).unwrap(),
+        )
+        .unwrap()
+        .unwrap()
+        .deserialize::<Option<Account>>()
+        .unwrap()
+    }
+
     #[test]
     fn test_fund_account() {
         let rt = construct_and_verify(1024 * 1024, 1);
@@ -387,6 +411,139 @@ mod tests {
             .unwrap();
         assert_eq!(result.credit_free, expected_credits);
         rt.verify();
+    }
+
+    #[test]
+    fn test_transfer_credit_create_account() {
+        let rt = construct_and_verify(1024 * 1024, 1);
+
+        let id_addr = Address::new_id(110);
+        let from_address = EthAddress(hex_literal::hex!(
+            "CAFEB0BA00000000000000000000000000000000"
+        ));
+        let f4_from_address = Address::new_delegated(10, &from_address.0).unwrap();
+        let to_address = EthAddress(hex_literal::hex!(
+            "DEADB0BA00000000000000000000000000000000"
+        ));
+        let f4_to_address = Address::new_delegated(10, &to_address.0).unwrap();
+
+        rt.set_delegated_address(id_addr.id().unwrap(), f4_from_address);
+        rt.set_caller(*ETHACCOUNT_ACTOR_CODE_ID, id_addr);
+        rt.set_origin(id_addr);
+
+        let initial_credits = BigInt::from(1000000000000000000u64);
+        rt.set_received(TokenAmount::from_whole(1));
+        rt.expect_validate_caller_any();
+        rt.call::<BlobsActor>(
+            Method::BuyCredit as u64,
+            IpldBlock::serialize_cbor(&BuyCreditParams(f4_from_address)).unwrap(),
+        )
+        .unwrap()
+        .unwrap()
+        .deserialize::<Account>()
+        .unwrap();
+        rt.verify();
+        // No receiver account yet
+        assert!(get_account(&rt, f4_to_address).is_none());
+
+        let credits_sent = BigInt::from(2);
+        rt.expect_validate_caller_any();
+        let result = rt
+            .call::<BlobsActor>(
+                Method::TransferCredit as u64,
+                IpldBlock::serialize_cbor(&TransferCreditParams {
+                    from: f4_from_address,
+                    to: f4_to_address,
+                    amount: TokenAmount::from_atto(credits_sent.clone()),
+                })
+                .unwrap(),
+            )
+            .unwrap()
+            .unwrap()
+            .deserialize::<(Account, Account)>()
+            .unwrap();
+        let (from, to) = result;
+        assert_eq!(from.credit_free, initial_credits - &credits_sent);
+        assert_eq!(to.credit_free, credits_sent);
+        let from_account = get_account(&rt, f4_from_address).unwrap();
+        assert_eq!(from_account.credit_free, from.credit_free);
+        let to_account = get_account(&rt, f4_to_address).unwrap();
+        assert_eq!(to_account.credit_free, to.credit_free);
+    }
+
+    #[test]
+    fn test_transfer_credit() {
+        let rt = construct_and_verify(1024 * 1024, 1);
+
+        let id_addr = Address::new_id(110);
+        let from_address = EthAddress(hex_literal::hex!(
+            "CAFEB0BA00000000000000000000000000000000"
+        ));
+        let f4_from_address = Address::new_delegated(10, &from_address.0).unwrap();
+        let to_address = EthAddress(hex_literal::hex!(
+            "DEADB0BA00000000000000000000000000000000"
+        ));
+        let f4_to_address = Address::new_delegated(10, &to_address.0).unwrap();
+
+        rt.set_delegated_address(id_addr.id().unwrap(), f4_from_address);
+        rt.set_caller(*ETHACCOUNT_ACTOR_CODE_ID, id_addr);
+        rt.set_origin(id_addr);
+
+        let initial_credits = BigInt::from(1000000000000000000u64);
+        rt.set_received(TokenAmount::from_whole(1));
+        rt.expect_validate_caller_any();
+        rt.call::<BlobsActor>(
+            Method::BuyCredit as u64,
+            IpldBlock::serialize_cbor(&BuyCreditParams(f4_from_address)).unwrap(),
+        )
+        .unwrap()
+        .unwrap()
+        .deserialize::<Account>()
+        .unwrap();
+        rt.verify();
+        // No receiver account yet
+        assert!(get_account(&rt, f4_to_address).is_none());
+
+        rt.set_received(TokenAmount::from_whole(1));
+        rt.expect_validate_caller_any();
+        rt.call::<BlobsActor>(
+            Method::BuyCredit as u64,
+            IpldBlock::serialize_cbor(&BuyCreditParams(f4_to_address)).unwrap(),
+        )
+        .unwrap()
+        .unwrap()
+        .deserialize::<Account>()
+        .unwrap();
+        rt.verify();
+        // Receiver is present
+        assert!(get_account(&rt, f4_to_address).is_some());
+
+        let credits_sent = BigInt::from(2);
+        rt.expect_validate_caller_any();
+        let result = rt
+            .call::<BlobsActor>(
+                Method::TransferCredit as u64,
+                IpldBlock::serialize_cbor(&TransferCreditParams {
+                    from: f4_from_address,
+                    to: f4_to_address,
+                    amount: TokenAmount::from_atto(credits_sent.clone()),
+                })
+                .unwrap(),
+            )
+            .unwrap()
+            .unwrap()
+            .deserialize::<(Account, Account)>()
+            .unwrap();
+        let (from, to) = result;
+        assert_eq!(
+            from.credit_free,
+            initial_credits.clone() - credits_sent.clone()
+        );
+        assert_eq!(to.credit_free, initial_credits + &credits_sent);
+        let from_account = get_account(&rt, f4_from_address).unwrap();
+        assert_eq!(from_account.credit_free, from.credit_free);
+        let to_account = get_account(&rt, f4_to_address).unwrap();
+        assert_eq!(to_account.credit_free, to.credit_free);
     }
 
     #[test]
