@@ -18,6 +18,7 @@ pub struct BuyCreditParams(pub Address);
 
 #[derive(Clone, Debug, Serialize_tuple, Deserialize_tuple)]
 pub struct TransferCreditParams {
+    pub from: Option<Address>,
     pub to: Address,
     pub amount: TokenAmount,
 }

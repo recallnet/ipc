@@ -454,6 +454,7 @@ mod tests {
             .call::<BlobsActor>(
                 Method::TransferCredit as u64,
                 IpldBlock::serialize_cbor(&TransferCreditParams {
+                    from: None,
                     to: f4_to_address,
                     amount: TokenAmount::from_atto(credits_sent.clone()),
                 })
@@ -525,6 +526,7 @@ mod tests {
             .call::<BlobsActor>(
                 Method::TransferCredit as u64,
                 IpldBlock::serialize_cbor(&TransferCreditParams {
+                    from: None,
                     to: f4_to_address,
                     amount: TokenAmount::from_atto(credits_sent.clone()),
                 })
