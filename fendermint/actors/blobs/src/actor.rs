@@ -51,10 +51,7 @@ impl BlobsActor {
         })
     }
 
-    fn transfer_credit(
-        rt: &impl Runtime,
-        params: TransferCreditParams,
-    ) -> Result<(Account, Account), ActorError> {
+    fn transfer_credit(rt: &impl Runtime, params: TransferCreditParams) -> Result<(), ActorError> {
         rt.validate_immediate_caller_accept_any()?;
         let caller = resolve_caller(rt, None)?;
         rt.transaction(|st: &mut State, rt| {
@@ -460,17 +457,15 @@ mod tests {
                 })
                 .unwrap(),
             )
-            .unwrap()
-            .unwrap()
-            .deserialize::<(Account, Account)>()
             .unwrap();
-        let (from, to) = result;
-        assert_eq!(from.credit_free, initial_credits - &credits_sent);
-        assert_eq!(to.credit_free, credits_sent);
+        expect_empty(result);
         let from_account = get_account(&rt, f4_from_address).unwrap();
-        assert_eq!(from_account.credit_free, from.credit_free);
+        assert_eq!(
+            from_account.credit_free,
+            initial_credits - credits_sent.clone()
+        );
         let to_account = get_account(&rt, f4_to_address).unwrap();
-        assert_eq!(to_account.credit_free, to.credit_free);
+        assert_eq!(to_account.credit_free, credits_sent);
     }
 
     #[test]
@@ -532,20 +527,18 @@ mod tests {
                 })
                 .unwrap(),
             )
-            .unwrap()
-            .unwrap()
-            .deserialize::<(Account, Account)>()
             .unwrap();
-        let (from, to) = result;
+        expect_empty(result);
+        let from_account = get_account(&rt, f4_from_address).unwrap();
         assert_eq!(
-            from.credit_free,
+            from_account.credit_free,
             initial_credits.clone() - credits_sent.clone()
         );
-        assert_eq!(to.credit_free, initial_credits + &credits_sent);
-        let from_account = get_account(&rt, f4_from_address).unwrap();
-        assert_eq!(from_account.credit_free, from.credit_free);
         let to_account = get_account(&rt, f4_to_address).unwrap();
-        assert_eq!(to_account.credit_free, to.credit_free);
+        assert_eq!(
+            to_account.credit_free,
+            initial_credits.clone() + credits_sent.clone()
+        );
     }
 
     #[test]

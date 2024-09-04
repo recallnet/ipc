@@ -99,49 +99,37 @@ impl State {
         to_address: Address,
         amount: TokenAmount,
         current_epoch: ChainEpoch,
-    ) -> anyhow::Result<(Account, Account)> {
+    ) -> anyhow::Result<()> {
         // Allow only positive values
         if amount.is_negative() {
             return Err(anyhow!("can only transfer positive amounts"));
         }
+        let credits_to_transfer = amount.atto();
         // Can not transfer more than you have
-        let credit_free_from = self
+        let available_from = self
             .accounts
             .get(&from_address)
             .ok_or(anyhow!("account {:?} not found", from_address))?
             .credit_free
             .clone();
-        let debit = credit_free_from - amount.atto();
-        if debit.is_negative() {
+        if available_from.lt(credits_to_transfer) {
             return Err(anyhow!("not enough credits"));
         }
-        if !self.accounts.contains_key(&from_address) {
-            return Err(anyhow!("sender account {:?} not found", from_address));
-        }
-        // Create empty account if not present
-        self.accounts.entry(to_address).or_insert_with(|| Account {
-            capacity_used: BigInt::zero(),
-            credit_free: BigInt::zero(),
-            credit_committed: BigInt::zero(),
-            last_debit_epoch: current_epoch,
-        });
 
-        // Update credit_free
-        let from_account = self
-            .accounts
-            .get_mut(&from_address)
-            // Impossible case
-            .ok_or(anyhow!("sender account {:?} not found", from_address))?;
-        from_account.credit_free = debit;
-        let from_account = from_account.clone();
-        // Must be found
-        let to_account = self
-            .accounts
-            .get_mut(&to_address)
-            // Impossible case
-            .ok_or(anyhow!("receiver account {:?} not found", to_address))?;
-        to_account.credit_free += amount.atto();
-        Ok((from_account, to_account.clone()))
+        self.accounts
+            .entry(from_address)
+            .and_modify(|sender| sender.credit_free -= credits_to_transfer);
+        self.accounts
+            .entry(to_address)
+            .and_modify(|receiver| receiver.credit_free += credits_to_transfer)
+            .or_insert(Account {
+                capacity_used: BigInt::zero(),
+                credit_free: credits_to_transfer.clone(),
+                credit_committed: BigInt::zero(),
+                last_debit_epoch: current_epoch,
+            });
+
+        Ok(())
     }
 
     pub fn buy_credit(
