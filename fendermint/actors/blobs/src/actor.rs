@@ -458,6 +458,7 @@ mod tests {
                 .unwrap(),
             )
             .unwrap();
+        rt.verify();
         expect_empty(result);
         let from_account = get_account(&rt, f4_from_address).unwrap();
         assert_eq!(
@@ -528,6 +529,7 @@ mod tests {
                 .unwrap(),
             )
             .unwrap();
+        rt.verify();
         expect_empty(result);
         let from_account = get_account(&rt, f4_from_address).unwrap();
         assert_eq!(
