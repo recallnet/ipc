@@ -93,6 +93,37 @@ impl State {
         })
     }
 
+    pub fn buy_credit(
+        &mut self,
+        address: Address,
+        amount: TokenAmount,
+        current_epoch: ChainEpoch,
+    ) -> anyhow::Result<Account> {
+        let credits = self.credit_debit_rate * amount.atto();
+        // Don't sell credits if we're at storage capacity
+        // TODO: This should be more nuanced, i.e., pick some min block duration and storage amount
+        // at which to stop selling credits. Say there's only 1 byte of capcity left,
+        // we don't want to sell a bunch of credits even though they could be used if the account
+        // wants to store 1 byte at a time, which is unlikely :)
+        if self.capacity_used == self.capacity_free {
+            return Err(anyhow!("credits not available (subnet has reach capacity)"));
+        }
+        self.credit_sold += &credits;
+        if let Some(account) = self.accounts.get_mut(&address) {
+            account.credit_free += &credits;
+            Ok(account.clone())
+        } else {
+            let account = Account {
+                capacity_used: BigInt::zero(),
+                credit_free: credits.clone(),
+                credit_committed: BigInt::zero(),
+                last_debit_epoch: current_epoch,
+            };
+            self.accounts.insert(address, account.clone());
+            Ok(account)
+        }
+    }
+
     pub fn transfer_credit(
         &mut self,
         from_address: Address,
@@ -130,37 +161,6 @@ impl State {
             });
 
         Ok(())
-    }
-
-    pub fn buy_credit(
-        &mut self,
-        address: Address,
-        amount: TokenAmount,
-        current_epoch: ChainEpoch,
-    ) -> anyhow::Result<Account> {
-        let credits = self.credit_debit_rate * amount.atto();
-        // Don't sell credits if we're at storage capacity
-        // TODO: This should be more nuanced, i.e., pick some min block duration and storage amount
-        // at which to stop selling credits. Say there's only 1 byte of capcity left,
-        // we don't want to sell a bunch of credits even though they could be used if the account
-        // wants to store 1 byte at a time, which is unlikely :)
-        if self.capacity_used == self.capacity_free {
-            return Err(anyhow!("credits not available (subnet has reach capacity)"));
-        }
-        self.credit_sold += &credits;
-        if let Some(account) = self.accounts.get_mut(&address) {
-            account.credit_free += &credits;
-            Ok(account.clone())
-        } else {
-            let account = Account {
-                capacity_used: BigInt::zero(),
-                credit_free: credits.clone(),
-                credit_committed: BigInt::zero(),
-                last_debit_epoch: current_epoch,
-            };
-            self.accounts.insert(address, account.clone());
-            Ok(account)
-        }
     }
 
     pub fn get_account(&self, address: Address) -> anyhow::Result<Option<Account>> {
