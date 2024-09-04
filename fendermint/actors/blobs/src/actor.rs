@@ -193,6 +193,7 @@ impl ActorCode for BlobsActor {
         Constructor => constructor,
         GetStats => get_stats,
         BuyCredit => buy_credit,
+        TransferCredit => transfer_credit,
         GetAccount => get_account,
         DebitAccounts => debit_accounts,
         AddBlob => add_blob,
@@ -201,7 +202,6 @@ impl ActorCode for BlobsActor {
         GetPendingBlobs => get_pending_blobs,
         FinalizeBlob => finalize_blob,
         DeleteBlob => delete_blob,
-        TransferCredit => transfer_credit,
         _ => fallback,
     }
 }
