@@ -16,10 +16,14 @@ use crate::state::{BlobStatus, Hash, PublicKey};
 #[serde(transparent)]
 pub struct BuyCreditParams(pub Address);
 
+/// Params to transfer credits.
 #[derive(Clone, Debug, Serialize_tuple, Deserialize_tuple)]
 pub struct TransferCreditParams {
+    /// Robust address of sender. Required if the caller is a machine.
     pub from: Option<Address>,
+    /// Address of receiver.
     pub to: Address,
+    /// Amount to be transferred.
     pub amount: TokenAmount,
 }
 
