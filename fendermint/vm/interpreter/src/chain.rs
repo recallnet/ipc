@@ -71,6 +71,8 @@ pub struct ChainEnv {
     pub parent_finality_votes: VoteTally,
     /// Iroh blob resolution pool.
     pub blob_pool: BlobPool,
+    /// Number of pending blobs to process in one pass.
+    pub pending_blobs_size: u32,
 }
 
 #[derive(Clone, Hash, PartialEq, Eq)]
@@ -124,28 +126,19 @@ pub enum ChainMessageApplyRet {
 /// We only allow signed messages into the mempool.
 pub type ChainMessageCheckRes = Result<SignedMessageCheckRes, IllegalMessage>;
 
-/// Settings of a ChainMessageInterpreter
-#[derive(Clone)]
-pub struct ChainMessageInterpreterSettings {
-    /// Number of pending blobs to process in one pass.
-    pub pending_blobs_size: u32,
-}
-
 /// Interpreter working on chain messages; in the future it will schedule
 /// CID lookups to turn references into self-contained user or cross-messages.
 #[derive(Clone)]
 pub struct ChainMessageInterpreter<I, DB> {
     inner: I,
     gateway_caller: GatewayCaller<DB>,
-    settings: ChainMessageInterpreterSettings,
 }
 
 impl<I, DB> ChainMessageInterpreter<I, DB> {
-    pub fn new(inner: I, settings: ChainMessageInterpreterSettings) -> Self {
+    pub fn new(inner: I) -> Self {
         Self {
             inner,
             gateway_caller: GatewayCaller::default(),
-            settings,
         }
     }
 }
@@ -232,7 +225,7 @@ where
 
         // Collect and enqueue blobs that need to be resolved.
         state.state_tree_mut().begin_transaction();
-        let pending_blobs_size = self.settings.pending_blobs_size;
+        let pending_blobs_size = env.pending_blobs_size;
         let resolving_blobs = get_pending_blobs(&mut state, pending_blobs_size)?;
         state
             .state_tree_mut()
