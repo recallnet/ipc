@@ -16,7 +16,7 @@ use crate::{
 use anyhow::{anyhow, bail, Context};
 use async_stm::atomically;
 use async_trait::async_trait;
-use fendermint_actor_blobs_shared::params::GetBlobStatusParams;
+use fendermint_actor_blobs_shared::params::{GetBlobStatusParams, GetPendingBlobsParams};
 use fendermint_actor_blobs_shared::state::BlobStatus;
 use fendermint_actor_blobs_shared::Method::DebitAccounts;
 use fendermint_actor_blobs_shared::{
@@ -865,6 +865,8 @@ fn get_pending_blobs<DB>(
 where
     DB: Blockstore + Clone + 'static + Send + Sync,
 {
+    let params = GetPendingBlobsParams { size: 666 };
+    let params = RawBytes::serialize(params)?;
     let msg = FvmMessage {
         version: 0,
         from: system::SYSTEM_ACTOR_ADDR,
@@ -872,7 +874,7 @@ where
         sequence: 0,
         value: Default::default(),
         method_num: GetPendingBlobs as u64,
-        params: Default::default(),
+        params,
         gas_limit: fvm_shared::BLOCK_GAS_LIMIT,
         gas_fee_cap: Default::default(),
         gas_premium: Default::default(),
