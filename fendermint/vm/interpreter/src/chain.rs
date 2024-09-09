@@ -127,7 +127,7 @@ pub type ChainMessageCheckRes = Result<SignedMessageCheckRes, IllegalMessage>;
 /// Settings of a ChainMessageInterpreter
 #[derive(Clone)]
 pub struct ChainMessageInterpreterSettings {
-    /// Number of pending blobs to be finalized in one go.
+    /// Number of pending blobs to process in one pass.
     pub pending_blobs_size: u32,
 }
 
