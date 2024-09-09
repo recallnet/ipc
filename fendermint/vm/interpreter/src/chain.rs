@@ -124,19 +124,28 @@ pub enum ChainMessageApplyRet {
 /// We only allow signed messages into the mempool.
 pub type ChainMessageCheckRes = Result<SignedMessageCheckRes, IllegalMessage>;
 
+/// Settings of a ChainMessageInterpreter
+#[derive(Clone)]
+pub struct ChainMessageInterpreterSettings {
+    /// Number of pending blobs to be finalized in one go.
+    pub pending_blobs_size: u32,
+}
+
 /// Interpreter working on chain messages; in the future it will schedule
 /// CID lookups to turn references into self-contained user or cross-messages.
 #[derive(Clone)]
 pub struct ChainMessageInterpreter<I, DB> {
     inner: I,
     gateway_caller: GatewayCaller<DB>,
+    settings: ChainMessageInterpreterSettings,
 }
 
 impl<I, DB> ChainMessageInterpreter<I, DB> {
-    pub fn new(inner: I) -> Self {
+    pub fn new(inner: I, settings: ChainMessageInterpreterSettings) -> Self {
         Self {
             inner,
             gateway_caller: GatewayCaller::default(),
+            settings,
         }
     }
 }
@@ -223,7 +232,8 @@ where
 
         // Collect and enqueue blobs that need to be resolved.
         state.state_tree_mut().begin_transaction();
-        let resolving_blobs = get_pending_blobs(&mut state, 102030)?;
+        let pending_blobs_size = self.settings.pending_blobs_size;
+        let resolving_blobs = get_pending_blobs(&mut state, pending_blobs_size)?;
         state
             .state_tree_mut()
             .end_transaction(true)

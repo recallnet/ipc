@@ -14,7 +14,7 @@ use fendermint_crypto::SecretKey;
 use fendermint_rocksdb::{blockstore::NamespaceBlockstore, namespaces, RocksDb, RocksDbConfig};
 use fendermint_tracing::emit;
 use fendermint_vm_actor_interface::eam::EthAddress;
-use fendermint_vm_interpreter::chain::ChainEnv;
+use fendermint_vm_interpreter::chain::{ChainEnv, ChainMessageInterpreterSettings};
 use fendermint_vm_interpreter::fvm::upgrades::UpgradeScheduler;
 use fendermint_vm_interpreter::{
     bytes::{BytesMessageInterpreter, ProposalPrepareMode},
@@ -141,7 +141,12 @@ async fn run(settings: Settings, iroh_addr: String) -> anyhow::Result<()> {
     .with_push_chain_meta(testing_settings.map_or(true, |t| t.push_chain_meta));
 
     let interpreter = SignedMessageInterpreter::new(interpreter);
-    let interpreter = ChainMessageInterpreter::<_, NamespaceBlockstore>::new(interpreter);
+    let interpreter = ChainMessageInterpreter::<_, NamespaceBlockstore>::new(
+        interpreter,
+        ChainMessageInterpreterSettings {
+            pending_blobs_size: settings.pending_blobs_size,
+        },
+    );
     let interpreter = BytesMessageInterpreter::new(
         interpreter,
         ProposalPrepareMode::PrependOnly,
