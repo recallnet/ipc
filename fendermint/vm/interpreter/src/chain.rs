@@ -1,7 +1,7 @@
 // Copyright 2022-2024 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::collections::{BTreeMap, HashSet};
+use std::collections::HashSet;
 use std::sync::Arc;
 
 use crate::fvm::state::ipc::GatewayCaller;
@@ -57,6 +57,8 @@ use tokio_util::bytes;
 pub type CheckpointPool = ResolvePool<CheckpointPoolItem>;
 pub type TopDownFinalityProvider = Arc<Toggle<CachedFinalityProvider<IPCProviderProxy>>>;
 pub type BlobPool = IrohResolvePool<BlobPoolItem>;
+
+type PendingBlobItem = (Hash, HashSet<(Address, PublicKey)>);
 
 /// These are the extra state items that the chain interpreter needs,
 /// a sort of "environment" supporting IPC.
@@ -221,7 +223,7 @@ where
 
         // Collect and enqueue blobs that need to be resolved.
         state.state_tree_mut().begin_transaction();
-        let resolving_blobs = get_pending_blobs(&mut state)?;
+        let resolving_blobs = get_pending_blobs(&mut state, 102030)?;
         state
             .state_tree_mut()
             .end_transaction(true)
@@ -861,11 +863,12 @@ fn relayed_bottom_up_ckpt_to_fvm(
 /// This approach uses an implicit FVM transaction to query a read-only blockstore.
 fn get_pending_blobs<DB>(
     state: &mut FvmExecState<ReadOnlyBlockstore<DB>>,
-) -> anyhow::Result<BTreeMap<Hash, HashSet<(Address, PublicKey)>>>
+    size: u32,
+) -> anyhow::Result<Vec<PendingBlobItem>>
 where
     DB: Blockstore + Clone + 'static + Send + Sync,
 {
-    let params = GetPendingBlobsParams { size: 666 };
+    let params = GetPendingBlobsParams { size };
     let params = RawBytes::serialize(params)?;
     let msg = FvmMessage {
         version: 0,
@@ -882,7 +885,7 @@ where
     let (apply_ret, _) = state.execute_implicit(msg)?;
 
     let data: bytes::Bytes = apply_ret.msg_receipt.return_data.to_vec().into();
-    fvm_ipld_encoding::from_slice::<BTreeMap<Hash, HashSet<(Address, PublicKey)>>>(&data)
+    fvm_ipld_encoding::from_slice::<Vec<PendingBlobItem>>(&data)
         .map_err(|e| anyhow!("error parsing as BTreeMap<Hash, HashSet<(Address, PublicKey)>: {e}"))
 }
 
