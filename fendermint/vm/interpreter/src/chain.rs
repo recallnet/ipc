@@ -72,7 +72,7 @@ pub struct ChainEnv {
     /// Iroh blob resolution pool.
     pub blob_pool: BlobPool,
     /// Number of pending blobs to process in parallel.
-    pub pending_blobs_size: u32,
+    pub blob_concurrency: u32,
 }
 
 #[derive(Clone, Hash, PartialEq, Eq)]
@@ -225,8 +225,8 @@ where
 
         // Collect and enqueue blobs that need to be resolved.
         state.state_tree_mut().begin_transaction();
-        let pending_blobs_size = env.pending_blobs_size;
-        let resolving_blobs = get_pending_blobs(&mut state, pending_blobs_size)?;
+        let blob_concurrency = env.blob_concurrency;
+        let resolving_blobs = get_pending_blobs(&mut state, blob_concurrency)?;
         state
             .state_tree_mut()
             .end_transaction(true)

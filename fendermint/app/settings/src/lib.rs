@@ -279,7 +279,7 @@ pub struct Settings {
     pub validator_key: Option<SigningKey>,
 
     /// Number of pending blobs to process in parallel.
-    pub pending_blobs_size: u32,
+    pub blob_concurrency: u32,
 
     pub abci: AbciSettings,
     pub db: DbSettings,

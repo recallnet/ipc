@@ -31,7 +31,7 @@ halt_height = 0
 # kind =
 
 # Number of pending blobs to process in parallel
-pending_blobs_size = 1024
+blob_concurrency = 1024
 
 [abci]
 # Number of concurrent requests allowed to be _submitted_ to the application.
