@@ -71,7 +71,7 @@ pub struct ChainEnv {
     pub parent_finality_votes: VoteTally,
     /// Iroh blob resolution pool.
     pub blob_pool: BlobPool,
-    /// Number of pending blobs to process in one pass.
+    /// Number of pending blobs to process in parallel.
     pub pending_blobs_size: u32,
 }
 
