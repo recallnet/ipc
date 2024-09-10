@@ -889,7 +889,7 @@ where
 
     let data: bytes::Bytes = apply_ret.msg_receipt.return_data.to_vec().into();
     fvm_ipld_encoding::from_slice::<Vec<PendingBlobItem>>(&data)
-        .map_err(|e| anyhow!("error parsing as BTreeMap<Hash, HashSet<(Address, PublicKey)>: {e}"))
+        .map_err(|e| anyhow!("error parsing pending blobs: {e}"))
 }
 
 /// Check if a blob is pending (if it is not resolved or failed), by reading its on-chain state.
