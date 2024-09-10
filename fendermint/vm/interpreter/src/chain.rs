@@ -871,7 +871,7 @@ fn get_pending_blobs<DB>(
 where
     DB: Blockstore + Clone + 'static + Send + Sync,
 {
-    let params = GetPendingBlobsParams { size };
+    let params = GetPendingBlobsParams(size);
     let params = RawBytes::serialize(params)?;
     let msg = FvmMessage {
         version: 0,
