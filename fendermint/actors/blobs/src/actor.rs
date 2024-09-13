@@ -74,7 +74,7 @@ impl BlobsActor {
     fn distribute_tokens(rt: &impl Runtime) -> Result<(), ActorError> {
         let current_balance = rt.current_balance();
         let caller = rt.message().origin();
-        let amount_to_retire = current_balance.clone().div_floor(100).mul(97);
+        let amount_to_retire = current_balance.clone().div_floor(100).mul(50);
         let amount_for_caller = current_balance.min(amount_to_retire.clone());
         extract_send_result(rt.send_simple(
             &BURNT_FUNDS_ACTOR_ADDR,
