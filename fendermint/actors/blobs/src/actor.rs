@@ -9,18 +9,14 @@ use fendermint_actor_blobs_shared::params::{
 use fendermint_actor_blobs_shared::state::{Account, Blob, BlobStatus, Hash, PublicKey};
 use fendermint_actor_blobs_shared::Method;
 use fil_actors_runtime::runtime::builtins::Type;
-use fil_actors_runtime::{
-    actor_dispatch, actor_error, deserialize_block,
-    runtime::{ActorCode, Runtime},
-    ActorError, AsActorError, FIRST_EXPORTED_METHOD_NUMBER, SYSTEM_ACTOR_ADDR,
-};
+use fil_actors_runtime::{actor_dispatch, actor_error, deserialize_block, extract_send_result, runtime::{ActorCode, Runtime}, ActorError, AsActorError, BURNT_FUNDS_ACTOR_ADDR, FIRST_EXPORTED_METHOD_NUMBER, SYSTEM_ACTOR_ADDR};
 use fvm_ipld_encoding::ipld_block::IpldBlock;
 use fvm_shared::address::Address;
 use fvm_shared::sys::SendFlags;
-use fvm_shared::{error::ExitCode, MethodNum};
+use fvm_shared::{error::ExitCode, MethodNum, METHOD_SEND};
 use num_traits::Zero;
 use std::collections::HashSet;
-
+use std::ops::Mul;
 use crate::{ext, ConstructorParams, State, BLOBS_ACTOR_NAME};
 
 #[cfg(feature = "fil-actor")]
@@ -65,6 +61,19 @@ impl BlobsActor {
         for hash in deletes {
             delete_from_disc(hash)?;
         }
+        Self::distribute_tokens(rt)?;
+        Ok(())
+    }
+
+    fn distribute_tokens(rt: &impl Runtime) -> Result<(), ActorError> {
+        rt.validate_immediate_caller_is(std::iter::once(&SYSTEM_ACTOR_ADDR))?;
+        let current_balance = rt.current_balance();
+        let caller = rt.message().caller();
+        let retired_portion = 0.97;
+        let amount_to_retire = current_balance.clone().mul(retired_portion);
+        let amount_for_caller = current_balance.min(amount_to_retire.clone());
+        extract_send_result(rt.send_simple(&BURNT_FUNDS_ACTOR_ADDR, METHOD_SEND, None, amount_to_retire))?;
+        extract_send_result(rt.send_simple(&caller, METHOD_SEND, None, amount_for_caller))?;
         Ok(())
     }
 
