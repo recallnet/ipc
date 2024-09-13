@@ -66,9 +66,8 @@ impl BlobsActor {
     }
 
     fn distribute_tokens(rt: &impl Runtime) -> Result<(), ActorError> {
-        rt.validate_immediate_caller_is(std::iter::once(&SYSTEM_ACTOR_ADDR))?;
         let current_balance = rt.current_balance();
-        let caller = rt.message().caller();
+        let caller = rt.message().origin();
         let retired_portion = 0.97;
         let amount_to_retire = current_balance.clone().mul(retired_portion);
         let amount_for_caller = current_balance.min(amount_to_retire.clone());
