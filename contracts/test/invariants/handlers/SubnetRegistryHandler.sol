@@ -125,7 +125,8 @@ contract SubnetRegistryHandler is CommonBase, StdCheats, StdUtils {
             supplySource: AssetHelper.native(),
             collateralSource: AssetHelper.native(),
             validatorGater: address(0),
-            tokenPerStorage: 0
+            tokenPerStorage: 0,
+            lockingDuration: 10
         });
 
         address owner = getRandomOldAddressOrNewOne(seed);

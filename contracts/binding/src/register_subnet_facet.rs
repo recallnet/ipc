@@ -46,7 +46,11 @@ pub mod register_subnet_facet {
                                     ),
                                 ),
                             ],),
+<<<<<<< HEAD
                             ::ethers::core::abi::ethabi::ParamType::Address,
+=======
+                            ::ethers::core::abi::ethabi::ParamType::Uint(256usize),
+>>>>>>> fa1290da (wip)
                         ],),
                         internal_type: ::core::option::Option::Some(
                             ::std::borrow::ToOwned::to_owned(
@@ -150,7 +154,11 @@ pub mod register_subnet_facet {
             params: ConstructorParams,
         ) -> ::ethers::contract::builders::ContractCall<M, ::ethers::core::types::Address> {
             self.0
+<<<<<<< HEAD
                 .method_hash([132, 113, 97, 70], (params,))
+=======
+                .method_hash([141, 141, 157, 173], (params,))
+>>>>>>> fa1290da (wip)
                 .expect("method not found (this should never happen)")
         }
         ///Gets the contract's `SubnetDeployed` event
@@ -376,7 +384,11 @@ pub mod register_subnet_facet {
         pub supply_source: Asset,
         pub collateral_source: Asset,
         pub parent_id: SubnetID,
+<<<<<<< HEAD
         pub validator_gater: ::ethers::core::types::Address,
+=======
+        pub locking_duration: u64,
+>>>>>>> fa1290da (wip)
     }
     ///`SubnetID(uint64,address[])`
     #[derive(

@@ -230,7 +230,8 @@ contract TestSubnetActor is Test, TestParams {
             supplySource: source,
             collateralSource: collateral,
             validatorGater: address(0),
-            tokenPerStorage: 0
+            tokenPerStorage: 0,
+            lockingDuration: 10
         });
         return params;
     }
@@ -265,7 +266,8 @@ contract TestSubnetActor is Test, TestParams {
             supplySource: Asset({kind: AssetKind.ERC20, tokenAddress: tokenAddress}),
             collateralSource: AssetHelper.native(),
             validatorGater: address(0),
-            tokenPerStorage: 0
+            tokenPerStorage: 0,
+            lockingDuration: 10
         });
         return params;
     }
@@ -640,7 +642,8 @@ contract IntegrationTestBase is Test, TestParams, TestRegistry, TestSubnetActor,
             supplySource: AssetHelper.native(),
             collateralSource: AssetHelper.native(),
             validatorGater: _validatorGater,
-            tokenPerStorage: 0
+            tokenPerStorage: 0,
+            lockingDuration: 10
         });
         saDiamond = createSubnetActor(params);
     }

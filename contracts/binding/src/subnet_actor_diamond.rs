@@ -1532,7 +1532,11 @@ pub mod subnet_actor_diamond {
         pub supply_source: Asset,
         pub collateral_source: Asset,
         pub parent_id: SubnetID,
+<<<<<<< HEAD
         pub validator_gater: ::ethers::core::types::Address,
+=======
+        pub locking_duration: u64,
+>>>>>>> fa1290da (wip)
     }
     ///`SubnetID(uint64,address[])`
     #[derive(

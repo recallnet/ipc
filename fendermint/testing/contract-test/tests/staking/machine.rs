@@ -120,6 +120,7 @@ impl StateMachine for StakingMachine {
                 token_address: ethers::types::Address::zero(),
             },
             validator_gater: EthAddress::from(ethers::types::Address::zero()).into(),
+            locking_duration: 10,
         };
 
         eprintln!("\n> PARENT IPC: {parent_ipc:?}");

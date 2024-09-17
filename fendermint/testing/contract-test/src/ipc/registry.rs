@@ -50,6 +50,7 @@ impl<DB: Blockstore + Clone> RegistryCaller<DB> {
         state: &mut FvmExecState<DB>,
         params: SubnetConstructorParams,
     ) -> anyhow::Result<EthAddress> {
+        println!("foo.0 {:?}\n", params.locking_duration);
         let addr = self
             .register
             .call(state, |c| c.new_subnet_actor(params))

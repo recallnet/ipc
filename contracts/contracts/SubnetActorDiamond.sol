@@ -38,12 +38,16 @@ contract SubnetActorDiamond {
         SubnetID parentId;
 <<<<<<< HEAD:contracts/contracts/SubnetActorDiamond.sol
 <<<<<<< HEAD:contracts/contracts/SubnetActorDiamond.sol
+<<<<<<< HEAD:contracts/contracts/SubnetActorDiamond.sol
         address validatorGater;
 =======
         uint256 tokenPerStorage;
 >>>>>>> c16c9850 (chore: update tests):contracts/src/SubnetActorDiamond.sol
 =======
 >>>>>>> 691df51e (test: delete unused variable):contracts/src/SubnetActorDiamond.sol
+=======
+        uint256 lockingDuration;
+>>>>>>> fa1290da (wip):contracts/src/SubnetActorDiamond.sol
     }
 
     constructor(IDiamond.FacetCut[] memory _diamondCut, ConstructorParams memory params, address owner) {
@@ -90,6 +94,7 @@ contract SubnetActorDiamond {
         s.powerScale = params.powerScale;
         s.currentSubnetHash = s.parentId.createSubnetId(address(this)).toHash();
         s.validatorSet.permissionMode = params.permissionMode;
+        s.releaseQueue.lockingDuration = params.lockingDuration;
 
         // BottomUpMsgBatch config parameters.
         // NOTE: Let's fix them for now, but we could make them configurable
