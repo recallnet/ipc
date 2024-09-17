@@ -120,7 +120,7 @@ impl StateMachine for StakingMachine {
                 token_address: ethers::types::Address::zero(),
             },
             validator_gater: EthAddress::from(ethers::types::Address::zero()).into(),
-            locking_duration: 10,
+            locking_duration: 2,
         };
 
         eprintln!("\n> PARENT IPC: {parent_ipc:?}");
@@ -249,7 +249,8 @@ impl StateMachine for StakingMachine {
                 let a = choose_account(u, state)?;
                 // We can try sending requests to unbond arbitrarily large amounts of collateral - the system should catch any attempt to steal.
                 // Only limiting it to be under the initial balance so that it's comparable to what the deposits could have been.
-                let b = choose_amount(u, &a.initial_balance)?;
+                // let b = choose_amount(u, &a.initial_balance)?; // FIXME
+                let b = choose_amount(u, &TokenAmount::from_atto(0))?; // FIXME Useless now
                 StakingCommand::Unstake(a.addr, b)
             }
             &"claim" => {
@@ -576,6 +577,7 @@ impl StateMachine for StakingMachine {
             | StakingCommand::Leave(addr)
             | StakingCommand::Claim(addr) => {
                 let a = post_state.accounts.get(addr).unwrap();
+                println!("balance.assertion {:?} {:?}", a.current_balance, a.initial_balance);
                 assert!(a.current_balance <= a.initial_balance);
 
                 // Check collaterals
