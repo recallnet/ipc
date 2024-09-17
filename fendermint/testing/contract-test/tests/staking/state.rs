@@ -47,8 +47,39 @@ pub struct StakingAccount {
     pub initial_balance: TokenAmount,
     /// Balance after the effects of deposits/withdrawals.
     pub current_balance: TokenAmount,
-    /// Currently it's not possible to specify the locking period, so all claims are immediately available.
-    pub claim_balance: TokenAmount,
+    /// Available to claim (.0) when configuration number (.1) becomes valid.
+    pub releases: Vec<(u64, TokenAmount)>
+}
+
+impl StakingAccount {
+    pub fn claimable(&self, configuration_number: u64) -> TokenAmount {
+        println!("claimable.0 {:?}", self.releases);
+        let result = self.releases.iter().map(|item| {
+            if item.0 <= configuration_number {
+                item.clone().1
+            } else {
+                TokenAmount::from_atto(0)
+            }
+        }).fold(TokenAmount::from_whole(0), |acc, item| acc + item);
+        println!("claimable.1 {:?}", result);
+        result
+    }
+
+    pub fn claim(&mut self, block_height: u64) -> TokenAmount {
+        println!("claim.0 addr={} release={:?} current_balance={} initial_balance={}", self.addr, self.releases, self.current_balance, self.initial_balance);
+        let mut releases_replacement = vec![];
+        let mut amount_claimed = TokenAmount::from_atto(0);
+        for item in self.releases.clone() {
+            if item.0 <= block_height {
+                amount_claimed += item.1;
+            } else {
+                releases_replacement.push(item)
+            }
+        }
+        println!("claim.0 addr={} amount_claimed={} releases_replacement={:?} current_balance={} initial_balance={}", self.addr, amount_claimed, releases_replacement, self.current_balance, self.initial_balance);
+        self.releases = releases_replacement;
+        amount_claimed
+    }
 }
 
 #[derive(Debug, Clone, Default)]
@@ -303,7 +334,10 @@ impl StakingState {
 
     /// Check whether an account has a non-zero claim balance.
     pub fn has_claim(&self, addr: &EthAddress) -> bool {
-        self.account(addr).claim_balance.is_positive()
+        let account = self.account(addr);
+        let claimable = account.claimable(self.last_checkpoint_height);
+        println!("has_claim.0 addr={} claimable={:?} current_balance={} initial_balance={}", addr, claimable, account.current_balance, account.initial_balance);
+        claimable.is_positive()
     }
 
     /// Total amount staked by a validator.
@@ -370,12 +404,14 @@ impl StakingState {
 
     /// Increase the claim balance.
     fn add_claim(&mut self, addr: &EthAddress, value: TokenAmount) {
-        let a = self.account_mut(addr);
+        let block_height = self.last_checkpoint_height;
+        let account = self.account_mut(addr);
+        let claimable = account.claimable(block_height);
         eprintln!(
-            "> ADD CLAIM addr={} value={} current={}",
-            addr, value, a.claim_balance
+            "> ADD CLAIM addr={} value={} height={} claimable={} current_balance={}",
+            addr, value, block_height + 2, claimable, account.current_balance,
         );
-        a.claim_balance += value;
+        account.releases.push((block_height + 2, value)); // FIXME locking_duration
     }
 
     /// Increase the current balance.
@@ -392,8 +428,8 @@ impl StakingState {
     fn debit(&mut self, addr: &EthAddress, value: TokenAmount) {
         let a = self.account_mut(addr);
         eprintln!(
-            "> DEBIT addr={} value={} current={}",
-            addr, value, a.current_balance
+            "> DEBIT addr={} value={} current={} initial={}",
+            addr, value, a.current_balance, a.initial_balance
         );
         a.current_balance -= value;
     }
@@ -464,13 +500,13 @@ impl StakingState {
 
     /// Put released collateral back into the account's current balance.
     pub fn claim(&mut self, addr: EthAddress) {
-        let a = self.account_mut(&addr);
-        if a.claim_balance.is_zero() {
-            return;
+        let block_height = self.last_checkpoint_height;
+        let account = self.account_mut(&addr);
+        let claimable = account.claim(block_height);
+        println!("claim.s.0 {:?}", claimable);
+        if claimable.is_positive() {
+            self.credit(&addr, claimable);
         }
-        let c = a.claim_balance.clone();
-        a.claim_balance = TokenAmount::from_atto(0);
-        self.credit(&addr, c);
     }
 }
 
@@ -514,7 +550,7 @@ impl arbitrary::Arbitrary<'_> for StakingState {
                 addr,
                 initial_balance,
                 current_balance,
-                claim_balance: TokenAmount::from_atto(0),
+                releases: vec![]
             });
         }
 

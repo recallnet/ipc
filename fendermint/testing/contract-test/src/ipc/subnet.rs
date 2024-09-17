@@ -1,6 +1,7 @@
 // Copyright 2022-2024 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use fvm::machine::Machine;
 use fendermint_vm_actor_interface::eam::EthAddress;
 use fendermint_vm_actor_interface::ipc::subnet::SubnetActorErrors;
 use fendermint_vm_genesis::{Collateral, Validator};
@@ -111,6 +112,7 @@ impl<DB: Blockstore + Clone> SubnetCaller<DB> {
 
     /// Claim any refunds.
     pub fn try_claim(&self, state: &mut FvmExecState<DB>, addr: &EthAddress) -> TryCallResult<()> {
+        println!("try_claim.0.epoch {}", state.executor.context().epoch);
         self.rewarder.try_call(state, |c| c.claim().from(addr))
     }
 
