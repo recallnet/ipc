@@ -35,6 +35,7 @@ contract SubnetActorDiamond {
         PermissionMode permissionMode;
         SupplySource supplySource;
         SubnetID parentId;
+        uint256 lockingDuration;
     }
 
     constructor(IDiamond.FacetCut[] memory _diamondCut, ConstructorParams memory params, address owner) {
@@ -81,6 +82,7 @@ contract SubnetActorDiamond {
         s.powerScale = params.powerScale;
         s.currentSubnetHash = s.parentId.createSubnetId(address(this)).toHash();
         s.validatorSet.permissionMode = params.permissionMode;
+        s.releaseQueue.lockingDuration = params.lockingDuration;
 
         // BottomUpMsgBatch config parameters.
         // NOTE: Let's fix them for now, but we could make them configurable

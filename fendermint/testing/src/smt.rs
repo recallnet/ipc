@@ -222,7 +222,7 @@ mod tests {
         }
     }
 
-    #[derive(Clone, Copy)]
+    #[derive(Debug, Clone, Copy)]
     enum CounterCommand {
         Get,
         Inc,

@@ -119,6 +119,7 @@ impl StateMachine for StakingMachine {
                 kind: 0, // native token
                 token_address: ethers::types::Address::zero(),
             },
+            locking_duration: 10,
         };
 
         eprintln!("\n> PARENT IPC: {parent_ipc:?}");
