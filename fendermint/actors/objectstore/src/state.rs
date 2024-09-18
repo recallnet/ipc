@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use cid::Cid;
-use fendermint_actor_blobs_shared::Hash;
+use fendermint_actor_blobs_shared::state::Hash;
 use fendermint_actor_machine::{Kind, MachineState, WriteAccess};
 use fil_actors_runtime::ActorError;
 use fvm_ipld_blockstore::Blockstore;
