@@ -100,25 +100,25 @@ library TestUtils {
     }
 
     function newValidator(
-        uint256 key
+        uint256 key, bool needStorage
     ) internal /*pure*/ returns (address addr, uint256 privKey, bytes memory validatorKey) {
         privKey = key;
         bytes memory pubkey = derivePubKeyBytes(key);
-
-        validatorKey = addStorageToPK(deriveValidatorPubKeyBytes(key));
+        bytes memory pk = deriveValidatorPubKeyBytes(key);
+        validatorKey = needStorage? addStorageToPK(pk): pk;
 
         addr = address(uint160(uint256(keccak256(pubkey))));
     }
 
     function newValidators(
-        uint256 n
+        uint256 n, bool needStorage
     ) internal /*pure*/ returns (address[] memory validators, uint256[] memory privKeys, bytes[] memory validatorKeys) {
         validatorKeys = new bytes[](n);
         validators = new address[](n);
         privKeys = new uint256[](n);
 
         for (uint i = 0; i < n; i++) {
-            (address addr, uint256 key, bytes memory validatorKey) = newValidator(100 + i);
+            (address addr, uint256 key, bytes memory validatorKey) = newValidator(100 + i, needStorage);
             validators[i] = addr;
             validatorKeys[i] = validatorKey;
             privKeys[i] = key;
