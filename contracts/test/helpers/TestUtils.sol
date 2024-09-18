@@ -85,12 +85,9 @@ library TestUtils {
         weights[2] = 102;
     }
 
-    function deriveValidatorAddress(uint8 seq) internal pure returns (address addr, bytes memory data) {
+    function deriveValidatorAddress(uint8 seq) internal /*pure*/ returns (address addr, bytes memory data) {
         bytes memory pkData = new bytes(65);
         pkData[1] = bytes1(seq);
-        uint256 storageAmount = 100;
-        bytes32 storageBytes = bytes32(storageAmount);
-
 
         // use data[1:] for the hash
         bytes memory dataSubset = new bytes(pkData.length - 1);
@@ -99,24 +96,23 @@ library TestUtils {
         }
 
         addr = address(uint160(uint256(keccak256(dataSubset))));
-        data = abi.encodePacked(pkData, abi.encode(storageAmount));
+        data = addStorageToPK(pkData);
     }
 
     function newValidator(
         uint256 key
-    ) internal pure returns (address addr, uint256 privKey, bytes memory validatorKey) {
+    ) internal /*pure*/ returns (address addr, uint256 privKey, bytes memory validatorKey) {
         privKey = key;
-        uint256 storageAmount = 1;
         bytes memory pubkey = derivePubKeyBytes(key);
 
-        validatorKey = bytes.concat(deriveValidatorPubKeyBytes(key), bytes32(storageAmount));
+        validatorKey = addStorageToPK(deriveValidatorPubKeyBytes(key));
 
         addr = address(uint160(uint256(keccak256(pubkey))));
     }
 
     function newValidators(
         uint256 n
-    ) internal pure returns (address[] memory validators, uint256[] memory privKeys, bytes[] memory validatorKeys) {
+    ) internal /*pure*/ returns (address[] memory validators, uint256[] memory privKeys, bytes[] memory validatorKeys) {
         validatorKeys = new bytes[](n);
         validators = new address[](n);
         privKeys = new uint256[](n);
@@ -124,7 +120,7 @@ library TestUtils {
         for (uint i = 0; i < n; i++) {
             (address addr, uint256 key, bytes memory validatorKey) = newValidator(100 + i);
             validators[i] = addr;
-            validatorKeys[i] = validatorKey;
+            validatorKeys[i] = addStorageToPK(validatorKey);
             privKeys[i] = key;
         }
 
@@ -177,6 +173,12 @@ library TestUtils {
                 message: abi.encode(message),
                 nonce: nonce
             });
+    }
+
+    // Helper function to complete bytes length requirement for joining a subnet
+    function addStorageToPK(bytes memory pkData) internal /*pure*/ returns(bytes memory data) {
+        uint256 storageAmount = 1;
+        data = bytes.concat(pkData, abi.encode(storageAmount));
     }
 }
 

@@ -41,7 +41,7 @@ contract SubnetActorHandler is CommonBase, StdCheats, StdUtils {
     /// getRandomValidator returns a validator from the known validators with probability about 20 %,
     /// otherwise it returns a random validator address generated from id.
     /// It can't return address(0);
-    function getRandomValidator(uint8 id) public view returns (address) {
+    function getRandomValidator(uint8 id) public /*view*/ returns (address) {
         address addr;
         if (id < 200) {
             addr = getRandomValidatorFromSetOrZero(id);
