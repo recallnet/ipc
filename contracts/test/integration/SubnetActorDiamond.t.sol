@@ -356,7 +356,7 @@ contract SubnetActorDiamondTest is Test, IntegrationTestBase {
         vm.prank(validator);
         vm.expectRevert(NotOwnerOfPublicKey.selector);
 
-        saDiamond.manager().join{value: 10}(new bytes(65));
+        saDiamond.manager().join{value: 10}(new bytes(97));
     }
 
     function testSubnetActorDiamond_Join_Fail_InvalidPublicKeyLength() public {
@@ -637,7 +637,7 @@ contract SubnetActorDiamondTest is Test, IntegrationTestBase {
             // create incorrect signature using `vv`
             signatures[i] = abi.encodePacked(r, s, v);
 
-            pubKeys[i] = TestUtils.deriveValidatorPubKeyBytes(keys[i]);
+            pubKeys[i] = TestUtils.addStorageToPK(TestUtils.deriveValidatorPubKeyBytes(keys[i]));
             vm.deal(validators[i], 10 gwei);
             vm.prank(validators[i]);
             saDiamond.manager().join{value: 10}(pubKeys[i]);
@@ -1520,7 +1520,7 @@ contract SubnetActorDiamondTest is Test, IntegrationTestBase {
             2
         );
 
-        (address[] memory validators, , bytes[] memory publicKeys) = TestUtils.newValidators(2, true);
+        (address[] memory validators, , bytes[] memory publicKeys) = TestUtils.newValidators(2, false);
         publicKeys[1] = publicKeys[0];
 
         uint256[] memory powers = new uint256[](2);
@@ -1568,7 +1568,7 @@ contract SubnetActorDiamondTest is Test, IntegrationTestBase {
             2
         );
 
-        (address[] memory validators, , bytes[] memory publicKeys) = TestUtils.newValidators(2, true);
+        (address[] memory validators, , bytes[] memory publicKeys) = TestUtils.newValidators(2, false);
         validators[1] = validators[0];
         publicKeys[1] = publicKeys[0];
 
