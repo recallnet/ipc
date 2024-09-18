@@ -280,6 +280,7 @@ contract SubnetActorDiamondTest is Test, IntegrationTestBase {
         // ======== Step. Claim collateral ======
         uint256 b1 = validator1.balance;
         vm.prank(validator1);
+        vm.roll(block.number + DEFAULT_LOCKING_DURATION);
         saDiamond.rewarder().claim();
         uint256 b2 = validator1.balance;
         require(b2 - b1 == validator1Stake + stake, "collateral not received");
@@ -336,7 +337,8 @@ contract SubnetActorDiamondTest is Test, IntegrationTestBase {
                 activeValidatorsLimit: 100,
                 powerScale: 12,
                 permissionMode: PermissionMode.Collateral,
-                supplySource: native
+                supplySource: native,
+                lockingDuration: DEFAULT_LOCKING_DURATION
             }),
             address(saDupGetterFaucet),
             address(saDupMangerFaucet),

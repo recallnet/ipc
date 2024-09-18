@@ -255,7 +255,8 @@ contract SubnetRegistryTest is Test, TestRegistry, IntegrationTestBase {
             activeValidatorsLimit: _activeValidatorsLimit,
             powerScale: _powerScale,
             permissionMode: PermissionMode.Collateral,
-            supplySource: SupplySourceHelper.native()
+            supplySource: SupplySourceHelper.native(),
+            lockingDuration: DEFAULT_LOCKING_DURATION
         });
 
         registrySubnetFacet.newSubnetActor(params);

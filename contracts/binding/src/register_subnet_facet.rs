@@ -140,7 +140,7 @@ pub mod register_subnet_facet {
                 client,
             ))
         }
-        ///Calls the contract's `newSubnetActor` (0xfc3b0ad3) function
+        ///Calls the contract's `newSubnetActor` (0x8d8d9dad) function
         pub fn new_subnet_actor(
             &self,
             params: ConstructorParams,
