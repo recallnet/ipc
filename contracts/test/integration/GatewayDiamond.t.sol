@@ -583,7 +583,7 @@ contract GatewayActorDiamondTest is Test, IntegrationTestBase {
     }
 
     function testGatewayDiamond_Single_Funding() public {
-        (address validatorAddress, , bytes memory publicKey) = TestUtils.newValidator(100);
+        (address validatorAddress, , bytes memory publicKey) = TestUtils.newValidator(100, true);
 
         join(validatorAddress, publicKey);
 
@@ -704,7 +704,7 @@ contract GatewayActorDiamondTest is Test, IntegrationTestBase {
     }
 
     function testGatewayDiamond_Fund_Works_ReactivatedSubnet() public {
-        (address validatorAddress, uint256 privKey, bytes memory publicKey) = TestUtils.newValidator(100);
+        (address validatorAddress, uint256 privKey, bytes memory publicKey) = TestUtils.newValidator(100, true);
         assert(validatorAddress == vm.addr(privKey));
 
         join(validatorAddress, publicKey);
