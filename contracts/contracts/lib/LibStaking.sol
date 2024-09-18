@@ -240,7 +240,6 @@ library LibValidatorSet {
     function confirmDeposit(ValidatorSet storage self, address validator, uint256 amount) internal {
         uint256 newCollateral = self.validators[validator].confirmedCollateral + amount;
         self.validators[validator].confirmedCollateral = newCollateral;
-
         self.totalConfirmedCollateral += amount;
 
         increaseReshuffle({self: self, maybeActive: validator, newPower: newCollateral});
@@ -585,7 +584,7 @@ library LibStaking {
                 (bytes memory metadata, uint256 power) = abi.decode(change.payload, (bytes, uint256));
                 s.validatorSet.validators[validator].metadata = metadata;
                 s.validatorSet.confirmFederatedPower(validator, power);
-            } else {
+            } else {//TODO add storage comfirmation and test at subnetActorDiamond
                 uint256 amount = abi.decode(change.payload, (uint256));
                 address gateway = s.ipcGatewayAddr;
 

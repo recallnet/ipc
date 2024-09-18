@@ -89,9 +89,9 @@ library LibStorageStaking {
     function withdrawStorageWithConfirm(address validator, uint256 amount) internal {
         SubnetActorStorage storage s = LibSubnetActorStorage.appStorage();
 
-        // record deposit that updates the total collateral
+        // record deposit that updates the total storage
         recordStorageWithdraw(s.validatorSet, validator, amount);
-        // confirm deposit that updates the confirmed collateral
+        // confirm deposit that updates the confirmed storage
         confirmStorageWithdraw(s.validatorSet, validator, amount);
 
     }
