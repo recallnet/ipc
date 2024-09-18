@@ -15,6 +15,7 @@ import {Address} from "openzeppelin-contracts/utils/Address.sol";
 import {LibSubnetActor} from "../lib/LibSubnetActor.sol";
 import {Pausable} from "../lib/LibPausable.sol";
 import {LibStorageStaking} from "../lib/LibStorageStaking.sol";
+import "forge-std/console.sol";
 
 contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausable {
     using EnumerableSet for EnumerableSet.AddressSet;
@@ -150,7 +151,7 @@ contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausa
             // if the subnet has not been bootstrapped, join directly
             // without delays, and collect collateral to register
             // in the gateway
-
+    
             // confirm validators deposit immediately
             LibStaking.setMetadataWithConfirm(msg.sender, metadata);
             LibStaking.depositWithConfirm(msg.sender, msg.value);

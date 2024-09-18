@@ -9,6 +9,7 @@ import {LibStakingChangeLog} from "./LibStakingChangeLog.sol";
 import {PermissionMode, StakingReleaseQueue, StakingChangeLog, StakingChange, StakingChangeRequest, StakingOperation, StakingRelease, ValidatorSet, AddressStakingReleases, ParentValidatorsTracker, Validator} from "../structs/Subnet.sol";
 import {WithdrawExceedingCollateral, NotValidator, CannotConfirmFutureChanges, NoCollateralToWithdraw, AddressShouldBeValidator, InvalidConfigurationNumber} from "../errors/IPCErrors.sol";
 import {Address} from "openzeppelin-contracts/utils/Address.sol";
+import "forge-std/console.sol";
 
 library LibAddressStakingReleases {
     /// @notice Add new release to the storage. Caller makes sure the release.releasedAt is ordered
@@ -241,7 +242,6 @@ library LibValidatorSet {
     function confirmDeposit(ValidatorSet storage self, address validator, uint256 amount) internal {
         uint256 newCollateral = self.validators[validator].confirmedCollateral + amount;
         self.validators[validator].confirmedCollateral = newCollateral;
-
         self.totalConfirmedCollateral += amount;
 
         increaseReshuffle({self: self, maybeActive: validator, newPower: newCollateral});
@@ -588,14 +588,14 @@ library LibStaking {
                 (bytes memory metadata, uint256 power) = abi.decode(change.payload, (bytes, uint256));
                 s.validatorSet.validators[validator].metadata = metadata;
                 s.validatorSet.confirmFederatedPower(validator, power);
-            } else {
+            } else {//TODO add storage comfirmation and test at subnetActorDiamond
                 uint256 amount = abi.decode(change.payload, (uint256));
 
                 if (change.op == StakingOperation.Withdraw) {
                     s.validatorSet.confirmWithdraw(validator, amount);
                     s.releaseQueue.addNewRelease(validator, amount);
                     IGateway(s.ipcGatewayAddr).releaseStake(amount);
-                } else {
+                } else if (change.op == StakingOperation.Deposit) {
                     s.validatorSet.confirmDeposit(validator, amount);
                     IGateway(s.ipcGatewayAddr).addStake{value: amount}();
                 }
