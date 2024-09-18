@@ -421,8 +421,8 @@ impl StakingState {
     fn debit(&mut self, addr: &EthAddress, value: TokenAmount) {
         let a = self.account_mut(addr);
         eprintln!(
-            "> DEBIT addr={} value={} current={} initial={}",
-            addr, value, a.current_balance, a.initial_balance
+            "> DEBIT addr={} value={} current={}",
+            addr, value, a.current_balance
         );
         a.current_balance -= value;
     }
@@ -496,7 +496,6 @@ impl StakingState {
         let block_height = self.last_checkpoint_height;
         let account = self.account_mut(&addr);
         let claimable = account.claim(block_height);
-        println!("claim.s.0 {:?}", claimable);
         if claimable.is_positive() {
             self.credit(&addr, claimable);
         }
