@@ -28,7 +28,10 @@ enum StakingOperation {
     Deposit,
     Withdraw,
     SetMetadata,
+    SetFederatedPower,
     SetFederatedPower
+    CommitStorage,
+    WithdrawStorage
 }
 
 /// @notice The change request to validator staking.
@@ -80,7 +83,7 @@ struct StakingReleaseQueue {
 }
 
 /// @notice Keeping track of the validator information.
-/// @dev There are two types of collaterals:
+/// @dev There are two types of collaterals and storage:
 ///     - Confirmed: The amount of collateral actually confirmed in child subnet;
 ///     - Total: Aside from Confirmed, there is also the collateral has been supplied, but not yet confirmed in child.
 struct ValidatorInfo {
@@ -92,6 +95,8 @@ struct ValidatorInfo {
     /// This information is not important to the protocol, off-chain should know how
     /// to parse or decode the bytes.
     bytes metadata;
+    uint256 totalStorage;
+    uint256 confirmedStorage;
 }
 
 /// @notice Determines the permission mode for validators.
@@ -137,6 +142,8 @@ struct ValidatorSet {
     MinPQ activeValidators;
     /// @notice The waiting validators tracked using max priority queue.
     MaxPQ waitingValidators;
+    /// The total committed storage.
+    uint256 totalConfirmedStorage;
 }
 
 /// @notice Tracks the parent validator changes and apply them in the child.
@@ -156,6 +163,7 @@ struct Validator {
     uint256 weight;
     address addr;
     bytes metadata;
+    uint256 storageAmount;
 }
 
 /// @notice Membership information stored in the gateway.

@@ -79,6 +79,8 @@ error MethodNotAllowed(string reason);
 error InvalidFederationPayload();
 error DuplicatedGenesisValidator();
 error NotEnoughGenesisValidators();
+error NotEnoughStorageCommitment();
+error WithdrawExceedingStorage();
 
 enum InvalidXnetMessageReason {
     Sender,
