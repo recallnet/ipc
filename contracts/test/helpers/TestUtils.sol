@@ -2,6 +2,7 @@
 pragma solidity ^0.8.23;
 
 import "forge-std/Test.sol";
+import "forge-std/console.sol";
 import "elliptic-curve-solidity/contracts/EllipticCurve.sol";
 import {IPCAddress, Asset} from "../../contracts/structs/Subnet.sol";
 import {CallMsg, IpcMsgKind, IpcEnvelope} from "../../contracts/structs/CrossNet.sol";
@@ -99,22 +100,27 @@ library TestUtils {
 
     function newValidator(
         uint256 key
-    ) internal pure returns (address addr, uint256 privKey, bytes memory validatorKey) {
+    ) internal /*pure*/ returns (address addr, uint256 privKey, bytes memory validatorKey) {
         privKey = key;
+        uint256 storageAmount = 1;
         bytes memory pubkey = derivePubKeyBytes(key);
-        validatorKey = deriveValidatorPubKeyBytes(key);
+
+        validatorKey = bytes.concat(deriveValidatorPubKeyBytes(key), bytes32(storageAmount));
+
+        console.log("at creation", validatorKey.length);
         addr = address(uint160(uint256(keccak256(pubkey))));
     }
 
     function newValidators(
         uint256 n
-    ) internal pure returns (address[] memory validators, uint256[] memory privKeys, bytes[] memory validatorKeys) {
+    ) internal /*pure*/ returns (address[] memory validators, uint256[] memory privKeys, bytes[] memory validatorKeys) {
         validatorKeys = new bytes[](n);
         validators = new address[](n);
         privKeys = new uint256[](n);
 
         for (uint i = 0; i < n; i++) {
             (address addr, uint256 key, bytes memory validatorKey) = newValidator(100 + i);
+            console.log("at creations", validatorKey.length);
             validators[i] = addr;
             validatorKeys[i] = validatorKey;
             privKeys[i] = key;
