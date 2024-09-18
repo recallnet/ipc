@@ -2,7 +2,6 @@
 pragma solidity ^0.8.23;
 
 import "forge-std/Test.sol";
-import "forge-std/console.sol";
 
 import "../../contracts/errors/IPCErrors.sol";
 import {NumberContractFacetSeven} from "../helpers/contracts/NumberContractFacetSeven.sol";
@@ -668,9 +667,8 @@ contract GatewayActorDiamondTest is Test, IntegrationTestBase, SubnetWithNativeT
     function testGatewayDiamond_Fund_Fails_NotRegistered() public {
         address funderAddress = address(101);
         uint256 fundAmount = 1 ether;
-
-        (address validatorAddress, bytes memory publicKey) = TestUtils.deriveValidatorAddress(100);
         
+        (address validatorAddress, bytes memory publicKey) = TestUtils.deriveValidatorAddress(100);
         join(validatorAddress, publicKey);
 
         address[] memory wrongSubnetPath = new address[](2);
