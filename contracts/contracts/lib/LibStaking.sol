@@ -367,6 +367,17 @@ library LibValidatorSet {
 
         emit ActiveValidatorCollateralUpdated(validator, newPower);
     }
+
+    /// @notice Validator increases its total storage committed by amount.
+    function recordStorageDeposit(ValidatorSet storage validators, address validator, uint256 amount) internal {
+        validators.validators[validator].totalStorage += amount;
+    }
+
+    function confirmStorageDeposit(ValidatorSet storage self, address validator, uint256 amount) internal {
+        uint256 newCommittedStorage = self.validators[validator].confirmedStorage + amount;
+        self.validators[validator].confirmedStorage = newCommittedStorage;
+        self.totalConfirmedStorage += amount;
+    }
 }
 
 library LibStaking {
