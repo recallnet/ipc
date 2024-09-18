@@ -132,7 +132,7 @@ contract SubnetActorDiamondTest is Test, IntegrationTestBase {
         require(saDiamond.getter().bootstrapped(), "subnet not bootstrapped");
         require(!saDiamond.getter().killed(), "subnet killed");
         require(saDiamond.getter().genesisValidators().length == 1, "not one validator in genesis");
-
+        
         (uint64 nextConfigNum, uint64 startConfigNum) = saDiamond.getter().getConfigurationNumbers();
         require(nextConfigNum == LibStaking.INITIAL_CONFIGURATION_NUMBER, "next config num not 1");
         require(startConfigNum == LibStaking.INITIAL_CONFIGURATION_NUMBER, "start config num not 1");
@@ -157,14 +157,18 @@ contract SubnetActorDiamondTest is Test, IntegrationTestBase {
 
         (nextConfigNum, startConfigNum) = saDiamond.getter().getConfigurationNumbers();
         // join will update the metadata, incr by 1
-        // join will call deposit, incr by 1
-        require(nextConfigNum == LibStaking.INITIAL_CONFIGURATION_NUMBER + 2, "next config num not 3");
+        // join will call deposit collateral, incr by 1
+        // join will call deposit storage, incr by 1
+        require(nextConfigNum == LibStaking.INITIAL_CONFIGURATION_NUMBER + 3, "next config num not 3");
         require(startConfigNum == LibStaking.INITIAL_CONFIGURATION_NUMBER, "start config num not 1");
         vm.stopPrank();
 
         // ======== Step. Confirm join operation ======
         collateral += DEFAULT_MIN_VALIDATOR_STAKE;
+        console.log("before", gatewayAddress.balance);
         confirmChange(validator1, privKey1);
+        console.log(gatewayAddress.balance);
+        console.log(collateral, gatewayAddress.balance == collateral);
         require(gatewayAddress.balance == collateral, "gw balance is incorrect after validator2 joining");
 
         v = saDiamond.getter().getValidator(validator2);
@@ -177,7 +181,7 @@ contract SubnetActorDiamondTest is Test, IntegrationTestBase {
         require(!saDiamond.getter().isWaitingValidator(validator1), "waiting validator1");
         require(saDiamond.getter().isActiveValidator(validator2), "not active validator2");
         require(!saDiamond.getter().isWaitingValidator(validator2), "waiting validator2");
-
+console.log("4");
         (nextConfigNum, startConfigNum) = saDiamond.getter().getConfigurationNumbers();
         require(
             nextConfigNum == LibStaking.INITIAL_CONFIGURATION_NUMBER + 2,
@@ -234,7 +238,7 @@ contract SubnetActorDiamondTest is Test, IntegrationTestBase {
             "start config num not 4 after confirm stake"
         );
         require(saDiamond.getter().genesisValidators().length == 1, "genesis validators still 1");
-
+console.log("5");
         // ======== Step. Leave ======
         vm.startPrank(validator1);
         saDiamond.manager().leave();
@@ -278,7 +282,7 @@ contract SubnetActorDiamondTest is Test, IntegrationTestBase {
         );
         require(!saDiamond.getter().isActiveValidator(validator1), "active validator 1");
         require(saDiamond.getter().isActiveValidator(validator2), "not active validator 2");
-
+console.log("6");
         // ======== Step. Claim collateral ======
         uint256 b1 = validator1.balance;
         vm.prank(validator1);
