@@ -338,7 +338,7 @@ contract MultiSubnetTest is Test, IntegrationTestBase {
         address caller = address(new MockIpcContract());
         address recipient = address(new MockIpcContractPayable());
         uint256 amount = 4096;
-
+        
         deflationaryToken.transfer(caller, amount);
         assertEq(deflationaryToken.balanceOf(caller), amount / 2);
 
@@ -1396,7 +1396,7 @@ contract MultiSubnetTest is Test, IntegrationTestBase {
 
         for (uint256 i = 0; i < 3; i++) {
             vm.deal(parentValidators[i], 10 gwei);
-            parentPubKeys[i] = TestUtils.deriveValidatorPubKeyBytes(parentKeys[i]);
+            parentPubKeys[i] = TestUtils.addStorageToPK(TestUtils.deriveValidatorPubKeyBytes(parentKeys[i]));
             vm.prank(parentValidators[i]);
             manager.join{value: 10}(parentPubKeys[i], 10);
         }

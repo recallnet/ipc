@@ -120,7 +120,7 @@ library TestUtils {
         for (uint i = 0; i < n; i++) {
             (address addr, uint256 key, bytes memory validatorKey) = newValidator(100 + i);
             validators[i] = addr;
-            validatorKeys[i] = addStorageToPK(validatorKey);
+            validatorKeys[i] = validatorKey;
             privKeys[i] = key;
         }
 
