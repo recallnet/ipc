@@ -110,7 +110,7 @@ where
     DB: Blockstore + Clone + 'static,
 {
     #[allow(clippy::type_complexity)]
-    pub executor:
+    executor:
         DefaultExecutor<HokuKernel<DefaultCallManager<DefaultMachine<DB, FendermintExterns<DB>>>>>,
 
     /// Hash of the block currently being executed. For queries and checks this is empty.
