@@ -53,20 +53,16 @@ pub struct StakingAccount {
 
 impl StakingAccount {
     pub fn claimable(&self, configuration_number: u64) -> TokenAmount {
-        println!("claimable.0 {:?}", self.releases);
-        let result = self.releases.iter().map(|item| {
+        self.releases.iter().map(|item| {
             if item.0 <= configuration_number {
                 item.clone().1
             } else {
                 TokenAmount::from_atto(0)
             }
-        }).fold(TokenAmount::from_whole(0), |acc, item| acc + item);
-        println!("claimable.1 {:?}", result);
-        result
+        }).fold(TokenAmount::from_whole(0), |acc, item| acc + item)
     }
 
     pub fn claim(&mut self, block_height: u64) -> TokenAmount {
-        println!("claim.0 addr={} release={:?} current_balance={} initial_balance={}", self.addr, self.releases, self.current_balance, self.initial_balance);
         let mut releases_replacement = vec![];
         let mut amount_claimed = TokenAmount::from_atto(0);
         for item in self.releases.clone() {
@@ -76,7 +72,6 @@ impl StakingAccount {
                 releases_replacement.push(item)
             }
         }
-        println!("claim.0 addr={} amount_claimed={} releases_replacement={:?} current_balance={} initial_balance={}", self.addr, amount_claimed, releases_replacement, self.current_balance, self.initial_balance);
         self.releases = releases_replacement;
         amount_claimed
     }
@@ -336,7 +331,6 @@ impl StakingState {
     pub fn has_claim(&self, addr: &EthAddress) -> bool {
         let account = self.account(addr);
         let claimable = account.claimable(self.last_checkpoint_height);
-        println!("has_claim.0 addr={} claimable={:?} current_balance={} initial_balance={}", addr, claimable, account.current_balance, account.initial_balance);
         claimable.is_positive()
     }
 
@@ -406,10 +400,9 @@ impl StakingState {
     fn add_claim(&mut self, addr: &EthAddress, value: TokenAmount) {
         let block_height = self.last_checkpoint_height;
         let account = self.account_mut(addr);
-        let claimable = account.claimable(block_height);
         eprintln!(
-            "> ADD CLAIM addr={} value={} height={} claimable={} current_balance={}",
-            addr, value, block_height + 2, claimable, account.current_balance,
+            "> ADD CLAIM addr={} value={} current={}",
+            addr, value, account.current_balance,
         );
         account.releases.push((block_height + 2, value)); // FIXME locking_duration
     }
