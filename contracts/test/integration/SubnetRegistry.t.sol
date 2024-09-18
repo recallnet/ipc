@@ -258,7 +258,8 @@ contract SubnetRegistryTest is Test, TestRegistry, IntegrationTestBase {
             supplySource: AssetHelper.native(),
             collateralSource: AssetHelper.native(),
             validatorGater: address(0),
-            tokenPerStorage: 0
+            tokenPerStorage: 0,
+            lockingDuration: DEFAULT_LOCKING_DURATION
         });
 
         registrySubnetFacet.newSubnetActor(params);

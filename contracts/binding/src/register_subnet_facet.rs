@@ -148,7 +148,11 @@ pub mod register_subnet_facet {
                 client,
             ))
         }
+<<<<<<< HEAD
         ///Calls the contract's `newSubnetActor` (0x84716146) function
+=======
+        ///Calls the contract's `newSubnetActor` (0x8d8d9dad) function
+>>>>>>> 766323b5 (solidity test)
         pub fn new_subnet_actor(
             &self,
             params: ConstructorParams,

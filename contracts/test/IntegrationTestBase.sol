@@ -97,6 +97,7 @@ contract TestParams {
 
     address CHILD_NETWORK_ADDRESS = address(new SubnetWithNativeTokenMock());
     address CHILD_NETWORK_ADDRESS_2 = address(new SubnetWithNativeTokenMock());
+    uint256 constant DEFAULT_LOCKING_DURATION = 2;
 }
 
 contract TestRegistry is Test, TestParams {
@@ -231,7 +232,7 @@ contract TestSubnetActor is Test, TestParams {
             collateralSource: collateral,
             validatorGater: address(0),
             tokenPerStorage: 0,
-            lockingDuration: 10
+            lockingDuration: DEFAULT_LOCKING_DURATION
         });
         return params;
     }
@@ -267,7 +268,7 @@ contract TestSubnetActor is Test, TestParams {
             collateralSource: AssetHelper.native(),
             validatorGater: address(0),
             tokenPerStorage: 0,
-            lockingDuration: 10
+            lockingDuration: DEFAULT_LOCKING_DURATION
         });
         return params;
     }
