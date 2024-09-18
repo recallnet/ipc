@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 pragma solidity ^0.8.23;
 
-import {ValidatorSet, Validator, StakingChangeLog} from "./Subnet.sol";
+import {ValidatorSet, Validator, StakingChangeLog} from "../structs/Subnet.sol";
 import {LibSubnetActorStorage, SubnetActorStorage} from "./LibSubnetActorStorage.sol";
 import {LibStakingChangeLog} from "./LibStakingChangeLog.sol";
 import {LibValidatorSet} from "./LibStaking.sol";
-import {WithdrawExceedingStorage} from "./IPCErrors.sol";
+import {WithdrawExceedingStorage} from "../errors/IPCErrors.sol";
 import "forge-std/console.sol";
 library LibStorageStaking {
     using LibStakingChangeLog for StakingChangeLog;

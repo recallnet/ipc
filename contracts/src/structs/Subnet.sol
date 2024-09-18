@@ -29,7 +29,6 @@ enum StakingOperation {
     Withdraw,
     SetMetadata,
     SetFederatedPower,
-    SetFederatedPower
     CommitStorage,
     WithdrawStorage
 }

@@ -99,7 +99,7 @@ library LibSubnetActor {
             LibStaking.setMetadataWithConfirm(validators[i], publicKeys[i]);
             LibStaking.setFederatedPowerWithConfirm(validators[i], powers[i]);
 
-            s.genesisValidators.push(Validator({addr: validators[i], weight: powers[i], metadata: publicKeys[i]}));
+            s.genesisValidators.push(Validator({addr: validators[i], weight: powers[i], metadata: publicKeys[i], storageAmount: 0}));
 
             unchecked {
                 ++i;

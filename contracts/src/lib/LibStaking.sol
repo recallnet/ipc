@@ -500,7 +500,8 @@ library LibStaking {
                 Validator memory val = Validator({
                     addr: validator,
                     weight: collateral,
-                    metadata: s.validatorSet.validators[validator].metadata
+                    metadata: s.validatorSet.validators[validator].metadata,
+                     storageAmount: 0
                 });
                 s.genesisValidators.push(val);
             }

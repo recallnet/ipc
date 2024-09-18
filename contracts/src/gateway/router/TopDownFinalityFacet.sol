@@ -71,7 +71,7 @@ contract TopDownFinalityFacet is GatewayActorModifiers {
             // Extract the consensus weight for validator.
             uint256 weight = info.confirmedCollateral + info.federatedPower;
 
-            vs[i] = Validator({weight: weight, addr: addr, metadata: info.metadata});
+            vs[i] = Validator({weight: weight, addr: addr, metadata: info.metadata, storageAmount: 0});
             unchecked {
                 ++i;
             }

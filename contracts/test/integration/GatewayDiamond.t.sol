@@ -2,6 +2,7 @@
 pragma solidity ^0.8.23;
 
 import "forge-std/Test.sol";
+import "forge-std/console.sol";
 
 import "../../src/errors/IPCErrors.sol";
 import {NumberContractFacetSeven} from "../helpers/NumberContractFacetSeven.sol";
@@ -666,6 +667,7 @@ contract GatewayActorDiamondTest is Test, IntegrationTestBase {
         uint256 fundAmount = 1 ether;
 
         (address validatorAddress, bytes memory publicKey) = TestUtils.deriveValidatorAddress(100);
+        
         join(validatorAddress, publicKey);
 
         address[] memory wrongSubnetPath = new address[](2);
