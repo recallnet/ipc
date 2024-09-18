@@ -641,7 +641,7 @@ contract SubnetActorDiamondTest is Test, IntegrationTestBase {
             // create incorrect signature using `vv`
             signatures[i] = abi.encodePacked(r, s, v);
 
-            pubKeys[i] = TestUtils.deriveValidatorPubKeyBytes(keys[i]);
+            pubKeys[i] = TestUtils.addStorageToPK(TestUtils.deriveValidatorPubKeyBytes(keys[i]));
             vm.deal(validators[i], 10 gwei);
             vm.prank(validators[i]);
             saDiamond.manager().join{value: 10}(pubKeys[i], 10);
@@ -1537,7 +1537,7 @@ contract SubnetActorDiamondTest is Test, IntegrationTestBase {
             2
         );
 
-        (address[] memory validators, , bytes[] memory publicKeys) = TestUtils.newValidators(2, true);
+        (address[] memory validators, , bytes[] memory publicKeys) = TestUtils.newValidators(2, false);
         publicKeys[1] = publicKeys[0];
 
         uint256[] memory powers = new uint256[](2);
@@ -1585,7 +1585,7 @@ contract SubnetActorDiamondTest is Test, IntegrationTestBase {
             2
         );
 
-        (address[] memory validators, , bytes[] memory publicKeys) = TestUtils.newValidators(2, true);
+        (address[] memory validators, , bytes[] memory publicKeys) = TestUtils.newValidators(2, false);
         validators[1] = validators[0];
         publicKeys[1] = publicKeys[0];
 
