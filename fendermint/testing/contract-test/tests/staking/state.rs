@@ -48,18 +48,21 @@ pub struct StakingAccount {
     /// Balance after the effects of deposits/withdrawals.
     pub current_balance: TokenAmount,
     /// Available to claim (.0) when configuration number (.1) becomes valid.
-    pub releases: Vec<(u64, TokenAmount)>
+    pub releases: Vec<(u64, TokenAmount)>,
 }
 
 impl StakingAccount {
     pub fn claimable(&self, configuration_number: u64) -> TokenAmount {
-        self.releases.iter().map(|item| {
-            if item.0 <= configuration_number {
-                item.clone().1
-            } else {
-                TokenAmount::from_atto(0)
-            }
-        }).fold(TokenAmount::from_whole(0), |acc, item| acc + item)
+        self.releases
+            .iter()
+            .map(|item| {
+                if item.0 <= configuration_number {
+                    item.clone().1
+                } else {
+                    TokenAmount::from_atto(0)
+                }
+            })
+            .fold(TokenAmount::from_whole(0), |acc, item| acc + item)
     }
 
     pub fn claim(&mut self, block_height: u64) -> TokenAmount {
@@ -542,7 +545,7 @@ impl arbitrary::Arbitrary<'_> for StakingState {
                 addr,
                 initial_balance,
                 current_balance,
-                releases: vec![]
+                releases: vec![],
             });
         }
 
