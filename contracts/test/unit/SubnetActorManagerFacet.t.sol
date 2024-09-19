@@ -57,22 +57,22 @@ contract SubnetActorManagerFacetTest is Test {
     }
 
     function testSetStorageOnLeave() public {
-        // Save current storage state
-        (uint256 validatorTotalStorage, , uint256 totalConfirmedStorage ) = getStorageValues();
-
         // Should not allow to leave if address never joined
         vm.expectRevert();
         subnetActorManagerFacet.leave();
 
         vm.startPrank(walletAddr);
         subnetActorManagerFacet.join{value: 1}(metadata); // Call join before leaving
+        // Save current storage state
+        (, , uint256 totalConfirmedStorage) = getStorageValues();
         subnetActorManagerFacet.leave();
         vm.stopPrank();
 
         (uint256 newValidatorTotalStorage, uint256 newValidatorConfirmedStorage, uint256 newTotalConfirmedStorage ) = getStorageValues();
+        console.log(totalConfirmedStorage,newValidatorTotalStorage, newValidatorConfirmedStorage, newTotalConfirmedStorage);
         assertEq(newValidatorTotalStorage, 0);
         assertEq(newValidatorConfirmedStorage, 0);
-        assertEq(newTotalConfirmedStorage, totalConfirmedStorage - validatorTotalStorage);
+        assertEq(newTotalConfirmedStorage, 0);
     }
 
     function testSetStorageOnUnstake() public {

@@ -72,16 +72,21 @@ library LibStorageStaking {
     }
 
     function confirmStorageWithdraw(ValidatorSet storage self, address validator, uint256 amount) internal {
-        uint256 newStorage = self.validators[validator].confirmedStorage - amount;
+        console.log("no", self.totalConfirmedStorage, amount);
+        self.totalConfirmedStorage -= amount;
+        uint256 confirmedStorage = self.validators[validator].confirmedStorage;
         uint256 totalStorage = self.validators[validator].totalStorage;
+        // This call might happen after a call to LibStaking.withdrawWithConfirm deleting the validator
+        if (confirmedStorage == 0 && totalStorage == 0 ) {
+            return;
+        }
+        uint256 newStorage = confirmedStorage - amount;
         
         if (newStorage == 0 && totalStorage == 0) {
             delete self.validators[validator];
         } else {
             self.validators[validator].confirmedStorage = newStorage;
         }
-        
-        self.totalConfirmedStorage -= amount;
     }
 
     /// @notice Confirm the storage withdraw directly without going through the confirmation process

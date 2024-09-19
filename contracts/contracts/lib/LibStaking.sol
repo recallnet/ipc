@@ -679,9 +679,9 @@ library LibValidatorTracking {
 
                 if (change.op == StakingOperation.Withdraw) {
                     self.validators.confirmWithdraw(validator, amount);
-                } else {
+                 } else if (change.op == StakingOperation.Deposit) {
                     self.validators.confirmDeposit(validator, amount);
-                }
+                } 
             }
 
             self.changes.purgeChange(i);
