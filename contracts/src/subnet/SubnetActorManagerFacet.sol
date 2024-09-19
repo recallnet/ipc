@@ -300,7 +300,7 @@ contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausa
             
             // interaction must be performed after checks and changes
             LibStaking.withdrawWithConfirm(msg.sender, amount);
-            s.validatorSet.totalConfirmedStorage -= totalStorage;// No need to explicitly withdraw storage for validator, prevous step deletes validator record
+            s.validatorSet.totalConfirmedStorage -= totalStorage;// No need to explicitly withdraw storage for validator, prevous step deletes validator records
             return;
         }
         LibStaking.withdraw(msg.sender, amount);
