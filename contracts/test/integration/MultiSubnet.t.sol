@@ -1363,7 +1363,6 @@ contract MultiSubnetTest is Test, IntegrationTestBase {
     ) internal returns (BottomUpCheckpoint memory checkpoint) {
         uint256 e = getNextEpoch(block.number, DEFAULT_CHECKPOINT_PERIOD);
 
-        GatewayGetterFacet getter = gw.getter();
         CheckpointingFacet checkpointer = gw.checkpointer();
 
         (, address[] memory addrs, uint256[] memory weights) = TestUtils.getFourValidators(vm);
