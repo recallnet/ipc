@@ -66,7 +66,7 @@ contract LibStorageStakingTest is Test {
 
     function testGetTotalConfirmedStorage() public {
         SubnetActorStorage storage s = LibSubnetActorStorage.appStorage();
-        uint256 totalStorage = LibStorageStaking.getTotalConfirmedStorage(s.validatorSet);
+        uint256 totalStorage = LibStorageStaking.getTotalConfirmedStorage();
         assertEq(totalStorage, totalValidatorsStorage);
     }
 

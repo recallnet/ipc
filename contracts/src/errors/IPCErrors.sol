@@ -80,6 +80,7 @@ error InvalidFederationPayload();
 error DuplicatedGenesisValidator();
 error NotEnoughGenesisValidators();
 error NotEnoughStorageCommitment();
+error NotEnoughCollateralForStorageAmount();
 error WithdrawExceedingStorage();
 
 enum InvalidXnetMessageReason {

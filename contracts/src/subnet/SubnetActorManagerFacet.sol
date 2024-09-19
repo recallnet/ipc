@@ -2,8 +2,8 @@
 pragma solidity ^0.8.23;
 
 import {VALIDATOR_SECP256K1_PUBLIC_KEY_LENGTH} from "../constants/Constants.sol";
-import {ERR_VALIDATOR_JOINED, ERR_VALIDATOR_NOT_JOINED, NotEnoughStorageCommitment} from "../errors/IPCErrors.sol";
-import {InvalidFederationPayload, SubnetAlreadyBootstrapped, NotEnoughFunds, CollateralIsZero, CannotReleaseZero, NotOwnerOfPublicKey, EmptyAddress, NotEnoughBalance, NotEnoughCollateral, NotValidator, NotAllValidatorsHaveLeft, InvalidPublicKeyLength, MethodNotAllowed, SubnetNotBootstrapped} from "../errors/IPCErrors.sol";
+import {ERR_VALIDATOR_JOINED, ERR_VALIDATOR_NOT_JOINED} from "../errors/IPCErrors.sol";
+import {InvalidFederationPayload, SubnetAlreadyBootstrapped, NotEnoughFunds, CollateralIsZero, CannotReleaseZero, NotOwnerOfPublicKey, EmptyAddress, NotEnoughBalance, NotEnoughCollateral, NotValidator, NotAllValidatorsHaveLeft, InvalidPublicKeyLength, MethodNotAllowed, SubnetNotBootstrapped, NotEnoughStorageCommitment} from "../errors/IPCErrors.sol";
 import {IGateway} from "../interfaces/IGateway.sol";
 import {Validator, ValidatorSet} from "../structs/Subnet.sol";
 import {LibDiamond} from "../lib/LibDiamond.sol";
@@ -136,6 +136,8 @@ contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausa
             // Load the storageCommitment directly from calldata (after the first 65 bytes)
             storageCommitment := calldataload(add(metadata.offset, 65))
         }
+        
+        LibSubnetActor.enforceStorageCollateralValidation(msg.value, storageCommitment);
 
         if (LibStaking.isValidator(msg.sender)) {
             revert MethodNotAllowed(ERR_VALIDATOR_JOINED);
@@ -194,7 +196,6 @@ contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausa
         // disabling validator changes for federated subnets (at least for now
         // until a more complex mechanism is implemented).
         LibSubnetActor.enforceCollateralValidation();
-        //TODO each storage stake will require more collateral so this must get value or check that enough collateral was already staked
         if (amount == 0) {
            revert NotEnoughStorageCommitment();
         }
@@ -202,7 +203,10 @@ contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausa
         if (!LibStaking.isValidator(msg.sender)) {
             revert MethodNotAllowed(ERR_VALIDATOR_NOT_JOINED);
         }
-
+        uint256 collateral = LibStaking.totalValidatorCollateral(msg.sender);
+        uint256 totalStorage = LibStorageStaking.totalValidatorStorage(msg.sender);
+        LibSubnetActor.enforceStorageCollateralValidation(msg.value + collateral, totalStorage + amount);
+        
         if (!s.bootstrapped) {
             LibStorageStaking.commitStorageWithConfirm(msg.sender, amount);
         } else {
@@ -217,12 +221,13 @@ contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausa
         // disabling validator changes for federated validation subnets (at least for now
         // until a more complex mechanism is implemented).
         LibSubnetActor.enforceCollateralValidation();
-
+        
         if (amount == 0) {
             revert CannotReleaseZero();
         }
 
         uint256 collateral = LibStaking.totalValidatorCollateral(msg.sender);
+        uint256 totalStorage = LibStorageStaking.totalValidatorStorage(msg.sender);
 
         if (collateral == 0) {
             revert NotValidator(msg.sender);
@@ -230,6 +235,7 @@ contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausa
         if (collateral <= amount) {
             revert NotEnoughCollateral();
         }
+        LibSubnetActor.enforceStorageCollateralValidation(collateral - amount, totalStorage);
         if (!s.bootstrapped) {
             LibStaking.withdrawWithConfirm(msg.sender, amount);
             return;

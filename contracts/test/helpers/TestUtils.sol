@@ -177,7 +177,7 @@ library TestUtils {
 
     // Helper function to complete bytes length requirement for joining a subnet
     function addStorageToPK(bytes memory pkData) internal pure returns(bytes memory data) {
-        uint256 storageAmount = 1;
+        uint256 storageAmount = 10;
         data = bytes.concat(pkData, abi.encode(storageAmount));
     }
 }
