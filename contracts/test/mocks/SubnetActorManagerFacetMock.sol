@@ -14,6 +14,10 @@ contract SubnetActorManagerFacetMock is SubnetActorManagerFacet {
         s.minActivationCollateral = amount;
     }
 
+    function setStorageCollateralRatio(uint16 amount) external {
+        s.tokensPerStorageRatio = amount;
+    }
+
     function isValidator(address validator) public view returns (bool) {
         return LibStaking.isValidator(validator);
     }
@@ -31,6 +35,6 @@ contract SubnetActorManagerFacetMock is SubnetActorManagerFacet {
     }
 
     function getSubnetTotalConfirmedStorage() public view returns (uint256) {
-        return LibStorageStaking.getTotalConfirmedStorage(s.validatorSet);
+        return LibStorageStaking.getTotalConfirmedStorage();
     }
 }

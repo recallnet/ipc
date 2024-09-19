@@ -81,6 +81,7 @@ error DuplicatedGenesisValidator();
 error NotEnoughGenesisValidators();
 error ValidatorPowerChangeDenied();
 error NotEnoughStorageCommitment();
+error NotEnoughCollateralForStorageAmount();
 error WithdrawExceedingStorage();
 
 enum InvalidXnetMessageReason {

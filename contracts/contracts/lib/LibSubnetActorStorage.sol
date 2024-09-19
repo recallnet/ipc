@@ -50,6 +50,8 @@ import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet
         StakingChangeLog changeSet;
         /// @notice The staking release queue that only allow transfer of collateral after certain locking period.
         StakingReleaseQueue releaseQueue;
+        /// @notice The token-to-storage ratio indicates the amount of collateral that must be provided per unit of storage.
+        uint256 tokensPerStorageRatio;
         /// =============
         /// mapping of bootstrap owner to its bootstrap node address
         mapping(address => string) bootstrapNodes;

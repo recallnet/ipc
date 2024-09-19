@@ -3,7 +3,7 @@ pragma solidity ^0.8.23;
 
 import {VALIDATOR_SECP256K1_PUBLIC_KEY_LENGTH} from "../constants/Constants.sol";
 import {ERR_PERMISSIONED_AND_BOOTSTRAPPED} from "../errors/IPCErrors.sol";
-import {NotEnoughGenesisValidators, DuplicatedGenesisValidator, NotOwnerOfPublicKey, MethodNotAllowed} from "../errors/IPCErrors.sol";
+import {NotEnoughGenesisValidators, DuplicatedGenesisValidator, NotOwnerOfPublicKey, MethodNotAllowed, NotEnoughCollateralForStorageAmount} from "../errors/IPCErrors.sol";
 import {IGateway} from "../interfaces/IGateway.sol";
 import {IValidatorGater} from "../interfaces/IValidatorGater.sol";
 import {Validator, ValidatorSet, PermissionMode, SubnetID, Asset} from "../structs/Subnet.sol";
@@ -28,6 +28,19 @@ library LibSubnetActor {
 
         if (s.validatorSet.permissionMode != PermissionMode.Collateral) {
             revert MethodNotAllowed(ERR_PERMISSIONED_AND_BOOTSTRAPPED);
+        }
+        return;
+    }
+
+    /// @notice Ensures that the provided collateral is enough for the committed storage.
+    /// @dev Reverts if the collateral is not in enough for the storage amount
+    function enforceStorageCollateralValidation(uint256 collateral, uint256 storageAmount) internal view {
+        
+        SubnetActorStorage storage s = LibSubnetActorStorage.appStorage();
+        uint256 requiredCollateral = storageAmount * s.tokensPerStorageRatio;
+        
+        if (storageAmount > 0 && collateral < requiredCollateral) {
+            revert NotEnoughCollateralForStorageAmount();
         }
         return;
     }
