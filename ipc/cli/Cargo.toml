@@ -11,14 +11,17 @@ anyhow = { workspace = true }
 async-channel = { workspace = true }
 async-trait = { workspace = true }
 base64 = { workspace = true }
+blake2b_simd = "1.0.2"
 bytes = "1.4.0"
 cid = { workspace = true }
 clap = { version = "4.1.4", features = ["env", "derive"] }
 clap_complete = "4.2.1"
+cruet = "0.14.0"
 env_logger = "0.10.0"
 ethers = { workspace = true }
 ethers-contract = { workspace = true }
 fil_actors_runtime = { workspace = true }
+frc42_dispatch = "6.0.0"
 futures-util = { workspace = true }
 fvm_ipld_encoding = { workspace = true }
 fvm_shared = { workspace = true }
@@ -34,6 +37,7 @@ serde = { workspace = true }
 serde_bytes = "0.11.9"
 serde_json = { workspace = true }
 serde_tuple = { workspace = true }
+sha3 = "0.10.8"
 strum = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
@@ -47,3 +51,5 @@ ipc-provider = { workspace = true }
 ipc-api = { workspace = true }
 ipc-types = { workspace = true }
 tracing-subscriber.workspace = true
+
+fendermint_vm_actor_interface = { path = "../../fendermint/vm/actor_interface" }

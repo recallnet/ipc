@@ -1,11 +1,11 @@
 // Copyright 2022-2024 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 use std::str::FromStr;
-
 use crate::uints::U256;
 use fvm_ipld_encoding::{serde, strict_bytes};
 use fvm_shared::address::Address;
 use fvm_shared::ActorID;
+use sha3::{Digest, Keccak256 as Keccak256Hash};
 
 const EAM_ACTOR_ID: u64 = 10;
 
@@ -28,6 +28,36 @@ impl std::fmt::Debug for EthAddress {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&hex::encode(self.0))
     }
+}
+
+impl std::fmt::Display for EthAddress {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&checksum(&hex::encode(self.0)))
+    }
+}
+
+fn checksum(address: &str) -> String {
+    let address = address.trim_start_matches("0x").to_lowercase();
+
+    let mut hasher = Keccak256Hash::default();
+    hasher.update(address.as_bytes());
+    let address_hash = hex::encode(hasher.finalize());
+
+    address
+        .char_indices()
+        .fold(String::from("0x"), |mut acc, (index, address_char)| {
+            let n = u16::from_str_radix(&address_hash[index..index + 1], 16).unwrap();
+
+            if n > 7 {
+                // make char uppercase if ith character is 9..f
+                acc.push_str(&address_char.to_uppercase().to_string())
+            } else {
+                // already lowercased
+                acc.push(address_char)
+            }
+
+            acc
+        })
 }
 
 impl FromStr for EthAddress {
