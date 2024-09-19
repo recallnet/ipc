@@ -7,7 +7,7 @@ import "../../src/lib/LibStorageStaking.sol";
 import "../../src/lib/LibSubnetActorStorage.sol";
 import "../../src/lib/LibStaking.sol";
 import "../../src/lib/LibStakingChangeLog.sol";
-import "../../src/structs/Subnet.sol"; // Import required structs like ValidatorSet, Validator, etc.
+import "../../src/structs/Subnet.sol";
 
 contract LibStorageStakingTest is Test {
     using LibStorageStaking for ValidatorSet;
@@ -15,14 +15,14 @@ contract LibStorageStakingTest is Test {
     
     ValidatorInfo validator1;
     ValidatorInfo validator2;
-    Validator [2]validators;
+    Validator[2] validators;
 
     address constant validatorAddress1 = address(0x1);
     address constant validatorAddress2 = address(0x2);
     uint256 validator1Storage = 100;
     uint256 validator2Storage = 200;
     uint256 totalValidatorsStorage = validator1Storage + validator1Storage;
-    //TODO make this set up match others in project
+    
     function setUp() public {
         // Initialize Validator structs and ValidatorSet.
         initializeValidatorsInfo(validatorAddress1, validatorAddress2);
@@ -51,7 +51,7 @@ contract LibStorageStakingTest is Test {
             confirmedStorage: validator1Storage
         });
 
-        validators[0] = Validator(weight,v1,"",validator1Storage);
+        validators[0] = Validator(weight, v1, "", validator1Storage);
 
         validator2 = ValidatorInfo({
             federatedPower: 1500,
@@ -61,7 +61,7 @@ contract LibStorageStakingTest is Test {
             totalStorage: validator2Storage,
             confirmedStorage: validator2Storage
         });
-        validators[1] = Validator(weight,v2,"",validator2Storage);
+        validators[1] = Validator(weight, v2, "", validator2Storage);
     }
 
     function testGetTotalConfirmedStorage() public {

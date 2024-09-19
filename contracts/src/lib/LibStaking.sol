@@ -6,10 +6,10 @@ import {LibSubnetActorStorage, SubnetActorStorage} from "./LibSubnetActorStorage
 import {LibMaxPQ, MaxPQ} from "./priority/LibMaxPQ.sol";
 import {LibMinPQ, MinPQ} from "./priority/LibMinPQ.sol";
 import {LibStakingChangeLog} from "./LibStakingChangeLog.sol";
+import {LibStorageStaking} from "./LibStorageStaking.sol";
 import {PermissionMode, StakingReleaseQueue, StakingChangeLog, StakingChange, StakingChangeRequest, StakingOperation, StakingRelease, ValidatorSet, AddressStakingReleases, ParentValidatorsTracker, Validator} from "../structs/Subnet.sol";
 import {WithdrawExceedingCollateral, NotValidator, CannotConfirmFutureChanges, NoCollateralToWithdraw, AddressShouldBeValidator, InvalidConfigurationNumber} from "../errors/IPCErrors.sol";
 import {Address} from "openzeppelin-contracts/utils/Address.sol";
-import "forge-std/console.sol";
 
 library LibAddressStakingReleases {
     /// @notice Add new release to the storage. Caller makes sure the release.releasedAt is ordered
@@ -384,6 +384,7 @@ library LibValidatorSet {
 library LibStaking {
     using LibStakingReleaseQueue for StakingReleaseQueue;
     using LibStakingChangeLog for StakingChangeLog;
+    using LibStorageStaking for ValidatorSet;
     using LibValidatorSet for ValidatorSet;
     using LibMaxPQ for MaxPQ;
     using LibMinPQ for MinPQ;
@@ -588,7 +589,7 @@ library LibStaking {
                 (bytes memory metadata, uint256 power) = abi.decode(change.payload, (bytes, uint256));
                 s.validatorSet.validators[validator].metadata = metadata;
                 s.validatorSet.confirmFederatedPower(validator, power);
-            } else {//TODO add storage comfirmation and test at subnetActorDiamond
+            } else {
                 uint256 amount = abi.decode(change.payload, (uint256));
 
                 if (change.op == StakingOperation.Withdraw) {
@@ -598,6 +599,10 @@ library LibStaking {
                 } else if (change.op == StakingOperation.Deposit) {
                     s.validatorSet.confirmDeposit(validator, amount);
                     IGateway(s.ipcGatewayAddr).addStake{value: amount}();
+                } else if (change.op == StakingOperation.CommitStorage) {
+                    s.validatorSet.confirmStorageDeposit(validator, amount);
+                } else if (change.op == StakingOperation.WithdrawStorage) {
+                    s.validatorSet.confirmStorageWithdraw(validator, amount);
                 }
             }
 

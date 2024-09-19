@@ -85,7 +85,7 @@ library TestUtils {
         weights[2] = 102;
     }
 
-    function deriveValidatorAddress(uint8 seq) internal /*pure*/ returns (address addr, bytes memory data) {
+    function deriveValidatorAddress(uint8 seq) internal pure returns (address addr, bytes memory data) {
         bytes memory pkData = new bytes(65);
         pkData[1] = bytes1(seq);
 
@@ -101,7 +101,7 @@ library TestUtils {
 
     function newValidator(
         uint256 key, bool needStorage
-    ) internal /*pure*/ returns (address addr, uint256 privKey, bytes memory validatorKey) {
+    ) internal pure returns (address addr, uint256 privKey, bytes memory validatorKey) {
         privKey = key;
         bytes memory pubkey = derivePubKeyBytes(key);
         bytes memory pk = deriveValidatorPubKeyBytes(key);
@@ -112,7 +112,7 @@ library TestUtils {
 
     function newValidators(
         uint256 n, bool needStorage
-    ) internal /*pure*/ returns (address[] memory validators, uint256[] memory privKeys, bytes[] memory validatorKeys) {
+    ) internal pure returns (address[] memory validators, uint256[] memory privKeys, bytes[] memory validatorKeys) {
         validatorKeys = new bytes[](n);
         validators = new address[](n);
         privKeys = new uint256[](n);
@@ -176,7 +176,7 @@ library TestUtils {
     }
 
     // Helper function to complete bytes length requirement for joining a subnet
-    function addStorageToPK(bytes memory pkData) internal /*pure*/ returns(bytes memory data) {
+    function addStorageToPK(bytes memory pkData) internal pure returns(bytes memory data) {
         uint256 storageAmount = 1;
         data = bytes.concat(pkData, abi.encode(storageAmount));
     }
