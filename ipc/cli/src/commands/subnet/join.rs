@@ -142,3 +142,45 @@ pub struct UnstakeSubnetArgs {
     )]
     pub collateral: f64,
 }
+
+
+/// Command to unstake storage
+pub struct UnstakeStorage;
+
+#[async_trait]
+impl CommandLineHandler for UnstakeStorage {
+    type Arguments = UnstakeStorageArgs;
+
+    async fn handle(global: &GlobalArguments, arguments: &Self::Arguments) -> anyhow::Result<()> {
+        todo!()
+    }
+}
+
+#[derive(Debug, Args)]
+#[command(
+    name = "unstake-storage",
+    about = "Remove committed storage from an already joined subnet"
+)]
+pub struct UnstakeStorageArgs {
+
+}
+
+pub struct StakeStorage;
+
+#[async_trait]
+impl CommandLineHandler for StakeStorage {
+    type Arguments = StakeStorageArgs;
+
+    async fn handle(global: &GlobalArguments, arguments: &Self::Arguments) -> anyhow::Result<()> {
+        todo!()
+    }
+}
+
+#[derive(Debug, Args)]
+#[command(
+    name = "stake-storage",
+    about = "Add committed storage from an already joined subnet"
+)]
+pub struct StakeStorageArgs {
+
+}

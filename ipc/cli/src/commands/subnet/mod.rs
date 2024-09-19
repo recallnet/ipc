@@ -16,7 +16,7 @@ use crate::commands::subnet::show_gateway_contract_commit_sha::{
 use crate::commands::subnet::validator::{ValidatorInfo, ValidatorInfoArgs};
 use crate::{CommandLineHandler, GlobalArguments};
 use clap::{Args, Subcommand};
-
+use crate::commands::subnet::join::{StakeStorage, StakeStorageArgs, UnstakeStorage, UnstakeStorageArgs};
 use self::bootstrap::{AddBootstrap, AddBootstrapArgs, ListBootstraps, ListBootstrapsArgs};
 use self::join::{StakeSubnet, StakeSubnetArgs, UnstakeSubnet, UnstakeSubnetArgs};
 use self::leave::{Claim, ClaimArgs};
@@ -68,6 +68,8 @@ impl SubnetCommandsArgs {
                 ShowGatewayContractCommitSha::handle(global, args).await
             }
             Commands::SetFederatedPower(args) => SetFederatedPower::handle(global, args).await,
+            Commands::StakeStorage(args) => StakeStorage::handle(global, args).await,
+            Commands::UnstakeStorage(args) => UnstakeStorage::handle(global, args).await,
         }
     }
 }
@@ -84,6 +86,8 @@ pub(crate) enum Commands {
     SendValue(SendValueArgs),
     Stake(StakeSubnetArgs),
     Unstake(UnstakeSubnetArgs),
+    StakeStorage(StakeStorageArgs),
+    UnstakeStorage(UnstakeStorageArgs),
     Claim(ClaimArgs),
     AddBootstrap(AddBootstrapArgs),
     ListBootstraps(ListBootstrapsArgs),
