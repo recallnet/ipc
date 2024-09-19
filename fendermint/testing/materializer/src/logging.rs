@@ -3,11 +3,10 @@
 use async_trait::async_trait;
 use either::Either;
 use ethers::types::H160;
-use fendermint_vm_genesis::Collateral;
+use fendermint_vm_genesis::{Collateral, StorageAmount};
 use fvm_shared::{chainid::ChainID, econ::TokenAmount};
 use std::{collections::BTreeMap, fmt::Display};
 use url::Url;
-
 use crate::{
     manifest::Balance,
     materializer::{Materializer, NodeConfig, RelayerConfig, SubmitConfig, SubnetConfig},
@@ -94,7 +93,7 @@ where
     fn create_root_genesis<'a>(
         &mut self,
         subnet_name: &SubnetName,
-        validators: BTreeMap<&'a M::Account, Collateral>,
+        validators: BTreeMap<&'a M::Account, (Collateral, StorageAmount)>,
         balances: BTreeMap<&'a M::Account, Balance>,
     ) -> anyhow::Result<M::Genesis> {
         tracing::info!(%subnet_name, ctx=self.ctx, "create_root_genesis");

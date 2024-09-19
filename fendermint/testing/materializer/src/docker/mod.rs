@@ -16,10 +16,7 @@ use ethers::{
 };
 use fendermint_vm_actor_interface::eam::EthAddress;
 use fendermint_vm_core::{chainid, Timestamp};
-use fendermint_vm_genesis::{
-    ipc::{GatewayParams, IpcParams},
-    Account, Actor, ActorMeta, Collateral, Genesis, SignerAddr, Validator, ValidatorKey,
-};
+use fendermint_vm_genesis::{ipc::{GatewayParams, IpcParams}, Account, Actor, ActorMeta, Collateral, Genesis, SignerAddr, Validator, ValidatorKey};
 use fvm_shared::{bigint::Zero, chainid::ChainID, econ::TokenAmount, version::NetworkVersion};
 use ipc_api::subnet_id::SubnetID;
 use ipc_provider::config::subnet::{
@@ -59,6 +56,7 @@ mod relayer;
 mod runner;
 
 pub use dropper::DropPolicy;
+use fendermint_vm_genesis::StorageAmount;
 pub use network::DockerNetwork;
 pub use node::DockerNode;
 pub use relayer::DockerRelayer;
@@ -657,7 +655,7 @@ impl Materializer<DockerMaterials> for DockerMaterializer {
     fn create_root_genesis<'a>(
         &mut self,
         subnet_name: &SubnetName,
-        validators: BTreeMap<&'a DefaultAccount, Collateral>,
+        validators: BTreeMap<&'a DefaultAccount, (Collateral, StorageAmount)>,
         balances: BTreeMap<&'a DefaultAccount, Balance>,
     ) -> anyhow::Result<DefaultGenesis> {
         self.get_or_create_genesis(subnet_name, || {
@@ -674,7 +672,8 @@ impl Materializer<DockerMaterials> for DockerMaterializer {
                     .into_iter()
                     .map(|(v, c)| Validator {
                         public_key: ValidatorKey(*v.public_key()),
-                        power: c,
+                        power: c.0,
+                        storage_amount: c.1,
                     })
                     .collect(),
                 accounts: balances

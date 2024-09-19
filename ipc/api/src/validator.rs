@@ -1,7 +1,9 @@
 // Copyright 2022-2024 Protocol Labs
 // SPDX-License-Identifier: MIT
 
+use ethers::types::U256;
 use fvm_shared::{address::Address, econ::TokenAmount};
+use serde::{Deserialize, Serialize};
 use ipc_actors_abis::subnet_actor_getter_facet;
 
 use crate::{
@@ -14,16 +16,33 @@ pub struct Validator {
     pub addr: Address,
     pub metadata: Vec<u8>,
     pub weight: TokenAmount,
+    pub storage_amount: StorageAmount,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct StorageAmount(pub u64);
+
+impl From<U256> for StorageAmount {
+    fn from(value: U256) -> Self {
+        StorageAmount(value.as_u64())
+    }
+}
+
+impl Into<U256> for StorageAmount {
+    fn into(self) -> U256 {
+        U256::from(self.0)
+    }
 }
 
 impl TryFrom<Validator> for subnet_actor_getter_facet::Validator {
     type Error = anyhow::Error;
 
-    fn try_from(value: Validator) -> Result<Self, Self::Error> {
+    fn try_from(validator: Validator) -> Result<Self, Self::Error> {
         Ok(subnet_actor_getter_facet::Validator {
-            addr: payload_to_evm_address(value.addr.payload())?,
-            weight: fil_to_eth_amount(&value.weight)?,
-            metadata: ethers::core::types::Bytes::from(value.metadata),
+            addr: payload_to_evm_address(validator.addr.payload())?,
+            weight: fil_to_eth_amount(&validator.weight)?,
+            metadata: ethers::core::types::Bytes::from(validator.metadata),
+            storage_amount: validator.storage_amount.into(),
         })
     }
 }
@@ -49,6 +68,7 @@ pub fn from_contract_validators(
                 addr: ethers_address_to_fil_address(&validator.addr)?,
                 weight: eth_to_fil_amount(&validator.weight)?,
                 metadata: validator.metadata.to_vec(),
+                storage_amount: StorageAmount(validator.storage_amount.as_u64()),
             })
         })
         .collect();

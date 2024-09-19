@@ -15,7 +15,7 @@ use fendermint_vm_actor_interface::{
     init::builtin_actor_eth_addr,
     ipc::{AbiHash, ValidatorMerkleTree, GATEWAY_ACTOR_ID},
 };
-use fendermint_vm_genesis::{Collateral, Power, PowerScale, Validator, ValidatorKey};
+use fendermint_vm_genesis::{BFTValidator, Collateral, Power, PowerScale, ValidatorKey};
 use fendermint_vm_message::conv::{from_eth, from_fvm};
 use fendermint_vm_message::signed::sign_secp256k1;
 use fendermint_vm_topdown::IPCParentFinality;
@@ -122,7 +122,7 @@ impl<DB: Blockstore + Clone> GatewayCaller<DB> {
         &self,
         state: &mut FvmExecState<DB>,
         checkpoint: checkpointing_facet::BottomUpCheckpoint,
-        power_table: &[Validator<Power>],
+        power_table: &[BFTValidator<Power>],
     ) -> anyhow::Result<()> {
         // Construct a Merkle tree from the power table, which we can use to validate validator set membership
         // when the signatures are submitted in transactions for accumulation.
@@ -163,7 +163,7 @@ impl<DB: Blockstore + Clone> GatewayCaller<DB> {
     pub fn current_power_table(
         &self,
         state: &mut FvmExecState<DB>,
-    ) -> anyhow::Result<(ConfigurationNumber, Vec<Validator<Power>>)> {
+    ) -> anyhow::Result<(ConfigurationNumber, Vec<BFTValidator<Power>>)> {
         let membership = self
             .current_membership(state)
             .context("failed to get current membership")?;
@@ -179,8 +179,8 @@ impl<DB: Blockstore + Clone> GatewayCaller<DB> {
     pub fn add_checkpoint_signature_calldata(
         &self,
         checkpoint: checkpointing_facet::BottomUpCheckpoint,
-        power_table: &[Validator<Power>],
-        validator: &Validator<Power>,
+        power_table: &[BFTValidator<Power>],
+        validator: &BFTValidator<Power>,
         secret_key: &SecretKey,
     ) -> anyhow::Result<et::Bytes> {
         debug_assert_eq!(validator.public_key.0, secret_key.public_key());
@@ -340,14 +340,14 @@ pub fn tokens_to_burn(msgs: &[checkpointing_facet::IpcEnvelope]) -> TokenAmount 
 fn membership_to_power_table(
     m: &gateway_getter_facet::Membership,
     power_scale: PowerScale,
-) -> Vec<Validator<Power>> {
+) -> Vec<BFTValidator<Power>> {
     let mut pt = Vec::new();
 
     for v in m.validators.iter() {
         // Ignoring any metadata that isn't a public key.
         if let Ok(pk) = PublicKey::parse_slice(&v.metadata, None) {
             let c = from_eth::to_fvm_tokens(&v.weight);
-            pt.push(Validator {
+            pt.push(BFTValidator {
                 public_key: ValidatorKey(pk),
                 power: Collateral(c).into_power(power_scale),
             })

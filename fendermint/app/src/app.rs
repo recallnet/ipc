@@ -487,8 +487,10 @@ where
             .context("failed to init from genesis")?;
 
         let state_root = state.commit().context("failed to commit genesis state")?;
+        let validators = out.validators;
+        let bft_validators = validators.iter().map(|v| v.clone().into()).collect();
         let validators =
-            to_validator_updates(out.validators).context("failed to convert validators")?;
+            to_validator_updates(bft_validators).context("failed to convert validators")?;
 
         // Let's pretend that the genesis state is that of a fictive block at height 0.
         // The record will be stored under height 1, and the record after the application

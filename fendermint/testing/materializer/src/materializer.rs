@@ -7,7 +7,7 @@ use fvm_shared::{chainid::ChainID, econ::TokenAmount};
 use std::collections::BTreeMap;
 use url::Url;
 
-use fendermint_vm_genesis::Collateral;
+use fendermint_vm_genesis::{Collateral, StorageAmount};
 
 use crate::{
     manifest::{Balance, CheckpointConfig, EnvMap},
@@ -99,7 +99,7 @@ pub trait Materializer<M: Materials> {
     fn create_root_genesis<'a>(
         &mut self,
         subnet_name: &SubnetName,
-        validators: BTreeMap<&'a M::Account, Collateral>,
+        validators: BTreeMap<&'a M::Account, (Collateral, StorageAmount)>,
         balances: BTreeMap<&'a M::Account, Balance>,
     ) -> anyhow::Result<M::Genesis>;
 

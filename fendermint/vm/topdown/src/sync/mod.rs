@@ -17,7 +17,7 @@ use ipc_ipld_resolver::ValidatorKey;
 use std::sync::Arc;
 use std::time::Duration;
 
-use fendermint_vm_genesis::{Power, Validator};
+use fendermint_vm_genesis::{BFTValidator, Power, Validator};
 
 pub use syncer::fetch_topdown_events;
 
@@ -28,7 +28,7 @@ pub trait ParentFinalityStateQuery {
     /// Get the latest committed finality from the state
     fn get_latest_committed_finality(&self) -> anyhow::Result<Option<IPCParentFinality>>;
     /// Get the current committee voting powers.
-    fn get_power_table(&self) -> anyhow::Result<Option<Vec<Validator<Power>>>>;
+    fn get_power_table(&self) -> anyhow::Result<Option<Vec<BFTValidator<Power>>>>;
 }
 
 /// Queries the starting finality for polling. First checks the committed finality, if none, that
@@ -84,7 +84,7 @@ where
 
 /// Queries the starting finality for polling. First checks the committed finality, if none, that
 /// means the chain has just started, then query from the parent to get the genesis epoch.
-async fn query_starting_comittee<T>(query: &Arc<T>) -> anyhow::Result<Vec<Validator<Power>>>
+async fn query_starting_comittee<T>(query: &Arc<T>) -> anyhow::Result<Vec<BFTValidator<Power>>>
 where
     T: ParentFinalityStateQuery + Send + Sync + 'static,
 {

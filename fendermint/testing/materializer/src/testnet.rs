@@ -493,7 +493,7 @@ where
                 let cs = subnet
                     .validators
                     .iter()
-                    .map(|(id, c)| ("validator", id, c.0.clone()));
+                    .map(|(id, c)| ("validator", id, c.0.0.clone()));
 
                 let bs = subnet
                     .balances
@@ -538,7 +538,7 @@ where
                     &parent_submit_config,
                     account,
                     created_subnet,
-                    c.clone(),
+                    c.clone().0,
                     b,
                     Some(reference),
                 )

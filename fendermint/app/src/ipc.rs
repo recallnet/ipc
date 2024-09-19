@@ -5,7 +5,7 @@
 use crate::app::{AppState, AppStoreKey};
 use crate::{App, BlockHeight};
 use fendermint_storage::{Codec, Encode, KVReadable, KVStore, KVWritable};
-use fendermint_vm_genesis::{Power, Validator};
+use fendermint_vm_genesis::{BFTValidator, Power};
 use fendermint_vm_interpreter::fvm::state::ipc::GatewayCaller;
 use fendermint_vm_interpreter::fvm::state::{FvmExecState, FvmStateParams};
 use fendermint_vm_interpreter::fvm::store::ReadOnlyBlockstore;
@@ -81,7 +81,7 @@ where
         })
     }
 
-    fn get_power_table(&self) -> anyhow::Result<Option<Vec<Validator<Power>>>> {
+    fn get_power_table(&self) -> anyhow::Result<Option<Vec<BFTValidator<Power>>>> {
         self.with_exec_state(|mut exec_state| {
             self.gateway_caller
                 .current_power_table(&mut exec_state)

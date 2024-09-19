@@ -199,6 +199,26 @@ impl TryFrom<tendermint::PublicKey> for ValidatorKey {
 pub struct Validator<P> {
     pub public_key: ValidatorKey,
     pub power: P,
+    pub storage_amount: StorageAmount,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct StorageAmount(pub u64);
+
+/// Version of a Validator suitable for BFT interaction.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct BFTValidator<P> {
+    pub public_key: ValidatorKey,
+    pub power: P
+}
+
+impl<P> From<Validator<P>> for BFTValidator<P> {
+    fn from(value: Validator<P>) -> Self {
+        BFTValidator {
+            public_key: value.public_key,
+            power: value.power
+        }
+    }
 }
 
 impl<A> Validator<A> {
@@ -207,7 +227,12 @@ impl<A> Validator<A> {
         Validator {
             public_key: self.public_key,
             power: f(self.power),
+            storage_amount: self.storage_amount,
         }
+    }
+
+    pub fn storage_amount(amount: u64) -> StorageAmount {
+        StorageAmount(amount)
     }
 }
 

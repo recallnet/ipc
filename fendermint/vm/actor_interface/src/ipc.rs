@@ -9,7 +9,7 @@ use anyhow::Context;
 use ethers::core::abi::Tokenize;
 use ethers::core::types as et;
 use ethers::core::utils::keccak256;
-use fendermint_vm_genesis::{Power, Validator};
+use fendermint_vm_genesis::{BFTValidator, Power, Validator};
 use fvm_shared::address::Error as AddressError;
 use fvm_shared::address::Payload;
 use ipc_actors_abis as ia;
@@ -205,7 +205,7 @@ pub struct ValidatorMerkleTree {
 }
 
 impl ValidatorMerkleTree {
-    pub fn new(validators: &[Validator<Power>]) -> anyhow::Result<Self> {
+    pub fn new(validators: &[BFTValidator<Power>]) -> anyhow::Result<Self> {
         // Using the 20 byte address for keys because that's what the Solidity library returns
         // when recovering a public key from a signature.
         let values = validators
@@ -224,7 +224,7 @@ impl ValidatorMerkleTree {
     }
 
     /// Create a Merkle proof for a validator.
-    pub fn prove(&self, validator: &Validator<Power>) -> anyhow::Result<Vec<Hash>> {
+    pub fn prove(&self, validator: &BFTValidator<Power>) -> anyhow::Result<Vec<Hash>> {
         let v = Self::validator_to_vec(validator)?;
         let proof = self
             .tree
@@ -235,7 +235,7 @@ impl ValidatorMerkleTree {
 
     /// Validate a proof against a known root hash.
     pub fn validate(
-        validator: &Validator<Power>,
+        validator: &BFTValidator<Power>,
         root: &Hash,
         proof: &[Hash],
     ) -> anyhow::Result<bool> {
@@ -246,7 +246,7 @@ impl ValidatorMerkleTree {
     }
 
     /// Convert a validator to what we can pass to the tree.
-    fn validator_to_vec(validator: &Validator<Power>) -> anyhow::Result<Vec<String>> {
+    fn validator_to_vec(validator: &BFTValidator<Power>) -> anyhow::Result<Vec<String>> {
         let addr = EthAddress::from(validator.public_key.0);
         let addr = et::Address::from_slice(&addr.0);
         let addr = format!("{addr:?}");
@@ -322,7 +322,7 @@ pub mod gateway {
     use ethers::contract::{EthAbiCodec, EthAbiType};
     use ethers::core::types::{Bytes, H160, U256};
     use fendermint_vm_genesis::ipc::GatewayParams;
-    use fendermint_vm_genesis::{Collateral, Validator};
+    use fendermint_vm_genesis::{BFTValidator, Collateral, Validator};
     use fvm_shared::address::Error as AddressError;
     use fvm_shared::econ::TokenAmount;
 
@@ -365,6 +365,7 @@ pub mod gateway {
                         addr: H160::from(addr.0),
                         weight: collateral,
                         metadata: Bytes::from(pk),
+                        storage_amount: U256::from(v.storage_amount.0),
                     })
                 })
                 .collect::<Result<Vec<_>, AddressError>>()?;

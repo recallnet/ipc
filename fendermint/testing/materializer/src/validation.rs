@@ -4,7 +4,7 @@ use anyhow::{anyhow, bail, Ok};
 use async_trait::async_trait;
 use either::Either;
 use ethers::types::H160;
-use fendermint_vm_genesis::Collateral;
+use fendermint_vm_genesis::{Collateral, StorageAmount};
 use fvm_shared::{chainid::ChainID, econ::TokenAmount};
 use std::{
     collections::{BTreeMap, HashSet},
@@ -12,7 +12,6 @@ use std::{
     ops::{Add, Sub},
 };
 use url::Url;
-
 use crate::{
     logging::LoggingMaterializer,
     manifest::{Balance, Manifest},
@@ -229,7 +228,7 @@ impl Materializer<ValidationMaterials> for ValidatingMaterializer {
     fn create_root_genesis<'a>(
         &mut self,
         subnet_name: &SubnetName,
-        validators: BTreeMap<&'a VAccount, Collateral>,
+        validators: BTreeMap<&'a VAccount, (Collateral, StorageAmount)>,
         balances: BTreeMap<&'a VAccount, Balance>,
     ) -> anyhow::Result<VGenesis> {
         self.ensure_contains(subnet_name)?;

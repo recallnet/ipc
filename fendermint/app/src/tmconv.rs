@@ -3,7 +3,7 @@
 //! Conversions to Tendermint data types.
 use anyhow::{anyhow, bail, Context};
 use fendermint_vm_core::Timestamp;
-use fendermint_vm_genesis::{Power, Validator};
+use fendermint_vm_genesis::{BFTValidator, Power};
 use fendermint_vm_interpreter::fvm::{
     state::{BlockHash, FvmStateParams},
     FvmApplyRet, FvmCheckRet, FvmQueryRet, PowerUpdates,
@@ -321,7 +321,7 @@ pub fn to_query(ret: FvmQueryRet, block_height: BlockHeight) -> anyhow::Result<r
 
 /// Project Genesis validators to Tendermint.
 pub fn to_validator_updates(
-    validators: Vec<Validator<Power>>,
+    validators: Vec<BFTValidator<Power>>,
 ) -> anyhow::Result<Vec<tendermint::validator::Update>> {
     let mut updates = vec![];
     for v in validators {

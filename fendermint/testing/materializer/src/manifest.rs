@@ -11,13 +11,12 @@ use std::{collections::BTreeMap, path::Path};
 use url::Url;
 
 use fendermint_vm_encoding::IsHumanReadable;
-use fendermint_vm_genesis::Collateral;
-
+use fendermint_vm_genesis::{Collateral, StorageAmount};
 use crate::{validation::validate_manifest, AccountId, NodeId, RelayerId, SubnetId, TestnetName};
 
 pub type SubnetMap = BTreeMap<SubnetId, Subnet>;
 pub type BalanceMap = BTreeMap<AccountId, Balance>;
-pub type CollateralMap = BTreeMap<AccountId, Collateral>;
+pub type CollateralMap = BTreeMap<AccountId, (Collateral, StorageAmount)>;
 pub type NodeMap = BTreeMap<NodeId, Node>;
 pub type RelayerMap = BTreeMap<RelayerId, Relayer>;
 pub type EnvMap = BTreeMap<String, String>;

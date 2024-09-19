@@ -19,7 +19,7 @@ use fendermint_tracing::emit;
 use fendermint_vm_actor_interface::eam::EthAddress;
 use fendermint_vm_actor_interface::ipc::BottomUpCheckpoint;
 use fendermint_vm_event::NewBottomUpCheckpoint;
-use fendermint_vm_genesis::{Power, Validator, ValidatorKey};
+use fendermint_vm_genesis::{BFTValidator, Power, ValidatorKey};
 
 use ipc_actors_abis::checkpointing_facet as checkpoint;
 use ipc_actors_abis::gateway_getter_facet as getter;
@@ -34,11 +34,29 @@ use super::{
 
 /// Validator voting power snapshot.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PowerTable(pub Vec<Validator<Power>>);
+pub struct PowerTable(pub Vec<BFTValidator<Power>>);
+
+/// PowerTable converted to HashMap to support lookups by a public key.
+/// Unfortunately in their raw format the [`PublicKey`] does not implement `Hash`,
+/// so we have to use the serialized format.
+type PowerMap = HashMap<[u8; 65], BFTValidator<Power>>;
+
+impl From<PowerTable> for PowerMap {
+    fn from(value: PowerTable) -> Self {
+        value
+            .0
+            .into_iter()
+            .map(|v| {
+                let k = v.public_key.0.serialize();
+                (k, v)
+            })
+            .collect()
+    }
+}
 
 /// Changes in the power table.
 #[derive(Debug, Clone, Default)]
-pub struct PowerUpdates(pub Vec<Validator<Power>>);
+pub struct PowerUpdates(pub Vec<BFTValidator<Power>>);
 
 /// Construct and store a checkpoint if this is the end of the checkpoint period.
 /// Perform end-of-checkpoint-period transitions in the ledger.
@@ -267,7 +285,7 @@ pub async fn broadcast_signature<C, DB>(
     gateway: &GatewayCaller<DB>,
     checkpoint: checkpoint::BottomUpCheckpoint,
     power_table: &PowerTable,
-    validator: &Validator<Power>,
+    validator: &BFTValidator<Power>,
     secret_key: &SecretKey,
     chain_id: ChainID,
 ) -> anyhow::Result<()>
@@ -355,7 +373,7 @@ where
     let validators: validators::Response = client.validators(height, Paging::All).await?;
 
     for v in validators.validators {
-        power_table.push(Validator {
+        power_table.push(BFTValidator {
             public_key: ValidatorKey::try_from(v.pub_key)?,
             power: Power(v.power()),
         });
@@ -382,15 +400,15 @@ where
 /// * include any new validator, or validators whose power has been updated
 /// * include validators to be removed with a power of 0, as [expected](https://github.com/informalsystems/tendermint-rs/blob/bcc0b377812b8e53a02dff156988569c5b3c81a2/rpc/src/dialect/end_block.rs#L12-L14) by CometBFT
 fn power_diff(current: PowerTable, next: PowerTable) -> PowerUpdates {
-    let current = into_power_map(current);
-    let next = into_power_map(next);
+    let current = PowerMap::from(current);
+    let next = PowerMap::from(next);
 
     let mut diff = Vec::new();
 
     // Validators in `current` but not in `next` should be removed.
     for (k, v) in current.iter() {
         if !next.contains_key(k) {
-            let delete = Validator {
+            let delete = BFTValidator {
                 public_key: v.public_key.clone(),
                 power: Power(0),
             };
@@ -410,21 +428,6 @@ fn power_diff(current: PowerTable, next: PowerTable) -> PowerUpdates {
     }
 
     PowerUpdates(diff)
-}
-
-/// Convert the power list to a `HashMap` to support lookups by the public key.
-///
-/// Unfortunately in their raw format the [`PublicKey`] does not implement `Hash`,
-/// so we have to use the serialized format.
-fn into_power_map(value: PowerTable) -> HashMap<[u8; 65], Validator<Power>> {
-    value
-        .0
-        .into_iter()
-        .map(|v| {
-            let k = v.public_key.0.serialize();
-            (k, v)
-        })
-        .collect()
 }
 
 #[cfg(test)]
