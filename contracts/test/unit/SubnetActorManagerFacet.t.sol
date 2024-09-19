@@ -113,7 +113,6 @@ contract SubnetActorManagerFacetTest is Test {
         subnetActorManagerFacet.join{value: 10}(metadata); // Call join before unstaking
 
         (, uint256 totalConfirmedStorage,) = getStorageValues();
-        uint256 amount = storageCommintment;
 
         vm.expectRevert();
         subnetActorManagerFacet.unstake(totalConfirmedStorage - 1);
