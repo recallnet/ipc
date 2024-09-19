@@ -151,7 +151,9 @@ fn print_completions<G: Generator>(gen: G, cmd: &mut Command) {
 }
 
 pub(crate) fn get_ipc_provider(global: &GlobalArguments) -> Result<ipc_provider::IpcProvider> {
-    ipc_provider::IpcProvider::new_from_config(global.config_path())
+    let conf_path = global.config_path();
+    println!("using conf to get ipc provider {}", conf_path);
+    ipc_provider::IpcProvider::new_from_config(conf_path)
 }
 
 pub(crate) fn f64_to_token_amount(f: f64) -> anyhow::Result<TokenAmount> {

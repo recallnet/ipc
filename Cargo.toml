@@ -44,13 +44,10 @@ members = [
     "fendermint/actors/hoku_config/shared",
     "fendermint/actors/machine",
     "fendermint/actors/timehub",
-    "hoku/actor_sdk",
-    "hoku/executor",
-    "hoku/ipld",
-    "hoku/iroh_manager",
-    "hoku/kernel",
-    "hoku/kernel/ops",
-    "hoku/syscalls",
+    "hoku/blobs_actor_sdk",
+    "hoku/blobs_syscall",
+    "hoku/maybe_iroh",
+    "hoku-cli",
 ]
 exclude = ["builtin-actors"]
 

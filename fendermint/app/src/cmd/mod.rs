@@ -122,6 +122,12 @@ fn settings(opts: &Options) -> anyhow::Result<Settings> {
         )
     });
 
+    tracing::info!(
+        path = config_dir.to_string_lossy().into_owned(),
+        "reading configuration"
+    );
+    println!("ocnfig dirrrrrrr {}", &config_dir.to_str().unwrap());
+
     let settings =
         Settings::new(&config_dir, &opts.home_dir, &opts.mode).context("error parsing settings")?;
 
