@@ -16,6 +16,7 @@ use fendermint_vm_genesis::{
 use fvm_shared::address::Address;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::bigint::Integer;
+use fvm_shared::clock::ChainEpoch;
 use fvm_shared::{econ::TokenAmount, version::NetworkVersion};
 use ipc_api::subnet_id::SubnetID;
 use rand::rngs::StdRng;
@@ -46,8 +47,37 @@ pub struct StakingAccount {
     pub initial_balance: TokenAmount,
     /// Balance after the effects of deposits/withdrawals.
     pub current_balance: TokenAmount,
-    /// Currently it's not possible to specify the locking period, so all claims are immediately available.
-    pub claim_balance: TokenAmount,
+    /// Available to claim (.0) when configuration number (.1) becomes valid.
+    pub releases: Vec<(u64, TokenAmount)>,
+}
+
+impl StakingAccount {
+    pub fn claimable(&self, configuration_number: u64) -> TokenAmount {
+        self.releases
+            .iter()
+            .map(|item| {
+                if item.0 <= configuration_number {
+                    item.clone().1
+                } else {
+                    TokenAmount::from_atto(0)
+                }
+            })
+            .fold(TokenAmount::from_whole(0), |acc, item| acc + item)
+    }
+
+    pub fn claim(&mut self, block_height: u64) -> TokenAmount {
+        let mut releases_replacement = vec![];
+        let mut amount_claimed = TokenAmount::from_atto(0);
+        for item in self.releases.clone() {
+            if item.0 <= block_height {
+                amount_claimed += item.1;
+            } else {
+                releases_replacement.push(item)
+            }
+        }
+        self.releases = releases_replacement;
+        amount_claimed
+    }
 }
 
 #[derive(Debug, Clone, Default)]
@@ -302,7 +332,9 @@ impl StakingState {
 
     /// Check whether an account has a non-zero claim balance.
     pub fn has_claim(&self, addr: &EthAddress) -> bool {
-        self.account(addr).claim_balance.is_positive()
+        let account = self.account(addr);
+        let claimable = account.claimable(self.last_checkpoint_height);
+        claimable.is_positive()
     }
 
     /// Total amount staked by a validator.
@@ -369,12 +401,13 @@ impl StakingState {
 
     /// Increase the claim balance.
     fn add_claim(&mut self, addr: &EthAddress, value: TokenAmount) {
-        let a = self.account_mut(addr);
+        let block_height = self.last_checkpoint_height;
+        let account = self.account_mut(addr);
         eprintln!(
             "> ADD CLAIM addr={} value={} current={}",
-            addr, value, a.claim_balance
+            addr, value, account.current_balance,
         );
-        a.claim_balance += value;
+        account.releases.push((block_height + 2, value)); // FIXME locking_duration
     }
 
     /// Increase the current balance.
@@ -463,13 +496,12 @@ impl StakingState {
 
     /// Put released collateral back into the account's current balance.
     pub fn claim(&mut self, addr: EthAddress) {
-        let a = self.account_mut(&addr);
-        if a.claim_balance.is_zero() {
-            return;
+        let block_height = self.last_checkpoint_height;
+        let account = self.account_mut(&addr);
+        let claimable = account.claim(block_height);
+        if claimable.is_positive() {
+            self.credit(&addr, claimable);
         }
-        let c = a.claim_balance.clone();
-        a.claim_balance = TokenAmount::from_atto(0);
-        self.credit(&addr, c);
     }
 }
 
@@ -513,7 +545,7 @@ impl arbitrary::Arbitrary<'_> for StakingState {
                 addr,
                 initial_balance,
                 current_balance,
-                claim_balance: TokenAmount::from_atto(0),
+                releases: vec![],
             });
         }
 
@@ -569,8 +601,8 @@ impl arbitrary::Arbitrary<'_> for StakingState {
             },
         };
 
-        // We cannot actually use this value because the real ID will only be
-        // apparent once the subnet is deployed.
+        // We cannot use this value because the real ID will only be
+        // available once the subnet is deployed.
         let child_subnet_id = SubnetID::new_from_parent(
             &parent_ipc.gateway.subnet_id,
             ArbSubnetAddress::arbitrary(u)?.0,
@@ -586,6 +618,9 @@ impl arbitrary::Arbitrary<'_> for StakingState {
             accounts: parent_actors,
             eam_permission_mode: PermissionMode::Unrestricted,
             ipc: Some(parent_ipc),
+            credit_debit_interval: ChainEpoch::arbitrary(u)?,
+            blob_storage_capacity: u64::arbitrary(u)?,
+            blob_debit_rate: u64::arbitrary(u)?,
         };
 
         let child_ipc = IpcParams {
@@ -607,6 +642,9 @@ impl arbitrary::Arbitrary<'_> for StakingState {
             accounts: Vec::new(),
             eam_permission_mode: PermissionMode::Unrestricted,
             ipc: Some(child_ipc),
+            credit_debit_interval: ChainEpoch::arbitrary(u)?,
+            blob_storage_capacity: u64::arbitrary(u)?,
+            blob_debit_rate: u64::arbitrary(u)?,
         };
 
         Ok(StakingState::new(accounts, parent_genesis, child_genesis))

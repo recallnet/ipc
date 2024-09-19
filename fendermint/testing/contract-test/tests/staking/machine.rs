@@ -119,6 +119,7 @@ impl StateMachine for StakingMachine {
                 kind: 0, // native token
                 token_address: ethers::types::Address::zero(),
             },
+            locking_duration: 0, // TODO This is due to fact FVM/IPC testing suite does not support setting block height on demand
         };
 
         eprintln!("\n> PARENT IPC: {parent_ipc:?}");

@@ -84,6 +84,7 @@ contract TestParams {
     address constant DEFAULT_IPC_GATEWAY_ADDR = address(1024);
     address constant TOPDOWN_VALIDATOR_1 = address(12);
     bytes32 constant DEFAULT_COMMIT_SHA = "c7d8f53f";
+    uint256 constant DEFAULT_LOCKING_DURATION = 2;
 }
 
 contract TestRegistry is Test, TestParams {
@@ -190,7 +191,8 @@ contract TestSubnetActor is Test, TestParams {
             activeValidatorsLimit: DEFAULT_ACTIVE_VALIDATORS_LIMIT,
             powerScale: DEFAULT_POWER_SCALE,
             permissionMode: PermissionMode.Collateral,
-            supplySource: source
+            supplySource: source,
+            lockingDuration: DEFAULT_LOCKING_DURATION
         });
         return params;
     }
@@ -222,7 +224,8 @@ contract TestSubnetActor is Test, TestParams {
             activeValidatorsLimit: DEFAULT_ACTIVE_VALIDATORS_LIMIT,
             powerScale: DEFAULT_POWER_SCALE,
             permissionMode: PermissionMode.Collateral,
-            supplySource: SupplySource({kind: SupplyKind.ERC20, tokenAddress: tokenAddress})
+            supplySource: SupplySource({kind: SupplyKind.ERC20, tokenAddress: tokenAddress}),
+            lockingDuration: DEFAULT_LOCKING_DURATION
         });
         return params;
     }
@@ -563,7 +566,8 @@ contract IntegrationTestBase is Test, TestParams, TestRegistry, TestSubnetActor,
             activeValidatorsLimit: _activeValidatorsLimit,
             powerScale: 12,
             permissionMode: _permissionMode,
-            supplySource: SupplySourceHelper.native()
+            supplySource: SupplySourceHelper.native(),
+            lockingDuration: 10
         });
         saDiamond = createSubnetActor(params);
     }

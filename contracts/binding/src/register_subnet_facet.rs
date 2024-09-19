@@ -42,6 +42,7 @@ pub mod register_subnet_facet {
                                     ),
                                 ),
                             ],),
+                            ::ethers::core::abi::ethabi::ParamType::Uint(256usize),
                         ],),
                         internal_type: ::core::option::Option::Some(
                             ::std::borrow::ToOwned::to_owned(
@@ -139,13 +140,13 @@ pub mod register_subnet_facet {
                 client,
             ))
         }
-        ///Calls the contract's `newSubnetActor` (0xfc3b0ad3) function
+        ///Calls the contract's `newSubnetActor` (0x8d8d9dad) function
         pub fn new_subnet_actor(
             &self,
             params: ConstructorParams,
         ) -> ::ethers::contract::builders::ContractCall<M, ::ethers::core::types::Address> {
             self.0
-                .method_hash([252, 59, 10, 211], (params,))
+                .method_hash([141, 141, 157, 173], (params,))
                 .expect("method not found (this should never happen)")
         }
         ///Gets the contract's `SubnetDeployed` event
@@ -364,6 +365,7 @@ pub mod register_subnet_facet {
         pub permission_mode: u8,
         pub supply_source: SupplySource,
         pub parent_id: SubnetID,
+        pub locking_duration: u64,
     }
     ///`SubnetID(uint64,address[])`
     #[derive(
