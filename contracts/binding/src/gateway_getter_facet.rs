@@ -730,6 +730,7 @@ pub mod gateway_getter_facet {
                                                             ::ethers::core::abi::ethabi::ParamType::Uint(256usize),
                                                             ::ethers::core::abi::ethabi::ParamType::Address,
                                                             ::ethers::core::abi::ethabi::ParamType::Bytes,
+                                                            ::ethers::core::abi::ethabi::ParamType::Uint(256usize),
                                                         ],
                                                     ),
                                                 ),
@@ -909,6 +910,7 @@ pub mod gateway_getter_facet {
                                                             ::ethers::core::abi::ethabi::ParamType::Uint(256usize),
                                                             ::ethers::core::abi::ethabi::ParamType::Address,
                                                             ::ethers::core::abi::ethabi::ParamType::Bytes,
+                                                            ::ethers::core::abi::ethabi::ParamType::Uint(256usize),
                                                         ],
                                                     ),
                                                 ),
@@ -3285,7 +3287,7 @@ pub mod gateway_getter_facet {
         pub value: ::ethers::core::types::U256,
         pub message: ::ethers::core::types::Bytes,
     }
-    ///`Membership((uint256,address,bytes)[],uint64)`
+    ///`Membership((uint256,address,bytes,uint256)[],uint64)`
     #[derive(
         Clone,
         ::ethers::contract::EthAbiType,
@@ -3367,7 +3369,7 @@ pub mod gateway_getter_facet {
         pub root: u64,
         pub route: ::std::vec::Vec<::ethers::core::types::Address>,
     }
-    ///`Validator(uint256,address,bytes)`
+    ///`Validator(uint256,address,bytes,uint256)`
     #[derive(
         Clone,
         ::ethers::contract::EthAbiType,
@@ -3382,5 +3384,6 @@ pub mod gateway_getter_facet {
         pub weight: ::ethers::core::types::U256,
         pub addr: ::ethers::core::types::Address,
         pub metadata: ::ethers::core::types::Bytes,
+        pub storage_amount: ::ethers::core::types::U256,
     }
 }

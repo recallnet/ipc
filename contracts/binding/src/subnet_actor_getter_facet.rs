@@ -405,6 +405,7 @@ pub mod subnet_actor_getter_facet {
                                                     ::ethers::core::abi::ethabi::ParamType::Uint(256usize),
                                                     ::ethers::core::abi::ethabi::ParamType::Address,
                                                     ::ethers::core::abi::ethabi::ParamType::Bytes,
+                                                    ::ethers::core::abi::ethabi::ParamType::Uint(256usize),
                                                 ],
                                             ),
                                         ),
@@ -676,6 +677,8 @@ pub mod subnet_actor_getter_facet {
                                             ::ethers::core::abi::ethabi::ParamType::Uint(256usize),
                                             ::ethers::core::abi::ethabi::ParamType::Uint(256usize),
                                             ::ethers::core::abi::ethabi::ParamType::Bytes,
+                                            ::ethers::core::abi::ethabi::ParamType::Uint(256usize),
+                                            ::ethers::core::abi::ethabi::ParamType::Uint(256usize),
                                         ],
                                     ),
                                     internal_type: ::core::option::Option::Some(
@@ -2600,7 +2603,7 @@ pub mod subnet_actor_getter_facet {
         pub kind: u8,
         pub token_address: ::ethers::core::types::Address,
     }
-    ///`Validator(uint256,address,bytes)`
+    ///`Validator(uint256,address,bytes,uint256)`
     #[derive(
         Clone,
         ::ethers::contract::EthAbiType,
@@ -2615,8 +2618,9 @@ pub mod subnet_actor_getter_facet {
         pub weight: ::ethers::core::types::U256,
         pub addr: ::ethers::core::types::Address,
         pub metadata: ::ethers::core::types::Bytes,
+        pub storage_amount: ::ethers::core::types::U256,
     }
-    ///`ValidatorInfo(uint256,uint256,uint256,bytes)`
+    ///`ValidatorInfo(uint256,uint256,uint256,bytes,uint256,uint256)`
     #[derive(
         Clone,
         ::ethers::contract::EthAbiType,
@@ -2632,5 +2636,7 @@ pub mod subnet_actor_getter_facet {
         pub confirmed_collateral: ::ethers::core::types::U256,
         pub total_collateral: ::ethers::core::types::U256,
         pub metadata: ::ethers::core::types::Bytes,
+        pub total_storage: ::ethers::core::types::U256,
+        pub confirmed_storage: ::ethers::core::types::U256,
     }
 }
