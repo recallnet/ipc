@@ -36,7 +36,11 @@ contract SubnetActorDiamond {
         Asset supplySource;
         Asset collateralSource;
         SubnetID parentId;
+<<<<<<< HEAD:contracts/contracts/SubnetActorDiamond.sol
         address validatorGater;
+=======
+        uint256 tokenPerStorage;
+>>>>>>> c16c9850 (chore: update tests):contracts/src/SubnetActorDiamond.sol
     }
 
     constructor(IDiamond.FacetCut[] memory _diamondCut, ConstructorParams memory params, address owner) {
@@ -83,6 +87,7 @@ contract SubnetActorDiamond {
         s.powerScale = params.powerScale;
         s.currentSubnetHash = s.parentId.createSubnetId(address(this)).toHash();
         s.validatorSet.permissionMode = params.permissionMode;
+        s.tokensPerStorageRatio = params.tokenPerStorage;
 
         // BottomUpMsgBatch config parameters.
         // NOTE: Let's fix them for now, but we could make them configurable

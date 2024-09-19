@@ -229,7 +229,8 @@ contract TestSubnetActor is Test, TestParams {
             permissionMode: PermissionMode.Collateral,
             supplySource: source,
             collateralSource: collateral,
-            validatorGater: address(0)
+            validatorGater: address(0),
+            tokenPerStorage: 0
         });
         return params;
     }
@@ -263,7 +264,8 @@ contract TestSubnetActor is Test, TestParams {
             permissionMode: PermissionMode.Collateral,
             supplySource: Asset({kind: AssetKind.ERC20, tokenAddress: tokenAddress}),
             collateralSource: AssetHelper.native(),
-            validatorGater: address(0)
+            validatorGater: address(0),
+            tokenPerStorage: 0
         });
         return params;
     }
@@ -637,7 +639,8 @@ contract IntegrationTestBase is Test, TestParams, TestRegistry, TestSubnetActor,
             permissionMode: _permissionMode,
             supplySource: AssetHelper.native(),
             collateralSource: AssetHelper.native(),
-            validatorGater: _validatorGater
+            validatorGater: _validatorGater,
+            tokenPerStorage: 0
         });
         saDiamond = createSubnetActor(params);
     }

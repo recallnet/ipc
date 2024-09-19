@@ -342,7 +342,8 @@ contract SubnetActorDiamondTest is Test, IntegrationTestBase {
                 permissionMode: PermissionMode.Collateral,
                 supplySource: native,
                 collateralSource: AssetHelper.native(),
-                validatorGater: address(0)
+                validatorGater: address(0),
+                tokenPerStorage: 0
             }),
             address(saDupGetterFaucet),
             address(saDupMangerFaucet),
