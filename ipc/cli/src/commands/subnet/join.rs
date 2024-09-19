@@ -36,7 +36,7 @@ impl CommandLineHandler for JoinSubnet {
                 .await?;
         }
         let epoch = provider
-            .join_subnet(subnet, from, f64_to_token_amount(arguments.collateral)?)
+            .join_subnet(subnet, from, f64_to_token_amount(arguments.collateral)?, arguments.storage_committed)
             .await?;
         println!("joined at epoch: {epoch}");
 
@@ -61,6 +61,11 @@ pub struct JoinSubnetArgs {
         help = "Optionally add an initial balance to the validator in genesis in the subnet"
     )]
     pub initial_balance: Option<f64>,
+    #[arg(
+        long,
+        help = "Storage amount committed (in GiB)"
+    )]
+    pub storage_committed: u64,
 }
 
 /// The command to stake in a subnet from validator

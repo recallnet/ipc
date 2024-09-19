@@ -32,6 +32,9 @@ use std::{
     sync::{Arc, RwLock},
 };
 use zeroize::Zeroize;
+use ethers::contract::{EthAbiCodec, EthAbiType};
+use ethers::abi::AbiEncode;
+use ethers::prelude::*;
 
 pub mod checkpoint;
 pub mod config;
@@ -66,6 +69,12 @@ pub struct IpcProvider {
     config: Arc<Config>,
     fvm_wallet: Option<Arc<RwLock<Wallet>>>,
     evm_keystore: Option<Arc<RwLock<PersistentKeyStore<EthKeyAddress>>>>,
+}
+
+#[derive(EthAbiType, EthAbiCodec, Clone, Copy)]
+pub struct ValidatorMetadata {
+    public_key: [u8; 65],
+    storage_committed_gib: u64,
 }
 
 impl IpcProvider {
@@ -282,6 +291,7 @@ impl IpcProvider {
         subnet: SubnetID,
         from: Option<Address>,
         collateral: TokenAmount,
+        storage_committed: u64,
     ) -> anyhow::Result<ChainEpoch> {
         let parent = subnet.parent().ok_or_else(|| anyhow!("no parent found"))?;
         let conn = self.get_connection(&parent)?;
@@ -299,9 +309,13 @@ impl IpcProvider {
         let public_key = libsecp256k1::PublicKey::from_secret_key(&sk).serialize();
         let hex_public_key = hex::encode(public_key);
         log::info!("joining subnet with public key: {hex_public_key:?}");
-
+        log::info!("committing {storage_committed:?} GiBs of storage");
+        let metadata = ValidatorMetadata::encode(ValidatorMetadata {
+            public_key: public_key,
+            storage_committed_gib: storage_committed,
+        });
         conn.manager()
-            .join_subnet(subnet, sender, collateral, public_key.into())
+            .join_subnet(subnet, sender, collateral, metadata)
             .await
     }
 
