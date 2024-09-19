@@ -338,8 +338,7 @@ contract SubnetActorDiamondTest is Test, IntegrationTestBase {
                 activeValidatorsLimit: 100,
                 powerScale: 12,
                 permissionMode: PermissionMode.Collateral,
-                supplySource: native,
-                tokenPerStorage: 0
+                supplySource: native
             }),
             address(saDupGetterFaucet),
             address(saDupMangerFaucet),

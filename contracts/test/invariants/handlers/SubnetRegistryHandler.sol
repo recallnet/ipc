@@ -122,8 +122,7 @@ contract SubnetRegistryHandler is CommonBase, StdCheats, StdUtils {
             activeValidatorsLimit: _activeValidatorsLimit,
             powerScale: _powerScale,
             permissionMode: PermissionMode.Collateral,
-            supplySource: SupplySourceHelper.native(),
-            tokenPerStorage: 0
+            supplySource: SupplySourceHelper.native()
         });
 
         address owner = getRandomOldAddressOrNewOne(seed);
