@@ -46,7 +46,7 @@ contract LibStorageStakingTest is Test {
             federatedPower: 1000,
             confirmedCollateral: weight,
             totalCollateral: 800,
-            metadata: "",  // TODO
+            metadata: "", 
             totalStorage: validator1Storage,
             confirmedStorage: validator1Storage
         });
@@ -57,7 +57,7 @@ contract LibStorageStakingTest is Test {
             federatedPower: 1500,
             confirmedCollateral: weight,
             totalCollateral: 1200,
-            metadata: "",  // TODO
+            metadata: "",  
             totalStorage: validator2Storage,
             confirmedStorage: validator2Storage
         });

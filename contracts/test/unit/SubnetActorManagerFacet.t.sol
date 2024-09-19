@@ -1,20 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
-/*
+
 import "forge-std/Test.sol";
 import "forge-std/console.sol";
 import "../../src/lib/LibStaking.sol";
-import {Utilities} from "../../src/Utilities.sol";
-import {StakingDeployScript} from "../../script/SubnetActorManagerFacet.s.sol";
-import {SubnetActorManagerFacetMock} from "../../src/staking/SubnetActorManagerFacetMock.sol";
+import {SubnetActorManagerFacetMock} from "../mocks/SubnetActorManagerFacetMock.sol";
 
-contract SubnetActorManagerFacetTest is Test, Utilities {
+contract SubnetActorManagerFacetTest is Test {
 
     SubnetActorManagerFacetMock internal subnetActorManagerFacet;
     uint256 constant storageCommintment = 100;
     address walletAddr = vm.createWallet(uint256(keccak256(bytes("1")))).addr;
     uint256 publicKeyX = vm.createWallet(uint256(keccak256(bytes("1")))).publicKeyX;
-    uint256 publicKeyY = vm.createWallet(uint256(keccak256(bytes("1")))).publicKeyY;
+    uint256 publicKeyY = vm.createWallet(uint256(keccak256(bytes("1")))).publicKeyY;//TODO use test utils
 
     bytes uncompressedKey = abi.encodePacked(
             bytes1(0x04),                
@@ -24,8 +22,7 @@ contract SubnetActorManagerFacetTest is Test, Utilities {
     bytes metadata = abi.encodePacked(uncompressedKey, storageCommintment);
 
     function setUp() public {
-        StakingDeployScript deployer = new StakingDeployScript();
-        subnetActorManagerFacet = deployer.run(Environment.Local);
+        subnetActorManagerFacet = new SubnetActorManagerFacetMock();
         subnetActorManagerFacet.setActiveLimit(10);
         subnetActorManagerFacet.setMinCollateral(100);
         vm.deal(walletAddr, 10 ether);
@@ -113,4 +110,4 @@ contract SubnetActorManagerFacetTest is Test, Utilities {
         return (validatorTotalStorage, validatorConfirmedStorage, totalConfirmedStorage);
     }
 
-}*///TODO: modify deploy script part and fix dependencies
+}
