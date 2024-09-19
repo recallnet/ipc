@@ -14,7 +14,7 @@ use ipc_api::cross::IpcEnvelope;
 use ipc_api::staking::{StakingChangeRequest, ValidatorInfo};
 use ipc_api::subnet::{ConstructParams, PermissionMode, SupplySource};
 use ipc_api::subnet_id::SubnetID;
-use ipc_api::validator::Validator;
+use ipc_api::validator::{StorageAmount, Validator};
 
 use crate::lotus::message::ipc::SubnetInfo;
 
@@ -55,6 +55,12 @@ pub trait SubnetManager: Send + Sync + TopDownFinalityQuery + BottomUpCheckpoint
     /// and reduce their power in the subnet.
     async fn unstake(&self, subnet: SubnetID, from: Address, collateral: TokenAmount)
         -> Result<()>;
+
+    /// Stake additional storage to the subnet.
+    async fn stake_storage(&self, subnet: SubnetID, from: Address, storage: StorageAmount) -> Result<()>;
+
+    /// Unstake some storage from the subnet.
+    async fn unstake_storage(&self, subnet: SubnetID, from: Address, storage: StorageAmount) -> Result<()>;
 
     /// Sends a request to leave a subnet from a wallet address.
     async fn leave_subnet(&self, subnet: SubnetID, from: Address) -> Result<()>;

@@ -14,7 +14,7 @@ use ipc_actors_abis::{
     subnet_actor_reward_facet,
 };
 use ipc_api::evm::{fil_to_eth_amount, payload_to_evm_address, subnet_id_to_evm_addresses};
-use ipc_api::validator::from_contract_validators;
+use ipc_api::validator::{from_contract_validators, StorageAmount};
 use reqwest::header::HeaderValue;
 use reqwest::Client;
 use std::net::{IpAddr, SocketAddr};
@@ -451,6 +451,47 @@ impl SubnetManager for EthSubnetManager {
             subnet_actor_manager_facet::SubnetActorManagerFacet::new(address, signer.clone());
 
         let txn = call_with_premium_estimation(signer, contract.unstake(collateral.into())).await?;
+        txn.send().await?.await?;
+
+        Ok(())
+    }
+
+    async fn stake_storage(&self, subnet: SubnetID, from: Address, storage: StorageAmount) -> Result<()> {
+        let address = contract_address_from_subnet(&subnet)?;
+        tracing::info!(
+            "staking storage to contract: {address:} with storage: {storage:}"
+        );
+
+        let signer = Arc::new(self.get_signer(&from)?);
+        let contract =
+            subnet_actor_manager_facet::SubnetActorManagerFacet::new(address, signer.clone());
+
+        let txn = contract.stake_storage(storage.into());
+        let txn = call_with_premium_estimation(signer, txn).await?;
+
+        txn.send().await?.await?;
+
+        Ok(())
+    }
+
+    async fn unstake_storage(
+        &self,
+        subnet: SubnetID,
+        from: Address,
+        storage: StorageAmount,
+    ) -> Result<()> {
+        let address = contract_address_from_subnet(&subnet)?;
+        tracing::info!(
+            "unstaking storage from contract: {address:} with storage: {storage:}"
+        );
+
+        let signer = Arc::new(self.get_signer(&from)?);
+        let contract =
+            subnet_actor_manager_facet::SubnetActorManagerFacet::new(address, signer.clone());
+
+        let txn = contract.unstake_storage(storage.into());
+        let txn = call_with_premium_estimation(signer, txn).await?;
+
         txn.send().await?.await?;
 
         Ok(())

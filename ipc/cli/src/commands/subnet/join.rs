@@ -7,7 +7,7 @@ use clap::Args;
 use ipc_api::subnet_id::SubnetID;
 use num_traits::Zero;
 use std::{fmt::Debug, str::FromStr};
-
+use ipc_api::validator::StorageAmount;
 use crate::{
     f64_to_token_amount, get_ipc_provider, require_fil_addr_from_str, CommandLineHandler,
     GlobalArguments,
@@ -152,7 +152,19 @@ impl CommandLineHandler for UnstakeStorage {
     type Arguments = UnstakeStorageArgs;
 
     async fn handle(global: &GlobalArguments, arguments: &Self::Arguments) -> anyhow::Result<()> {
-        todo!()
+        log::debug!("unstake storage from subnet with args: {:?}", arguments);
+
+        let mut provider = get_ipc_provider(global)?;
+        let subnet = SubnetID::from_str(&arguments.subnet)?;
+        let from = match &arguments.from {
+            Some(address) => Some(require_fil_addr_from_str(address)?),
+            None => None,
+        };
+        let gib = 1024 * 1024 * 1024;
+        let storage = StorageAmount(arguments.storage_gib * gib);
+        provider
+            .unstake_storage(subnet, from, storage)
+            .await
     }
 }
 
@@ -162,7 +174,15 @@ impl CommandLineHandler for UnstakeStorage {
     about = "Remove committed storage from an already joined subnet"
 )]
 pub struct UnstakeStorageArgs {
-
+    #[arg(long, help = "The address that stakes in the subnet")]
+    pub from: Option<String>,
+    #[arg(long, help = "The subnet to add collateral to")]
+    pub subnet: String,
+    #[arg(
+        long,
+        help = "Storage to unstake from the subnet (in GiB)"
+    )]
+    pub storage_gib: u64,
 }
 
 pub struct StakeStorage;
@@ -172,7 +192,19 @@ impl CommandLineHandler for StakeStorage {
     type Arguments = StakeStorageArgs;
 
     async fn handle(global: &GlobalArguments, arguments: &Self::Arguments) -> anyhow::Result<()> {
-        todo!()
+        log::debug!("stake storage to subnet with args: {:?}", arguments);
+
+        let mut provider = get_ipc_provider(global)?;
+        let subnet = SubnetID::from_str(&arguments.subnet)?;
+        let from = match &arguments.from {
+            Some(address) => Some(require_fil_addr_from_str(address)?),
+            None => None,
+        };
+        let gib = 1024 * 1024 * 1024;
+        let storage = StorageAmount(arguments.storage_gib * gib);
+        provider
+            .stake_storage(subnet, from, storage)
+            .await
     }
 }
 
@@ -182,5 +214,13 @@ impl CommandLineHandler for StakeStorage {
     about = "Add committed storage from an already joined subnet"
 )]
 pub struct StakeStorageArgs {
-
+    #[arg(long, help = "The address that stakes in the subnet")]
+    pub from: Option<String>,
+    #[arg(long, help = "The subnet to add collateral to")]
+    pub subnet: String,
+    #[arg(
+        long,
+        help = "Storage to commit to the subnet (in GiB)"
+    )]
+    pub storage_gib: u64,
 }

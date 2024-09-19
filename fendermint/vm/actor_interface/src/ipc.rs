@@ -9,7 +9,7 @@ use anyhow::Context;
 use ethers::core::abi::Tokenize;
 use ethers::core::types as et;
 use ethers::core::utils::keccak256;
-use fendermint_vm_genesis::{BFTValidator, Power, Validator};
+use fendermint_vm_genesis::{BFTValidator, Power};
 use fvm_shared::address::Error as AddressError;
 use fvm_shared::address::Payload;
 use ipc_actors_abis as ia;
@@ -322,7 +322,7 @@ pub mod gateway {
     use ethers::contract::{EthAbiCodec, EthAbiType};
     use ethers::core::types::{Bytes, H160, U256};
     use fendermint_vm_genesis::ipc::GatewayParams;
-    use fendermint_vm_genesis::{BFTValidator, Collateral, Validator};
+    use fendermint_vm_genesis::{Collateral, Validator};
     use fvm_shared::address::Error as AddressError;
     use fvm_shared::econ::TokenAmount;
 

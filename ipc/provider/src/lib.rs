@@ -34,7 +34,7 @@ use std::{
 use zeroize::Zeroize;
 use ethers::contract::{EthAbiCodec, EthAbiType};
 use ethers::abi::AbiEncode;
-use ethers::prelude::*;
+use ipc_api::validator::StorageAmount;
 
 pub mod checkpoint;
 pub mod config;
@@ -376,6 +376,36 @@ impl IpcProvider {
         let sender = self.check_sender(subnet_config, from)?;
 
         conn.manager().unstake(subnet, sender, collateral).await
+    }
+
+    pub async fn stake_storage(
+        &mut self,
+        subnet: SubnetID,
+        from: Option<Address>,
+        storage: StorageAmount,
+    ) -> anyhow::Result<()> {
+        let parent = subnet.parent().ok_or_else(|| anyhow!("no parent found"))?;
+        let conn = self.get_connection(&parent)?;
+
+        let subnet_config = conn.subnet();
+        let sender = self.check_sender(subnet_config, from)?;
+
+        conn.manager().stake_storage(subnet, sender, storage).await
+    }
+
+    pub async fn unstake_storage(
+        &mut self,
+        subnet: SubnetID,
+        from: Option<Address>,
+        storage: StorageAmount,
+    ) -> anyhow::Result<()> {
+        let parent = subnet.parent().ok_or_else(|| anyhow!("no parent found"))?;
+        let conn = self.get_connection(&parent)?;
+
+        let subnet_config = conn.subnet();
+        let sender = self.check_sender(subnet_config, from)?;
+
+        conn.manager().unstake_storage(subnet, sender, storage).await
     }
 
     pub async fn leave_subnet(

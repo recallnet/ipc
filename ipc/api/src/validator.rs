@@ -1,6 +1,7 @@
 // Copyright 2022-2024 Protocol Labs
 // SPDX-License-Identifier: MIT
 
+use std::fmt::{Display, Formatter};
 use ethers::types::U256;
 use fvm_shared::{address::Address, econ::TokenAmount};
 use serde::{Deserialize, Serialize};
@@ -21,6 +22,12 @@ pub struct Validator {
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct StorageAmount(pub u64);
+
+impl Display for StorageAmount {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
 
 impl From<U256> for StorageAmount {
     fn from(value: U256) -> Self {

@@ -5,21 +5,21 @@
 mod syncer;
 mod tendermint;
 
-use crate::proxy::ParentQueryProxy;
-use crate::sync::syncer::LotusParentSyncer;
-use crate::sync::tendermint::TendermintAwareSyncer;
-use crate::voting::VoteTally;
-use crate::{CachedFinalityProvider, Config, IPCParentFinality, ParentFinalityProvider, Toggle};
 use anyhow::anyhow;
 use async_stm::atomically;
 use ethers::utils::hex;
 use ipc_ipld_resolver::ValidatorKey;
 use std::sync::Arc;
 use std::time::Duration;
-
-use fendermint_vm_genesis::{BFTValidator, Power, Validator};
+use fendermint_vm_genesis::{BFTValidator, Power};
 
 pub use syncer::fetch_topdown_events;
+
+use crate::proxy::ParentQueryProxy;
+use crate::sync::syncer::LotusParentSyncer;
+use crate::sync::tendermint::TendermintAwareSyncer;
+use crate::voting::VoteTally;
+use crate::{CachedFinalityProvider, Config, IPCParentFinality, ParentFinalityProvider, Toggle};
 
 /// Query the parent finality from the block chain state.
 ///
