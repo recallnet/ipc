@@ -190,7 +190,8 @@ contract TestSubnetActor is Test, TestParams {
             activeValidatorsLimit: DEFAULT_ACTIVE_VALIDATORS_LIMIT,
             powerScale: DEFAULT_POWER_SCALE,
             permissionMode: PermissionMode.Collateral,
-            supplySource: source
+            supplySource: source,
+            tokenPerStorage: 0
         });
         return params;
     }
@@ -222,7 +223,8 @@ contract TestSubnetActor is Test, TestParams {
             activeValidatorsLimit: DEFAULT_ACTIVE_VALIDATORS_LIMIT,
             powerScale: DEFAULT_POWER_SCALE,
             permissionMode: PermissionMode.Collateral,
-            supplySource: SupplySource({kind: SupplyKind.ERC20, tokenAddress: tokenAddress})
+            supplySource: SupplySource({kind: SupplyKind.ERC20, tokenAddress: tokenAddress}),
+            tokenPerStorage: 0
         });
         return params;
     }
@@ -563,7 +565,8 @@ contract IntegrationTestBase is Test, TestParams, TestRegistry, TestSubnetActor,
             activeValidatorsLimit: _activeValidatorsLimit,
             powerScale: 12,
             permissionMode: _permissionMode,
-            supplySource: SupplySourceHelper.native()
+            supplySource: SupplySourceHelper.native(),
+            tokenPerStorage: 0
         });
         saDiamond = createSubnetActor(params);
     }
