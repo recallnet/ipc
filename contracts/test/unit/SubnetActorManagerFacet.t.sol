@@ -4,24 +4,21 @@ pragma solidity ^0.8.23;
 import "forge-std/Test.sol";
 import "forge-std/console.sol";
 import "../../src/lib/LibStaking.sol";
+import {TestUtils} from "../helpers/TestUtils.sol";
 import {SubnetActorManagerFacetMock} from "../mocks/SubnetActorManagerFacetMock.sol";
 
 contract SubnetActorManagerFacetTest is Test {
 
     SubnetActorManagerFacetMock internal subnetActorManagerFacet;
-    uint256 constant storageCommintment = 100;
-    address walletAddr = vm.createWallet(uint256(keccak256(bytes("1")))).addr;
-    uint256 publicKeyX = vm.createWallet(uint256(keccak256(bytes("1")))).publicKeyX;
-    uint256 publicKeyY = vm.createWallet(uint256(keccak256(bytes("1")))).publicKeyY;//TODO use test utils
-
-    bytes uncompressedKey = abi.encodePacked(
-            bytes1(0x04),                
-            publicKeyX,                 
-            publicKeyY                  
-        );
-    bytes metadata = abi.encodePacked(uncompressedKey, storageCommintment);
+    uint256 constant storageCommintment = 1;
+    address walletAddr = vm.addr(1);
+    bytes uncompressedKey;
+    bytes metadata;
 
     function setUp() public {
+        uncompressedKey = abi.encodePacked(bytes1(0x04), TestUtils.derivePubKeyBytes(1));
+        metadata = abi.encodePacked(TestUtils.addStorageToPK(uncompressedKey));
+        
         subnetActorManagerFacet = new SubnetActorManagerFacetMock();
         subnetActorManagerFacet.setActiveLimit(10);
         subnetActorManagerFacet.setMinCollateral(100);
@@ -81,9 +78,10 @@ contract SubnetActorManagerFacetTest is Test {
     function testSetStorageOnUnstake() public {
         vm.startPrank(walletAddr);
         subnetActorManagerFacet.join{value: 1}(metadata); // Call join before unstaking
+        subnetActorManagerFacet.stakeStorage{value: 1}(storageCommintment);
 
-        (uint256 validatorTotalStorage, uint256 validatorConfirmedStorage, uint256 totalConfirmedStorage ) = getStorageValues();
-        uint256 amount = validatorTotalStorage/2;
+        (uint256 validatorTotalStorage, , uint256 totalConfirmedStorage ) = getStorageValues();
+        uint256 amount = storageCommintment;
 
         vm.expectRevert();
         subnetActorManagerFacet.unstakeStorage(0);// Cannot unstake 0
@@ -99,7 +97,6 @@ contract SubnetActorManagerFacetTest is Test {
         assertEq(newValidatorTotalStorage, validatorTotalStorage - amount);
         assertEq(newValidatorConfirmedStorage, validatorTotalStorage - amount);
         assertEq(newTotalConfirmedStorage, totalConfirmedStorage - amount);
-
     }
 
     function getStorageValues() internal view returns(uint256, uint256, uint256) {

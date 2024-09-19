@@ -10,6 +10,7 @@ import {AssetHelper} from "./AssetHelper.sol";
 import {PermissionMode, StakingReleaseQueue, StakingChangeLog, StakingChange, StakingChangeRequest, StakingOperation, StakingRelease, ValidatorSet, AddressStakingReleases, ParentValidatorsTracker, Validator, Asset} from "../structs/Subnet.sol";
 import {WithdrawExceedingCollateral, NotValidator, CannotConfirmFutureChanges, NoCollateralToWithdraw, AddressShouldBeValidator, InvalidConfigurationNumber} from "../errors/IPCErrors.sol";
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
+import {LibStorageStaking} from "./LibStorageStaking.sol";
 
 library LibAddressStakingReleases {
     /// @notice Add new release to the storage. Caller makes sure the release.releasedAt is ordered
@@ -382,6 +383,7 @@ library LibValidatorSet {
 library LibStaking {
     using LibStakingReleaseQueue for StakingReleaseQueue;
     using LibStakingChangeLog for StakingChangeLog;
+    using LibStorageStaking for ValidatorSet;
     using LibValidatorSet for ValidatorSet;
     using AssetHelper for Asset;
     using LibMaxPQ for MaxPQ;
@@ -584,7 +586,7 @@ library LibStaking {
                 (bytes memory metadata, uint256 power) = abi.decode(change.payload, (bytes, uint256));
                 s.validatorSet.validators[validator].metadata = metadata;
                 s.validatorSet.confirmFederatedPower(validator, power);
-            } else {//TODO add storage comfirmation and test at subnetActorDiamond
+            } else {
                 uint256 amount = abi.decode(change.payload, (uint256));
                 address gateway = s.ipcGatewayAddr;
 
@@ -596,6 +598,10 @@ library LibStaking {
                     s.validatorSet.confirmDeposit(validator, amount);
                     uint256 msgValue = s.collateralSource.makeAvailable(gateway, amount);
                     IGateway(gateway).addStake{value: msgValue}(amount);
+                } else if (change.op == StakingOperation.CommitStorage) {
+                    s.validatorSet.confirmStorageDeposit(validator, amount);
+                } else if (change.op == StakingOperation.WithdrawStorage) {
+                    s.validatorSet.confirmStorageWithdraw(validator, amount);
                 } else {
                     revert("Unknown staking operation");
                 }

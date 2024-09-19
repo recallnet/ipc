@@ -43,8 +43,6 @@ import {IERC20Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.so
 import {GatewayFacetsHelper} from "../helpers/GatewayFacetsHelper.sol";
 import {SubnetActorFacetsHelper} from "../helpers/SubnetActorFacetsHelper.sol";
 
-import "forge-std/console.sol";
-
 contract MultiSubnetTest is Test, IntegrationTestBase {
     using SubnetIDHelper for SubnetID;
     using CrossMsgHelper for IpcEnvelope;

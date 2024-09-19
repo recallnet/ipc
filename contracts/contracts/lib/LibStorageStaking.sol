@@ -7,6 +7,7 @@ import {LibStakingChangeLog} from "./LibStakingChangeLog.sol";
 import {LibValidatorSet} from "./LibStaking.sol";
 import {WithdrawExceedingStorage} from "../errors/IPCErrors.sol";
 import "forge-std/console.sol";
+
 library LibStorageStaking {
     using LibStakingChangeLog for StakingChangeLog;
     using LibValidatorSet for ValidatorSet;
