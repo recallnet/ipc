@@ -40,6 +40,12 @@ library LibSubnetActor {
         return;
     }
 
+    /// @notice Sets the token per storage unit amount.
+    function setStorageCollateral(uint256 amount) internal {    
+        SubnetActorStorage storage s = LibSubnetActorStorage.appStorage();
+        s.tokensPerStorageRatio = amount;
+    }
+
     /// @notice Ensures that the subnet is operating under Federated permission mode.
     /// @dev Reverts if the subnet is not in Federated mode.
     function enforceFederatedValidation() internal view {
