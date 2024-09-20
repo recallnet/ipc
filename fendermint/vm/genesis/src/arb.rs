@@ -1,9 +1,7 @@
+use std::u64;
 // Copyright 2022-2024 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
-use crate::{
-    ipc, Account, Actor, ActorMeta, Collateral, Genesis, Multisig, PermissionMode, Power,
-    SignerAddr, Validator, ValidatorKey,
-};
+use crate::{ipc, Account, Actor, ActorMeta, BFTValidator, Collateral, Genesis, Multisig, PermissionMode, Power, SignerAddr, StorageAmount, Validator, ValidatorKey};
 use cid::multihash::MultihashDigest;
 use fendermint_crypto::SecretKey;
 use fendermint_testing::arb::{ArbSubnetID, ArbTokenAmount};
@@ -87,11 +85,27 @@ impl Arbitrary for Power {
     }
 }
 
+impl Arbitrary for StorageAmount {
+    fn arbitrary(g: &mut Gen) -> Self {
+        StorageAmount(u64::arbitrary(g))
+    }
+}
+
+impl<P: Arbitrary> Arbitrary for BFTValidator<P> {
+    fn arbitrary(g: &mut Gen) -> Self {
+        Self {
+            public_key: ValidatorKey::arbitrary(g),
+            power: P::arbitrary(g),
+        }
+    }
+}
+
 impl<P: Arbitrary> Arbitrary for Validator<P> {
     fn arbitrary(g: &mut Gen) -> Self {
         Self {
             public_key: ValidatorKey::arbitrary(g),
             power: P::arbitrary(g),
+            storage_amount: StorageAmount::arbitrary(g),
         }
     }
 }

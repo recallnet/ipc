@@ -400,7 +400,7 @@ mod tests {
     use anyhow::anyhow;
     use async_stm::atomically;
     use async_trait::async_trait;
-    use fendermint_vm_genesis::{Power, Validator};
+    use fendermint_vm_genesis::{BFTValidator, Power};
     use ipc_api::cross::IpcEnvelope;
     use ipc_api::staking::StakingChangeRequest;
     use ipc_provider::manager::{GetBlockHashResult, TopDownQueryPayload};
@@ -417,7 +417,7 @@ mod tests {
         fn get_latest_committed_finality(&self) -> anyhow::Result<Option<IPCParentFinality>> {
             Ok(Some(self.latest_finality.clone()))
         }
-        fn get_power_table(&self) -> anyhow::Result<Option<Vec<Validator<Power>>>> {
+        fn get_power_table(&self) -> anyhow::Result<Option<Vec<BFTValidator<Power>>>> {
             Ok(Some(vec![]))
         }
     }

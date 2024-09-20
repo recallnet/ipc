@@ -9,10 +9,7 @@ use fendermint_testing::arb::{ArbSubnetAddress, ArbSubnetID, ArbTokenAmount};
 use fendermint_vm_actor_interface::eam::EthAddress;
 use fendermint_vm_core::Timestamp;
 use fendermint_vm_genesis::ipc::{GatewayParams, IpcParams};
-use fendermint_vm_genesis::{
-    Account, Actor, ActorMeta, Collateral, Genesis, PermissionMode, SignerAddr, Validator,
-    ValidatorKey,
-};
+use fendermint_vm_genesis::{Account, Actor, ActorMeta, Collateral, Genesis, PermissionMode, SignerAddr, StorageAmount, Validator, ValidatorKey};
 use fvm_shared::address::Address;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::bigint::Integer;
@@ -411,6 +408,7 @@ impl StakingState {
                 configuration_number: {
                     // Add an extra because joining in the model would cause a metadata update as well.
                     this.next_configuration_number();
+                    // this.next_configuration_number();
                     this.next_configuration_number()
                 },
                 addr,
@@ -534,6 +532,7 @@ impl arbitrary::Arbitrary<'_> for StakingState {
             // All the power in the parent subnet belongs to this single validator.
             // We are only interested in the staking of the *child subnet*.
             power: Collateral(TokenAmount::from_atto(1)),
+            storage_amount: StorageAmount(1),
         }];
 
         // Select some of the accounts to be the initial *child subnet* validators.
@@ -549,6 +548,7 @@ impl arbitrary::Arbitrary<'_> for StakingState {
                 Ok(Validator {
                     public_key: ValidatorKey(a.public_key),
                     power: Collateral(initial_stake),
+                    storage_amount: StorageAmount(1),
                 })
             })
             .collect::<Result<Vec<_>, _>>()?;

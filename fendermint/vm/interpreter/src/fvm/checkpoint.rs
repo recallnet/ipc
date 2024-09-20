@@ -432,15 +432,15 @@ fn power_diff(current: PowerTable, next: PowerTable) -> PowerUpdates {
 
 #[cfg(test)]
 mod tests {
-    use fendermint_vm_genesis::{Power, Validator};
+    use fendermint_vm_genesis::{BFTValidator, Power};
     use quickcheck_macros::quickcheck;
 
-    use crate::fvm::checkpoint::{into_power_map, power_diff};
+    use crate::fvm::checkpoint::{power_diff, PowerMap};
 
     use super::{PowerTable, PowerUpdates};
 
     fn power_update(current: PowerTable, updates: PowerUpdates) -> PowerTable {
-        let mut current = into_power_map(current);
+        let mut current = PowerMap::from(current);
 
         for v in updates.0 {
             let k = v.public_key.0.serialize();
@@ -466,7 +466,7 @@ mod tests {
             let c = 1 + usize::arbitrary(g) % v;
             let n = 1 + usize::arbitrary(g) % v;
 
-            let vs = (0..v).map(|_| Validator::arbitrary(g)).collect::<Vec<_>>();
+            let vs = (0..v).map(|_| BFTValidator::arbitrary(g)).collect::<Vec<_>>();
             let cvs = vs.iter().take(c).cloned().collect();
             let nvs = vs
                 .into_iter()
@@ -490,14 +490,14 @@ mod tests {
         let next = power_update(powers.current, diff);
 
         // Order shouldn't matter.
-        let next = into_power_map(next);
-        let expected = into_power_map(powers.next);
+        let next = PowerMap::from(next);
+        let expected = PowerMap::from(powers.next);
 
         assert_eq!(next, expected)
     }
 
     #[quickcheck]
-    fn prop_power_diff_nochange(v1: Validator<Power>, v2: Validator<Power>) {
+    fn prop_power_diff_nochange(v1: BFTValidator<Power>, v2: BFTValidator<Power>) {
         let current = PowerTable(vec![v1.clone(), v2.clone()]);
         let next = PowerTable(vec![v2, v1]);
         assert!(power_diff(current, next).0.is_empty());

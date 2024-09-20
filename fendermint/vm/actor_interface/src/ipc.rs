@@ -416,6 +416,7 @@ pub mod gateway {
                     addr: H160::zero(),
                     weight: U256::zero(),
                     metadata: Bytes::new(),
+                    storage_amount: U256::zero(),
                 }],
                 active_validators_limit: 100,
             };
@@ -560,7 +561,7 @@ pub mod subnet {
 mod tests {
     use anyhow::bail;
     use ethers_core::abi::{Constructor, ParamType, Token};
-    use fendermint_vm_genesis::{Power, Validator};
+    use fendermint_vm_genesis::{BFTValidator, Power};
     use quickcheck_macros::quickcheck;
 
     use super::ValidatorMerkleTree;
@@ -594,7 +595,7 @@ mod tests {
     }
 
     #[quickcheck]
-    fn merkleize_validators(validators: Vec<Validator<Power>>) {
+    fn merkleize_validators(validators: Vec<BFTValidator<Power>>) {
         if validators.is_empty() {
             return;
         }

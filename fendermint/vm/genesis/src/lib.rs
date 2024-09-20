@@ -205,6 +205,12 @@ pub struct Validator<P> {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct StorageAmount(pub u64);
 
+impl Into<Vec<u8>> for StorageAmount {
+    fn into(self) -> Vec<u8> {
+        self.0.to_be_bytes().to_vec()
+    }
+}
+
 /// Version of a Validator suitable for BFT interaction.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct BFTValidator<P> {

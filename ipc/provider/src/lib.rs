@@ -310,6 +310,7 @@ impl IpcProvider {
         let hex_public_key = hex::encode(public_key);
         log::info!("joining subnet with public key: {hex_public_key:?}");
         log::info!("committing {storage_committed:?} GiBs of storage");
+        todo!(); // TODO No GibS here and no metadata
         let metadata = ValidatorMetadata::encode(ValidatorMetadata {
             public_key: public_key,
             storage_committed_gib: storage_committed,
