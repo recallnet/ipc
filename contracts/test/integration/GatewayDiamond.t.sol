@@ -586,7 +586,7 @@ contract GatewayActorDiamondTest is Test, IntegrationTestBase, SubnetWithNativeT
     }
 
     function testGatewayDiamond_Single_Funding() public {
-        (address validatorAddress, , bytes memory publicKey) = TestUtils.newValidator(100, true);
+        (address validatorAddress, , bytes memory publicKey) = TestUtils.newValidator(100);
 
         join(validatorAddress, publicKey);
 
@@ -667,7 +667,7 @@ contract GatewayActorDiamondTest is Test, IntegrationTestBase, SubnetWithNativeT
     function testGatewayDiamond_Fund_Fails_NotRegistered() public {
         address funderAddress = address(101);
         uint256 fundAmount = 1 ether;
-        
+
         (address validatorAddress, bytes memory publicKey) = TestUtils.deriveValidatorAddress(100);
         join(validatorAddress, publicKey);
 
@@ -707,7 +707,7 @@ contract GatewayActorDiamondTest is Test, IntegrationTestBase, SubnetWithNativeT
     }
 
     function testGatewayDiamond_Fund_Works_ReactivatedSubnet() public {
-        (address validatorAddress, uint256 privKey, bytes memory publicKey) = TestUtils.newValidator(100, true);
+        (address validatorAddress, uint256 privKey, bytes memory publicKey) = TestUtils.newValidator(100);
         assert(validatorAddress == vm.addr(privKey));
 
         join(validatorAddress, publicKey);

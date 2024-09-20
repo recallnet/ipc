@@ -122,7 +122,11 @@ contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausa
     ///         then  subnet will be registered.
     /// @param publicKey The off-chain 65 byte public key that should be associated with the validator
     /// @param amount The amount of collateral provided as stake
-    function join(bytes calldata publicKey, uint256 amount) external payable nonReentrant whenNotPaused notKilled {
+    /// @param storageCommitment The amount of storage provided as stake
+    function join(
+        bytes calldata publicKey, uint256 amount
+        uint256 storageCommitment
+    ) external payable nonReentrant whenNotPaused notKilled {
         // Adding this check to prevent new validators from joining
         // after the subnet has been bootstrapped, if the subnet mode is not Collateral.
         // We will increase the functionality in the future to support explicit permissioning.
@@ -130,32 +134,23 @@ contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausa
         if (s.bootstrapped) {
             LibSubnetActor.enforceCollateralValidation();
         }
-        
+
         if (msg.value == 0) {
             revert CollateralIsZero();
         }
 
-        if (metadata.length != 97) { // 65 bytes for publicKey + 32 bytes for storageCommitment
+        if (metadata.length != VALIDATOR_SECP256K1_PUBLIC_KEY_LENGTH) {
+            // 65 bytes for publicKey
             revert InvalidPublicKeyLength();
         }
 
-        // Extract the publicKey (first 65 bytes)
-        bytes calldata publicKey = metadata[:65];
-
-        // Extract the storageCommitment (last 32 bytes)
-        uint256 storageCommitment;
-        assembly {
-            // Load the storageCommitment directly from calldata (after the first 65 bytes)
-            storageCommitment := calldataload(add(metadata.offset, 65))
-        }
-        
         LibSubnetActor.enforceStorageCollateralValidation(msg.value, storageCommitment);
 
         if (LibStaking.isValidator(msg.sender)) {
             revert MethodNotAllowed(ERR_VALIDATOR_JOINED);
         }
 
-        address convertedAddress = LibSubnetActor.publicKeyToAddress(publicKey);
+        address convertedAddress = LibSubnetActor.publicKeyToAddress(metadata);
         if (convertedAddress != msg.sender) {
             revert NotOwnerOfPublicKey();
         }
@@ -168,7 +163,7 @@ contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausa
             // if the subnet has not been bootstrapped, join directly
             // without delays, and collect collateral to register
             // in the gateway
-    
+
             // confirm validators deposit immediately
             LibStaking.setMetadataWithConfirm(msg.sender, publicKey);
             LibStaking.depositWithConfirm(msg.sender, amount);
@@ -218,7 +213,7 @@ contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausa
         // until a more complex mechanism is implemented).
         LibSubnetActor.enforceCollateralValidation();
         if (amount == 0) {
-           revert NotEnoughStorageCommitment();
+            revert NotEnoughStorageCommitment();
         }
 
         if (!LibStaking.isValidator(msg.sender)) {
@@ -227,7 +222,7 @@ contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausa
         uint256 collateral = LibStaking.totalValidatorCollateral(msg.sender);
         uint256 totalStorage = LibStorageStaking.totalValidatorStorage(msg.sender);
         LibSubnetActor.enforceStorageCollateralValidation(msg.value + collateral, totalStorage + amount);
-        
+
         if (!s.bootstrapped) {
             LibStorageStaking.commitStorageWithConfirm(msg.sender, amount);
         } else {
@@ -242,7 +237,7 @@ contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausa
         // disabling validator changes for federated validation subnets (at least for now
         // until a more complex mechanism is implemented).
         LibSubnetActor.enforceCollateralValidation();
-        
+
         if (amount == 0) {
             revert CannotReleaseZero();
         }
@@ -318,7 +313,7 @@ contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausa
         // slither-disable-next-line unused-return
         s.bootstrapOwners.remove(msg.sender);
         delete s.bootstrapNodes[msg.sender];
-        
+
         if (!s.bootstrapped) {
             // check if the validator had some initial balance and return it if not bootstrapped
             uint256 genesisBalance = s.genesisBalance[msg.sender];
@@ -328,7 +323,7 @@ contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausa
                 LibSubnetActor.rmAddressFromBalanceKey(msg.sender);
                 s.collateralSource.transferFunds(payable(msg.sender), genesisBalance);
             }
-            
+
             // interaction must be performed after checks and changes
             LibStaking.withdrawWithConfirm(msg.sender, amount);
             s.collateralSource.transferFunds(payable(msg.sender), amount);

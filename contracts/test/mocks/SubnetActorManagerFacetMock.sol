@@ -5,7 +5,6 @@ import {LibSubnetActorStorage, SubnetActorStorage} from "../../src/lib/LibSubnet
 import {SubnetActorManagerFacet, LibStaking, LibStorageStaking, ValidatorSet} from "../../src/subnet/SubnetActorManagerFacet.sol";
 
 contract SubnetActorManagerFacetMock is SubnetActorManagerFacet {
-
     function setActiveLimit(uint16 limit) external {
         s.validatorSet.activeLimit = limit;
     }
@@ -29,7 +28,7 @@ contract SubnetActorManagerFacetMock is SubnetActorManagerFacet {
     function getTotalStorage(address validator) public view returns (uint256) {
         return LibStorageStaking.totalValidatorStorage(validator);
     }
-    
+
     function getTotalConfirmedStorage(address validator) public view returns (uint256) {
         return s.validatorSet.validators[validator].confirmedStorage;
     }

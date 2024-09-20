@@ -12,7 +12,7 @@ import "../../src/structs/Subnet.sol";
 contract LibStorageStakingTest is Test {
     using LibStorageStaking for ValidatorSet;
     using LibStorageStaking for SubnetActorStorage;
-    
+
     ValidatorInfo validator1;
     ValidatorInfo validator2;
     Validator[2] validators;
@@ -22,22 +22,21 @@ contract LibStorageStakingTest is Test {
     uint256 validator1Storage = 100;
     uint256 validator2Storage = 200;
     uint256 totalValidatorsStorage = validator1Storage + validator1Storage;
-    
+
     function setUp() public {
         // Initialize Validator structs and ValidatorSet.
         initializeValidatorsInfo(validatorAddress1, validatorAddress2);
-        SubnetActorStorage storage s =  LibSubnetActorStorage.appStorage();
+        SubnetActorStorage storage s = LibSubnetActorStorage.appStorage();
         //Setting manually
         s.genesisValidators.push(validators[0]);
         s.genesisValidators.push(validators[1]);
         // Set individual validator entries in the mapping
         s.validatorSet.validators[validatorAddress1] = validator1;
         s.validatorSet.validators[validatorAddress2] = validator2;
-        
+
         // Set the totalConfirmedStorage field
         s.validatorSet.totalConfirmedStorage = totalValidatorsStorage;
     }
-
 
     function initializeValidatorsInfo(address v1, address v2) public {
         uint256 weight = 700;
@@ -46,7 +45,7 @@ contract LibStorageStakingTest is Test {
             federatedPower: 1000,
             confirmedCollateral: weight,
             totalCollateral: 800,
-            metadata: "", 
+            metadata: "",
             totalStorage: validator1Storage,
             confirmedStorage: validator1Storage
         });
@@ -57,7 +56,7 @@ contract LibStorageStakingTest is Test {
             federatedPower: 1500,
             confirmedCollateral: weight,
             totalCollateral: 1200,
-            metadata: "",  
+            metadata: "",
             totalStorage: validator2Storage,
             confirmedStorage: validator2Storage
         });
@@ -72,7 +71,7 @@ contract LibStorageStakingTest is Test {
 
     function testTotalValidatorStorage() public {
         uint256 storage1 = LibStorageStaking.totalValidatorStorage(validatorAddress1);
-        assertEq(storage1, validator1Storage);// set appStorage first
+        assertEq(storage1, validator1Storage); // set appStorage first
 
         uint256 storage2 = LibStorageStaking.totalValidatorStorage(validatorAddress2);
         assertEq(storage2, validator2Storage);
@@ -148,14 +147,14 @@ contract LibStorageStakingTest is Test {
         uint256 initialConfirmedStorage = s.validatorSet.validators[validatorAddress1].confirmedStorage;
         uint256 validatorTotal = initialConfirmedStorage - amountToWithdraw;
         uint256 total = s.validatorSet.totalConfirmedStorage - amountToWithdraw;
-        
+
         // Call confirmWithdraw
         s.validatorSet.confirmStorageWithdraw(validatorAddress1, amountToWithdraw);
 
         // Check if confirmedStorage is reduced
         uint256 updatedConfirmedStorage = s.validatorSet.validators[validatorAddress1].confirmedStorage;
         assertEq(updatedConfirmedStorage, validatorTotal);
-        
+
         // Check if totalConfirmedStorage is reduced
         assertEq(s.validatorSet.totalConfirmedStorage, total);
     }
@@ -167,7 +166,7 @@ contract LibStorageStakingTest is Test {
 
         // Withdraw full storage, so the validator should be deleted
         uint256 amountToWithdraw = s.validatorSet.validators[validatorAddress1].totalStorage;
-        
+
         // Call withdrawStorageWithConfirm that internally calls the confirmStorageWithdraw
         LibStorageStaking.withdrawStorageWithConfirm(validatorAddress1, amountToWithdraw);
 
@@ -177,7 +176,7 @@ contract LibStorageStakingTest is Test {
         assertEq(s.validatorSet.totalConfirmedStorage, totalConfirmed - amountToWithdraw);
     }
 
-   /// Test for withdrawWithConfirm (record and confirm)
+    /// Test for withdrawWithConfirm (record and confirm)
     function testWithdrawWithConfirm() public {
         SubnetActorStorage storage s = LibSubnetActorStorage.appStorage();
         uint256 amountToWithdraw = 50;
@@ -199,10 +198,10 @@ contract LibStorageStakingTest is Test {
         SubnetActorStorage storage s = LibSubnetActorStorage.appStorage();
         uint256 amountToWithdraw = 50;
         uint256 totalConfirmedStorage = s.validatorSet.validators[validatorAddress1].confirmedStorage;
-        
+
         // Call withdraw
         LibStorageStaking.withdrawStorage(validatorAddress1, amountToWithdraw);
-        
+
         // Check if totalStorage is reduced (confirmation not yet done)
         uint256 updatedTotalStorage = s.validatorSet.validators[validatorAddress1].totalStorage;
         assertEq(updatedTotalStorage, validator1Storage - amountToWithdraw);
