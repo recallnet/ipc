@@ -118,12 +118,12 @@ contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausa
         if (s.bootstrapped) {
             LibSubnetActor.enforceCollateralValidation();
         }
-        
+
         if (msg.value == 0) {
             revert CollateralIsZero();
         }
 
-        if (metadata.length != 97) { // 65 bytes for publicKey + 32 bytes for storageCommitment
+        if (metadata.length != 73) { // 65 bytes for publicKey + 8 bytes for storageCommitment
             revert InvalidPublicKeyLength();
         }
 
@@ -287,7 +287,7 @@ contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausa
         // slither-disable-next-line unused-return
         s.bootstrapOwners.remove(msg.sender);
         delete s.bootstrapNodes[msg.sender];
-        
+
         if (!s.bootstrapped) {
             // check if the validator had some initial balance and return it if not bootstrapped
             uint256 genesisBalance = s.genesisBalance[msg.sender];
@@ -297,7 +297,7 @@ contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausa
                 LibSubnetActor.rmAddressFromBalanceKey(msg.sender);
                 payable(msg.sender).sendValue(genesisBalance);
             }
-            
+
             // interaction must be performed after checks and changes
             LibStaking.withdrawWithConfirm(msg.sender, amount);
             s.validatorSet.totalConfirmedStorage -= totalStorage;// No need to explicitly withdraw storage for validator, prevous step deletes validator record
