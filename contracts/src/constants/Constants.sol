@@ -8,3 +8,5 @@ bytes4 constant METHOD_SEND = bytes4(0);
 
 // The length of the public key that is associated with a validator.
 uint256 constant VALIDATOR_SECP256K1_PUBLIC_KEY_LENGTH = 65;
+
+uint256 constant MIN_STORAGE = 1;

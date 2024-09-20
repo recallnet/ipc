@@ -9,6 +9,7 @@ import {SubnetActorGetterFacet} from "../../../src/subnet/SubnetActorGetterFacet
 import {SubnetActorMock} from "../../mocks/SubnetActorMock.sol";
 import {TestUtils} from "../../helpers/TestUtils.sol";
 import {EnumerableSet} from "openzeppelin-contracts/utils/structs/EnumerableSet.sol";
+import {MIN_STORAGE} from "../../../src/constants/Constants.sol";
 
 uint256 constant ETH_SUPPLY = 129_590_000 ether;
 
@@ -41,7 +42,7 @@ contract SubnetActorHandler is CommonBase, StdCheats, StdUtils {
     /// getRandomValidator returns a validator from the known validators with probability about 20 %,
     /// otherwise it returns a random validator address generated from id.
     /// It can't return address(0);
-    function getRandomValidator(uint8 id) public /*view*/ returns (address) {
+    function getRandomValidator(uint8 id /*view*/) public returns (address) {
         address addr;
         if (id < 200) {
             addr = getRandomValidatorFromSetOrZero(id);
@@ -80,7 +81,7 @@ contract SubnetActorHandler is CommonBase, StdCheats, StdUtils {
 
         _pay(validator, amount);
         vm.prank(validator);
-        managerFacet.join{value: amount}(TestUtils.addStorageToPK(publicKey));
+        managerFacet.join{value: amount}(publicKey, MIN_STORAGE);
         managerFacet.confirmNextChange();
 
         ghost_stakedSum += amount;
