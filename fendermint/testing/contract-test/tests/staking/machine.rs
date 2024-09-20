@@ -1,6 +1,6 @@
 // Copyright 2022-2024 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
-use std::{cell::RefCell, collections::HashSet, sync::Arc};
+use std::{cell::RefCell, collections::HashSet};
 
 use arbitrary::{Arbitrary, Unstructured};
 use fendermint_contract_test::ipc::{registry::RegistryCaller, subnet::SubnetCaller};
@@ -19,7 +19,6 @@ use fendermint_vm_message::{
     conv::from_fvm::{self, to_eth_tokens},
     signed::sign_secp256k1,
 };
-use fvm::engine::MultiEngine;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::bigint::Integer;
 use fvm_shared::econ::TokenAmount;
@@ -65,9 +64,7 @@ pub enum StakingCommand {
 }
 
 #[derive(Default)]
-pub struct StakingMachine {
-    multi_engine: Arc<MultiEngine>,
-}
+pub struct StakingMachine {}
 
 impl StateMachine for StakingMachine {
     type System = StakingSystem;
@@ -86,9 +83,8 @@ impl StateMachine for StakingMachine {
     fn new_system(&self, state: &Self::State) -> Self::System {
         let rt = tokio::runtime::Runtime::new().expect("create tokio runtime for init");
 
-        let (mut exec_state, _) = rt
-            .block_on(fendermint_contract_test::init_exec_state(
-                self.multi_engine.clone(),
+        let (mut exec_state, _, _) = rt
+            .block_on(fendermint_contract_test::create_test_exec_state(
                 state.parent_genesis.clone(),
             ))
             .expect("failed to init parent");
@@ -103,7 +99,6 @@ impl StateMachine for StakingMachine {
         let (root, route) =
             subnet_id_to_eth(&parent_ipc.gateway.subnet_id).expect("subnet ID is valid");
 
-        // TODO: Need to add field to specify release queue lock time.
         let params = SubnetConstructorParams {
             parent_id: ipc_actors_abis::register_subnet_facet::SubnetID { root, route },
             ipc_gateway_addr: gateway.addr().into(),
@@ -120,6 +115,7 @@ impl StateMachine for StakingMachine {
                 token_address: ethers::types::Address::zero(),
             },
             locking_duration: 0, // TODO This is due to fact FVM/IPC testing suite does not support setting block height on demand
+            validator_gater: EthAddress::from(ethers::types::Address::zero()).into(),
         };
 
         eprintln!("\n> PARENT IPC: {parent_ipc:?}");

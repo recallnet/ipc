@@ -38,6 +38,7 @@ pub mod config;
 pub mod jsonrpc;
 pub mod lotus;
 pub mod manager;
+pub mod observe;
 
 const DEFAULT_REPO_PATH: &str = ".ipc";
 const DEFAULT_CONFIG_NAME: &str = "config.toml";
@@ -253,6 +254,7 @@ impl IpcProvider {
         min_cross_msg_fee: TokenAmount,
         permission_mode: PermissionMode,
         supply_source: SupplySource,
+        validator_gater: Address,
     ) -> anyhow::Result<Address> {
         let conn = self.get_connection(&parent)?;
 
@@ -270,6 +272,7 @@ impl IpcProvider {
             min_cross_msg_fee,
             permission_mode,
             supply_source,
+            validator_gater,
         };
 
         conn.manager()

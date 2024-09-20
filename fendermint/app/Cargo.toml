@@ -72,6 +72,8 @@ fendermint_actor_accumulator = { path = "../actors/accumulator" }
 fendermint_actor_objectstore = { path = "../actors/objectstore" }
 fendermint_actor_blobs_shared = { path = "../actors/blobs/shared" }
 
+
+
 fvm = { workspace = true }
 fvm_ipld_blockstore = { workspace = true }
 fvm_ipld_car = { workspace = true }
@@ -80,6 +82,7 @@ fvm_shared = { workspace = true }
 ipc-api = { workspace = true }
 ipc-provider = { workspace = true }
 ipc_ipld_resolver = { workspace = true }
+ipc-observability = { workspace = true }
 
 warp = "0.3.6"
 futures-util = { workspace = true }

@@ -1,4 +1,4 @@
-name: Deployment Test
+name: 'Contracts: Smoke test deployment'
 
 # This workflow is triggered from the main CI workflow.
 on:
@@ -12,30 +12,30 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v2
-        with:
-          node-version: '18' # Adjust this as needed for your project
+    - uses: pnpm/action-setup@v2
 
-      - name: Install dependencies
-        run: cd contracts && npm install
+    - name: Setup Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18.x'
+        cache: 'pnpm'
 
-      - name: Install Foundry
-        run: |
-          cd contracts
-          curl -L https://foundry.paradigm.xyz | bash
-          export PATH="$PATH:/home/runner/.config/.foundry/bin"
-          foundryup
-          forge install
+    - name: Install dependencies
+      run: cd contracts && make deps
 
-      - name: Generate Ethereum Private Key and Create .env File and run make
-        run: |
-          cd contracts
-          PRIVATE_KEY=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
-          echo "export PRIVATE_KEY=0x$PRIVATE_KEY" > .env
-          echo "export RPC_URL=http://127.0.0.1:1337" >> .env
-          echo "export CHAIN_ID=1337" >> .env
-          export PATH="$PATH:/home/runner/.config/.foundry/bin"
-          npx ganache-cli -g0 -p1337 --account 0x$PRIVATE_KEY,1001901919191919191  &
-          sleep 5
-          make deploy-ipc
+    - name: Install Foundry
+      uses: foundry-rs/foundry-toolchain@v1
+      with:
+        cache: false
+
+    - name: Generate Ethereum Private Key and Create .env File and run make
+      run: |
+        cd contracts
+        PRIVATE_KEY=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
+        echo "export PRIVATE_KEY=0x$PRIVATE_KEY" > .env
+        echo "export RPC_URL=http://127.0.0.1:1337" >> .env
+        echo "export CHAIN_ID=1337" >> .env
+        export PATH="$PATH:/home/runner/.config/.foundry/bin"
+        pnpm exec ganache-cli -g0 -p1337 --account 0x$PRIVATE_KEY,1001901919191919191  &
+        sleep 5
+        make deploy-stack

@@ -11,7 +11,7 @@ use crate::{
     fvm::store::ReadOnlyBlockstore,
     fvm::FvmMessage,
     signed::{SignedMessageApplyRes, SignedMessageCheckRes, SyntheticMessage, VerifiableMessage},
-    CheckInterpreter, ExecInterpreter, GenesisInterpreter, ProposalInterpreter, QueryInterpreter,
+    CheckInterpreter, ExecInterpreter, ProposalInterpreter, QueryInterpreter,
 };
 use anyhow::{anyhow, bail, Context};
 use async_stm::atomically;
@@ -36,7 +36,7 @@ use fendermint_vm_message::{
     ipc::{BottomUpCheckpoint, CertifiedMessage, IpcMessage, SignedRelayedMessage},
 };
 use fendermint_vm_resolver::pool::{ResolveKey, ResolvePool};
-use fendermint_vm_topdown::proxy::IPCProviderProxy;
+use fendermint_vm_topdown::proxy::IPCProviderProxyWithLatency;
 use fendermint_vm_topdown::voting::{ValidatorKey, VoteTally};
 use fendermint_vm_topdown::{
     CachedFinalityProvider, IPCParentFinality, ParentFinalityProvider, ParentViewProvider, Toggle,
@@ -59,6 +59,7 @@ pub type TopDownFinalityProvider = Arc<Toggle<CachedFinalityProvider<IPCProvider
 pub type BlobPool = IrohResolvePool<BlobPoolItem>;
 
 type PendingBlobItem = (Hash, HashSet<(Address, PublicKey)>);
+pub type TopDownFinalityProvider = Arc<Toggle<CachedFinalityProvider<IPCProviderProxyWithLatency>>>;
 
 /// These are the extra state items that the chain interpreter needs,
 /// a sort of "environment" supporting IPC.
@@ -576,12 +577,20 @@ where
 
                     tracing::debug!("chain interpreter applied topdown msgs");
 
+                    let local_block_height = state.block_height() as u64;
+                    let proposer = state.validator_id().map(|id| id.to_string());
+                    let proposer_ref = proposer.as_deref();
+
                     atomically(|| {
                         env.parent_finality_provider
                             .set_new_finality(finality.clone(), prev_finality.clone())?;
 
-                        env.parent_finality_votes
-                            .set_finalized(finality.height, finality.block_hash.clone())?;
+                        env.parent_finality_votes.set_finalized(
+                            finality.height,
+                            finality.block_hash.clone(),
+                            proposer_ref,
+                            Some(local_block_height),
+                        )?;
 
                         Ok(())
                     })
@@ -810,25 +819,6 @@ where
         qry: Self::Query,
     ) -> anyhow::Result<(Self::State, Self::Output)> {
         self.inner.query(state, qry).await
-    }
-}
-
-#[async_trait]
-impl<I, DB> GenesisInterpreter for ChainMessageInterpreter<I, DB>
-where
-    DB: Blockstore + Clone + 'static + Send + Sync,
-    I: GenesisInterpreter,
-{
-    type State = I::State;
-    type Genesis = I::Genesis;
-    type Output = I::Output;
-
-    async fn init(
-        &self,
-        state: Self::State,
-        genesis: Self::Genesis,
-    ) -> anyhow::Result<(Self::State, Self::Output)> {
-        self.inner.init(state, genesis).await
     }
 }
 

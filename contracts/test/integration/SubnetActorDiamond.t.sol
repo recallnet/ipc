@@ -1,45 +1,46 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 pragma solidity ^0.8.23;
 
-import "../../src/errors/IPCErrors.sol";
+import "../../contracts/errors/IPCErrors.sol";
 import {Test} from "forge-std/Test.sol";
 import "forge-std/console.sol";
 import {TestUtils} from "../helpers/TestUtils.sol";
 import {SelectorLibrary} from "../helpers/SelectorLibrary.sol";
 import {NumberContractFacetSeven} from "../helpers/NumberContractFacetSeven.sol";
 import {NumberContractFacetEight} from "../helpers/NumberContractFacetEight.sol";
-import {METHOD_SEND} from "../../src/constants/Constants.sol";
-import {ConsensusType} from "../../src/enums/ConsensusType.sol";
-import {BottomUpMsgBatch, IpcEnvelope, BottomUpCheckpoint, MAX_MSGS_PER_BATCH} from "../../src/structs/CrossNet.sol";
-import {FvmAddress} from "../../src/structs/FvmAddress.sol";
-import {SubnetID, PermissionMode, IPCAddress, Subnet, SupplySource, ValidatorInfo} from "../../src/structs/Subnet.sol";
-import {IERC165} from "../../src/interfaces/IERC165.sol";
-import {IGateway} from "../../src/interfaces/IGateway.sol";
-import {IDiamond} from "../../src/interfaces/IDiamond.sol";
-import {IDiamondCut} from "../../src/interfaces/IDiamondCut.sol";
-import {IDiamondLoupe} from "../../src/interfaces/IDiamondLoupe.sol";
-import {FvmAddressHelper} from "../../src/lib/FvmAddressHelper.sol";
-import {MultisignatureChecker} from "../../src/lib/LibMultisignatureChecker.sol";
-import {SubnetIDHelper} from "../../src/lib/SubnetIDHelper.sol";
-import {GatewayDiamond} from "../../src/GatewayDiamond.sol";
-import {SubnetActorDiamond, FunctionNotFound} from "../../src/SubnetActorDiamond.sol";
-import {SubnetActorManagerFacet} from "../../src/subnet/SubnetActorManagerFacet.sol";
-import {OwnershipFacet} from "../../src/OwnershipFacet.sol";
-import {SubnetActorGetterFacet} from "../../src/subnet/SubnetActorGetterFacet.sol";
-import {SubnetActorPauseFacet} from "../../src/subnet/SubnetActorPauseFacet.sol";
-import {SubnetActorCheckpointingFacet} from "../../src/subnet/SubnetActorCheckpointingFacet.sol";
-import {SubnetActorRewardFacet} from "../../src/subnet/SubnetActorRewardFacet.sol";
-import {DiamondCutFacet} from "../../src/diamond/DiamondCutFacet.sol";
+import {METHOD_SEND} from "../../contracts/constants/Constants.sol";
+import {ConsensusType} from "../../contracts/enums/ConsensusType.sol";
+import {BottomUpMsgBatch, IpcEnvelope, BottomUpCheckpoint, MAX_MSGS_PER_BATCH} from "../../contracts/structs/CrossNet.sol";
+import {FvmAddress} from "../../contracts/structs/FvmAddress.sol";
+import {SubnetID, PermissionMode, IPCAddress, Subnet, SupplySource, ValidatorInfo} from "../../contracts/structs/Subnet.sol";
+import {IERC165} from "../../contracts/interfaces/IERC165.sol";
+import {IGateway} from "../../contracts/interfaces/IGateway.sol";
+import {IDiamond} from "../../contracts/interfaces/IDiamond.sol";
+import {IDiamondCut} from "../../contracts/interfaces/IDiamondCut.sol";
+import {IDiamondLoupe} from "../../contracts/interfaces/IDiamondLoupe.sol";
+import {FvmAddressHelper} from "../../contracts/lib/FvmAddressHelper.sol";
+import {MultisignatureChecker} from "../../contracts/lib/LibMultisignatureChecker.sol";
+import {SubnetIDHelper} from "../../contracts/lib/SubnetIDHelper.sol";
+import {GatewayDiamond} from "../../contracts/GatewayDiamond.sol";
+import {SubnetActorDiamond, FunctionNotFound} from "../../contracts/SubnetActorDiamond.sol";
+import {SubnetActorManagerFacet} from "../../contracts/subnet/SubnetActorManagerFacet.sol";
+import {OwnershipFacet} from "../../contracts/OwnershipFacet.sol";
+import {SubnetActorGetterFacet} from "../../contracts/subnet/SubnetActorGetterFacet.sol";
+import {SubnetActorPauseFacet} from "../../contracts/subnet/SubnetActorPauseFacet.sol";
+import {SubnetActorCheckpointingFacet} from "../../contracts/subnet/SubnetActorCheckpointingFacet.sol";
+import {SubnetActorRewardFacet} from "../../contracts/subnet/SubnetActorRewardFacet.sol";
+import {DiamondCutFacet} from "../../contracts/diamond/DiamondCutFacet.sol";
 import {FilAddress} from "fevmate/contracts/utils/FilAddress.sol";
-import {LibStaking} from "../../src/lib/LibStaking.sol";
-import {LibDiamond} from "../../src/lib/LibDiamond.sol";
-import {Pausable} from "../../src/lib/LibPausable.sol";
-import {SupplySourceHelper} from "../../src/lib/SupplySourceHelper.sol";
+import {LibStaking} from "../../contracts/lib/LibStaking.sol";
+import {LibDiamond} from "../../contracts/lib/LibDiamond.sol";
+import {Pausable} from "../../contracts/lib/LibPausable.sol";
+import {SupplySourceHelper} from "../../contracts/lib/SupplySourceHelper.sol";
 
 import {IntegrationTestBase} from "../IntegrationTestBase.sol";
 
 import {SubnetActorFacetsHelper} from "../helpers/SubnetActorFacetsHelper.sol";
 import {GatewayFacetsHelper} from "../helpers/GatewayFacetsHelper.sol";
+import {SubnetValidatorGater} from "../../contracts/examples/SubnetValidatorGater.sol";
 
 contract SubnetActorDiamondTest is Test, IntegrationTestBase {
     using SubnetIDHelper for SubnetID;
@@ -340,7 +341,8 @@ contract SubnetActorDiamondTest is Test, IntegrationTestBase {
                 powerScale: 12,
                 permissionMode: PermissionMode.Collateral,
                 supplySource: native,
-                lockingDuration: DEFAULT_LOCKING_DURATION
+                lockingDuration: DEFAULT_LOCKING_DURATION,
+                validatorGater: address(0)
             }),
             address(saDupGetterFaucet),
             address(saDupMangerFaucet),
@@ -1786,6 +1788,125 @@ contract SubnetActorDiamondTest is Test, IntegrationTestBase {
         vm.expectRevert(Pausable.ExpectedPause.selector);
         saDiamond.pauser().unpause();
         require(!saDiamond.pauser().paused(), "paused");
+    }
+
+    // -----------------------------------------------------------------------------------------------------------------
+    // Tests for validator gater
+    // -----------------------------------------------------------------------------------------------------------------
+    function subnet_id(address baseRoute) internal view returns (SubnetID memory id) {
+        address[] memory route = new address[](1);
+        route[0] = baseRoute;
+
+        SubnetID memory parent = saDiamond.getter().getParent();
+        id = SubnetID({root: parent.root, route: route});
+    }
+
+    function testSubnetActorDiamond_ValidatorGater_set_works() public {
+        saDiamond.manager().setValidatorGater(address(1));
+
+        vm.prank(address(0));
+        vm.expectRevert();
+        saDiamond.manager().setValidatorGater(address(1));
+    }
+
+    function testSubnetActorDiamond_ValidatorGater_collateralLiftCycle() public {
+        SubnetID memory id = subnet_id(address(saDiamond));
+        address owner = address(1);
+
+        vm.prank(owner);
+        SubnetValidatorGater gater = new SubnetValidatorGater();
+        vm.prank(owner);
+        gater.setSubnet(id);
+
+        saDiamond.manager().setValidatorGater(address(gater));
+
+        (address validator, , bytes memory publicKey) = TestUtils.newValidator(100);
+
+        vm.deal(validator, DEFAULT_MIN_VALIDATOR_STAKE * 3);
+        vm.prank(validator);
+        vm.expectRevert(ValidatorPowerChangeDenied.selector);
+        saDiamond.manager().join{value: DEFAULT_MIN_VALIDATOR_STAKE}(publicKey);
+
+        // now approve the join
+        vm.prank(owner);
+        gater.approve(validator, 2, DEFAULT_MIN_VALIDATOR_STAKE * 2);
+
+        // should be able to join
+        vm.prank(validator);
+        saDiamond.manager().join{value: DEFAULT_MIN_VALIDATOR_STAKE}(publicKey);
+
+        // add stake not allowed exceed allowed range
+        vm.prank(validator);
+        vm.expectRevert(ValidatorPowerChangeDenied.selector);
+        saDiamond.manager().stake{value: DEFAULT_MIN_VALIDATOR_STAKE + 1}();
+
+        // add stake should be ok
+        vm.prank(validator);
+        saDiamond.manager().stake{value: DEFAULT_MIN_VALIDATOR_STAKE}();
+
+        // unstake not allowed as below allowed range
+        vm.prank(validator);
+        vm.expectRevert(ValidatorPowerChangeDenied.selector);
+        saDiamond.manager().unstake(DEFAULT_MIN_VALIDATOR_STAKE * 2 - 1);
+
+        // unstake ok because within range
+        vm.prank(validator);
+        saDiamond.manager().unstake(DEFAULT_MIN_VALIDATOR_STAKE - 1);
+
+        // leave not allowed as below allowed range
+        vm.prank(validator);
+        vm.expectRevert(ValidatorPowerChangeDenied.selector);
+        saDiamond.manager().leave();
+
+        // update allowed range
+        vm.prank(owner);
+        gater.approve(validator, 0, DEFAULT_MIN_VALIDATOR_STAKE * 2);
+
+        // leave ok
+        vm.prank(validator);
+        saDiamond.manager().leave();
+    }
+
+    function testSubnetActorDiamond_ValidatorGater_federatedLiftCycle() public {
+        address owner = address(1);
+
+        vm.prank(owner);
+        SubnetValidatorGater gater = new SubnetValidatorGater();
+
+        gatewayAddress = address(gatewayDiamond);
+        createSubnetActor(
+            gatewayAddress,
+            ConsensusType.Fendermint,
+            DEFAULT_MIN_VALIDATOR_STAKE,
+            DEFAULT_MIN_VALIDATORS,
+            DEFAULT_CHECKPOINT_PERIOD,
+            DEFAULT_MAJORITY_PERCENTAGE,
+            PermissionMode.Federated,
+            2,
+            address(gater)
+        );
+
+        SubnetID memory id = subnet_id(address(saDiamond));
+        vm.prank(owner);
+        gater.setSubnet(id);
+
+        (address[] memory validators, , bytes[] memory publicKeys) = TestUtils.newValidators(3);
+        uint256[] memory powers = new uint256[](3);
+        powers[0] = 10000;
+        powers[1] = 20000;
+        powers[2] = 5000; // we only have 2 active validators, validator 2 does not have enough power
+
+        vm.expectRevert(ValidatorPowerChangeDenied.selector);
+        saDiamond.manager().setFederatedPower(validators, publicKeys, powers);
+
+        vm.prank(owner);
+        gater.approve(validators[0], 0, powers[0]);
+        vm.prank(owner);
+        gater.approve(validators[1], 0, powers[1]);
+        vm.prank(owner);
+        gater.approve(validators[2], 0, powers[2]);
+
+        saDiamond.manager().setFederatedPower(validators, publicKeys, powers);
     }
 
     function submitCheckpointInternal(
