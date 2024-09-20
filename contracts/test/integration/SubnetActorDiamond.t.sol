@@ -1820,7 +1820,7 @@ contract SubnetActorDiamondTest is Test, IntegrationTestBase {
 
         saDiamond.manager().setValidatorGater(address(gater));
 
-        (address validator, , bytes memory publicKey) = TestUtils.newValidator(100);
+        (address validator, , bytes memory publicKey) = TestUtils.newValidator(100, false);
 
         vm.deal(validator, DEFAULT_MIN_VALIDATOR_STAKE * 3);
         vm.prank(validator);
@@ -1890,7 +1890,7 @@ contract SubnetActorDiamondTest is Test, IntegrationTestBase {
         vm.prank(owner);
         gater.setSubnet(id);
 
-        (address[] memory validators, , bytes[] memory publicKeys) = TestUtils.newValidators(3);
+        (address[] memory validators, , bytes[] memory publicKeys) = TestUtils.newValidators(3, false);
         uint256[] memory powers = new uint256[](3);
         powers[0] = 10000;
         powers[1] = 20000;

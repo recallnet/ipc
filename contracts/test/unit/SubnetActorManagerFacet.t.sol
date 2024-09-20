@@ -3,7 +3,7 @@ pragma solidity ^0.8.23;
 
 import "forge-std/Test.sol";
 import "forge-std/console.sol";
-import "../../src/lib/LibStaking.sol";
+import "../../contracts/lib/LibStaking.sol";
 import {TestUtils} from "../helpers/TestUtils.sol";
 import {SubnetActorManagerFacetMock} from "../mocks/SubnetActorManagerFacetMock.sol";
 
