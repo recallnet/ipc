@@ -664,7 +664,7 @@ contract GatewayActorDiamondTest is Test, IntegrationTestBase {
     function testGatewayDiamond_Fund_Fails_NotRegistered() public {
         address funderAddress = address(101);
         uint256 fundAmount = 1 ether;
-        
+
         (address validatorAddress, bytes memory publicKey) = TestUtils.deriveValidatorAddress(100);
         join(validatorAddress, publicKey);
 

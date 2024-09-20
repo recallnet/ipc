@@ -336,7 +336,7 @@ contract MultiSubnetTest is Test, IntegrationTestBase {
         address caller = address(new MockIpcContract());
         address recipient = address(new MockIpcContractPayable());
         uint256 amount = 4096;
-        
+
         deflationaryToken.transfer(caller, amount);
         assertEq(deflationaryToken.balanceOf(caller), amount / 2);
 

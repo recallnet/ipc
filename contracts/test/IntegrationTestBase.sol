@@ -865,10 +865,10 @@ contract IntegrationTestBase is Test, TestParams, TestRegistry, TestSubnetActor,
 
     function confirmChange(address[] memory validators, uint256[] memory privKeys) internal {
         uint256 n = validators.length;
-        bytes[] memory signatures = new bytes[](n);       
-        (uint64 nextConfigNum, ) = saDiamond.getter().getConfigurationNumbers();      
+        bytes[] memory signatures = new bytes[](n);
+        (uint64 nextConfigNum, ) = saDiamond.getter().getConfigurationNumbers();
         uint256 h = saDiamond.getter().lastBottomUpCheckpointHeight() + saDiamond.getter().bottomUpCheckPeriod();
-       
+
         BottomUpCheckpoint memory checkpoint = BottomUpCheckpoint({
             subnetID: saDiamond.getter().getParent().createSubnetId(address(saDiamond)),
             blockHeight: h,
@@ -876,15 +876,15 @@ contract IntegrationTestBase is Test, TestParams, TestRegistry, TestSubnetActor,
             nextConfigurationNumber: nextConfigNum - 1,
             msgs: new IpcEnvelope[](0)
         });
-       
+
         vm.deal(address(saDiamond), 100 ether);
         bytes32 hash = keccak256(abi.encode(checkpoint));
-       
+
         for (uint256 i = 0; i < n; i++) {
             (uint8 v, bytes32 r, bytes32 s) = vm.sign(privKeys[i], hash);
             signatures[i] = abi.encodePacked(r, s, v);
         }
-       
+
         vm.prank(validators[0]);
         saDiamond.checkpointer().submitCheckpoint(checkpoint, validators, signatures);
     }

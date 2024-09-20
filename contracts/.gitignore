@@ -7,6 +7,7 @@ crytic-export/
 broadcast/
 out/
 binding/src
+get-pip.py
 
 node_modules
 

@@ -100,18 +100,20 @@ library TestUtils {
     }
 
     function newValidator(
-        uint256 key, bool needStorage
+        uint256 key,
+        bool needStorage
     ) internal pure returns (address addr, uint256 privKey, bytes memory validatorKey) {
         privKey = key;
         bytes memory pubkey = derivePubKeyBytes(key);
         bytes memory pk = deriveValidatorPubKeyBytes(key);
-        validatorKey = needStorage? addStorageToPK(pk): pk;
+        validatorKey = needStorage ? addStorageToPK(pk) : pk;
 
         addr = address(uint160(uint256(keccak256(pubkey))));
     }
 
     function newValidators(
-        uint256 n, bool needStorage
+        uint256 n,
+        bool needStorage
     ) internal pure returns (address[] memory validators, uint256[] memory privKeys, bytes[] memory validatorKeys) {
         validatorKeys = new bytes[](n);
         validators = new address[](n);
@@ -176,7 +178,7 @@ library TestUtils {
     }
 
     // Helper function to complete bytes length requirement for joining a subnet
-    function addStorageToPK(bytes memory pkData) internal pure returns(bytes memory data) {
+    function addStorageToPK(bytes memory pkData) internal pure returns (bytes memory data) {
         uint256 storageAmount = 10;
         data = bytes.concat(pkData, abi.encode(storageAmount));
     }

@@ -96,7 +96,7 @@ contract SubnetActorDiamondTest is Test, IntegrationTestBase {
     function testSubnetActorDiamond_BasicLifeCycle() public {
         (address validator1, uint256 privKey1, bytes memory publicKey1) = TestUtils.newValidator(100, true);
         (address validator2, uint256 privKey2, bytes memory publicKey2) = TestUtils.newValidator(101, true);
-        
+
         // total collateral in the gateway
         uint256 collateral = 0;
         uint256 stake = 10;
@@ -131,7 +131,7 @@ contract SubnetActorDiamondTest is Test, IntegrationTestBase {
         require(saDiamond.getter().bootstrapped(), "subnet not bootstrapped");
         require(!saDiamond.getter().killed(), "subnet killed");
         require(saDiamond.getter().genesisValidators().length == 1, "not one validator in genesis");
-        
+
         (uint64 nextConfigNum, uint64 startConfigNum) = saDiamond.getter().getConfigurationNumbers();
         require(nextConfigNum == LibStaking.INITIAL_CONFIGURATION_NUMBER, "next config num not 1");
         require(startConfigNum == LibStaking.INITIAL_CONFIGURATION_NUMBER, "start config num not 1");
@@ -165,11 +165,11 @@ contract SubnetActorDiamondTest is Test, IntegrationTestBase {
         // ======== Step. Confirm join operation ======
         collateral += DEFAULT_MIN_VALIDATOR_STAKE;
         confirmChange(validator1, privKey1);
-        require(gatewayAddress.balance == collateral, "gw balance is incorrect after validator2 joining"); 
+        require(gatewayAddress.balance == collateral, "gw balance is incorrect after validator2 joining");
 
         v = saDiamond.getter().getValidator(validator2);
         require(v.totalCollateral == DEFAULT_MIN_VALIDATOR_STAKE, "unexpected total collateral after confirm join");
-        
+
         require(
             v.confirmedCollateral == DEFAULT_MIN_VALIDATOR_STAKE,
             "unexpected confirmed collateral after confirm join"
@@ -1329,7 +1329,8 @@ contract SubnetActorDiamondTest is Test, IntegrationTestBase {
         uint256 n = 10;
 
         (address[] memory validators, uint256[] memory privKeys, bytes[] memory publicKeys) = TestUtils.newValidators(
-            n, true
+            n,
+            true
         );
 
         for (uint i = 0; i < n; i++) {
@@ -1355,7 +1356,8 @@ contract SubnetActorDiamondTest is Test, IntegrationTestBase {
         uint256 n = 10;
 
         (address[] memory validators, uint256[] memory privKeys, bytes[] memory publicKeys) = TestUtils.newValidators(
-            n, true
+            n,
+            true
         );
 
         vm.deal(validators[0], 100 * DEFAULT_MIN_VALIDATOR_STAKE);
@@ -1626,7 +1628,8 @@ contract SubnetActorDiamondTest is Test, IntegrationTestBase {
         );
 
         (address[] memory validators, uint256[] memory privKeys, bytes[] memory publicKeys) = TestUtils.newValidators(
-            3, false
+            3,
+            false
         );
         uint256[] memory powers = new uint256[](3);
         powers[0] = 10000;
@@ -1677,7 +1680,8 @@ contract SubnetActorDiamondTest is Test, IntegrationTestBase {
         );
 
         (address[] memory validators, uint256[] memory privKeys, bytes[] memory publicKeys) = TestUtils.newValidators(
-            3, false
+            3,
+            false
         );
         uint256[] memory powers = new uint256[](3);
         powers[0] = 10000;

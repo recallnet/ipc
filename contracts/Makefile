@@ -83,7 +83,7 @@ test: node_modules | forge
 install-dev: install-npm-package install-eth-abi
 
 install-npm-package: node_modules
-	pnpm install --save-dev
+	pnpm install --D
 
 install-eth-abi:
 	curl -sSL https://bootstrap.pypa.io/get-pip.py -o get-pip.py && python3 get-pip.py && rm get-pip.py && python3 -m pip install eth_abi
