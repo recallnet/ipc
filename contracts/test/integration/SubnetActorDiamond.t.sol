@@ -1820,7 +1820,7 @@ contract SubnetActorDiamondTest is Test, IntegrationTestBase {
 
         saDiamond.manager().setValidatorGater(address(gater));
 
-        (address validator, , bytes memory publicKey) = TestUtils.newValidator(100, false);
+        (address validator, , bytes memory publicKey) = TestUtils.newValidator(100, true);
 
         vm.deal(validator, DEFAULT_MIN_VALIDATOR_STAKE * 3);
         vm.prank(validator);
