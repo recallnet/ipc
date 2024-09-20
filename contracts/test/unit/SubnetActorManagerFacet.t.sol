@@ -10,6 +10,7 @@ import {SubnetActorManagerFacetMock} from "../mocks/SubnetActorManagerFacetMock.
 contract SubnetActorManagerFacetTest is Test {
     SubnetActorManagerFacetMock internal subnetActorManagerFacet;
     uint256 constant storageCommintment = 10;
+    uint256 constant collateralAmount = 10;
     address walletAddr = vm.addr(1);
     bytes uncompressedKey;
     bytes metadata;
@@ -28,10 +29,10 @@ contract SubnetActorManagerFacetTest is Test {
     function testSetStorageOnJoin() public {
         vm.startPrank(walletAddr);
         vm.expectRevert(); //Not enough collateral per storage
-        subnetActorManagerFacet.join{value: 1}(metadata);
+        subnetActorManagerFacet.join{value: 1}(metadata, 1);
 
         // Expect no revert on this call
-        subnetActorManagerFacet.join{value: 10}(metadata); // Call join function with valid collateral and metadata
+        subnetActorManagerFacet.join{value: collateralAmount}(metadata, collateralAmount); // Call join function with valid collateral and metadata
         vm.stopPrank();
         // Check that the validator has joined
         assertTrue(subnetActorManagerFacet.isValidator(walletAddr), "Validator did not join successfully");
@@ -53,11 +54,11 @@ contract SubnetActorManagerFacetTest is Test {
         subnetActorManagerFacet.stakeStorage(storageCommintment);
 
         vm.startPrank(walletAddr);
-        subnetActorManagerFacet.join{value: 10}(metadata); // Call join before staking
+        subnetActorManagerFacet.join{value: collateralAmount}(metadata, collateralAmount); // Call join before staking
         vm.expectRevert();
         subnetActorManagerFacet.stakeStorage{value: 1}(storageCommintment); // Not enough collateral
 
-        subnetActorManagerFacet.stakeStorage{value: 10}(storageCommintment);
+        subnetActorManagerFacet.stakeStorage{value: collateralAmount}(storageCommintment);
         vm.stopPrank();
 
         assertGt(subnetActorManagerFacet.getTotalStorage(walletAddr), validatorTotalStorage);
@@ -71,7 +72,7 @@ contract SubnetActorManagerFacetTest is Test {
         subnetActorManagerFacet.leave();
 
         vm.startPrank(walletAddr);
-        subnetActorManagerFacet.join{value: 10}(metadata); // Call join before leaving
+        subnetActorManagerFacet.join{value: collateralAmount}(metadata, collateralAmount); // Call join before leaving
         // Save current storage state
         (, , uint256 totalConfirmedStorage) = getStorageValues();
         subnetActorManagerFacet.leave();
@@ -96,8 +97,8 @@ contract SubnetActorManagerFacetTest is Test {
     function testSetStorageOnUnstakeStorage() public {
         vm.startPrank(walletAddr);
 
-        subnetActorManagerFacet.join{value: 10}(metadata); // Call join before unstaking
-        subnetActorManagerFacet.stakeStorage{value: 10}(storageCommintment);
+        subnetActorManagerFacet.join{value: collateralAmount}(metadata, collateralAmount); // Call join before unstaking
+        subnetActorManagerFacet.stakeStorage{value: collateralAmount}(storageCommintment);
 
         (uint256 validatorTotalStorage, , uint256 totalConfirmedStorage) = getStorageValues();
         uint256 amount = storageCommintment;
@@ -125,7 +126,7 @@ contract SubnetActorManagerFacetTest is Test {
     function testEnforceStorageCollateralOnUnstake() public {
         vm.startPrank(walletAddr);
 
-        subnetActorManagerFacet.join{value: 10}(metadata); // Call join before unstaking
+        subnetActorManagerFacet.join{value: collateralAmount}(metadata, collateralAmount); // Call join before unstaking
 
         (, uint256 totalConfirmedStorage, ) = getStorageValues();
 

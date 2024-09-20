@@ -6,8 +6,9 @@ import {LibSubnetActorStorage, SubnetActorStorage} from "./LibSubnetActorStorage
 import {LibMaxPQ, MaxPQ} from "./priority/LibMaxPQ.sol";
 import {LibMinPQ, MinPQ} from "./priority/LibMinPQ.sol";
 import {LibStakingChangeLog} from "./LibStakingChangeLog.sol";
+import {GenericTokenHelper} from "./GenericTokenHelper.sol";
 import {LibStorageStaking} from "./LibStorageStaking.sol";
-import {PermissionMode, StakingReleaseQueue, StakingChangeLog, StakingChange, StakingChangeRequest, StakingOperation, StakingRelease, ValidatorSet, AddressStakingReleases, ParentValidatorsTracker, Validator} from "../structs/Subnet.sol";
+import {PermissionMode, StakingReleaseQueue, StakingChangeLog, StakingChange, StakingChangeRequest, StakingOperation, StakingRelease, ValidatorSet, AddressStakingReleases, ParentValidatorsTracker, Validator, GenericToken} from "../structs/Subnet.sol";
 import {WithdrawExceedingCollateral, NotValidator, CannotConfirmFutureChanges, NoCollateralToWithdraw, AddressShouldBeValidator, InvalidConfigurationNumber} from "../errors/IPCErrors.sol";
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 
@@ -87,8 +88,6 @@ library LibStakingReleaseQueue {
         if (newLength == 0) {
             delete self.releases[validator];
         }
-
-        payable(validator).sendValue(amount);
 
         return amount;
     }
@@ -386,6 +385,7 @@ library LibStaking {
     using LibStakingChangeLog for StakingChangeLog;
     using LibStorageStaking for ValidatorSet;
     using LibValidatorSet for ValidatorSet;
+    using GenericTokenHelper for GenericToken;
     using LibMaxPQ for MaxPQ;
     using LibMinPQ for MinPQ;
     using Address for address payable;
@@ -519,9 +519,6 @@ library LibStaking {
         s.validatorSet.recordWithdraw(validator, amount);
         // confirm deposit that updates the confirmed collateral
         s.validatorSet.confirmWithdraw(validator, amount);
-
-        // release stake from gateway and transfer to user
-        payable(validator).sendValue(amount);
     }
 
     // ================= Operations that are queued ==============
@@ -556,9 +553,9 @@ library LibStaking {
     // =============== Other functions ================
 
     /// @notice Claim the released collateral
-    function claimCollateral(address validator) internal {
+    function claimCollateral(address validator) internal returns(uint256 amount) {
         SubnetActorStorage storage s = LibSubnetActorStorage.appStorage();
-        uint256 amount = s.releaseQueue.claim(validator);
+        amount = s.releaseQueue.claim(validator);
         emit CollateralClaimed(validator, amount);
     }
 
@@ -591,6 +588,7 @@ library LibStaking {
                 s.validatorSet.confirmFederatedPower(validator, power);
             } else {
                 uint256 amount = abi.decode(change.payload, (uint256));
+                address gateway = s.ipcGatewayAddr;
 
                 if (change.op == StakingOperation.Withdraw) {
                     s.validatorSet.confirmWithdraw(validator, amount);
@@ -598,7 +596,12 @@ library LibStaking {
                     IGateway(s.ipcGatewayAddr).releaseStake(amount);
                 } else if (change.op == StakingOperation.Deposit) {
                     s.validatorSet.confirmDeposit(validator, amount);
-                    IGateway(s.ipcGatewayAddr).addStake{value: amount}();
+                    if (s.collateralSource.isNative()) {
+                        IGateway(gateway).addStake{value: amount}(amount);
+                    } else {
+                        s.collateralSource.increaseAllowance(gateway, amount);
+                        IGateway(gateway).addStake(amount);
+                    }
                 } else if (change.op == StakingOperation.CommitStorage) {
                     s.validatorSet.confirmStorageDeposit(validator, amount);
                 } else if (change.op == StakingOperation.WithdrawStorage) {

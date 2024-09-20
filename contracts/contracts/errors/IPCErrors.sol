@@ -83,6 +83,7 @@ error NotEnoughStorageCommitment();
 error NotEnoughCollateralForStorageAmount();
 error WithdrawExceedingStorage();
 error ValidatorPowerChangeDenied();
+error IncreaseAllowanceFailed();
 
 enum InvalidXnetMessageReason {
     Sender,

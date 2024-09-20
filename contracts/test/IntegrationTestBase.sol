@@ -9,7 +9,7 @@ import {ConsensusType} from "../contracts/enums/ConsensusType.sol";
 import {IDiamond} from "../contracts/interfaces/IDiamond.sol";
 import {IpcEnvelope, BottomUpCheckpoint, IpcMsgKind, ParentFinality, CallMsg} from "../contracts/structs/CrossNet.sol";
 import {FvmAddress} from "../contracts/structs/FvmAddress.sol";
-import {SubnetID, SupplyKind, PermissionMode, PermissionMode, Subnet, SupplySource, IPCAddress, Validator} from "../contracts/structs/Subnet.sol";
+import {SubnetID, GenericTokenKind, PermissionMode, PermissionMode, Subnet, GenericToken, IPCAddress, Validator} from "../contracts/structs/Subnet.sol";
 import {SubnetIDHelper} from "../contracts/lib/SubnetIDHelper.sol";
 import {FvmAddressHelper} from "../contracts/lib/FvmAddressHelper.sol";
 import {CrossMsgHelper} from "../contracts/lib/CrossMsgHelper.sol";
@@ -39,7 +39,7 @@ import {OwnershipFacet} from "../contracts/OwnershipFacet.sol";
 
 import {DiamondLoupeFacet} from "../contracts/diamond/DiamondLoupeFacet.sol";
 import {DiamondCutFacet} from "../contracts/diamond/DiamondCutFacet.sol";
-import {SupplySourceHelper} from "../contracts/lib/SupplySourceHelper.sol";
+import {GenericTokenHelper} from "../contracts/lib/GenericTokenHelper.sol";
 import {TestUtils} from "./helpers/TestUtils.sol";
 import {SelectorLibrary} from "./helpers/SelectorLibrary.sol";
 import {GatewayFacetsHelper} from "./helpers/GatewayFacetsHelper.sol";
@@ -61,6 +61,18 @@ struct RootSubnetDefinition {
     SubnetID id;
 }
 
+contract SubnetWithNativeTokenMock {
+    function supplySource() public pure returns (GenericToken memory t) {
+        return t;
+    }
+
+    function collateralSource() public pure returns (GenericToken memory t) {
+        return t;
+    }
+
+    receive() external payable {}
+}
+
 contract TestParams {
     uint64 constant MAX_NONCE = type(uint64).max;
     address constant BLS_ACCOUNT_ADDREESS = address(0xfF000000000000000000000000000000bEefbEEf);
@@ -73,8 +85,6 @@ contract TestParams {
     bytes constant GENESIS = EMPTY_BYTES;
     uint256 constant DEFAULT_CROSS_MSG_FEE = 10 gwei;
     uint256 constant DEFAULT_RELAYER_REWARD = 10 gwei;
-    address constant CHILD_NETWORK_ADDRESS = address(10);
-    address constant CHILD_NETWORK_ADDRESS_2 = address(11);
     uint64 constant EPOCH_ONE = 1 * DEFAULT_CHECKPOINT_PERIOD;
     uint256 constant INITIAL_VALIDATOR_FUNDS = 1 ether;
     uint16 constant DEFAULT_ACTIVE_VALIDATORS_LIMIT = 100;
@@ -85,6 +95,9 @@ contract TestParams {
     address constant TOPDOWN_VALIDATOR_1 = address(12);
     bytes32 constant DEFAULT_COMMIT_SHA = "c7d8f53f";
     uint256 constant DEFAULT_LOCKING_DURATION = 2;
+
+    address CHILD_NETWORK_ADDRESS = address(new SubnetWithNativeTokenMock());
+    address CHILD_NETWORK_ADDRESS_2 = address(new SubnetWithNativeTokenMock());
 }
 
 contract TestRegistry is Test, TestParams {
@@ -171,14 +184,14 @@ contract TestSubnetActor is Test, TestParams {
         address gw,
         SubnetID memory parentID
     ) internal pure returns (SubnetActorDiamond.ConstructorParams memory) {
-        SupplySource memory native = SupplySourceHelper.native();
+        GenericToken memory native = GenericTokenHelper.native();
         return defaultSubnetActorParamsWith(gw, parentID, native);
     }
 
     function defaultSubnetActorParamsWith(
         address gw,
         SubnetID memory parentID,
-        SupplySource memory source
+        GenericToken memory source
     ) internal pure returns (SubnetActorDiamond.ConstructorParams memory) {
         SubnetActorDiamond.ConstructorParams memory params = SubnetActorDiamond.ConstructorParams({
             parentId: parentID,
@@ -193,6 +206,32 @@ contract TestSubnetActor is Test, TestParams {
             permissionMode: PermissionMode.Collateral,
             supplySource: source,
             lockingDuration: DEFAULT_LOCKING_DURATION,
+            collateralSource: GenericTokenHelper.native(),
+            validatorGater: address(0)
+        });
+        return params;
+    }
+
+    function defaultSubnetActorParamsWith(
+        address gw,
+        SubnetID memory parentID,
+        GenericToken memory source,
+        GenericToken memory collateral
+    ) internal pure returns (SubnetActorDiamond.ConstructorParams memory) {
+        SubnetActorDiamond.ConstructorParams memory params = SubnetActorDiamond.ConstructorParams({
+            parentId: parentID,
+            ipcGatewayAddr: gw,
+            consensus: ConsensusType.Fendermint,
+            minActivationCollateral: DEFAULT_COLLATERAL_AMOUNT,
+            minValidators: DEFAULT_MIN_VALIDATORS,
+            bottomUpCheckPeriod: DEFAULT_CHECKPOINT_PERIOD,
+            majorityPercentage: DEFAULT_MAJORITY_PERCENTAGE,
+            activeValidatorsLimit: DEFAULT_ACTIVE_VALIDATORS_LIMIT,
+            powerScale: DEFAULT_POWER_SCALE,
+            permissionMode: PermissionMode.Collateral,
+            supplySource: source,
+            lockingDuration: DEFAULT_LOCKING_DURATION,
+            collateralSource: collateral,
             validatorGater: address(0)
         });
         return params;
@@ -205,7 +244,7 @@ contract TestSubnetActor is Test, TestParams {
             defaultSubnetActorParamsWith(
                 gw,
                 SubnetID({root: ROOTNET_CHAINID, route: new address[](0)}),
-                SupplySourceHelper.native()
+                GenericTokenHelper.native()
             );
     }
 
@@ -225,8 +264,9 @@ contract TestSubnetActor is Test, TestParams {
             activeValidatorsLimit: DEFAULT_ACTIVE_VALIDATORS_LIMIT,
             powerScale: DEFAULT_POWER_SCALE,
             permissionMode: PermissionMode.Collateral,
-            supplySource: SupplySource({kind: SupplyKind.ERC20, tokenAddress: tokenAddress}),
             lockingDuration: DEFAULT_LOCKING_DURATION,
+            supplySource: GenericToken({kind: GenericTokenKind.ERC20, tokenAddress: tokenAddress}),
+            collateralSource: GenericTokenHelper.native(),
             validatorGater: address(0)
         });
         return params;
@@ -235,7 +275,7 @@ contract TestSubnetActor is Test, TestParams {
 
 contract IntegrationTestBase is Test, TestParams, TestRegistry, TestSubnetActor, TestGatewayActor {
     using SubnetIDHelper for SubnetID;
-    using SupplySourceHelper for SupplySource;
+    using GenericTokenHelper for GenericToken;
     using CrossMsgHelper for IpcEnvelope;
     using FvmAddressHelper for FvmAddress;
     using GatewayFacetsHelper for address;
@@ -268,7 +308,7 @@ contract IntegrationTestBase is Test, TestParams, TestRegistry, TestSubnetActor,
         addValidator(TOPDOWN_VALIDATOR_1, 100);
     }
 
-    function defaultGatewayParams() internal pure virtual returns (GatewayDiamond.ConstructorParams memory) {
+    function defaultGatewayParams() internal view virtual returns (GatewayDiamond.ConstructorParams memory) {
         GatewayDiamond.ConstructorParams memory params = GatewayDiamond.ConstructorParams({
             networkName: SubnetID({root: ROOTNET_CHAINID, route: new address[](0)}),
             bottomUpCheckPeriod: DEFAULT_CHECKPOINT_PERIOD,
@@ -568,8 +608,9 @@ contract IntegrationTestBase is Test, TestParams, TestRegistry, TestSubnetActor,
             activeValidatorsLimit: _activeValidatorsLimit,
             powerScale: 12,
             permissionMode: _permissionMode,
-            supplySource: SupplySourceHelper.native(),
             lockingDuration: 10,
+            supplySource: GenericTokenHelper.native(),
+            collateralSource: GenericTokenHelper.native(),
             validatorGater: address(0)
         });
         saDiamond = createSubnetActor(params);
@@ -599,8 +640,9 @@ contract IntegrationTestBase is Test, TestParams, TestRegistry, TestSubnetActor,
             activeValidatorsLimit: _activeValidatorsLimit,
             powerScale: 12,
             permissionMode: _permissionMode,
-            supplySource: SupplySourceHelper.native(),
             lockingDuration: 10,
+            supplySource: GenericTokenHelper.native(),
+            collateralSource: GenericTokenHelper.native(),
             validatorGater: _validatorGater
         });
         saDiamond = createSubnetActor(params);
@@ -786,10 +828,10 @@ contract IntegrationTestBase is Test, TestParams, TestRegistry, TestSubnetActor,
     }
 
     function fund(address funderAddress, uint256 fundAmount) public {
-        fund(funderAddress, fundAmount, SupplyKind.Native);
+        fund(funderAddress, fundAmount, GenericTokenKind.Native);
     }
 
-    function fund(address funderAddress, uint256 fundAmount, SupplyKind mode) public {
+    function fund(address funderAddress, uint256 fundAmount, GenericTokenKind mode) public {
         // funding subnets is free, we do not need cross msg fee
         (SubnetID memory subnetId, , uint256 nonceBefore, , uint256 circSupplyBefore) = getSubnet(address(saDiamond));
 
@@ -797,9 +839,9 @@ contract IntegrationTestBase is Test, TestParams, TestRegistry, TestSubnetActor,
         uint256 expectedNonce = nonceBefore + 1;
         uint256 expectedCircSupply = circSupplyBefore + fundAmount;
 
-        if (mode == SupplyKind.Native) {
+        if (mode == GenericTokenKind.Native) {
             gatewayDiamond.manager().fund{value: fundAmount}(subnetId, FvmAddressHelper.from(funderAddress));
-        } else if (mode == SupplyKind.ERC20) {
+        } else if (mode == GenericTokenKind.ERC20) {
             gatewayDiamond.manager().fundWithToken(subnetId, FvmAddressHelper.from(funderAddress), fundAmount);
         }
 
@@ -817,7 +859,7 @@ contract IntegrationTestBase is Test, TestParams, TestRegistry, TestSubnetActor,
     function join(address validatorAddress, bytes memory pubkey) public {
         vm.prank(validatorAddress);
         vm.deal(validatorAddress, DEFAULT_COLLATERAL_AMOUNT + 1);
-        saDiamond.manager().join{value: DEFAULT_COLLATERAL_AMOUNT}(pubkey);
+        saDiamond.manager().join{value: DEFAULT_COLLATERAL_AMOUNT}(pubkey, DEFAULT_COLLATERAL_AMOUNT);
     }
 
     function confirmChange(address validator, uint256 privKey) internal {
@@ -900,7 +942,7 @@ contract IntegrationTestBase is Test, TestParams, TestRegistry, TestSubnetActor,
 
         (, uint256 stakedBefore, , , ) = getSubnet(subnetAddress);
 
-        gatewayDiamond.manager().addStake{value: stakeAmount}();
+        gatewayDiamond.manager().addStake{value: stakeAmount}(stakeAmount);
 
         uint256 balanceAfter = subnetAddress.balance;
         (, uint256 stakedAfter, , , ) = getSubnet(subnetAddress);
@@ -913,7 +955,7 @@ contract IntegrationTestBase is Test, TestParams, TestRegistry, TestSubnetActor,
         GatewayManagerFacet manager = gw.manager();
         GatewayGetterFacet getter = gw.getter();
 
-        manager.register{value: collateral}(0);
+        manager.register{value: collateral}(0, collateral);
 
         (SubnetID memory id, uint256 stake, uint256 topDownNonce, , uint256 circSupply) = getSubnetGW(
             subnetAddress,
