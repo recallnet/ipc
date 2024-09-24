@@ -355,7 +355,7 @@ contract SubnetActorDiamondTest is Test, IntegrationTestBase {
         address validator = vm.addr(100);
 
         vm.deal(validator, 1 gwei);
-        
+
         vm.prank(validator);
         vm.expectRevert(NotOwnerOfPublicKey.selector);
         saDiamond.manager().join{value: 10}(new bytes(65), MIN_STORAGE);

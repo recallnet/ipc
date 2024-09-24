@@ -53,7 +53,7 @@ pub enum StakingCommand {
         signatories: Vec<(EthAddress, SecretKey)>,
     },
     /// Join by as a new validator.
-    Join(EthAddress, TokenAmount, PublicKey),
+    Join(EthAddress, TokenAmount, PublicKey, Option<u128>),// The last value being storage amount
     /// Increase the collateral of an already existing validator.
     Stake(EthAddress, TokenAmount),
     /// Decrease the collateral of a validator.
@@ -141,7 +141,7 @@ impl StateMachine for StakingMachine {
             eprintln!("\n> JOINING SUBNET: addr={_addr} deposit={}", v.power.0);
 
             subnet
-                .join(&mut exec_state, v)
+                .join(&mut exec_state, v, None)
                 .expect("failed to join subnet");
         }
 
@@ -231,7 +231,7 @@ impl StateMachine for StakingMachine {
                 // Pick any account, doesn't have to be new; the system should handle repeated joins.
                 let a = choose_account(u, state)?;
                 let b = choose_amount(u, &a.current_balance)?;
-                StakingCommand::Join(a.addr, b, a.public_key)
+                StakingCommand::Join(a.addr, b, a.public_key, None)
             }
             &"leave" => {
                 // Pick any account, doesn't have to be bonded; the system should ignore non-validators and not pay out twice.
@@ -306,7 +306,7 @@ impl StateMachine for StakingMachine {
                     )
                     .expect("failed to call: submit_checkpoint")
             }
-            StakingCommand::Join(_addr, value, public_key) => {
+            StakingCommand::Join(_addr, value, public_key, storage) => {
                 eprintln!("\n> CMD: JOIN addr={_addr} value={value}");
                 let validator = Validator {
                     public_key: ValidatorKey(*public_key),
@@ -314,7 +314,7 @@ impl StateMachine for StakingMachine {
                 };
                 system
                     .subnet
-                    .try_join(&mut exec_state, &validator)
+                    .try_join(&mut exec_state, &validator, None)
                     .expect("failed to call: join")
             }
             StakingCommand::Stake(addr, value) => {
@@ -363,7 +363,7 @@ impl StateMachine for StakingMachine {
                     result.expect("checkpoint submission should succeed");
                 }
             }
-            StakingCommand::Join(eth_addr, value, _) => {
+            StakingCommand::Join(eth_addr, value, _, _) => {
                 if value.is_zero() {
                     result.expect_err("should not join with 0 value");
                 } else if pre_state.has_staked(eth_addr) {
@@ -414,7 +414,7 @@ impl StateMachine for StakingMachine {
                 block_height,
                 ..
             } => state.checkpoint(*next_configuration_number, *block_height),
-            StakingCommand::Join(addr, value, _) => state.join(*addr, value.clone()),
+            StakingCommand::Join(addr, value, _, _) => state.join(*addr, value.clone()),
             StakingCommand::Stake(addr, value) => state.stake(*addr, value.clone()),
             StakingCommand::Unstake(addr, value) => state.unstake(*addr, value.clone()),
             StakingCommand::Leave(addr) => state.leave(*addr),
@@ -571,7 +571,7 @@ impl StateMachine for StakingMachine {
             }
             StakingCommand::Stake(addr, _)
             | StakingCommand::Unstake(addr, _)
-            | StakingCommand::Join(addr, _, _)
+            | StakingCommand::Join(addr, _, _, _)
             | StakingCommand::Leave(addr)
             | StakingCommand::Claim(addr) => {
                 let a = post_state.accounts.get(addr).unwrap();

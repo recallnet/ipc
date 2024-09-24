@@ -282,6 +282,7 @@ impl IpcProvider {
         subnet: SubnetID,
         from: Option<Address>,
         collateral: TokenAmount,
+        storage: Option<u128>,
     ) -> anyhow::Result<ChainEpoch> {
         let parent = subnet.parent().ok_or_else(|| anyhow!("no parent found"))?;
         let conn = self.get_connection(&parent)?;
@@ -301,7 +302,7 @@ impl IpcProvider {
         log::info!("joining subnet with public key: {hex_public_key:?}");
 
         conn.manager()
-            .join_subnet(subnet, sender, collateral, public_key.into())
+            .join_subnet(subnet, sender, collateral, public_key.into(), storage)
             .await
     }
 

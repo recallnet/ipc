@@ -24,7 +24,7 @@ pub trait SubnetManager: Send + Sync + TopDownFinalityQuery + BottomUpCheckpoint
     /// Deploys a new subnet actor on the `parent` subnet and with the
     /// configuration passed in `ConstructParams`.
     /// The result of the function is the ID address for the subnet actor from which the final
-    /// subet ID can be inferred.
+    /// subnet ID can be inferred.
     async fn create_subnet(&self, from: Address, params: ConstructParams) -> Result<Address>;
 
     /// Performs the call to join a subnet from a wallet address and staking an amount
@@ -37,6 +37,7 @@ pub trait SubnetManager: Send + Sync + TopDownFinalityQuery + BottomUpCheckpoint
         from: Address,
         collateral: TokenAmount,
         metadata: Vec<u8>,
+        storage: Option<u128>
     ) -> Result<ChainEpoch>;
 
     /// Adds some initial balance to an address before a child subnet bootstraps to make

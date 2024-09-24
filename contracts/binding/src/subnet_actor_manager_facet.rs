@@ -666,16 +666,17 @@ pub mod subnet_actor_manager_facet {
             net_address: ::std::string::String,
         ) -> ::ethers::contract::builders::ContractCall<M, ()> {
             self.0
-                .method_hash([16, 253, 66, 97], net_address)
+                .method_hash([58, 226, 71, 19], net_address)
                 .expect("method not found (this should never happen)")
         }
-        ///Calls the contract's `join` (0x6170b162) function
+        ///Calls the contract's `join` (0x3ae24713) function
         pub fn join(
             &self,
             public_key: ::ethers::core::types::Bytes,
+            storage: u128
         ) -> ::ethers::contract::builders::ContractCall<M, ()> {
             self.0
-                .method_hash([97, 112, 177, 98], public_key)
+                .method_hash([248, 96, 33, 180], (public_key, storage))
                 .expect("method not found (this should never happen)")
         }
         ///Calls the contract's `kill` (0x41c0e1b5) function
@@ -2064,7 +2065,7 @@ pub mod subnet_actor_manager_facet {
     pub struct AddBootstrapNodeCall {
         pub net_address: ::std::string::String,
     }
-    ///Container type for all input parameters for the `join` function with signature `join(bytes)` and selector `0x6170b162`
+    ///Container type for all input parameters for the `join` function with signature `join(bytes,uint256)` and selector `0x3ae24713`
     #[derive(
         Clone,
         ::ethers::contract::EthCall,
@@ -2075,7 +2076,7 @@ pub mod subnet_actor_manager_facet {
         Eq,
         Hash,
     )]
-    #[ethcall(name = "join", abi = "join(bytes)")]
+    #[ethcall(name = "join", abi = "join(bytes,uint256)")]
     pub struct JoinCall {
         pub public_key: ::ethers::core::types::Bytes,
     }
