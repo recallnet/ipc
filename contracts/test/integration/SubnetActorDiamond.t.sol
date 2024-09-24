@@ -360,7 +360,7 @@ contract SubnetActorDiamondTest is Test, IntegrationTestBase {
         address validator = vm.addr(100);
 
         vm.deal(validator, 1 gwei);
-        
+
         vm.prank(validator);
         vm.expectRevert(NotOwnerOfPublicKey.selector);
 

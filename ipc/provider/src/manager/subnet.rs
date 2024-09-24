@@ -37,6 +37,7 @@ pub trait SubnetManager: Send + Sync + TopDownFinalityQuery + BottomUpCheckpoint
         from: Address,
         collateral: TokenAmount,
         metadata: Vec<u8>,
+        storage: Option<u128>
     ) -> Result<ChainEpoch>;
 
     /// Adds some initial balance to an address before a child subnet bootstraps to make

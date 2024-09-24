@@ -680,17 +680,24 @@ pub mod subnet_actor_manager_facet {
             net_address: ::std::string::String,
         ) -> ::ethers::contract::builders::ContractCall<M, ()> {
             self.0
-                .method_hash([16, 253, 66, 97], net_address)
+                .method_hash([58, 226, 71, 19], net_address)
                 .expect("method not found (this should never happen)")
         }
         ///Calls the contract's `join` (0x3ae24713) function
         pub fn join(
             &self,
             public_key: ::ethers::core::types::Bytes,
+<<<<<<< HEAD
             amount: ::ethers::core::types::U256,
         ) -> ::ethers::contract::builders::ContractCall<M, ()> {
             self.0
                 .method_hash([58, 226, 71, 19], (public_key, amount))
+=======
+            storage: u128
+        ) -> ::ethers::contract::builders::ContractCall<M, ()> {
+            self.0
+                .method_hash([248, 96, 33, 180], (public_key, storage))
+>>>>>>> 3cc04fd4 (feat: update join)
                 .expect("method not found (this should never happen)")
         }
         ///Calls the contract's `kill` (0x41c0e1b5) function

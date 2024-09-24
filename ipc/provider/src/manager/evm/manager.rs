@@ -334,6 +334,7 @@ impl SubnetManager for EthSubnetManager {
         from: Address,
         collateral: TokenAmount,
         pub_key: Vec<u8>,
+        storage: Option<u128>,
     ) -> Result<ChainEpoch> {
         let collateral = collateral
             .atto()
@@ -349,7 +350,7 @@ impl SubnetManager for EthSubnetManager {
         let contract =
             subnet_actor_manager_facet::SubnetActorManagerFacet::new(address, signer.clone());
 
-        let mut txn = contract.join(ethers::types::Bytes::from(pub_key), U256::from(collateral));
+        let mut txn = contract.join(ethers::types::Bytes::from(pub_key), U256::from(collateral), storage.unwrap_or(0));
         txn = self.handle_txn_token(&subnet, txn, collateral, 0).await?;
 
         let txn = call_with_premium_estimation(signer, txn).await?;

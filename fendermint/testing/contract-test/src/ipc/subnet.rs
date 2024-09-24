@@ -55,6 +55,7 @@ impl<DB: Blockstore + Clone> SubnetCaller<DB> {
         &self,
         state: &mut FvmExecState<DB>,
         validator: &Validator<Collateral>,
+        storage: Option<u128>
     ) -> anyhow::Result<()> {
         let public_key = validator.public_key.0.serialize();
         let addr = EthAddress::new_secp256k1(&public_key)?;
@@ -62,7 +63,7 @@ impl<DB: Blockstore + Clone> SubnetCaller<DB> {
 
         // We need to send in the name of the address as a sender, not the system account.
         self.manager.call(state, |c| {
-            c.join(public_key.into(), deposit).from(addr).value(deposit)
+            c.join(public_key.into(), deposit, storage.unwrap_or(0)).from(addr).value(deposit)
         })
     }
 
@@ -71,12 +72,13 @@ impl<DB: Blockstore + Clone> SubnetCaller<DB> {
         &self,
         state: &mut FvmExecState<DB>,
         validator: &Validator<Collateral>,
+        storage: Option<u128>
     ) -> TryCallResult<()> {
         let public_key = validator.public_key.0.serialize();
         let addr = EthAddress::new_secp256k1(&public_key)?;
         let deposit = from_fvm::to_eth_tokens(&validator.power.0)?;
         self.manager.try_call(state, |c| {
-            c.join(public_key.into(), deposit).from(addr).value(deposit)
+            c.join(public_key.into(), deposit, storage.unwrap_or(0)).from(addr).value(deposit)
         })
     }
 
