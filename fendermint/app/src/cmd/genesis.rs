@@ -176,6 +176,7 @@ fn add_validator(genesis_file: &PathBuf, args: &GenesisAddValidatorArgs) -> anyh
         let validator = Validator {
             public_key: vk,
             power: Collateral(args.power.clone()),
+            storage_amount: args.storage_amount,
         };
         genesis.validators.push(validator);
         Ok(genesis)
@@ -364,6 +365,7 @@ async fn new_genesis_from_parent(
         genesis.validators.push(Validator {
             public_key: ValidatorKey(pk),
             power: Collateral(v.weight),
+            storage_amount: v.storage_amount.as_u128(),
         })
     }
 

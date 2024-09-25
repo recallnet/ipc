@@ -139,6 +139,7 @@ pub struct GenesisAddValidatorArgs {
     /// The collateral staked by the validator, lending it its voting power.
     #[arg(long, short = 'v', value_parser = parse_full_fil)]
     pub power: TokenAmount,
+    pub storage_amount: u128,
 }
 
 #[derive(Args, Debug)]

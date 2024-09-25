@@ -1,6 +1,7 @@
 // Copyright 2022-2024 Protocol Labs
 // SPDX-License-Identifier: MIT
 
+use ethers::types::U256;
 use fvm_shared::{address::Address, econ::TokenAmount};
 use ipc_actors_abis::subnet_actor_getter_facet;
 
@@ -14,6 +15,7 @@ pub struct Validator {
     pub addr: Address,
     pub metadata: Vec<u8>,
     pub weight: TokenAmount,
+    pub storage_amount: U256,
 }
 
 impl TryFrom<Validator> for subnet_actor_getter_facet::Validator {
@@ -24,6 +26,7 @@ impl TryFrom<Validator> for subnet_actor_getter_facet::Validator {
             addr: payload_to_evm_address(value.addr.payload())?,
             weight: fil_to_eth_amount(&value.weight)?,
             metadata: ethers::core::types::Bytes::from(value.metadata),
+            storage_amount: value.storage_amount.into(),
         })
     }
 }
@@ -49,6 +52,7 @@ pub fn from_contract_validators(
                 addr: ethers_address_to_fil_address(&validator.addr)?,
                 weight: eth_to_fil_amount(&validator.weight)?,
                 metadata: validator.metadata.to_vec(),
+                storage_amount: validator.storage_amount,
             })
         })
         .collect();

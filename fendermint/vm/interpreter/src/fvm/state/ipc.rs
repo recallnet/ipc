@@ -361,6 +361,7 @@ fn membership_to_power_table(
             pt.push(Validator {
                 public_key: ValidatorKey(pk),
                 power: Collateral(c).into_power(power_scale),
+                storage_amount: v.storage_amount.as_u128(),
             })
         }
     }

@@ -57,12 +57,20 @@ pub mod lib_staking {
     pub static LIBSTAKING_ABI: ::ethers::contract::Lazy<::ethers::core::abi::Abi> =
         ::ethers::contract::Lazy::new(__abi);
     #[rustfmt::skip]
+<<<<<<< HEAD
     const __BYTECODE: &[u8] = b"`\x80\x80`@R4`\x17W`:\x90\x81`\x1D\x8290\x81PP\xF3[`\0\x80\xFD\xFE`\0\x80\xFD\xFE\xA2dipfsX\"\x12 4\xFF4\xF6\x91\x85\x1E\x13\xB7`\xDF\xE2{Z|]\xCE\xC9\xB7P\x08S\x10\x7F?\x86\xF3q%\xDAh\xA6dsolcC\0\x08\x1A\x003";
+=======
+    const __BYTECODE: &[u8] = b"`\x80\x80`@R4`\x17W`:\x90\x81`\x1D\x8290\x81PP\xF3[`\0\x80\xFD\xFE`\0\x80\xFD\xFE\xA2dipfsX\"\x12 q\xE5\xBB\x1A\x9A\x17;\xF4\xB6\xFC\x88w\xCF\xE0\x8D\x98\xEB\x92o\xAA\xF2\xF8e\x97\xBC2#&j.\xE9\xD1dsolcC\0\x08\x1A\x003";
+>>>>>>> 6cd89219 (chore: update bindings)
     /// The bytecode of the contract.
     pub static LIBSTAKING_BYTECODE: ::ethers::core::types::Bytes =
         ::ethers::core::types::Bytes::from_static(__BYTECODE);
     #[rustfmt::skip]
+<<<<<<< HEAD
     const __DEPLOYED_BYTECODE: &[u8] = b"`\0\x80\xFD\xFE\xA2dipfsX\"\x12 4\xFF4\xF6\x91\x85\x1E\x13\xB7`\xDF\xE2{Z|]\xCE\xC9\xB7P\x08S\x10\x7F?\x86\xF3q%\xDAh\xA6dsolcC\0\x08\x1A\x003";
+=======
+    const __DEPLOYED_BYTECODE: &[u8] = b"`\0\x80\xFD\xFE\xA2dipfsX\"\x12 q\xE5\xBB\x1A\x9A\x17;\xF4\xB6\xFC\x88w\xCF\xE0\x8D\x98\xEB\x92o\xAA\xF2\xF8e\x97\xBC2#&j.\xE9\xD1dsolcC\0\x08\x1A\x003";
+>>>>>>> 6cd89219 (chore: update bindings)
     /// The deployed bytecode of the contract.
     pub static LIBSTAKING_DEPLOYED_BYTECODE: ::ethers::core::types::Bytes =
         ::ethers::core::types::Bytes::from_static(__DEPLOYED_BYTECODE);

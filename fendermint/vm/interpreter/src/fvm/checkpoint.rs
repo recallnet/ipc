@@ -399,6 +399,7 @@ where
         power_table.push(Validator {
             public_key: ValidatorKey::try_from(v.pub_key)?,
             power: Power(v.power()),
+            storage_amount: 0, // Not relevant for power table generation
         });
     }
 
@@ -434,6 +435,7 @@ fn power_diff(current: PowerTable, next: PowerTable) -> PowerUpdates {
             let delete = Validator {
                 public_key: v.public_key.clone(),
                 power: Power(0),
+                storage_amount: v.storage_amount,
             };
             diff.push(delete);
         }

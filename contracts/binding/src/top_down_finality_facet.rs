@@ -185,6 +185,7 @@ pub mod top_down_finality_facet {
                                             ::ethers::core::abi::ethabi::ParamType::Uint(256usize),
                                             ::ethers::core::abi::ethabi::ParamType::Address,
                                             ::ethers::core::abi::ethabi::ParamType::Bytes,
+                                            ::ethers::core::abi::ethabi::ParamType::Uint(256usize),
                                         ],),
                                     ),
                                 ),
@@ -846,7 +847,7 @@ pub mod top_down_finality_facet {
     )]
     #[ethevent(
         name = "MembershipUpdated",
-        abi = "MembershipUpdated(((uint256,address,bytes)[],uint64))"
+        abi = "MembershipUpdated(((uint256,address,bytes,uint256)[],uint64))"
     )]
     pub struct MembershipUpdatedFilter(pub Membership);
     #[derive(
@@ -1224,7 +1225,7 @@ pub mod top_down_finality_facet {
         Hash,
     )]
     pub struct GetTrackerConfigurationNumbersReturn(pub u64, pub u64);
-    ///`Membership((uint256,address,bytes)[],uint64)`
+    ///`Membership((uint256,address,bytes,uint256)[],uint64)`
     #[derive(
         Clone,
         ::ethers::contract::EthAbiType,
@@ -1285,7 +1286,7 @@ pub mod top_down_finality_facet {
         pub change: StakingChange,
         pub configuration_number: u64,
     }
-    ///`Validator(uint256,address,bytes)`
+    ///`Validator(uint256,address,bytes,uint256)`
     #[derive(
         Clone,
         ::ethers::contract::EthAbiType,
@@ -1300,5 +1301,6 @@ pub mod top_down_finality_facet {
         pub weight: ::ethers::core::types::U256,
         pub addr: ::ethers::core::types::Address,
         pub metadata: ::ethers::core::types::Bytes,
+        pub storage_amount: ::ethers::core::types::U256,
     }
 }
