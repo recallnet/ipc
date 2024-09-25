@@ -211,6 +211,7 @@ impl TryFrom<tendermint::PublicKey> for ValidatorKey {
 pub struct Validator<P> {
     pub public_key: ValidatorKey,
     pub power: P,
+    pub storage_amount: u128,
 }
 
 impl<A> Validator<A> {
@@ -219,6 +220,7 @@ impl<A> Validator<A> {
         Validator {
             public_key: self.public_key,
             power: f(self.power),
+            storage_amount: self.storage_amount,
         }
     }
 }

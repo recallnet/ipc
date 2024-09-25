@@ -365,6 +365,7 @@ pub mod gateway {
                         addr: H160::from(addr.0),
                         weight: collateral,
                         metadata: Bytes::from(pk),
+                        storage_amount: ethers::types::U256::from(v.storage_amount),
                     })
                 })
                 .collect::<Result<Vec<_>, AddressError>>()?;

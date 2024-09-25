@@ -310,7 +310,7 @@ pub mod register_subnet_facet {
     pub struct SubnetDeployedFilter {
         pub subnet_addr: ::ethers::core::types::Address,
     }
-    ///Container type for all input parameters for the `newSubnetActor` function with signature `newSubnetActor((uint256,uint64,uint64,address,uint16,uint8,uint8,int8,uint8,(uint8,address),(uint64,address[])))` and selector `0xfc3b0ad3`
+    ///Container type for all input parameters for the `newSubnetActor` function with signature `newSubnetActor((uint256,uint64,uint64,address,uint16,uint8,uint8,int8,uint8,(uint8,address),(uint64,address[]),uint256))` and selector `0x8d8d9dad`
     #[derive(
         Clone,
         ::ethers::contract::EthCall,
@@ -323,12 +323,12 @@ pub mod register_subnet_facet {
     )]
     #[ethcall(
         name = "newSubnetActor",
-        abi = "newSubnetActor((uint256,uint64,uint64,address,uint16,uint8,uint8,int8,uint8,(uint8,address),(uint64,address[])))"
+        abi = "newSubnetActor((uint256,uint64,uint64,address,uint16,uint8,uint8,int8,uint8,(uint8,address),(uint64,address[]),uint256))"
     )]
     pub struct NewSubnetActorCall {
         pub params: ConstructorParams,
     }
-    ///Container type for all return fields from the `newSubnetActor` function with signature `newSubnetActor((uint256,uint64,uint64,address,uint16,uint8,uint8,int8,uint8,(uint8,address),(uint64,address[])))` and selector `0xfc3b0ad3`
+    ///Container type for all return fields from the `newSubnetActor` function with signature `newSubnetActor((uint256,uint64,uint64,address,uint16,uint8,uint8,int8,uint8,(uint8,address),(uint64,address[]),uint256))` and selector `0x8d8d9dad`
     #[derive(
         Clone,
         ::ethers::contract::EthAbiType,
@@ -342,7 +342,7 @@ pub mod register_subnet_facet {
     pub struct NewSubnetActorReturn {
         pub subnet_addr: ::ethers::core::types::Address,
     }
-    ///`ConstructorParams(uint256,uint64,uint64,address,uint16,uint8,uint8,int8,uint8,(uint8,address),(uint64,address[]))`
+    ///`ConstructorParams(uint256,uint64,uint64,address,uint16,uint8,uint8,int8,uint8,(uint8,address),(uint64,address[]),uint256)`
     #[derive(
         Clone,
         ::ethers::contract::EthAbiType,
@@ -365,7 +365,7 @@ pub mod register_subnet_facet {
         pub permission_mode: u8,
         pub supply_source: SupplySource,
         pub parent_id: SubnetID,
-        pub locking_duration: u64,
+        pub locking_duration: ::ethers::core::types::U256,
     }
     ///`SubnetID(uint64,address[])`
     #[derive(

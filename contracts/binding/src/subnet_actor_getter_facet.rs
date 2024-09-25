@@ -405,6 +405,7 @@ pub mod subnet_actor_getter_facet {
                                                     ::ethers::core::abi::ethabi::ParamType::Uint(256usize),
                                                     ::ethers::core::abi::ethabi::ParamType::Address,
                                                     ::ethers::core::abi::ethabi::ParamType::Bytes,
+                                                    ::ethers::core::abi::ethabi::ParamType::Uint(256usize),
                                                 ],
                                             ),
                                         ),
@@ -600,11 +601,67 @@ pub mod subnet_actor_getter_facet {
                     ],
                 ),
                 (
+                    ::std::borrow::ToOwned::to_owned("getTotalConfirmedStorage"),
+                    ::std::vec![
+                        ::ethers::core::abi::ethabi::Function {
+                            name: ::std::borrow::ToOwned::to_owned(
+                                "getTotalConfirmedStorage",
+                            ),
+                            inputs: ::std::vec![],
+                            outputs: ::std::vec![
+                                ::ethers::core::abi::ethabi::Param {
+                                    name: ::std::string::String::new(),
+                                    kind: ::ethers::core::abi::ethabi::ParamType::Uint(
+                                        256usize,
+                                    ),
+                                    internal_type: ::core::option::Option::Some(
+                                        ::std::borrow::ToOwned::to_owned("uint256"),
+                                    ),
+                                },
+                            ],
+                            constant: ::core::option::Option::None,
+                            state_mutability: ::ethers::core::abi::ethabi::StateMutability::View,
+                        },
+                    ],
+                ),
+                (
                     ::std::borrow::ToOwned::to_owned("getTotalValidatorCollateral"),
                     ::std::vec![
                         ::ethers::core::abi::ethabi::Function {
                             name: ::std::borrow::ToOwned::to_owned(
                                 "getTotalValidatorCollateral",
+                            ),
+                            inputs: ::std::vec![
+                                ::ethers::core::abi::ethabi::Param {
+                                    name: ::std::borrow::ToOwned::to_owned("validator"),
+                                    kind: ::ethers::core::abi::ethabi::ParamType::Address,
+                                    internal_type: ::core::option::Option::Some(
+                                        ::std::borrow::ToOwned::to_owned("address"),
+                                    ),
+                                },
+                            ],
+                            outputs: ::std::vec![
+                                ::ethers::core::abi::ethabi::Param {
+                                    name: ::std::string::String::new(),
+                                    kind: ::ethers::core::abi::ethabi::ParamType::Uint(
+                                        256usize,
+                                    ),
+                                    internal_type: ::core::option::Option::Some(
+                                        ::std::borrow::ToOwned::to_owned("uint256"),
+                                    ),
+                                },
+                            ],
+                            constant: ::core::option::Option::None,
+                            state_mutability: ::ethers::core::abi::ethabi::StateMutability::View,
+                        },
+                    ],
+                ),
+                (
+                    ::std::borrow::ToOwned::to_owned("getTotalValidatorStorage"),
+                    ::std::vec![
+                        ::ethers::core::abi::ethabi::Function {
+                            name: ::std::borrow::ToOwned::to_owned(
+                                "getTotalValidatorStorage",
                             ),
                             inputs: ::std::vec![
                                 ::ethers::core::abi::ethabi::Param {
@@ -676,6 +733,8 @@ pub mod subnet_actor_getter_facet {
                                             ::ethers::core::abi::ethabi::ParamType::Uint(256usize),
                                             ::ethers::core::abi::ethabi::ParamType::Uint(256usize),
                                             ::ethers::core::abi::ethabi::ParamType::Bytes,
+                                            ::ethers::core::abi::ethabi::ParamType::Uint(256usize),
+                                            ::ethers::core::abi::ethabi::ParamType::Uint(256usize),
                                         ],
                                     ),
                                     internal_type: ::core::option::Option::Some(
@@ -937,6 +996,30 @@ pub mod subnet_actor_getter_facet {
                         },
                     ],
                 ),
+                (
+                    ::std::borrow::ToOwned::to_owned("tokensPerStorageRatio"),
+                    ::std::vec![
+                        ::ethers::core::abi::ethabi::Function {
+                            name: ::std::borrow::ToOwned::to_owned(
+                                "tokensPerStorageRatio",
+                            ),
+                            inputs: ::std::vec![],
+                            outputs: ::std::vec![
+                                ::ethers::core::abi::ethabi::Param {
+                                    name: ::std::borrow::ToOwned::to_owned("supply"),
+                                    kind: ::ethers::core::abi::ethabi::ParamType::Uint(
+                                        256usize,
+                                    ),
+                                    internal_type: ::core::option::Option::Some(
+                                        ::std::borrow::ToOwned::to_owned("uint256"),
+                                    ),
+                                },
+                            ],
+                            constant: ::core::option::Option::None,
+                            state_mutability: ::ethers::core::abi::ethabi::StateMutability::View,
+                        },
+                    ],
+                ),
             ]),
             events: ::std::collections::BTreeMap::new(),
             errors: ::std::collections::BTreeMap::new(),
@@ -1125,6 +1208,14 @@ pub mod subnet_actor_getter_facet {
                 .method_hash([51, 42, 90, 201], ())
                 .expect("method not found (this should never happen)")
         }
+        ///Calls the contract's `getTotalConfirmedStorage` (0x95b7215e) function
+        pub fn get_total_confirmed_storage(
+            &self,
+        ) -> ::ethers::contract::builders::ContractCall<M, ::ethers::core::types::U256> {
+            self.0
+                .method_hash([149, 183, 33, 94], ())
+                .expect("method not found (this should never happen)")
+        }
         ///Calls the contract's `getTotalValidatorCollateral` (0x1597bf7e) function
         pub fn get_total_validator_collateral(
             &self,
@@ -1132,6 +1223,15 @@ pub mod subnet_actor_getter_facet {
         ) -> ::ethers::contract::builders::ContractCall<M, ::ethers::core::types::U256> {
             self.0
                 .method_hash([21, 151, 191, 126], validator)
+                .expect("method not found (this should never happen)")
+        }
+        ///Calls the contract's `getTotalValidatorStorage` (0x83873aeb) function
+        pub fn get_total_validator_storage(
+            &self,
+            validator: ::ethers::core::types::Address,
+        ) -> ::ethers::contract::builders::ContractCall<M, ::ethers::core::types::U256> {
+            self.0
+                .method_hash([131, 135, 58, 235], validator)
                 .expect("method not found (this should never happen)")
         }
         ///Calls the contract's `getTotalValidatorsNumber` (0x52d182d1) function
@@ -1227,6 +1327,14 @@ pub mod subnet_actor_getter_facet {
         pub fn supply_source(&self) -> ::ethers::contract::builders::ContractCall<M, SupplySource> {
             self.0
                 .method_hash([128, 135, 93, 247], ())
+                .expect("method not found (this should never happen)")
+        }
+        ///Calls the contract's `tokensPerStorageRatio` (0xb42c905b) function
+        pub fn tokens_per_storage_ratio(
+            &self,
+        ) -> ::ethers::contract::builders::ContractCall<M, ::ethers::core::types::U256> {
+            self.0
+                .method_hash([180, 44, 144, 91], ())
                 .expect("method not found (this should never happen)")
         }
     }
@@ -1481,6 +1589,19 @@ pub mod subnet_actor_getter_facet {
         abi = "getTotalConfirmedCollateral()"
     )]
     pub struct GetTotalConfirmedCollateralCall;
+    ///Container type for all input parameters for the `getTotalConfirmedStorage` function with signature `getTotalConfirmedStorage()` and selector `0x95b7215e`
+    #[derive(
+        Clone,
+        ::ethers::contract::EthCall,
+        ::ethers::contract::EthDisplay,
+        Default,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash,
+    )]
+    #[ethcall(name = "getTotalConfirmedStorage", abi = "getTotalConfirmedStorage()")]
+    pub struct GetTotalConfirmedStorageCall;
     ///Container type for all input parameters for the `getTotalValidatorCollateral` function with signature `getTotalValidatorCollateral(address)` and selector `0x1597bf7e`
     #[derive(
         Clone,
@@ -1497,6 +1618,24 @@ pub mod subnet_actor_getter_facet {
         abi = "getTotalValidatorCollateral(address)"
     )]
     pub struct GetTotalValidatorCollateralCall {
+        pub validator: ::ethers::core::types::Address,
+    }
+    ///Container type for all input parameters for the `getTotalValidatorStorage` function with signature `getTotalValidatorStorage(address)` and selector `0x83873aeb`
+    #[derive(
+        Clone,
+        ::ethers::contract::EthCall,
+        ::ethers::contract::EthDisplay,
+        Default,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash,
+    )]
+    #[ethcall(
+        name = "getTotalValidatorStorage",
+        abi = "getTotalValidatorStorage(address)"
+    )]
+    pub struct GetTotalValidatorStorageCall {
         pub validator: ::ethers::core::types::Address,
     }
     ///Container type for all input parameters for the `getTotalValidatorsNumber` function with signature `getTotalValidatorsNumber()` and selector `0x52d182d1`
@@ -1677,6 +1816,19 @@ pub mod subnet_actor_getter_facet {
     )]
     #[ethcall(name = "supplySource", abi = "supplySource()")]
     pub struct SupplySourceCall;
+    ///Container type for all input parameters for the `tokensPerStorageRatio` function with signature `tokensPerStorageRatio()` and selector `0xb42c905b`
+    #[derive(
+        Clone,
+        ::ethers::contract::EthCall,
+        ::ethers::contract::EthDisplay,
+        Default,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash,
+    )]
+    #[ethcall(name = "tokensPerStorageRatio", abi = "tokensPerStorageRatio()")]
+    pub struct TokensPerStorageRatioCall;
     ///Container type for all of the contract's call
     #[derive(Clone, ::ethers::contract::EthAbiType, Debug, PartialEq, Eq, Hash)]
     pub enum SubnetActorGetterFacetCalls {
@@ -1697,7 +1849,9 @@ pub mod subnet_actor_getter_facet {
         GetPower(GetPowerCall),
         GetTotalCollateral(GetTotalCollateralCall),
         GetTotalConfirmedCollateral(GetTotalConfirmedCollateralCall),
+        GetTotalConfirmedStorage(GetTotalConfirmedStorageCall),
         GetTotalValidatorCollateral(GetTotalValidatorCollateralCall),
+        GetTotalValidatorStorage(GetTotalValidatorStorageCall),
         GetTotalValidatorsNumber(GetTotalValidatorsNumberCall),
         GetValidator(GetValidatorCall),
         IpcGatewayAddr(IpcGatewayAddrCall),
@@ -1711,6 +1865,7 @@ pub mod subnet_actor_getter_facet {
         PermissionMode(PermissionModeCall),
         PowerScale(PowerScaleCall),
         SupplySource(SupplySourceCall),
+        TokensPerStorageRatio(TokensPerStorageRatioCall),
     }
     impl ::ethers::core::abi::AbiDecode for SubnetActorGetterFacetCalls {
         fn decode(
@@ -1795,9 +1950,19 @@ pub mod subnet_actor_getter_facet {
                 return Ok(Self::GetTotalConfirmedCollateral(decoded));
             }
             if let Ok(decoded) =
+                <GetTotalConfirmedStorageCall as ::ethers::core::abi::AbiDecode>::decode(data)
+            {
+                return Ok(Self::GetTotalConfirmedStorage(decoded));
+            }
+            if let Ok(decoded) =
                 <GetTotalValidatorCollateralCall as ::ethers::core::abi::AbiDecode>::decode(data)
             {
                 return Ok(Self::GetTotalValidatorCollateral(decoded));
+            }
+            if let Ok(decoded) =
+                <GetTotalValidatorStorageCall as ::ethers::core::abi::AbiDecode>::decode(data)
+            {
+                return Ok(Self::GetTotalValidatorStorage(decoded));
             }
             if let Ok(decoded) =
                 <GetTotalValidatorsNumberCall as ::ethers::core::abi::AbiDecode>::decode(data)
@@ -1857,6 +2022,11 @@ pub mod subnet_actor_getter_facet {
             {
                 return Ok(Self::SupplySource(decoded));
             }
+            if let Ok(decoded) =
+                <TokensPerStorageRatioCall as ::ethers::core::abi::AbiDecode>::decode(data)
+            {
+                return Ok(Self::TokensPerStorageRatio(decoded));
+            }
             Err(::ethers::core::abi::Error::InvalidData.into())
         }
     }
@@ -1896,7 +2066,13 @@ pub mod subnet_actor_getter_facet {
                 Self::GetTotalConfirmedCollateral(element) => {
                     ::ethers::core::abi::AbiEncode::encode(element)
                 }
+                Self::GetTotalConfirmedStorage(element) => {
+                    ::ethers::core::abi::AbiEncode::encode(element)
+                }
                 Self::GetTotalValidatorCollateral(element) => {
+                    ::ethers::core::abi::AbiEncode::encode(element)
+                }
+                Self::GetTotalValidatorStorage(element) => {
                     ::ethers::core::abi::AbiEncode::encode(element)
                 }
                 Self::GetTotalValidatorsNumber(element) => {
@@ -1922,6 +2098,9 @@ pub mod subnet_actor_getter_facet {
                 Self::PermissionMode(element) => ::ethers::core::abi::AbiEncode::encode(element),
                 Self::PowerScale(element) => ::ethers::core::abi::AbiEncode::encode(element),
                 Self::SupplySource(element) => ::ethers::core::abi::AbiEncode::encode(element),
+                Self::TokensPerStorageRatio(element) => {
+                    ::ethers::core::abi::AbiEncode::encode(element)
+                }
             }
         }
     }
@@ -1947,7 +2126,9 @@ pub mod subnet_actor_getter_facet {
                 Self::GetPower(element) => ::core::fmt::Display::fmt(element, f),
                 Self::GetTotalCollateral(element) => ::core::fmt::Display::fmt(element, f),
                 Self::GetTotalConfirmedCollateral(element) => ::core::fmt::Display::fmt(element, f),
+                Self::GetTotalConfirmedStorage(element) => ::core::fmt::Display::fmt(element, f),
                 Self::GetTotalValidatorCollateral(element) => ::core::fmt::Display::fmt(element, f),
+                Self::GetTotalValidatorStorage(element) => ::core::fmt::Display::fmt(element, f),
                 Self::GetTotalValidatorsNumber(element) => ::core::fmt::Display::fmt(element, f),
                 Self::GetValidator(element) => ::core::fmt::Display::fmt(element, f),
                 Self::IpcGatewayAddr(element) => ::core::fmt::Display::fmt(element, f),
@@ -1963,6 +2144,7 @@ pub mod subnet_actor_getter_facet {
                 Self::PermissionMode(element) => ::core::fmt::Display::fmt(element, f),
                 Self::PowerScale(element) => ::core::fmt::Display::fmt(element, f),
                 Self::SupplySource(element) => ::core::fmt::Display::fmt(element, f),
+                Self::TokensPerStorageRatio(element) => ::core::fmt::Display::fmt(element, f),
             }
         }
     }
@@ -2051,9 +2233,19 @@ pub mod subnet_actor_getter_facet {
             Self::GetTotalConfirmedCollateral(value)
         }
     }
+    impl ::core::convert::From<GetTotalConfirmedStorageCall> for SubnetActorGetterFacetCalls {
+        fn from(value: GetTotalConfirmedStorageCall) -> Self {
+            Self::GetTotalConfirmedStorage(value)
+        }
+    }
     impl ::core::convert::From<GetTotalValidatorCollateralCall> for SubnetActorGetterFacetCalls {
         fn from(value: GetTotalValidatorCollateralCall) -> Self {
             Self::GetTotalValidatorCollateral(value)
+        }
+    }
+    impl ::core::convert::From<GetTotalValidatorStorageCall> for SubnetActorGetterFacetCalls {
+        fn from(value: GetTotalValidatorStorageCall) -> Self {
+            Self::GetTotalValidatorStorage(value)
         }
     }
     impl ::core::convert::From<GetTotalValidatorsNumberCall> for SubnetActorGetterFacetCalls {
@@ -2119,6 +2311,11 @@ pub mod subnet_actor_getter_facet {
     impl ::core::convert::From<SupplySourceCall> for SubnetActorGetterFacetCalls {
         fn from(value: SupplySourceCall) -> Self {
             Self::SupplySource(value)
+        }
+    }
+    impl ::core::convert::From<TokensPerStorageRatioCall> for SubnetActorGetterFacetCalls {
+        fn from(value: TokensPerStorageRatioCall) -> Self {
+            Self::TokensPerStorageRatio(value)
         }
     }
     ///Container type for all return fields from the `activeValidatorsLimit` function with signature `activeValidatorsLimit()` and selector `0x3354c3e1`
@@ -2331,6 +2528,18 @@ pub mod subnet_actor_getter_facet {
         Hash,
     )]
     pub struct GetTotalConfirmedCollateralReturn(pub ::ethers::core::types::U256);
+    ///Container type for all return fields from the `getTotalConfirmedStorage` function with signature `getTotalConfirmedStorage()` and selector `0x95b7215e`
+    #[derive(
+        Clone,
+        ::ethers::contract::EthAbiType,
+        ::ethers::contract::EthAbiCodec,
+        Default,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash,
+    )]
+    pub struct GetTotalConfirmedStorageReturn(pub ::ethers::core::types::U256);
     ///Container type for all return fields from the `getTotalValidatorCollateral` function with signature `getTotalValidatorCollateral(address)` and selector `0x1597bf7e`
     #[derive(
         Clone,
@@ -2343,6 +2552,18 @@ pub mod subnet_actor_getter_facet {
         Hash,
     )]
     pub struct GetTotalValidatorCollateralReturn(pub ::ethers::core::types::U256);
+    ///Container type for all return fields from the `getTotalValidatorStorage` function with signature `getTotalValidatorStorage(address)` and selector `0x83873aeb`
+    #[derive(
+        Clone,
+        ::ethers::contract::EthAbiType,
+        ::ethers::contract::EthAbiCodec,
+        Default,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash,
+    )]
+    pub struct GetTotalValidatorStorageReturn(pub ::ethers::core::types::U256);
     ///Container type for all return fields from the `getTotalValidatorsNumber` function with signature `getTotalValidatorsNumber()` and selector `0x52d182d1`
     #[derive(
         Clone,
@@ -2503,6 +2724,20 @@ pub mod subnet_actor_getter_facet {
     pub struct SupplySourceReturn {
         pub supply: SupplySource,
     }
+    ///Container type for all return fields from the `tokensPerStorageRatio` function with signature `tokensPerStorageRatio()` and selector `0xb42c905b`
+    #[derive(
+        Clone,
+        ::ethers::contract::EthAbiType,
+        ::ethers::contract::EthAbiCodec,
+        Default,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash,
+    )]
+    pub struct TokensPerStorageRatioReturn {
+        pub supply: ::ethers::core::types::U256,
+    }
     ///`BottomUpCheckpoint((uint64,address[]),uint256,bytes32,uint64,(uint8,((uint64,address[]),(uint8,bytes)),((uint64,address[]),(uint8,bytes)),uint64,uint256,bytes)[])`
     #[derive(
         Clone,
@@ -2600,7 +2835,7 @@ pub mod subnet_actor_getter_facet {
         pub kind: u8,
         pub token_address: ::ethers::core::types::Address,
     }
-    ///`Validator(uint256,address,bytes)`
+    ///`Validator(uint256,address,bytes,uint256)`
     #[derive(
         Clone,
         ::ethers::contract::EthAbiType,
@@ -2615,8 +2850,9 @@ pub mod subnet_actor_getter_facet {
         pub weight: ::ethers::core::types::U256,
         pub addr: ::ethers::core::types::Address,
         pub metadata: ::ethers::core::types::Bytes,
+        pub storage_amount: ::ethers::core::types::U256,
     }
-    ///`ValidatorInfo(uint256,uint256,uint256,bytes)`
+    ///`ValidatorInfo(uint256,uint256,uint256,bytes,uint256,uint256)`
     #[derive(
         Clone,
         ::ethers::contract::EthAbiType,
@@ -2632,5 +2868,7 @@ pub mod subnet_actor_getter_facet {
         pub confirmed_collateral: ::ethers::core::types::U256,
         pub total_collateral: ::ethers::core::types::U256,
         pub metadata: ::ethers::core::types::Bytes,
+        pub total_storage: ::ethers::core::types::U256,
+        pub confirmed_storage: ::ethers::core::types::U256,
     }
 }

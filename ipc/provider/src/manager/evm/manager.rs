@@ -279,7 +279,7 @@ impl SubnetManager for EthSubnetManager {
             power_scale: 3,
             permission_mode: params.permission_mode as u8,
             supply_source: register_subnet_facet::SupplySource::try_from(params.supply_source)?,
-            locking_duration: 10,
+            locking_duration: ethers::types::U256::from(10),
         };
 
         tracing::info!("creating subnet on evm with params: {params:?}");
@@ -348,7 +348,7 @@ impl SubnetManager for EthSubnetManager {
         let contract =
             subnet_actor_manager_facet::SubnetActorManagerFacet::new(address, signer.clone());
 
-        let mut txn = contract.join(ethers::types::Bytes::from(pub_key), storage.unwrap_or(0));
+        let mut txn = contract.join(ethers::types::Bytes::from(pub_key), ethers::types::U256::from(storage.unwrap_or(0)));
         txn.tx.set_value(collateral);
         let txn = call_with_premium_estimation(signer, txn).await?;
 
