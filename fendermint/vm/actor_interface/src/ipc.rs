@@ -416,6 +416,7 @@ pub mod gateway {
                     addr: H160::zero(),
                     weight: U256::zero(),
                     metadata: Bytes::new(),
+                    storage_amount: U256::zero(),
                 }],
                 active_validators_limit: 100,
             };

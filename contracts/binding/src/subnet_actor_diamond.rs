@@ -1553,7 +1553,7 @@ pub mod subnet_actor_diamond {
         pub permission_mode: u8,
         pub supply_source: SupplySource,
         pub parent_id: SubnetID,
-        pub locking_duration: ::ethers::core::types::U256,
+        pub locking_duration: u64,
     }
     ///`SubnetID(uint64,address[])`
     #[derive(

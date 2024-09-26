@@ -67,7 +67,7 @@ where
     let to_debug = |w: &T| format!("{:?}", w);
 
     let repr = read_or_create(prefix, name, ext, &data0, to_string);
-
+    println!("This will print during the test");
     let data1: T = from_string(&repr)
         .unwrap_or_else(|e| panic!("Cannot deserialize {prefix}/{name}.{ext}: {e}"));
 
@@ -106,7 +106,7 @@ pub fn test_cbor_txt<T: Serialize + DeserializeOwned + Debug>(
             hex::encode(bz)
         },
         |s| {
-            let bz = hex::decode(s).map_err(|e| format!("faled to decode hex: {e}"))?;
+            let bz = hex::decode(s).map_err(|e| format!("failed to decode hex: {e}"))?;
             fvm_ipld_encoding::from_slice(&bz).map_err(|e| format!("failed to decode CBOR: {e}"))
         },
     )
