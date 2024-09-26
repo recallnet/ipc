@@ -3322,6 +3322,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "fendermint_actor_rebate_pool"
+version = "0.1.0"
+dependencies = [
+ "fil_actors_runtime",
+ "fvm_ipld_blockstore",
+ "fvm_ipld_encoding",
+ "fvm_shared",
+ "num-derive 0.3.3",
+ "num-traits",
+ "serde",
+ "serde_tuple",
+]
+
+[[package]]
 name = "fendermint_actors"
 version = "0.1.0"
 dependencies = [
@@ -3332,6 +3346,7 @@ dependencies = [
  "fendermint_actor_chainmetadata",
  "fendermint_actor_eam",
  "fendermint_actor_objectstore",
+ "fendermint_actor_rebate_pool",
  "fil_actor_bundler",
  "fil_actors_runtime",
  "fvm_ipld_blockstore",

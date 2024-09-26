@@ -19,6 +19,7 @@ fendermint_actor_eam = { path = "eam", features = ["fil-actor"] }
 fendermint_actor_objectstore = { path = "objectstore", features = [
     "fil-actor",
 ] }
+fendermint_actor_rebate_pool = { path = "rebate_pool", features = ["fil-actor"] }
 
 [dependencies]
 cid = { workspace = true }
