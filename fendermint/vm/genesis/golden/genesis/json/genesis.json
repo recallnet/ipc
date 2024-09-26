@@ -1,111 +1,91 @@
 {
-  "chain_name": "",
-  "timestamp": 4259887934593795099,
+  "chain_name": "\no򱴷I",
+  "timestamp": 8836252881002002716,
   "network_version": 21,
-  "base_fee": "126302546353362806422098972872540174419",
-  "power_scale": 0,
+  "base_fee": "233190426837385100230478478414916764536",
+  "power_scale": 3,
   "validators": [
     {
-      "public_key": "BFlVdIdDRr1fGbV/uPmEvrqqDGkRD7hG3jMborQ0d3XDY6BNSQGsAWtxM5QJiwMvFLuD8kQFf+OEPrqqhkvX4oo=",
-      "power": "79156561391430657060593590037117493557"
+      "public_key": "BBuxJQSai1MKz4AFBfwnTffhcY/dIgBwM10vbDgNxDoRLOIEq8fvtoTm/U4b5HHKfoLqPl54xvuwiRpMAzvq49E=",
+      "power": "34392901006533547",
+      "storage_amount": 1
     },
     {
-      "public_key": "BA9hWuSz4hfWJWcrLzFS50M3/kE48nqXwNH0f32oriOcJ14VHl0gSnLXSaEFiJhAW+fR1BQWNR1WOHo2Xq63HEw=",
-      "power": "304333830919718568337854092328760652306"
+      "public_key": "BJ8mD17adAP7Nx0aQ7gowgVc0L9Yiuf5uF9m+jg0WfcmrH2GegNdQUVXgjdaSLHkMRB6dg24WghjBcPS+rRvKHc=",
+      "power": "340282366920938463447494336815055581747",
+      "storage_amount": 1
     },
     {
-      "public_key": "BCxH6u3WavnZnm6zNkd1My9Be7ki/bhYQ0PUrDPIKsALfoQL+0PPg6WpTY5+UxTlOumGTpf0Z9gTlweYFZ68yyo=",
-      "power": "254259597483563958682987282456695191059"
+      "public_key": "BAepAZQOncJqNl0uFzj9s3GBHhQEbGiDc86j4RoojDWBZXK5cRVVP7pnMDIAc+dLRMbWqtlJJLLBO6kAS0VRvuY=",
+      "power": "120419661876195549651168911980395929822",
+      "storage_amount": 1
     },
     {
-      "public_key": "BOFMOUiDGoHlkZ5FGkOVMnxPquD2BQNrp3sTOtxzFZncsrY2a3x1bEgmyR7XFQVaog5678+axmZTQFb53lcYV3g=",
-      "power": "6926972537384874089"
+      "public_key": "BKKl63oTmYUi0663cMGxprweY75rKw93hP/v7NMQXypU/d6s7E9AAJ8FZ2PMiyVI7Xvde+5kLkKPlYqHMoscgos=",
+      "power": "105101577579019307366479084343437480710",
+      "storage_amount": 1
+    },
+    {
+      "public_key": "BOUSLLzU2qYbdHxkNpADBXmvvERT99o3YRTyAVqCXBE2BtZrV+CPWmY5JszW2OgTfMjYM8LwEG99+wI1927S4TU=",
+      "power": "0",
+      "storage_amount": 1
+    },
+    {
+      "public_key": "BILyu6fw7izlp7S+B7m73Py1D9izCHUJpv2ycY81obJXVfBiTqrgjZjNbrzn+lbfw8Bf8dDk3jqKBiqw6tQT9K4=",
+      "power": "285134683920957010821112253515779833322",
+      "storage_amount": 1
+    },
+    {
+      "public_key": "BOEil4tKze0Anf/bK77hH7hA62iYb4sJyPoOROaH6LtmlImP5myHgWhKTDTBKv4gXxgphT5h1cTZAUMXAaNnYrs=",
+      "power": "9714213735534594003",
+      "storage_amount": 1
+    },
+    {
+      "public_key": "BFj69W63W6A8fez9PpcXGS0C9R2pny8BRHcpdUPACSEj1HPmYENg2fXxPZpIwAqdP5RofznFPv94XZa3+/ALgHI=",
+      "power": "48075123553357273461397118391333255580",
+      "storage_amount": 1
+    },
+    {
+      "public_key": "BNGlfYI9tLKVgRBu0p0tA0xPsA39mql78/tA9xvPqVHQXAQPmb08EPpvbLfXbEZ2rfOyLEKfpYIrEAxhJGZ0OfM=",
+      "power": "197107823632099606625957937517978527220",
+      "storage_amount": 1
+    },
+    {
+      "public_key": "BHcHF1BOgvi8Rn9zNu9HfMNYjUCadawQFrJY7Bd8Dicw91A2K+5NpNxF2Kw7zhp2440n5xlJIrQQh5pJRN4FOw0=",
+      "power": "275593722504010760634087118950134562331",
+      "storage_amount": 1
     }
   ],
   "accounts": [
     {
       "meta": {
-        "Multisig": {
-          "signers": [
-            "f1x3uagvs2l2soyi52tfkahwanzgf4zdsnbudiz7a",
-            "f1ihcyobm3z3sed62kprjjnbksdj3vtdqxx34dvnq"
-          ],
-          "threshold": 1,
-          "vesting_duration": 10847738401026284642,
-          "vesting_start": 16249952637321243452
+        "Account": {
+          "owner": "f1soaoxyic47lalv46xatojyfjevylyrkw6p2u7fy"
         }
       },
       "balance": "0"
     },
     {
       "meta": {
-        "Multisig": {
-          "signers": [
-            "f1p56olsmbpvidymzllt364774urthepupqnkxksa",
-            "f1vo6xelypf23lstio3qckm2u3guz4ewcxgu3kvcy",
-            "f1rckarhia3mhjzpycbx6cn2e45pejw37jmxd4gbq",
-            "f1bqodg6qv2dt4mwxtw64ls2m7q3hsmsb6js6chda",
-            "f135gi72pyly6rhu5ehstaxo3q2uyqtph7axiuwmi"
-          ],
-          "threshold": 4,
-          "vesting_duration": 14996602053206986297,
-          "vesting_start": 7249787644709213761
+        "Account": {
+          "owner": "f1eklc2n5fjjbnqr2q33t2jksgoyd6pvvmnvxau2a"
         }
       },
-      "balance": "255177224844217121496597212630654524501"
+      "balance": "20911471362243573508878681372484936878"
     },
     {
       "meta": {
-        "Multisig": {
-          "signers": [
-            "f1eau6rlzqrvknyvbqpldgl6nqlulbdhihjihplti",
-            "f1l4ikzqbhozblfdofeoe3vlj7ol4zzjhqf5aylay"
-          ],
-          "threshold": 1,
-          "vesting_duration": 16224824622494162686,
-          "vesting_start": 14320737881366489854
+        "Account": {
+          "owner": "f410f47dfwajzoexiieni3gohfbvnplzl4tdvdk6utey"
         }
       },
-      "balance": "32497310764949248412695854841626457894"
-    },
-    {
-      "meta": {
-        "Multisig": {
-          "signers": [
-            "f1pednnthmgzt7n54eejninyzljvehvfnmdelb6vy",
-            "f1qomk3qrt7xujvfe2laohyxw3h5ytjrajy3aqc7i",
-            "f1bj337vjg2dkg6rmlrgbmnei7c44iuzcdxowllbq",
-            "f17nnla4noypfzi56ail7p6wpr5ijidb2miguplji",
-            "f1wtakvvbs5g6awdp22fbcye2eyx434wydmtdcyrq"
-          ],
-          "threshold": 3,
-          "vesting_duration": 14042117237837263251,
-          "vesting_start": 12327047936653063840
-        }
-      },
-      "balance": "5128310443127104283593479262772632474"
-    },
-    {
-      "meta": {
-        "Multisig": {
-          "signers": [
-            "f1xp7oqykhjtwofgk35mqfpqlgsg4bi27ynn72k4y",
-            "f1onie2rtrzkin46kqmnxheughpupyj2zhxktnyta",
-            "f1rgziap7immlmrgub64wqaopznbdod45nqeriiga",
-            "f1txz5mifhffvcc2hsfkvdhebo5ql26hg3fealfgi"
-          ],
-          "threshold": 1,
-          "vesting_duration": 8330672603659047114,
-          "vesting_start": 1
-        }
-      },
-      "balance": "246413732239868851267408487519274492428"
+      "balance": "0"
     }
   ],
   "eam_permission_mode": {
     "mode": "unrestricted"
   },
-  "credit_debit_interval": 1591466125801812436,
-  "blob_storage_capacity": 3542900559559507625,
-  "blob_debit_rate": 5728263280758894318
+  "credit_debit_interval": 2152946249778627452,
+  "blob_storage_capacity": 9418558063388157743,
+  "blob_debit_rate": 6879761206105050937
 }

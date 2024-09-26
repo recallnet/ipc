@@ -1546,6 +1546,7 @@ pub mod subnet_actor_diamond {
         pub parent_id: SubnetID,
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
         pub validator_gater: ::ethers::core::types::Address,
 =======
         pub locking_duration: u64,
@@ -1553,6 +1554,9 @@ pub mod subnet_actor_diamond {
 =======
         pub locking_duration: ::ethers::core::types::U256,
 >>>>>>> 6cd89219 (chore: update bindings)
+=======
+        pub locking_duration: u64,
+>>>>>>> 0f2faa29 (refactor: add storage_amount to validators structs)
     }
     ///`SubnetID(uint64,address[])`
     #[derive(

@@ -278,15 +278,10 @@ impl SubnetManager for EthSubnetManager {
             active_validators_limit: params.active_validators_limit,
             power_scale: 3,
             permission_mode: params.permission_mode as u8,
-<<<<<<< HEAD
             supply_source: register_subnet_facet::Asset::try_from(params.supply_source)?,
             collateral_source: register_subnet_facet::Asset::try_from(params.collateral_source)?,
             validator_gater: payload_to_evm_address(params.validator_gater.payload())?,
             locking_duration: 10,
-=======
-            supply_source: register_subnet_facet::SupplySource::try_from(params.supply_source)?,
-            locking_duration: ethers::types::U256::from(10),
->>>>>>> 6cd89219 (chore: update bindings)
         };
 
         tracing::info!("creating subnet on evm with params: {params:?}");
@@ -355,14 +350,9 @@ impl SubnetManager for EthSubnetManager {
         let contract =
             subnet_actor_manager_facet::SubnetActorManagerFacet::new(address, signer.clone());
 
-<<<<<<< HEAD
-        let mut txn = contract.join(ethers::types::Bytes::from(pub_key), U256::from(collateral), storage.unwrap_or(0));
+        let mut txn = contract.join(ethers::types::Bytes::from(pub_key), U256::from(collateral), ethers::types::U256::from(storage.unwrap_or(0)));
         txn = self.handle_txn_token(&subnet, txn, collateral, 0).await?;
 
-=======
-        let mut txn = contract.join(ethers::types::Bytes::from(pub_key), ethers::types::U256::from(storage.unwrap_or(0)));
-        txn.tx.set_value(collateral);
->>>>>>> 6cd89219 (chore: update bindings)
         let txn = call_with_premium_estimation(signer, txn).await?;
 
         // Use the pending state to get the nonce because there could have been a pre-fund. Best would be to use this for everything.

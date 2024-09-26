@@ -312,6 +312,7 @@ impl StateMachine for StakingMachine {
                 let validator = Validator {
                     public_key: ValidatorKey(*public_key),
                     power: Collateral(value.clone()),
+                    storage_amount: storage.unwrap_or(0),
                 };
                 system
                     .subnet

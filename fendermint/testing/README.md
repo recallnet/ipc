@@ -9,7 +9,7 @@ The `fendermint_testing` crate (ie. the current directory) provides some reusabl
 
 # End to end tests
 
-Beyond this, for no other reason than code organisation, the directory has sub-projects, which contain actual tests.
+Beyond this, for no other reason than code organization, the directory has sub-projects, which contain actual tests.
 
 For example the [smoke-test](./smoke-test/) is a a crate that uses `cargo make` to start a local stack with Tendermint and Fendermint running in Docker, and run some integration tests, which can be found in the [Makefile.toml](./smoke-test/Makefile.toml).
 
