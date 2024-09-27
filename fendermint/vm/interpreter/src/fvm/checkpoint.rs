@@ -358,7 +358,7 @@ where
         power_table.push(Validator {
             public_key: ValidatorKey::try_from(v.pub_key)?,
             power: Power(v.power()),
-            storage_amount: 0, // Not relevant for power table generation
+            storage_amount: 1, // Not relevant for power table generation
         });
     }
 

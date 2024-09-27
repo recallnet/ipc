@@ -41,7 +41,7 @@ library LibStorageStaking {
 
         s.changeSet.commitStorageRequest(validator, totalStorage);
         s.validatorSet.recordStorageDeposit(validator, totalStorage);
-        require(validator != address(0) && totalStorage > 0,"Function not implemented yet");
+        require(validator != address(0) && totalStorage > 0,"Not enough storage");
     }
 
     /// @notice Confirm the deposit directly without going through the confirmation process

@@ -566,7 +566,7 @@ impl arbitrary::Arbitrary<'_> for StakingState {
             // All the power in the parent subnet belongs to this single validator.
             // We are only interested in the staking of the *child subnet*.
             power: Collateral(TokenAmount::from_atto(1)),
-            storage_amount: 0,
+            storage_amount: 1,
         }];
 
         // Select some of the accounts to be the initial *child subnet* validators.
@@ -582,7 +582,7 @@ impl arbitrary::Arbitrary<'_> for StakingState {
                 Ok(Validator {
                     public_key: ValidatorKey(a.public_key),
                     power: Collateral(initial_stake),
-                    storage_amount: 0,
+                    storage_amount: 1,
                 })
             })
             .collect::<Result<Vec<_>, _>>()?;
