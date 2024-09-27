@@ -442,7 +442,8 @@ impl StakingState {
 
             StakingUpdate {
                 configuration_number: {
-                    // Add an extra because joining in the model would cause a metadata update as well.
+                    // Add an extra because joining in the model would cause a metadata and storage update as well.
+                    this.next_configuration_number();
                     this.next_configuration_number();
                     this.next_configuration_number()
                 },
@@ -488,7 +489,10 @@ impl StakingState {
         }
         let value = self.total_deposit(&addr);
         self.update(|this| StakingUpdate {
-            configuration_number: this.next_configuration_number(),
+            configuration_number: {
+                this.next_configuration_number();
+                this.next_configuration_number()// one extra for storage withdraw
+            },
             addr,
             op: StakingOp::Withdraw(value),
         });
