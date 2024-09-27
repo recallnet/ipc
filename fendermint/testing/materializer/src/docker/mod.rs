@@ -675,7 +675,7 @@ impl Materializer<DockerMaterials> for DockerMaterializer {
                     .map(|(v, c)| Validator {
                         public_key: ValidatorKey(*v.public_key()),
                         power: c,
-                        storage_amount: 0,
+                        storage_amount: 1,
                     })
                     .collect(),
                 accounts: balances

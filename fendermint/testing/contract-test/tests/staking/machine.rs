@@ -142,7 +142,7 @@ impl StateMachine for StakingMachine {
             eprintln!("\n> JOINING SUBNET: addr={_addr} deposit={}", v.power.0);
 
             subnet
-                .join(&mut exec_state, v, None)
+                .join(&mut exec_state, v)
                 .expect("failed to join subnet");
         }
 
@@ -232,7 +232,7 @@ impl StateMachine for StakingMachine {
                 // Pick any account, doesn't have to be new; the system should handle repeated joins.
                 let a = choose_account(u, state)?;
                 let b = choose_amount(u, &a.current_balance)?;
-                StakingCommand::Join(a.addr, b, a.public_key, None)
+                StakingCommand::Join(a.addr, b, a.public_key, Some(1))
             }
             &"leave" => {
                 // Pick any account, doesn't have to be bonded; the system should ignore non-validators and not pay out twice.
@@ -312,11 +312,11 @@ impl StateMachine for StakingMachine {
                 let validator = Validator {
                     public_key: ValidatorKey(*public_key),
                     power: Collateral(value.clone()),
-                    storage_amount: storage.unwrap_or(0),
+                    storage_amount: storage.unwrap_or(1),
                 };
                 system
                     .subnet
-                    .try_join(&mut exec_state, &validator, None)
+                    .try_join(&mut exec_state, &validator)
                     .expect("failed to call: join")
             }
             StakingCommand::Stake(addr, value) => {

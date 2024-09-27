@@ -36,18 +36,9 @@ contract SubnetActorDiamond {
         Asset supplySource;
         Asset collateralSource;
         SubnetID parentId;
-<<<<<<< HEAD:contracts/contracts/SubnetActorDiamond.sol
-<<<<<<< HEAD:contracts/contracts/SubnetActorDiamond.sol
-<<<<<<< HEAD:contracts/contracts/SubnetActorDiamond.sol
         address validatorGater;
-=======
         uint256 tokenPerStorage;
->>>>>>> c16c9850 (chore: update tests):contracts/src/SubnetActorDiamond.sol
-=======
->>>>>>> 691df51e (test: delete unused variable):contracts/src/SubnetActorDiamond.sol
-=======
         uint256 lockingDuration;
->>>>>>> fa1290da (wip):contracts/src/SubnetActorDiamond.sol
     }
 
     constructor(IDiamond.FacetCut[] memory _diamondCut, ConstructorParams memory params, address owner) {

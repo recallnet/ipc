@@ -7,7 +7,7 @@ use arbitrary::Unstructured;
 pub trait StateMachine {
     /// System Under Test.
     type System;
-    /// The idealised reference state we are testing aginst.
+    /// The idealised reference state we are testing against.
     type State: Clone;
     /// The random commands we can apply on the state in each step.
     type Command;
@@ -72,6 +72,7 @@ pub fn run<T: StateMachine>(
         let res = t.run_command(&mut system, &cmd);
         t.check_result(&cmd, &state, res);
         state = t.next_state(&cmd, state);
+        eprintln!("\n> CMD: RUNY state={addr} value={value}");
         if !t.check_system(&cmd, &state, &system) {
             break;
         }
