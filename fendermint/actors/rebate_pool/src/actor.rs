@@ -1,9 +1,16 @@
-use fil_actors_runtime::{actor_dispatch, actor_error, FIRST_EXPORTED_METHOD_NUMBER, runtime::{ActorCode, Runtime}, ActorError, SYSTEM_ACTOR_ADDR};
-use fvm_shared::MethodNum;
-use fvm_ipld_encoding::ipld_block::IpldBlock;
+// Copyright 2022-2024 Protocol Labs
+// SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::{ConstructorParams, Method, REBATE_POOL_ACTOR_NAME};
+use fil_actors_runtime::{
+    actor_dispatch, actor_error,
+    runtime::{ActorCode, Runtime},
+    ActorError, FIRST_EXPORTED_METHOD_NUMBER, SYSTEM_ACTOR_ADDR,
+};
+use fvm_ipld_encoding::ipld_block::IpldBlock;
+use fvm_shared::MethodNum;
+
 use crate::state::State;
+use crate::{ConstructorParams, Method, REBATE_POOL_ACTOR_NAME};
 
 #[cfg(feature = "fil-actor")]
 fil_actors_runtime::wasm_trampoline!(RebatePoolActor);

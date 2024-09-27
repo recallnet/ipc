@@ -1,5 +1,5 @@
 // Copyright 2022-2024 Protocol Labs
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Apache-2.0, MIT
 
 //! Persistent file key store
 

@@ -58,6 +58,6 @@ pub mod ipc;
 pub mod multisig;
 pub mod objectstore;
 pub mod placeholder;
+pub mod rebate_pool;
 pub mod reward;
 pub mod system;
-pub mod rebate_pool;
