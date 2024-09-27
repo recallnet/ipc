@@ -16,7 +16,7 @@ use fendermint_vm_actor_interface::diamond::{EthContract, EthContractMap};
 use fendermint_vm_actor_interface::eam::EthAddress;
 use fendermint_vm_actor_interface::ipc::IPC_CONTRACTS;
 use fendermint_vm_actor_interface::{
-    account, adm, blobs, burntfunds, chainmetadata, cron, eam, init, ipc, reward, system, EMPTY_ARR,
+    account, adm, blobs, burntfunds, chainmetadata, cron, eam, init, ipc, reward, system, EMPTY_ARR, rebate_pool,
 };
 use fendermint_vm_core::{chainid, Timestamp};
 use fendermint_vm_genesis::{ActorMeta, Genesis, Power, PowerScale, Validator};
@@ -282,6 +282,15 @@ where
                 None,
             )
             .context("failed to create chainmetadata actor")?;
+
+        let rebate_pool_state = fendermint_actor_rebate_pool::State::new((1,1));
+        state.create_custom_actor(
+            fendermint_actor_rebate_pool::REBATE_POOL_ACTOR_NAME,
+            rebate_pool::REBATE_POOL_ACTOR_ID,
+            &rebate_pool_state,
+            TokenAmount::zero(),
+            None,
+        ).context("failed to create rebate pool actor")?;
 
         // Initialize the blobs actor.
         let blobs_state = fendermint_actor_blobs::State::new(

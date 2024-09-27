@@ -1,5 +1,5 @@
 mod actor;
 mod state;
-mod shared;
 
-pub use shared::*;
+pub use fendermint_actor_rebate_pool_shared::*;
+pub use state::*;

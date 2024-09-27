@@ -1,10 +1,13 @@
 use fvm_ipld_encoding::tuple::*;
 use num_derive::FromPrimitive;
-use fvm_shared::METHOD_CONSTRUCTOR;
+use fvm_shared::{ActorID, METHOD_CONSTRUCTOR};
+use fvm_shared::address::Address;
 
 pub const REBATE_POOL_ACTOR_NAME: &str = "rebate_pool";
+pub const REBATE_POOL_ACTOR_ID: ActorID = 50;
+pub const REBATE_POOL_ACTOR_ADDR: Address = Address::new_id(REBATE_POOL_ACTOR_ID);
 
-/// Alpha is a float of range [0, 1].
+/// Alpha is a floating number of range [0, 1].
 /// We better not use floating arithmetic though, so it gets represented as a (numerator, denominator) part.
 pub type Alpha = (u32, u32);
 

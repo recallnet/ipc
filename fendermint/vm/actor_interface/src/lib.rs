@@ -60,3 +60,4 @@ pub mod objectstore;
 pub mod placeholder;
 pub mod reward;
 pub mod system;
+pub mod rebate_pool;

@@ -31,6 +31,7 @@ fendermint_actor_blobs = { path = "blobs" }
 fendermint_actor_chainmetadata = { path = "chainmetadata" }
 fendermint_actor_eam = { path = "eam" }
 fendermint_actor_objectstore = { path = "objectstore" }
+fendermint_actor_rebate_pool = { path = "rebate_pool" }
 
 [build-dependencies]
 fil_actors_runtime = { workspace = true, features = ["test_utils"] }

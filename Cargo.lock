@@ -3211,6 +3211,7 @@ dependencies = [
  "anyhow",
  "blobs_actor_sdk",
  "fendermint_actor_blobs_shared",
+ "fendermint_actor_rebate_pool_shared",
  "fil_actors_evm_shared",
  "fil_actors_runtime",
  "fvm_ipld_blockstore",
@@ -3325,8 +3326,21 @@ dependencies = [
 name = "fendermint_actor_rebate_pool"
 version = "0.1.0"
 dependencies = [
+ "fendermint_actor_rebate_pool_shared",
  "fil_actors_runtime",
  "fvm_ipld_blockstore",
+ "fvm_ipld_encoding",
+ "fvm_shared",
+ "num-derive 0.3.3",
+ "num-traits",
+ "serde",
+ "serde_tuple",
+]
+
+[[package]]
+name = "fendermint_actor_rebate_pool_shared"
+version = "0.1.0"
+dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared",
  "num-derive 0.3.3",
@@ -3844,6 +3858,7 @@ dependencies = [
  "fendermint_actor_chainmetadata",
  "fendermint_actor_eam",
  "fendermint_actor_objectstore",
+ "fendermint_actor_rebate_pool",
  "fendermint_actors",
  "fendermint_crypto",
  "fendermint_eth_hardhat",
