@@ -18,6 +18,7 @@ pub type Alpha = (u32, u32);
 #[repr(u64)]
 pub enum Method {
     Constructor = METHOD_CONSTRUCTOR,
+    AcceptForRebate = frc42_dispatch::method_hash!("AcceptForRebate"),
 }
 
 /// Params for actor construction.

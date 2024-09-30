@@ -18,3 +18,4 @@ num-derive = { workspace = true }
 serde_tuple = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 num-traits = { workspace = true }
+frc42_dispatch = { workspace = true }
