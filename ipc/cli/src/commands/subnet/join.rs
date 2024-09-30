@@ -36,7 +36,12 @@ impl CommandLineHandler for JoinSubnet {
                 .await?;
         }
         let epoch = provider
-            .join_subnet(subnet, from, f64_to_token_amount(arguments.collateral)?, None) //TODO: send real storage argument
+            .join_subnet(
+                subnet,
+                from,
+                f64_to_token_amount(arguments.collateral)?,
+                None,
+            ) //TODO: send real storage argument
             .await?;
         println!("joined at epoch: {epoch}");
 

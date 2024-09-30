@@ -491,7 +491,7 @@ impl StakingState {
         self.update(|this| StakingUpdate {
             configuration_number: {
                 this.next_configuration_number();
-                this.next_configuration_number()// one extra for storage withdraw
+                this.next_configuration_number() // one extra for storage withdraw
             },
             addr,
             op: StakingOp::Withdraw(value),

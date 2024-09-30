@@ -93,7 +93,7 @@ impl<P: Arbitrary> Arbitrary for Validator<P> {
         Self {
             public_key: ValidatorKey::arbitrary(g),
             power: P::arbitrary(g),
-            storage_amount: 1//u128::arbitrary(g).max(1),
+            storage_amount: 1,
         }
     }
 }

@@ -52,7 +52,7 @@ pub enum StakingCommand {
         signatories: Vec<(EthAddress, SecretKey)>,
     },
     /// Join by as a new validator.
-    Join(EthAddress, TokenAmount, PublicKey, Option<u128>),// The last value being storage amount
+    Join(EthAddress, TokenAmount, PublicKey, Option<u128>), // The last value being storage amount
     /// Increase the collateral of an already existing validator.
     Stake(EthAddress, TokenAmount),
     /// Decrease the collateral of a validator.

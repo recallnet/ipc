@@ -54,7 +54,7 @@ impl<DB: Blockstore + Clone> SubnetCaller<DB> {
     pub fn join(
         &self,
         state: &mut FvmExecState<DB>,
-        validator: &Validator<Collateral>
+        validator: &Validator<Collateral>,
     ) -> anyhow::Result<()> {
         let public_key = validator.public_key.0.serialize();
         let addr = EthAddress::new_secp256k1(&public_key)?;
@@ -70,7 +70,7 @@ impl<DB: Blockstore + Clone> SubnetCaller<DB> {
     pub fn try_join(
         &self,
         state: &mut FvmExecState<DB>,
-        validator: &Validator<Collateral>
+        validator: &Validator<Collateral>,
     ) -> TryCallResult<()> {
         let public_key = validator.public_key.0.serialize();
         let addr = EthAddress::new_secp256k1(&public_key)?;

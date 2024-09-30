@@ -5,7 +5,7 @@ import {ValidatorSet, Validator, StakingChangeLog} from "../structs/Subnet.sol";
 import {LibSubnetActorStorage, SubnetActorStorage} from "./LibSubnetActorStorage.sol";
 import {LibStakingChangeLog} from "./LibStakingChangeLog.sol";
 import {LibValidatorSet} from "./LibStaking.sol";
-import {WithdrawExceedingStorage} from "../errors/IPCErrors.sol";
+import {WithdrawExceedingStorage, NotEnoughStorageCommitment} from "../errors/IPCErrors.sol";
 
 library LibStorageStaking {
     using LibStakingChangeLog for StakingChangeLog;
@@ -37,11 +37,14 @@ library LibStorageStaking {
 
     /// @notice Commit the storage. 
     function commitStorage(address validator, uint256 totalStorage) internal {
+        if (validator == address(0) && totalStorage == 0) {
+            revert NotEnoughStorageCommitment();
+        }
+        
         SubnetActorStorage storage s = LibSubnetActorStorage.appStorage();
 
         s.changeSet.commitStorageRequest(validator, totalStorage);
         s.validatorSet.recordStorageDeposit(validator, totalStorage);
-        require(validator != address(0) && totalStorage > 0,"Not enough storage");
     }
 
     /// @notice Confirm the deposit directly without going through the confirmation process
