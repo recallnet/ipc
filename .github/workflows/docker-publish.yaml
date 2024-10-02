@@ -35,22 +35,22 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Install Tools
-        uses: ./.github/actions/install-tools
-        with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-          rust: stable
-
-      - name: Setup Cache
-        uses: ./.github/actions/setup-cache
-        timeout-minutes: 5
-        continue-on-error: true
-        with:
-          # The Cargo.lock file is very likely to change between PRs, which would mean a cache miss.
-          # Ideally we want to download the previous cache and do an upload if something changed.
-          # That's why the Cargo.lock hash is used as a suffix, so we match on a stable one and upload if changed.
-          cache-prefix: publish-${{ hashFiles('rust-toolchain', 'rust-toolchain.toml') }}
-          cache-suffix: ${{ hashFiles('**/Cargo.lock') }}
+      #      - name: Install Tools
+      #        uses: ./.github/actions/install-tools
+      #        with:
+      #          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      #          rust: stable
+      #
+      #      - name: Setup Cache
+      #        uses: ./.github/actions/setup-cache
+      #        timeout-minutes: 5
+      #        continue-on-error: true
+      #        with:
+      #          # The Cargo.lock file is very likely to change between PRs, which would mean a cache miss.
+      #          # Ideally we want to download the previous cache and do an upload if something changed.
+      #          # That's why the Cargo.lock hash is used as a suffix, so we match on a stable one and upload if changed.
+      #          cache-prefix: publish-${{ hashFiles('rust-toolchain', 'rust-toolchain.toml') }}
+      #          cache-suffix: ${{ hashFiles('**/Cargo.lock') }}
 
       # Not restoring Solidity artifact cache because of supply side attack potential.
 
@@ -88,6 +88,11 @@ jobs:
 
       - name: Docker Deps
         run: |
+          clang --version
+          gcc --version
+          source ~/.bashrc
+          clang --version
+          gcc --version
           cd fendermint && make docker-deps
 
       # https://github.com/marketplace/actions/free-disk-space-ubuntu
