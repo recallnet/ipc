@@ -186,9 +186,8 @@ contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausa
         // disabling validator changes for federated subnets
         LibSubnetActor.enforceCollateralValidation();
 
-        if (!LibStaking.isValidator(msg.sender)) {
-            revert MethodNotAllowed(ERR_VALIDATOR_NOT_JOINED);
-        }
+        uint256 collateral = msg.value + LibStaking.totalValidatorCollateral(msg.sender);
+        uint256 storageAmount = amount + LibStorageStakingGetters.totalValidatorStorage(msg.sender);
         LibSubnetActor.enforceStorageCollateralValidation(msg.value, amount);
 
         if (!s.bootstrapped) {
@@ -213,14 +212,11 @@ contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausa
         uint256 collateral = LibStaking.totalValidatorCollateral(msg.sender);
         uint256 totalStorage = LibStorageStakingGetters.totalValidatorStorage(msg.sender);
 
-        if (collateral == 0) {
-            revert NotValidator(msg.sender);
-        }
         if (collateral <= amount) {
             revert NotEnoughCollateral();
         }
 
-        LibSubnetActor.enforceStorageCollateralValidation(collateral - amount, totalStorage);//TODO review this maybe i need a bool
+        LibSubnetActor.enforceStorageCollateralValidation(collateral - amount, totalStorage);
         LibSubnetActor.gateValidatorPowerDelta(msg.sender, collateral, collateral - amount);
 
         if (!s.bootstrapped) {

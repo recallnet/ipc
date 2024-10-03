@@ -2,7 +2,7 @@
 pragma solidity ^0.8.23;
 
 import {VALIDATOR_SECP256K1_PUBLIC_KEY_LENGTH} from "../constants/Constants.sol";
-import {ERR_PERMISSIONED_AND_BOOTSTRAPPED, ERR_VALIDATOR_JOINED, CollateralIsZero, InvalidPublicKeyLength} from "../errors/IPCErrors.sol";
+import {ERR_PERMISSIONED_AND_BOOTSTRAPPED, ERR_VALIDATOR_JOINED, CollateralIsZero, InvalidPublicKeyLength, NotValidator} from "../errors/IPCErrors.sol";
 import {NotEnoughGenesisValidators, DuplicatedGenesisValidator, NotOwnerOfPublicKey, MethodNotAllowed, NotEnoughCollateralForStorageAmount} from "../errors/IPCErrors.sol";
 import {IGateway} from "../interfaces/IGateway.sol";
 import {IValidatorGater} from "../interfaces/IValidatorGater.sol";
@@ -35,9 +35,10 @@ library LibSubnetActor {
 
     /// @notice Ensures that the provided collateral is enough for the committed storage.
     /// @dev Reverts if the collateral is not in enough for the storage amount
-    function enforceStorageCollateralValidation(uint256 value, uint256 amount) internal view {
-        uint256 collateral = value + LibStaking.totalValidatorCollateral(msg.sender);
-        uint256 storageAmount = amount + LibStorageStakingGetters.totalValidatorStorage(msg.sender);
+    function enforceStorageCollateralValidation(uint256 collateral, uint256 storageAmount) internal view {
+        if (!LibStaking.isValidator(msg.sender)) {
+            revert NotValidator(msg.sender);
+        }
         SubnetActorStorage storage s = LibSubnetActorStorage.appStorage();
         uint256 requiredCollateral = storageAmount * s.tokensPerStorageRatio;
         
