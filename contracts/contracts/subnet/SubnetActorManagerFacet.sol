@@ -2,8 +2,8 @@
 pragma solidity ^0.8.23;
 
 import {VALIDATOR_SECP256K1_PUBLIC_KEY_LENGTH} from "../constants/Constants.sol";
-import {ERR_VALIDATOR_JOINED, ERR_VALIDATOR_NOT_JOINED} from "../errors/IPCErrors.sol";
-import {InvalidFederationPayload, SubnetAlreadyBootstrapped, NotEnoughFunds, CollateralIsZero, CannotReleaseZero, NotOwnerOfPublicKey, EmptyAddress, NotEnoughBalance, NotEnoughCollateral, NotValidator, NotAllValidatorsHaveLeft, InvalidPublicKeyLength, MethodNotAllowed, SubnetNotBootstrapped, NotEnoughStorageCommitment} from "../errors/IPCErrors.sol";
+import {ERR_VALIDATOR_JOINED, ERR_VALIDATOR_NOT_JOINED, NotEnoughStorageCommitment} from "../errors/IPCErrors.sol";
+import {InvalidFederationPayload, SubnetAlreadyBootstrapped, NotEnoughFunds, CollateralIsZero, CannotReleaseZero, NotOwnerOfPublicKey, EmptyAddress, NotEnoughBalance, NotEnoughCollateral, NotValidator, NotAllValidatorsHaveLeft, InvalidPublicKeyLength, MethodNotAllowed, SubnetNotBootstrapped} from "../errors/IPCErrors.sol";
 import {IGateway} from "../interfaces/IGateway.sol";
 import {Validator, ValidatorSet, Asset, SubnetID} from "../structs/Subnet.sol";
 import {LibDiamond} from "../lib/LibDiamond.sol";
@@ -129,30 +129,7 @@ contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausa
         // Adding this check to prevent new validators from joining
         // after the subnet has been bootstrapped, if the subnet mode is not Collateral.
         // We will increase the functionality in the future to support explicit permissioning.
-
-        if (s.bootstrapped) {
-            LibSubnetActor.enforceCollateralValidation();
-        }
-
-        if (amount == 0) {
-            revert CollateralIsZero();
-        }
-
-        if (LibStaking.isValidator(msg.sender)) {
-            revert MethodNotAllowed(ERR_VALIDATOR_JOINED);
-        }
-
-        if (publicKey.length != VALIDATOR_SECP256K1_PUBLIC_KEY_LENGTH) {
-            // Taking 65 bytes because the FVM libraries have some assertions checking it, it's more convenient.
-            revert InvalidPublicKeyLength();
-        }
-
-        address convertedAddress = LibSubnetActor.publicKeyToAddress(publicKey);
-        if (convertedAddress != msg.sender) {
-            revert NotOwnerOfPublicKey();
-        }
-
-        LibSubnetActor.gateValidatorPowerDelta(msg.sender, 0, amount);
+        LibSubnetActor.enforceJoinValidation(publicKey, amount);
 
         s.collateralSource.lock(amount);
 
@@ -206,8 +183,7 @@ contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausa
 
     /// @notice method that allows a validator to increase its storage commited by amount.
     function stakeStorage(uint256 amount) external payable whenNotPaused notKilled {
-        // disabling validator changes for federated subnets (at least for now
-        // until a more complex mechanism is implemented).
+        // disabling validator changes for federated subnets
         LibSubnetActor.enforceCollateralValidation();
 
         if (!LibStaking.isValidator(msg.sender)) {
@@ -244,7 +220,7 @@ contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausa
             revert NotEnoughCollateral();
         }
 
-        LibSubnetActor.enforceStorageCollateralValidation(collateral - amount, totalStorage);
+        LibSubnetActor.enforceStorageCollateralValidation(collateral - amount, totalStorage);//TODO review this maybe i need a bool
         LibSubnetActor.gateValidatorPowerDelta(msg.sender, collateral, collateral - amount);
 
         if (!s.bootstrapped) {
@@ -259,8 +235,7 @@ contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausa
     /// @dev `leave` must be used to unstake the entire stake.
     /// @param amount The storage amount to unstake.
     function unstakeStorage(uint256 amount) external nonReentrant whenNotPaused notKilled {
-        // disabling validator changes for federated validation subnets (at least for now
-        // until a more complex mechanism is implemented).
+        // disabling validator changes for federated validation subnets 
         LibSubnetActor.enforceCollateralValidation();
 
         if (amount == 0) {

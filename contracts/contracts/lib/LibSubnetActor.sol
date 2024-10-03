@@ -2,7 +2,7 @@
 pragma solidity ^0.8.23;
 
 import {VALIDATOR_SECP256K1_PUBLIC_KEY_LENGTH} from "../constants/Constants.sol";
-import {ERR_PERMISSIONED_AND_BOOTSTRAPPED} from "../errors/IPCErrors.sol";
+import {ERR_PERMISSIONED_AND_BOOTSTRAPPED, ERR_VALIDATOR_JOINED, CollateralIsZero, InvalidPublicKeyLength} from "../errors/IPCErrors.sol";
 import {NotEnoughGenesisValidators, DuplicatedGenesisValidator, NotOwnerOfPublicKey, MethodNotAllowed, NotEnoughCollateralForStorageAmount} from "../errors/IPCErrors.sol";
 import {IGateway} from "../interfaces/IGateway.sol";
 import {IValidatorGater} from "../interfaces/IValidatorGater.sol";
@@ -145,7 +145,7 @@ library LibSubnetActor {
             revert NotEnoughGenesisValidators();
         }
 
-        LibSubnetActor.gateValidatorNewPowers(validators, powers);
+        gateValidatorNewPowers(validators, powers);
 
         for (uint256 i; i < length; ) {
             // check addresses
@@ -201,7 +201,7 @@ library LibSubnetActor {
     ) internal {
         uint256 length = validators.length;
 
-        LibSubnetActor.gateValidatorNewPowers(validators, powers);
+        gateValidatorNewPowers(validators, powers);
 
         for (uint256 i; i < length; ) {
             // check addresses
@@ -237,5 +237,37 @@ library LibSubnetActor {
                 ++i;
             }
         }
+    }
+
+    /// @notice Ensures that the provided parameters are valid to join the subnet
+    function enforceJoinValidation(        
+        bytes calldata publicKey,
+        uint256 amount) internal {
+        // Adding this check to prevent new validators from joining
+        // after the subnet has been bootstrapped, if the subnet mode is not Collateral.
+        SubnetActorStorage storage s = LibSubnetActorStorage.appStorage();
+        if (s.bootstrapped) {
+            enforceCollateralValidation();
+        }
+
+        if (amount == 0) {
+            revert CollateralIsZero();
+        }
+
+        if (LibStaking.isValidator(msg.sender)) {
+            revert MethodNotAllowed(ERR_VALIDATOR_JOINED);
+        }
+
+        if (publicKey.length != VALIDATOR_SECP256K1_PUBLIC_KEY_LENGTH) {
+            // Taking 65 bytes because the FVM libraries have some assertions checking it, it's more convenient.
+            revert InvalidPublicKeyLength();
+        }
+
+        address convertedAddress = publicKeyToAddress(publicKey);
+        if (convertedAddress != msg.sender) {
+            revert NotOwnerOfPublicKey();
+        }
+
+        gateValidatorPowerDelta(msg.sender, 0, amount);
     }
 }
