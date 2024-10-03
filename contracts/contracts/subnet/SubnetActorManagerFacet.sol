@@ -213,9 +213,7 @@ contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausa
         if (!LibStaking.isValidator(msg.sender)) {
             revert MethodNotAllowed(ERR_VALIDATOR_NOT_JOINED);
         }
-        uint256 collateral = LibStaking.totalValidatorCollateral(msg.sender);
-        uint256 totalStorage = LibStorageStakingGetters.totalValidatorStorage(msg.sender);
-        LibSubnetActor.enforceStorageCollateralValidation(msg.value + collateral, totalStorage + amount);
+        LibSubnetActor.enforceStorageCollateralValidation(msg.value, amount);
 
         if (!s.bootstrapped) {
             LibStorageStaking.commitStorageWithConfirm(msg.sender, amount);

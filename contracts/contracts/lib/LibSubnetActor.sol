@@ -9,6 +9,7 @@ import {IValidatorGater} from "../interfaces/IValidatorGater.sol";
 import {Validator, ValidatorSet, PermissionMode, SubnetID, Asset} from "../structs/Subnet.sol";
 import {SubnetActorModifiers} from "../lib/LibSubnetActorStorage.sol";
 import {LibValidatorSet, LibStaking} from "../lib/LibStaking.sol";
+import {LibStorageStakingGetters} from "../lib/LibStorageStaking.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import {LibSubnetActorStorage, SubnetActorStorage} from "./LibSubnetActorStorage.sol";
 import {SubnetIDHelper} from "../lib/SubnetIDHelper.sol";
@@ -34,8 +35,9 @@ library LibSubnetActor {
 
     /// @notice Ensures that the provided collateral is enough for the committed storage.
     /// @dev Reverts if the collateral is not in enough for the storage amount
-    function enforceStorageCollateralValidation(uint256 collateral, uint256 storageAmount) internal view {
-        
+    function enforceStorageCollateralValidation(uint256 value, uint256 amount) internal view {
+        uint256 collateral = value + LibStaking.totalValidatorCollateral(msg.sender);
+        uint256 storageAmount = amount + LibStorageStakingGetters.totalValidatorStorage(msg.sender);
         SubnetActorStorage storage s = LibSubnetActorStorage.appStorage();
         uint256 requiredCollateral = storageAmount * s.tokensPerStorageRatio;
         
