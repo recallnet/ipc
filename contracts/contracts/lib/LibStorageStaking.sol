@@ -5,7 +5,7 @@ import {ValidatorSet, Validator, StakingChangeLog} from "../structs/Subnet.sol";
 import {LibSubnetActorStorage, SubnetActorStorage} from "./LibSubnetActorStorage.sol";
 import {LibStakingChangeLog} from "./LibStakingChangeLog.sol";
 import {LibValidatorSet} from "./LibStaking.sol";
-import {WithdrawExceedingStorage, NotEnoughStorageCommitment} from "../errors/IPCErrors.sol";
+import {NotEnoughStorageCommitment} from "../errors/IPCErrors.sol";
 
 library LibStorageStaking {
     using LibStakingChangeLog for StakingChangeLog;
@@ -14,14 +14,14 @@ library LibStorageStaking {
     // =============== Getters =============
 
     /// @notice Getter for total storage committed by all validators in a subnet.
-    function getTotalConfirmedStorage() internal view returns(uint256 totalStorage) {
+    function getTotalConfirmedStorage() external view returns(uint256 totalStorage) {
         SubnetActorStorage storage s = LibSubnetActorStorage.appStorage();
         totalStorage = s.validatorSet.totalConfirmedStorage;
     }
 
     /// @notice Gets the total storage committed by the validator.
     /// @param validator The address to check for storage amount.
-    function totalValidatorStorage(address validator) internal view returns (uint256) {
+    function totalValidatorStorage(address validator) external view returns (uint256) {
         SubnetActorStorage storage s = LibSubnetActorStorage.appStorage();
         return s.validatorSet.validators[validator].totalStorage;
     }
@@ -29,15 +29,15 @@ library LibStorageStaking {
     /// @notice Checks if the validator has committed storage before.
     /// @param validator The address to check for storage status.
     /// @return A boolean indicating whether the validator has committed storage.
-    function hasStorage(address validator) internal view returns (bool) {
+    function hasStorage(address validator) external view returns (bool) {
         SubnetActorStorage storage s = LibSubnetActorStorage.appStorage();
 
         return s.validatorSet.validators[validator].totalStorage != 0;
     }
 
     /// @notice Commit the storage. 
-    function commitStorage(address validator, uint256 totalStorage) internal {
-        if (validator == address(0) && totalStorage == 0) {
+    function commitStorage(address validator, uint256 totalStorage) external {
+        if (totalStorage == 0) {
             revert NotEnoughStorageCommitment();
         }
         
@@ -48,7 +48,10 @@ library LibStorageStaking {
     }
 
     /// @notice Confirm the deposit directly without going through the confirmation process
-    function commitStorageWithConfirm(address validator, uint256 totalStorage) internal {
+    function commitStorageWithConfirm(address validator, uint256 totalStorage) external {
+        if (totalStorage == 0) {
+            revert NotEnoughStorageCommitment();
+        }
         SubnetActorStorage storage s = LibSubnetActorStorage.appStorage();
 
         // record deposit that updates the total commited storage
@@ -63,52 +66,25 @@ library LibStorageStaking {
         }
     }
 
-    /// @notice Validator reduces its total storage committed by amount.
-    function recordStorageWithdraw(ValidatorSet storage validators, address validator, uint256 amount) internal {
-        uint256 total = validators.validators[validator].totalStorage;
-        if (total < amount) {
-            revert WithdrawExceedingStorage();
-        }
-
-        validators.validators[validator].totalStorage = total - amount;
-    }
-
-    function confirmStorageWithdraw(ValidatorSet storage self, address validator, uint256 amount) internal {
-        self.totalConfirmedStorage -= amount;
-        uint256 confirmedStorage = self.validators[validator].confirmedStorage;
-        uint256 totalStorage = self.validators[validator].totalStorage;
-        // This call might happen after a call to LibStaking.withdrawWithConfirm deleting the validator
-        if (confirmedStorage == 0 && totalStorage == 0 ) {
-            return;
-        }
-        uint256 newStorage = confirmedStorage - amount;
-        
-        if (newStorage == 0 && totalStorage == 0) {
-            delete self.validators[validator];
-        } else {
-            self.validators[validator].confirmedStorage = newStorage;
-        }
-    }
-
     /// @notice Confirm the storage withdraw directly without going through the confirmation process
     /// and releasing from the gateway.
     /// @dev only use for non-bootstrapped subnets
-    function withdrawStorageWithConfirm(address validator, uint256 amount) internal {
+    function withdrawStorageWithConfirm(address validator, uint256 amount) external {
         SubnetActorStorage storage s = LibSubnetActorStorage.appStorage();
 
         // record deposit that updates the total storage
-        recordStorageWithdraw(s.validatorSet, validator, amount);
+        s.validatorSet.recordStorageWithdraw(validator, amount);
         // confirm deposit that updates the confirmed storage
-        confirmStorageWithdraw(s.validatorSet, validator, amount);
+        s.validatorSet.confirmStorageWithdraw(validator, amount);
 
     }
 
     /// @notice Withdraw the storage
-    function withdrawStorage(address validator, uint256 amount) internal {
+    function withdrawStorage(address validator, uint256 amount) external {
         SubnetActorStorage storage s = LibSubnetActorStorage.appStorage();
 
         s.changeSet.withdrawStorageRequest(validator, amount);
-        recordStorageWithdraw(s.validatorSet, validator, amount);
+        s.validatorSet.recordStorageWithdraw(validator, amount);
     }
 
 }

@@ -8,7 +8,7 @@ import {LibMinPQ, MinPQ} from "./priority/LibMinPQ.sol";
 import {LibStakingChangeLog} from "./LibStakingChangeLog.sol";
 import {AssetHelper} from "./AssetHelper.sol";
 import {PermissionMode, StakingReleaseQueue, StakingChangeLog, StakingChange, StakingChangeRequest, StakingOperation, StakingRelease, ValidatorSet, AddressStakingReleases, ParentValidatorsTracker, Validator, Asset} from "../structs/Subnet.sol";
-import {WithdrawExceedingCollateral, NotValidator, CannotConfirmFutureChanges, NoCollateralToWithdraw, AddressShouldBeValidator, InvalidConfigurationNumber} from "../errors/IPCErrors.sol";
+import {WithdrawExceedingCollateral, NotValidator, CannotConfirmFutureChanges, NoCollateralToWithdraw, AddressShouldBeValidator, InvalidConfigurationNumber, WithdrawExceedingStorage} from "../errors/IPCErrors.sol";
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {LibStorageStaking} from "./LibStorageStaking.sol";
 
@@ -378,6 +378,33 @@ library LibValidatorSet {
         self.validators[validator].confirmedStorage = newCommittedStorage;
         self.totalConfirmedStorage += amount;
     }
+
+    /// @notice Validator reduces its total storage committed by amount.
+    function recordStorageWithdraw(ValidatorSet storage validators, address validator, uint256 amount) internal {
+        uint256 total = validators.validators[validator].totalStorage;
+        if (total < amount) {
+            revert WithdrawExceedingStorage();
+        }
+
+        validators.validators[validator].totalStorage = total - amount;
+    }
+
+    function confirmStorageWithdraw(ValidatorSet storage self, address validator, uint256 amount) internal {
+        self.totalConfirmedStorage -= amount;
+        uint256 confirmedStorage = self.validators[validator].confirmedStorage;
+        uint256 totalStorage = self.validators[validator].totalStorage;
+        // This call might happen after a call to LibStaking.withdrawWithConfirm deleting the validator
+        if (confirmedStorage == 0 && totalStorage == 0 ) {
+            return;
+        }
+        uint256 newStorage = confirmedStorage - amount;
+        
+        if (newStorage == 0 && totalStorage == 0) {
+            delete self.validators[validator];
+        } else {
+            self.validators[validator].confirmedStorage = newStorage;
+        }
+    }
 }
 
 library LibStaking {
@@ -576,6 +603,7 @@ library LibStaking {
         }
 
         uint64 start = changeSet.startConfigurationNumber;
+        address gateway = s.ipcGatewayAddr;
         for (uint64 i = start; i <= configurationNumber; ) {
             StakingChange storage change = changeSet.getChange(i);
             address validator = change.validator;
@@ -588,7 +616,6 @@ library LibStaking {
                 s.validatorSet.confirmFederatedPower(validator, power);
             } else {
                 uint256 amount = abi.decode(change.payload, (uint256));
-                address gateway = s.ipcGatewayAddr;
 
                 if (change.op == StakingOperation.Withdraw) {
                     s.validatorSet.confirmWithdraw(validator, amount);

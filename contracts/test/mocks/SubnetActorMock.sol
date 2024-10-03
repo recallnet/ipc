@@ -13,7 +13,7 @@ contract SubnetActorMock is
     SubnetActorRewardFacet,
     SubnetActorCheckpointingFacet
 {
-    function confirmChange(uint64 _configurationNumber) external {
+    function confirmChange(uint64 _configurationNumber) internal {
         LibStaking.confirmChange(_configurationNumber);
     }
 

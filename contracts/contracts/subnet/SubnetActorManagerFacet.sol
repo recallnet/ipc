@@ -6,7 +6,6 @@ import {ERR_VALIDATOR_JOINED, ERR_VALIDATOR_NOT_JOINED} from "../errors/IPCError
 import {InvalidFederationPayload, SubnetAlreadyBootstrapped, NotEnoughFunds, CollateralIsZero, CannotReleaseZero, NotOwnerOfPublicKey, EmptyAddress, NotEnoughBalance, NotEnoughCollateral, NotValidator, NotAllValidatorsHaveLeft, InvalidPublicKeyLength, MethodNotAllowed, SubnetNotBootstrapped, NotEnoughStorageCommitment} from "../errors/IPCErrors.sol";
 import {IGateway} from "../interfaces/IGateway.sol";
 import {Validator, ValidatorSet, Asset, SubnetID} from "../structs/Subnet.sol";
-import {SubnetIDHelper} from "../lib/SubnetIDHelper.sol";
 import {LibDiamond} from "../lib/LibDiamond.sol";
 import {ReentrancyGuard} from "../lib/LibReentrancyGuard.sol";
 import {SubnetActorModifiers} from "../lib/LibSubnetActorStorage.sol";
@@ -20,7 +19,6 @@ import {LibStorageStaking} from "../lib/LibStorageStaking.sol";
 
 contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausable {
     using EnumerableSet for EnumerableSet.AddressSet;
-    using SubnetIDHelper for SubnetID;
     using AssetHelper for Asset;
     using LibValidatorSet for ValidatorSet;
     using Address for address payable;
@@ -136,19 +134,17 @@ contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausa
             LibSubnetActor.enforceCollateralValidation();
         }
 
-        if (msg.value == 0) {
+        if (amount == 0) {
             revert CollateralIsZero();
         }
 
-        if (publicKey.length != VALIDATOR_SECP256K1_PUBLIC_KEY_LENGTH) {
-            // 65 bytes for publicKey
-            revert InvalidPublicKeyLength();
-        }
-
-        LibSubnetActor.enforceStorageCollateralValidation(msg.value, storageCommitment);
-
         if (LibStaking.isValidator(msg.sender)) {
             revert MethodNotAllowed(ERR_VALIDATOR_JOINED);
+        }
+
+        if (publicKey.length != VALIDATOR_SECP256K1_PUBLIC_KEY_LENGTH) {
+            // Taking 65 bytes because the FVM libraries have some assertions checking it, it's more convenient.
+            revert InvalidPublicKeyLength();
         }
 
         address convertedAddress = LibSubnetActor.publicKeyToAddress(publicKey);
@@ -213,9 +209,6 @@ contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausa
         // disabling validator changes for federated subnets (at least for now
         // until a more complex mechanism is implemented).
         LibSubnetActor.enforceCollateralValidation();
-        if (amount == 0) {
-            revert NotEnoughStorageCommitment();
-        }
 
         if (!LibStaking.isValidator(msg.sender)) {
             revert MethodNotAllowed(ERR_VALIDATOR_NOT_JOINED);

@@ -11,7 +11,7 @@ import "../../contracts/structs/Subnet.sol";
 
 contract LibStorageStakingTest is Test {
     using LibStorageStaking for ValidatorSet;
-    using LibStorageStaking for SubnetActorStorage;
+    using LibValidatorSet for ValidatorSet;
 
     ValidatorInfo validator1;
     ValidatorInfo validator2;
