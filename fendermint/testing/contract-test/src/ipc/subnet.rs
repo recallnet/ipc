@@ -62,7 +62,7 @@ impl<DB: Blockstore + Clone> SubnetCaller<DB> {
 
         // We need to send in the name of the address as a sender, not the system account.
         self.manager.call(state, |c| {
-            c.join(public_key.into(), deposit, ethers::types::U256::from(storage.unwrap_or(0))).from(addr).value(deposit)
+            c.join(public_key.into(), deposit,  ethers::types::U256::from(validator.storage_amount),).from(addr).value(deposit)
         })
     }
 
@@ -76,7 +76,7 @@ impl<DB: Blockstore + Clone> SubnetCaller<DB> {
         let addr = EthAddress::new_secp256k1(&public_key)?;
         let deposit = from_fvm::to_eth_tokens(&validator.power.0)?;
         self.manager.try_call(state, |c| {
-            c.join(public_key.into(), deposit, ethers::types::U256::from(storage.unwrap_or(0))).from(addr).value(deposit)
+            c.join(public_key.into(), deposit,  ethers::types::U256::from(validator.storage_amount),).from(addr).value(deposit)
         })
     }
 

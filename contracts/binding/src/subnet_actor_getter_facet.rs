@@ -2906,26 +2906,7 @@ pub mod subnet_actor_getter_facet {
         pub root: u64,
         pub route: ::std::vec::Vec<::ethers::core::types::Address>,
     }
-<<<<<<< HEAD
     ///`Validator(uint256,address,bytes)`
-=======
-    ///`SupplySource(uint8,address)`
-    #[derive(
-        Clone,
-        ::ethers::contract::EthAbiType,
-        ::ethers::contract::EthAbiCodec,
-        Default,
-        Debug,
-        PartialEq,
-        Eq,
-        Hash,
-    )]
-    pub struct SupplySource {
-        pub kind: u8,
-        pub token_address: ::ethers::core::types::Address,
-    }
-    ///`Validator(uint256,address,bytes,uint256)`
->>>>>>> 6cd89219 (chore: update bindings)
     #[derive(
         Clone,
         ::ethers::contract::EthAbiType,
