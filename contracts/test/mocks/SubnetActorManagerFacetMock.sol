@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 pragma solidity ^0.8.23;
 
-import {LibSubnetActorStorage, SubnetActorStorage} from "../../src/lib/LibSubnetActorStorage.sol";
-import {SubnetActorManagerFacet, LibStaking, LibStorageStaking, ValidatorSet} from "../../src/subnet/SubnetActorManagerFacet.sol";
+import {LibSubnetActorStorage, SubnetActorStorage} from "../../contracts/lib/LibSubnetActorStorage.sol";
+import {SubnetActorManagerFacet, LibStaking, LibStorageStaking, ValidatorSet} from "../../contracts/subnet/SubnetActorManagerFacet.sol";
 
 contract SubnetActorManagerFacetMock is SubnetActorManagerFacet {
     function setActiveLimit(uint16 limit) external {

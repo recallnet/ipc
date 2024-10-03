@@ -206,7 +206,9 @@ contract TestSubnetActor is Test, TestParams {
             permissionMode: PermissionMode.Collateral,
             supplySource: source,
             collateralSource: AssetHelper.native(),
-            validatorGater: address(0)
+            validatorGater: address(0),
+            tokenPerStorage: 0,
+            lockingDuration: DEFAULT_LOCKING_DURATION
         });
         return params;
     }
@@ -611,7 +613,9 @@ contract IntegrationTestBase is Test, TestParams, TestRegistry, TestSubnetActor,
             permissionMode: _permissionMode,
             supplySource: AssetHelper.native(),
             collateralSource: AssetHelper.native(),
-            validatorGater: address(0)
+            validatorGater: address(0),
+            tokenPerStorage: 0,
+            lockingDuration: DEFAULT_LOCKING_DURATION
         });
         saDiamond = createSubnetActor(params);
     }

@@ -3,11 +3,11 @@ pragma solidity ^0.8.23;
 
 import "forge-std/Test.sol";
 import "forge-std/console.sol";
-import "../../src/lib/LibStorageStaking.sol";
-import "../../src/lib/LibSubnetActorStorage.sol";
-import "../../src/lib/LibStaking.sol";
-import "../../src/lib/LibStakingChangeLog.sol";
-import "../../src/structs/Subnet.sol";
+import "../../contracts/lib/LibStorageStaking.sol";
+import "../../contracts/lib/LibSubnetActorStorage.sol";
+import "../../contracts/lib/LibStaking.sol";
+import "../../contracts/lib/LibStakingChangeLog.sol";
+import "../../contracts/structs/Subnet.sol";
 
 contract LibStorageStakingTest is Test {
     using LibStorageStaking for ValidatorSet;
@@ -64,7 +64,6 @@ contract LibStorageStakingTest is Test {
     }
 
     function testGetTotalConfirmedStorage() public {
-        SubnetActorStorage storage s = LibSubnetActorStorage.appStorage();
         uint256 totalStorage = LibStorageStaking.getTotalConfirmedStorage();
         assertEq(totalStorage, totalValidatorsStorage);
     }

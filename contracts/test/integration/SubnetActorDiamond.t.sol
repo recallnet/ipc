@@ -1850,7 +1850,7 @@ contract SubnetActorDiamondTest is Test, IntegrationTestBase {
         collateralToken.approve(address(saDiamond.manager()), DEFAULT_MIN_VALIDATOR_STAKE * 2);
 
         vm.prank(validator);
-        saDiamond.manager().join(publicKey, DEFAULT_MIN_VALIDATOR_STAKE);
+        saDiamond.manager().join(publicKey, DEFAULT_MIN_VALIDATOR_STAKE, MIN_STORAGE);
         require(collateralToken.balanceOf(validator) == DEFAULT_MIN_VALIDATOR_STAKE * 9);
         require(collateralToken.balanceOf(address(saDiamond)) == 0);
         require(collateralToken.balanceOf(gatewayAddress) == DEFAULT_MIN_VALIDATOR_STAKE);
@@ -1989,7 +1989,7 @@ contract SubnetActorDiamondTest is Test, IntegrationTestBase {
         token.approve(address(saDiamond.manager()), DEFAULT_MIN_VALIDATOR_STAKE * 2);
 
         vm.prank(validator);
-        saDiamond.manager().join(publicKey, DEFAULT_MIN_VALIDATOR_STAKE);
+        saDiamond.manager().join(publicKey, DEFAULT_MIN_VALIDATOR_STAKE, MIN_STORAGE);
         require(token.balanceOf(validator) == DEFAULT_MIN_VALIDATOR_STAKE * 9);
         require(token.balanceOf(address(saDiamond)) == 0);
         require(token.balanceOf(gatewayAddress) == DEFAULT_MIN_VALIDATOR_STAKE + 100);
@@ -2108,7 +2108,7 @@ contract SubnetActorDiamondTest is Test, IntegrationTestBase {
         collateralToken.approve(address(saDiamond.manager()), DEFAULT_MIN_VALIDATOR_STAKE * 2);
 
         vm.prank(validator);
-        saDiamond.manager().join(publicKey, DEFAULT_MIN_VALIDATOR_STAKE);
+        saDiamond.manager().join(publicKey, DEFAULT_MIN_VALIDATOR_STAKE, MIN_STORAGE);
         require(collateralToken.balanceOf(validator) == DEFAULT_MIN_VALIDATOR_STAKE * 9);
         require(collateralToken.balanceOf(address(saDiamond)) == 0);
         require(collateralToken.balanceOf(gatewayAddress) == DEFAULT_MIN_VALIDATOR_STAKE);
@@ -2199,7 +2199,7 @@ contract SubnetActorDiamondTest is Test, IntegrationTestBase {
         saDiamond.manager().preFund{value: 100}(100);
 
         vm.prank(validator);
-        saDiamond.manager().join{value: DEFAULT_MIN_VALIDATOR_STAKE}(publicKey, DEFAULT_MIN_VALIDATOR_STAKE);
+        saDiamond.manager().join{value: DEFAULT_MIN_VALIDATOR_STAKE}(publicKey, DEFAULT_MIN_VALIDATOR_STAKE, MIN_STORAGE);
         require(address(validator).balance == DEFAULT_MIN_VALIDATOR_STAKE * 9, "validator post join balance wrong");
         require(address(saDiamond).balance == 0, "saDiamond post join balance wrong");
         require(
@@ -2280,7 +2280,7 @@ contract SubnetActorDiamondTest is Test, IntegrationTestBase {
         saDiamond.manager().preFund(100);
 
         vm.prank(validator);
-        saDiamond.manager().join{value: DEFAULT_MIN_VALIDATOR_STAKE}(publicKey, DEFAULT_MIN_VALIDATOR_STAKE);
+        saDiamond.manager().join{value: DEFAULT_MIN_VALIDATOR_STAKE}(publicKey, DEFAULT_MIN_VALIDATOR_STAKE, MIN_STORAGE);
         require(address(validator).balance == DEFAULT_MIN_VALIDATOR_STAKE * 9, "validator post join balance wrong");
         require(address(saDiamond).balance == 0, "saDiamond post join balance wrong");
         require(address(gatewayAddress).balance == DEFAULT_MIN_VALIDATOR_STAKE, "gateway post join balance wrong");
@@ -2353,7 +2353,7 @@ contract SubnetActorDiamondTest is Test, IntegrationTestBase {
         vm.deal(validator, DEFAULT_MIN_VALIDATOR_STAKE * 3);
         vm.prank(validator);
         vm.expectRevert(ValidatorPowerChangeDenied.selector);
-        saDiamond.manager().join{value: DEFAULT_MIN_VALIDATOR_STAKE}(publicKey, DEFAULT_MIN_VALIDATOR_STAKE);
+        saDiamond.manager().join{value: DEFAULT_MIN_VALIDATOR_STAKE}(publicKey, DEFAULT_MIN_VALIDATOR_STAKE, MIN_STORAGE);
 
         // now approve the join
         vm.prank(owner);
@@ -2361,7 +2361,7 @@ contract SubnetActorDiamondTest is Test, IntegrationTestBase {
 
         // should be able to join
         vm.prank(validator);
-        saDiamond.manager().join{value: DEFAULT_MIN_VALIDATOR_STAKE}(publicKey, DEFAULT_MIN_VALIDATOR_STAKE);
+        saDiamond.manager().join{value: DEFAULT_MIN_VALIDATOR_STAKE}(publicKey, DEFAULT_MIN_VALIDATOR_STAKE, MIN_STORAGE);
 
         // add stake not allowed exceed allowed range
         vm.prank(validator);

@@ -124,7 +124,8 @@ contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausa
     /// @param amount The amount of collateral provided as stake
     /// @param storageCommitment The amount of storage provided as stake
     function join(
-        bytes calldata publicKey, uint256 amount
+        bytes calldata publicKey, 
+        uint256 amount,
         uint256 storageCommitment
     ) external payable nonReentrant whenNotPaused notKilled {
         // Adding this check to prevent new validators from joining
@@ -139,7 +140,7 @@ contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausa
             revert CollateralIsZero();
         }
 
-        if (metadata.length != VALIDATOR_SECP256K1_PUBLIC_KEY_LENGTH) {
+        if (publicKey.length != VALIDATOR_SECP256K1_PUBLIC_KEY_LENGTH) {
             // 65 bytes for publicKey
             revert InvalidPublicKeyLength();
         }
@@ -150,7 +151,7 @@ contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausa
             revert MethodNotAllowed(ERR_VALIDATOR_JOINED);
         }
 
-        address convertedAddress = LibSubnetActor.publicKeyToAddress(metadata);
+        address convertedAddress = LibSubnetActor.publicKeyToAddress(publicKey);
         if (convertedAddress != msg.sender) {
             revert NotOwnerOfPublicKey();
         }
@@ -251,7 +252,8 @@ contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausa
         if (collateral <= amount) {
             revert NotEnoughCollateral();
         }
-
+        
+        LibSubnetActor.enforceStorageCollateralValidation(collateral - amount, totalStorage);
         LibSubnetActor.gateValidatorPowerDelta(msg.sender, collateral, collateral - amount);
 
         if (!s.bootstrapped) {
