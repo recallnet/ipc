@@ -124,7 +124,7 @@ contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausa
     /// @param amount The amount of collateral provided as stake
     /// @param storageCommitment The amount of storage provided as stake
     function join(
-        bytes calldata publicKey, 
+        bytes calldata publicKey,
         uint256 amount,
         uint256 storageCommitment
     ) external payable nonReentrant whenNotPaused notKilled {
@@ -252,7 +252,7 @@ contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausa
         if (collateral <= amount) {
             revert NotEnoughCollateral();
         }
-        
+
         LibSubnetActor.enforceStorageCollateralValidation(collateral - amount, totalStorage);
         LibSubnetActor.gateValidatorPowerDelta(msg.sender, collateral, collateral - amount);
 
@@ -329,7 +329,7 @@ contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausa
             // interaction must be performed after checks and changes
             LibStaking.withdrawWithConfirm(msg.sender, amount);
             s.collateralSource.transferFunds(payable(msg.sender), amount);
-            s.validatorSet.totalConfirmedStorage -= totalStorage;// No need to explicitly withdraw storage for validator, prevous step deletes validator record
+            s.validatorSet.totalConfirmedStorage -= totalStorage; // No need to explicitly withdraw storage for validator, prevous step deletes validator record
             return;
         }
         LibStaking.withdraw(msg.sender, amount);

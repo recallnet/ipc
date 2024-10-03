@@ -222,7 +222,7 @@ contract SubnetActorGetterFacet {
     function collateralSource() external view returns (Asset memory supply) {
         return s.collateralSource;
     }
-    
+
     /// @notice Returns the token per storage ratio for the subnet.
     function tokensPerStorageRatio() external view returns (uint256 supply) {
         return s.tokensPerStorageRatio;
