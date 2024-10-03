@@ -64,26 +64,26 @@ contract LibStorageStakingTest is Test {
     }
 
     function testGetTotalConfirmedStorage() public {
-        uint256 totalStorage = LibStorageStaking.getTotalConfirmedStorage();
+        uint256 totalStorage = LibStorageStakingGetters.getTotalConfirmedStorage();
         assertEq(totalStorage, totalValidatorsStorage);
     }
 
     function testTotalValidatorStorage() public {
-        uint256 storage1 = LibStorageStaking.totalValidatorStorage(validatorAddress1);
+        uint256 storage1 = LibStorageStakingGetters.totalValidatorStorage(validatorAddress1);
         assertEq(storage1, validator1Storage); // set appStorage first
 
-        uint256 storage2 = LibStorageStaking.totalValidatorStorage(validatorAddress2);
+        uint256 storage2 = LibStorageStakingGetters.totalValidatorStorage(validatorAddress2);
         assertEq(storage2, validator2Storage);
     }
 
     function testHasStorage() public {
-        bool hasStorage1 = LibStorageStaking.hasStorage(validatorAddress1);
+        bool hasStorage1 = LibStorageStakingGetters.hasStorage(validatorAddress1);
         assertTrue(hasStorage1);
 
-        bool hasStorage2 = LibStorageStaking.hasStorage(validatorAddress2);
+        bool hasStorage2 = LibStorageStakingGetters.hasStorage(validatorAddress2);
         assertTrue(hasStorage2);
 
-        bool hasStorage3 = LibStorageStaking.hasStorage(address(0x3)); // Non-existent validator
+        bool hasStorage3 = LibStorageStakingGetters.hasStorage(address(0x3)); // Non-existent validator
         assertFalse(hasStorage3);
     }
 

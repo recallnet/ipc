@@ -15,7 +15,7 @@ import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {LibSubnetActor} from "../lib/LibSubnetActor.sol";
 import {Pausable} from "../lib/LibPausable.sol";
 import {AssetHelper} from "../lib/AssetHelper.sol";
-import {LibStorageStaking} from "../lib/LibStorageStaking.sol";
+import {LibStorageStaking, LibStorageStakingGetters} from "../lib/LibStorageStaking.sol";
 
 contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausable {
     using EnumerableSet for EnumerableSet.AddressSet;
@@ -214,7 +214,7 @@ contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausa
             revert MethodNotAllowed(ERR_VALIDATOR_NOT_JOINED);
         }
         uint256 collateral = LibStaking.totalValidatorCollateral(msg.sender);
-        uint256 totalStorage = LibStorageStaking.totalValidatorStorage(msg.sender);
+        uint256 totalStorage = LibStorageStakingGetters.totalValidatorStorage(msg.sender);
         LibSubnetActor.enforceStorageCollateralValidation(msg.value + collateral, totalStorage + amount);
 
         if (!s.bootstrapped) {
@@ -237,7 +237,7 @@ contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausa
         }
 
         uint256 collateral = LibStaking.totalValidatorCollateral(msg.sender);
-        uint256 totalStorage = LibStorageStaking.totalValidatorStorage(msg.sender);
+        uint256 totalStorage = LibStorageStakingGetters.totalValidatorStorage(msg.sender);
 
         if (collateral == 0) {
             revert NotValidator(msg.sender);
@@ -269,7 +269,7 @@ contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausa
             revert CannotReleaseZero();
         }
 
-        uint256 totalStorage = LibStorageStaking.totalValidatorStorage(msg.sender);
+        uint256 totalStorage = LibStorageStakingGetters.totalValidatorStorage(msg.sender);
 
         if (totalStorage == 0) {
             revert NotValidator(msg.sender);
@@ -298,7 +298,7 @@ contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausa
 
         // remove bootstrap nodes added by this validator
         uint256 amount = LibStaking.totalValidatorCollateral(msg.sender);
-        uint256 totalStorage = LibStorageStaking.totalValidatorStorage(msg.sender);
+        uint256 totalStorage = LibStorageStakingGetters.totalValidatorStorage(msg.sender);
         if (amount == 0 || totalStorage == 0) {
             revert NotValidator(msg.sender);
         }

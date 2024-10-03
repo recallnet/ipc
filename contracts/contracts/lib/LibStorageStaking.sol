@@ -11,30 +11,6 @@ library LibStorageStaking {
     using LibStakingChangeLog for StakingChangeLog;
     using LibValidatorSet for ValidatorSet;
 
-    // =============== Getters =============
-
-    /// @notice Getter for total storage committed by all validators in a subnet.
-    function getTotalConfirmedStorage() external view returns(uint256 totalStorage) {
-        SubnetActorStorage storage s = LibSubnetActorStorage.appStorage();
-        totalStorage = s.validatorSet.totalConfirmedStorage;
-    }
-
-    /// @notice Gets the total storage committed by the validator.
-    /// @param validator The address to check for storage amount.
-    function totalValidatorStorage(address validator) external view returns (uint256) {
-        SubnetActorStorage storage s = LibSubnetActorStorage.appStorage();
-        return s.validatorSet.validators[validator].totalStorage;
-    }
-
-    /// @notice Checks if the validator has committed storage before.
-    /// @param validator The address to check for storage status.
-    /// @return A boolean indicating whether the validator has committed storage.
-    function hasStorage(address validator) external view returns (bool) {
-        SubnetActorStorage storage s = LibSubnetActorStorage.appStorage();
-
-        return s.validatorSet.validators[validator].totalStorage != 0;
-    }
-
     /// @notice Commit the storage. 
     function commitStorage(address validator, uint256 totalStorage) external {
         if (totalStorage == 0) {
@@ -87,4 +63,27 @@ library LibStorageStaking {
         s.validatorSet.recordStorageWithdraw(validator, amount);
     }
 
+}
+
+library LibStorageStakingGetters {
+    /// @notice Getter for total storage committed by all validators in a subnet.
+    function getTotalConfirmedStorage() external view returns (uint256 totalStorage) {
+        SubnetActorStorage storage s = LibSubnetActorStorage.appStorage();
+        totalStorage = s.validatorSet.totalConfirmedStorage;
+    }
+
+    /// @notice Gets the total storage committed by the validator.
+    /// @param validator The address to check for storage amount.
+    function totalValidatorStorage(address validator) external view returns (uint256) {
+        SubnetActorStorage storage s = LibSubnetActorStorage.appStorage();
+        return s.validatorSet.validators[validator].totalStorage;
+    }
+
+    /// @notice Checks if the validator has committed storage before.
+    /// @param validator The address to check for storage status.
+    /// @return A boolean indicating whether the validator has committed storage.
+    function hasStorage(address validator) external view returns (bool) {
+        SubnetActorStorage storage s = LibSubnetActorStorage.appStorage();
+        return s.validatorSet.validators[validator].totalStorage != 0;
+    }
 }

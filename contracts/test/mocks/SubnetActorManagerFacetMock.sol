@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 pragma solidity ^0.8.23;
 
-import {SubnetActorManagerFacet, LibStaking, LibStorageStaking} from "../../contracts/subnet/SubnetActorManagerFacet.sol";
+import {SubnetActorManagerFacet, LibStaking, LibStorageStakingGetters} from "../../contracts/subnet/SubnetActorManagerFacet.sol";
 
 contract SubnetActorManagerFacetMock is SubnetActorManagerFacet {
     function setActiveLimit(uint16 limit) external  {
@@ -21,11 +21,11 @@ contract SubnetActorManagerFacetMock is SubnetActorManagerFacet {
     }
 
     function hasStorage(address validator) external view returns (bool) {
-        return LibStorageStaking.hasStorage(validator);
+        return LibStorageStakingGetters.hasStorage(validator);//TODO julssa: do we need these?
     }
 
     function getTotalStorage(address validator) external  view returns (uint256) {
-        return LibStorageStaking.totalValidatorStorage(validator);
+        return LibStorageStakingGetters.totalValidatorStorage(validator);
     }
 
     function getTotalConfirmedStorage(address validator) external  view returns (uint256) {
@@ -33,6 +33,6 @@ contract SubnetActorManagerFacetMock is SubnetActorManagerFacet {
     }
 
     function getSubnetTotalConfirmedStorage() external  view returns (uint256) {
-        return LibStorageStaking.getTotalConfirmedStorage();
+        return LibStorageStakingGetters.getTotalConfirmedStorage();
     }
 }
