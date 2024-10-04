@@ -29,7 +29,7 @@ contract SubnetActorManagerFacetTest is Test {
         uint256 testDeposit = 1;
         vm.startPrank(walletAddr);
         vm.expectRevert(); //Not enough collateral per storage
-        subnetActorManagerFacet.join{value: testDeposit}(publicKey, testDeposit, storageCommintment);
+        subnetActorManagerFacet.join{value: testDeposit - 1}(publicKey, testDeposit - 1, storageCommintment);
 
         // Expect no revert on this call
         subnetActorManagerFacet.join{value: deposit}(publicKey, deposit, storageCommintment); // Call join function with valid collateral and publicKey

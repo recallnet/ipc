@@ -1894,7 +1894,7 @@ contract SubnetActorDiamondTest is Test, IntegrationTestBase {
 
         Asset memory source = Asset({kind: AssetKind.ERC20, tokenAddress: address(sourceToken)});
         Asset memory collateral = Asset({kind: AssetKind.ERC20, tokenAddress: address(collateralToken)});
-        console.log("1897");
+
         gatewayAddress = address(gatewayDiamond);
         SubnetActorDiamond.ConstructorParams memory params = defaultSubnetActorParamsWith(
             gatewayAddress,
@@ -1904,7 +1904,7 @@ contract SubnetActorDiamondTest is Test, IntegrationTestBase {
         );
 
         saDiamond = createSubnetActor(params);
-        console.log("1907");
+
         vm.prank(validator2);
         sourceToken.approve(address(saDiamond.manager()), 100);
         vm.prank(validator2);
@@ -1912,14 +1912,14 @@ contract SubnetActorDiamondTest is Test, IntegrationTestBase {
 
         vm.prank(validator);
         collateralToken.approve(address(saDiamond.manager()), DEFAULT_MIN_VALIDATOR_STAKE * 2);
-        console.log("1915", DEFAULT_MIN_VALIDATOR_STAKE, MIN_STORAGE);
+
         vm.prank(validator);
         saDiamond.manager().join(publicKey, DEFAULT_MIN_VALIDATOR_STAKE, MIN_STORAGE);
         require(collateralToken.balanceOf(validator) == DEFAULT_MIN_VALIDATOR_STAKE * 9);
         require(collateralToken.balanceOf(address(saDiamond)) == 0);
         require(collateralToken.balanceOf(gatewayAddress) == DEFAULT_MIN_VALIDATOR_STAKE);
         require(sourceToken.balanceOf(gatewayAddress) == 100);
-        console.log("1922");
+
         vm.prank(validator);
         saDiamond.manager().stake(DEFAULT_MIN_VALIDATOR_STAKE);
         require(
@@ -1934,7 +1934,7 @@ contract SubnetActorDiamondTest is Test, IntegrationTestBase {
             collateralToken.balanceOf(gatewayAddress) == DEFAULT_MIN_VALIDATOR_STAKE,
             "gateway post stake balance wrong"
         );
-        console.log("1936");
+
         confirmChange(validator, privKey);
         require(
             collateralToken.balanceOf(validator) == DEFAULT_MIN_VALIDATOR_STAKE * 8,
@@ -1945,7 +1945,7 @@ contract SubnetActorDiamondTest is Test, IntegrationTestBase {
             collateralToken.balanceOf(gatewayAddress) == DEFAULT_MIN_VALIDATOR_STAKE * 2,
             "gateway post stake confirmed balance wrong"
         );
-        console.log("1947");
+
         vm.prank(validator);
         saDiamond.manager().unstake(DEFAULT_MIN_VALIDATOR_STAKE);
         require(
@@ -1957,7 +1957,7 @@ contract SubnetActorDiamondTest is Test, IntegrationTestBase {
             collateralToken.balanceOf(gatewayAddress) == DEFAULT_MIN_VALIDATOR_STAKE * 2,
             "gateway post unstake balance wrong"
         );
-        console.log("1958");
+
         confirmChange(validator, privKey);
         require(
             collateralToken.balanceOf(validator) == DEFAULT_MIN_VALIDATOR_STAKE * 8,
@@ -1971,7 +1971,8 @@ contract SubnetActorDiamondTest is Test, IntegrationTestBase {
             collateralToken.balanceOf(gatewayAddress) == DEFAULT_MIN_VALIDATOR_STAKE,
             "gateway post unstake balance wrong"
         );
-        console.log("1972");
+
+        vm.roll(block.number + DEFAULT_LOCKING_DURATION + 1);
         vm.prank(validator);
         saDiamond.rewarder().claim();
         require(
@@ -1990,7 +1991,7 @@ contract SubnetActorDiamondTest is Test, IntegrationTestBase {
             collateralToken.balanceOf(validator) == DEFAULT_MIN_VALIDATOR_STAKE * 9,
             "validator post leave balance wrong"
         );
-        console.log("1990");
+
         require(collateralToken.balanceOf(address(saDiamond)) == 0, "saDiamond post leave balance wrong");
         require(
             collateralToken.balanceOf(gatewayAddress) == DEFAULT_MIN_VALIDATOR_STAKE,
@@ -2006,14 +2007,14 @@ contract SubnetActorDiamondTest is Test, IntegrationTestBase {
             "saDiamond confirmed leave balance wrong"
         );
         require(collateralToken.balanceOf(gatewayAddress) == 0, "gateway confirmed leave balance wrong");
-        console.log("2006");
+        vm.roll(block.number + DEFAULT_LOCKING_DURATION + 1);
         vm.prank(validator);
         saDiamond.rewarder().claim();
         require(
             collateralToken.balanceOf(validator) == DEFAULT_MIN_VALIDATOR_STAKE * 10,
             "validator post leave claim balance wrong"
         );
-        console.log("2012");
+
         require(collateralToken.balanceOf(address(saDiamond)) == 0, "saDiamond post claim balance wrong");
         require(collateralToken.balanceOf(gatewayAddress) == 0, "gateway post leave claim balance wrong");
     }
@@ -2102,7 +2103,7 @@ contract SubnetActorDiamondTest is Test, IntegrationTestBase {
             token.balanceOf(gatewayAddress) == DEFAULT_MIN_VALIDATOR_STAKE + 100,
             "gateway post unstake balance wrong"
         );
-
+        vm.roll(block.number + DEFAULT_LOCKING_DURATION + 1);
         vm.prank(validator);
         saDiamond.rewarder().claim();
         require(token.balanceOf(validator) == DEFAULT_MIN_VALIDATOR_STAKE * 9, "validator post claim balance wrong");
@@ -2130,7 +2131,7 @@ contract SubnetActorDiamondTest is Test, IntegrationTestBase {
             "saDiamond confirmed leave balance wrong"
         );
         require(token.balanceOf(gatewayAddress) == 100, "gateway confirmed leave balance wrong");
-
+        vm.roll(block.number + DEFAULT_LOCKING_DURATION + 1);
         vm.prank(validator);
         saDiamond.rewarder().claim();
         require(
@@ -2231,7 +2232,7 @@ contract SubnetActorDiamondTest is Test, IntegrationTestBase {
             collateralToken.balanceOf(gatewayAddress) == DEFAULT_MIN_VALIDATOR_STAKE,
             "gateway post unstake balance wrong"
         );
-
+        vm.roll(block.number + DEFAULT_LOCKING_DURATION + 1);
         vm.prank(validator);
         saDiamond.rewarder().claim();
         require(
@@ -2310,7 +2311,7 @@ contract SubnetActorDiamondTest is Test, IntegrationTestBase {
             address(gatewayAddress).balance == DEFAULT_MIN_VALIDATOR_STAKE + 100,
             "gateway post unstake balance wrong"
         );
-
+        vm.roll(block.number + DEFAULT_LOCKING_DURATION + 1);
         vm.prank(validator);
         saDiamond.rewarder().claim();
         require(address(validator).balance == DEFAULT_MIN_VALIDATOR_STAKE * 9, "validator post claim balance wrong");
@@ -2387,7 +2388,7 @@ contract SubnetActorDiamondTest is Test, IntegrationTestBase {
         confirmChange(validator, privKey);
         require(address(validator).balance == DEFAULT_MIN_VALIDATOR_STAKE * 8, "validator post unstake balance wrong");
         require(address(gatewayAddress).balance == DEFAULT_MIN_VALIDATOR_STAKE, "gateway post unstake balance wrong");
-
+        vm.roll(block.number + DEFAULT_LOCKING_DURATION + 1);
         vm.prank(validator);
         saDiamond.rewarder().claim();
         require(address(validator).balance == DEFAULT_MIN_VALIDATOR_STAKE * 9, "validator post claim balance wrong");

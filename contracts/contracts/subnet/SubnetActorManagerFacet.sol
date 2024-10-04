@@ -184,20 +184,20 @@ contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausa
     /// @notice method that allows a validator to increase its storage commited by amount.
     function stakeStorage(uint256 amount) external payable whenNotPaused notKilled {
         LibStorageStakingOps.stakeStorage(amount, msg.value, s.bootstrapped);
-        
     }
 
     /// @notice method that allows a validator to unstake a part of its collateral from a subnet.
     /// @dev `leave` must be used to unstake the entire stake.
     /// @param amount The amount to unstake.
     function unstake(uint256 amount) external nonReentrant whenNotPaused notKilled {
-        // disabling validator changes for federated validation subnets (at least for now
-        // until a more complex mechanism is implemented).
-        LibSubnetActor.enforceCollateralValidation();
-
         if (amount == 0) {
             revert CannotReleaseZero();
         }
+
+        if (!LibStaking.isValidator(msg.sender)) {
+            revert NotValidator(msg.sender);
+        }
+        LibSubnetActor.enforceCollateralValidation();
 
         uint256 collateral = LibStaking.totalValidatorCollateral(msg.sender);
         uint256 totalStorage = LibStorageStakingGetters.totalValidatorStorage(msg.sender);
@@ -221,7 +221,7 @@ contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausa
     /// @dev `leave` must be used to unstake the entire stake.
     /// @param amount The storage amount to unstake.
     function unstakeStorage(uint256 amount) external nonReentrant whenNotPaused notKilled {
-        // disabling validator changes for federated validation subnets 
+        // disabling validator changes for federated validation subnets
         LibSubnetActor.enforceCollateralValidation();
 
         if (amount == 0) {

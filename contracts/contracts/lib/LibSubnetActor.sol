@@ -35,9 +35,6 @@ library LibSubnetActor {
     /// @notice Ensures that the provided collateral is enough for the committed storage.
     /// @dev Reverts if the collateral is not in enough for the storage amount
     function enforceStorageCollateralValidation(uint256 collateral, uint256 storageAmount) internal view {
-        if (!LibStaking.isValidator(msg.sender)) {
-            revert NotValidator(msg.sender);
-        }
         SubnetActorStorage storage s = LibSubnetActorStorage.appStorage();
         uint256 requiredCollateral = storageAmount * s.tokensPerStorageRatio;
         
