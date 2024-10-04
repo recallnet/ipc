@@ -3,8 +3,9 @@ pragma solidity ^0.8.23;
 
 import {ValidatorSet, Validator, StakingChangeLog} from "../structs/Subnet.sol";
 import {LibSubnetActorStorage, SubnetActorStorage} from "./LibSubnetActorStorage.sol";
+import {LibSubnetActor} from "./LibSubnetActor.sol";
 import {LibStakingChangeLog} from "./LibStakingChangeLog.sol";
-import {LibValidatorSet} from "./LibStaking.sol";
+import {LibValidatorSet, LibStaking} from "./LibStaking.sol";
 import {NotEnoughStorageCommitment} from "../errors/IPCErrors.sol";
 
 library LibStorageStaking {
@@ -62,6 +63,24 @@ library LibStorageStaking {
         s.validatorSet.recordStorageWithdraw(validator, amount);
     }
 
+}
+
+library LibStorageStakingOps {
+    function stakeStorage(uint256 amount, uint256 value, bool bootstrapped) external {
+        LibSubnetActor.enforceCollateralValidation();
+
+        uint256 collateral = value + LibStaking.totalValidatorCollateral(msg.sender);
+        uint256 totalStorage = amount + LibStorageStakingGetters.totalValidatorStorage(msg.sender);
+        LibSubnetActor.enforceStorageCollateralValidation(msg.value + collateral, totalStorage + amount);
+
+        if (!bootstrapped) {
+            LibStorageStaking.commitStorageWithConfirm(msg.sender, amount);
+        } else {
+            LibStorageStaking.commitStorage(msg.sender, amount);
+        }   
+    }
+
+    // No unstakeStorage included since solidity compilation exceeds size limit
 }
 
 library LibStorageStakingGetters {

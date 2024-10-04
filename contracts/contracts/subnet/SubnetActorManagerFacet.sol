@@ -15,7 +15,7 @@ import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {LibSubnetActor} from "../lib/LibSubnetActor.sol";
 import {Pausable} from "../lib/LibPausable.sol";
 import {AssetHelper} from "../lib/AssetHelper.sol";
-import {LibStorageStaking, LibStorageStakingGetters} from "../lib/LibStorageStaking.sol";
+import {LibStorageStaking, LibStorageStakingGetters, LibStorageStakingOps} from "../lib/LibStorageStaking.sol";
 
 contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausable {
     using EnumerableSet for EnumerableSet.AddressSet;
@@ -183,18 +183,7 @@ contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausa
 
     /// @notice method that allows a validator to increase its storage commited by amount.
     function stakeStorage(uint256 amount) external payable whenNotPaused notKilled {
-        // disabling validator changes for federated subnets
-        LibSubnetActor.enforceCollateralValidation();
-
-        uint256 collateral = msg.value + LibStaking.totalValidatorCollateral(msg.sender);
-        uint256 storageAmount = amount + LibStorageStakingGetters.totalValidatorStorage(msg.sender);
-        LibSubnetActor.enforceStorageCollateralValidation(msg.value, amount);
-
-        if (!s.bootstrapped) {
-            LibStorageStaking.commitStorageWithConfirm(msg.sender, amount);
-        } else {
-            LibStorageStaking.commitStorage(msg.sender, amount);
-        }
+        LibStorageStakingOps.stakeStorage(amount, msg.value, s.bootstrapped);
         
     }
 
@@ -292,7 +281,7 @@ contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausa
             // interaction must be performed after checks and changes
             LibStaking.withdrawWithConfirm(msg.sender, amount);
             s.collateralSource.transferFunds(payable(msg.sender), amount);
-            s.validatorSet.totalConfirmedStorage -= totalStorage; // No need to explicitly withdraw storage for validator, prevous step deletes validator record
+            s.validatorSet.totalConfirmedStorage -= totalStorage; // No need to explicitly withdraw storage for validator
             return;
         }
         LibStaking.withdraw(msg.sender, amount);

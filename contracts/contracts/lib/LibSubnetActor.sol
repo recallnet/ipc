@@ -2,14 +2,13 @@
 pragma solidity ^0.8.23;
 
 import {VALIDATOR_SECP256K1_PUBLIC_KEY_LENGTH} from "../constants/Constants.sol";
-import {ERR_PERMISSIONED_AND_BOOTSTRAPPED, ERR_VALIDATOR_JOINED, CollateralIsZero, InvalidPublicKeyLength, NotValidator} from "../errors/IPCErrors.sol";
-import {NotEnoughGenesisValidators, DuplicatedGenesisValidator, NotOwnerOfPublicKey, MethodNotAllowed, NotEnoughCollateralForStorageAmount} from "../errors/IPCErrors.sol";
+import {ERR_PERMISSIONED_AND_BOOTSTRAPPED, ERR_VALIDATOR_JOINED} from "../errors/IPCErrors.sol";
+import {NotEnoughGenesisValidators, DuplicatedGenesisValidator, NotOwnerOfPublicKey, MethodNotAllowed, NotEnoughCollateralForStorageAmount, CollateralIsZero, InvalidPublicKeyLength, NotValidator} from "../errors/IPCErrors.sol";
 import {IGateway} from "../interfaces/IGateway.sol";
 import {IValidatorGater} from "../interfaces/IValidatorGater.sol";
 import {Validator, ValidatorSet, PermissionMode, SubnetID, Asset} from "../structs/Subnet.sol";
 import {SubnetActorModifiers} from "../lib/LibSubnetActorStorage.sol";
-import {LibValidatorSet, LibStaking} from "../lib/LibStaking.sol";
-import {LibStorageStakingGetters} from "../lib/LibStorageStaking.sol";
+import {LibStaking} from "../lib/LibStaking.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import {LibSubnetActorStorage, SubnetActorStorage} from "./LibSubnetActorStorage.sol";
 import {SubnetIDHelper} from "../lib/SubnetIDHelper.sol";

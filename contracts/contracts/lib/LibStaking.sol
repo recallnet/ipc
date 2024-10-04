@@ -529,7 +529,7 @@ library LibStaking {
                     addr: validator,
                     weight: collateral,
                     metadata: s.validatorSet.validators[validator].metadata,
-                     storageAmount: 0
+                    storageAmount: 0
                 });
                 s.genesisValidators.push(val);
             }
