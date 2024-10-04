@@ -2,8 +2,8 @@
 pragma solidity ^0.8.23;
 
 import {VALIDATOR_SECP256K1_PUBLIC_KEY_LENGTH} from "../constants/Constants.sol";
-import {ERR_VALIDATOR_JOINED, ERR_VALIDATOR_NOT_JOINED, NotEnoughStorageCommitment} from "../errors/IPCErrors.sol";
-import {InvalidFederationPayload, SubnetAlreadyBootstrapped, NotEnoughFunds, CollateralIsZero, CannotReleaseZero, NotOwnerOfPublicKey, EmptyAddress, NotEnoughBalance, NotEnoughCollateral, NotValidator, NotAllValidatorsHaveLeft, InvalidPublicKeyLength, MethodNotAllowed, SubnetNotBootstrapped} from "../errors/IPCErrors.sol";
+import {ERR_VALIDATOR_NOT_JOINED, NotEnoughStorageCommitment} from "../errors/IPCErrors.sol";
+import {InvalidFederationPayload, SubnetAlreadyBootstrapped, NotEnoughFunds, CollateralIsZero, CannotReleaseZero, EmptyAddress, NotEnoughBalance, NotEnoughCollateral, NotValidator, NotAllValidatorsHaveLeft, MethodNotAllowed, SubnetNotBootstrapped} from "../errors/IPCErrors.sol";
 import {IGateway} from "../interfaces/IGateway.sol";
 import {Validator, ValidatorSet, Asset, SubnetID} from "../structs/Subnet.sol";
 import {LibDiamond} from "../lib/LibDiamond.sol";
@@ -195,6 +195,7 @@ contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausa
         } else {
             LibStorageStaking.commitStorage(msg.sender, amount);
         }
+        
     }
 
     /// @notice method that allows a validator to unstake a part of its collateral from a subnet.

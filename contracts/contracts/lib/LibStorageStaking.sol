@@ -36,10 +36,9 @@ library LibStorageStaking {
         s.validatorSet.confirmStorageDeposit(validator, totalStorage);
 
         // Because depositWithConfirm runs before this we know the address is already a validator we just need to include the storage in the struct
-        if (!s.bootstrapped) { //TODO It's not the most gas-efficient operation to do this twice; evaluate the possibility of doing it only once.
-            uint256 storageAmount = s.validatorSet.validators[validator].confirmedStorage;
-            s.genesisValidators[s.genesisValidators.length - 1].storageAmount = storageAmount;
-        }
+        //TODO It's not the most gas-efficient operation to do this twice; evaluate the possibility of doing it only once.
+        uint256 storageAmount = s.validatorSet.validators[validator].confirmedStorage;
+        s.genesisValidators[s.genesisValidators.length - 1].storageAmount = storageAmount;
     }
 
     /// @notice Confirm the storage withdraw directly without going through the confirmation process
