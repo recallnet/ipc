@@ -48,6 +48,7 @@ pub mod register_subnet_facet {
                             ],),
                             ::ethers::core::abi::ethabi::ParamType::Address,
                             ::ethers::core::abi::ethabi::ParamType::Uint(256usize),
+                            ::ethers::core::abi::ethabi::ParamType::Uint(256usize),
                         ],),
                         internal_type: ::core::option::Option::Some(
                             ::std::borrow::ToOwned::to_owned(

@@ -5,8 +5,12 @@ crytic-export/
 .idea
 .env
 broadcast/
+out/
+binding/src
 
 node_modules
+
+artifacts
 
 solidity-files-cache.json
 
@@ -18,6 +22,7 @@ deployments.json
 scripts/*.out
 scripts/deploy-registry.ts
 scripts/deploy-gateway.ts
+binding/target
 subnet.registry.json
 subnet.actor.json
 
