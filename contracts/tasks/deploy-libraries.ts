@@ -16,6 +16,9 @@ task(
             { name: 'LibStaking' },
             { name: 'LibQuorum' },
             { name: 'CrossMsgHelper', libraries: ['SubnetIDHelper'] },
+            { name: 'LibStorageStaking' },
+            { name: 'LibStorageStakingGetters' },
+            { name: 'LibStorageStakingOps' },
         ]
 
         return await Deployments.deploy(hre, deployer, ...contracts)

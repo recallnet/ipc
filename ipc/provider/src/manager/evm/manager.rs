@@ -282,7 +282,7 @@ impl SubnetManager for EthSubnetManager {
             collateral_source: register_subnet_facet::Asset::try_from(params.collateral_source)?,
             validator_gater: payload_to_evm_address(params.validator_gater.payload())?,
             token_ratio: ethers::types::U256::from(0),
-            locking_duration: ethers::types::U256::from(10),
+            locking_duration: ethers::types::U256::from(0),
         };
 
         tracing::info!("creating subnet on evm with params: {params:?}");
