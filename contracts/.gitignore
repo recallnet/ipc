@@ -5,7 +5,6 @@ crytic-export/
 .idea
 .env
 broadcast/
-binding/src
 
 node_modules
 
@@ -19,7 +18,6 @@ deployments.json
 scripts/*.out
 scripts/deploy-registry.ts
 scripts/deploy-gateway.ts
-binding/target
 subnet.registry.json
 subnet.actor.json
 
