@@ -122,6 +122,13 @@ library SelectorLibrary {
                     (bytes4[])
                 );
         }
+        if (keccak256(abi.encodePacked(facetName)) == keccak256(abi.encodePacked("AssetHelperMock"))) {
+            return
+                abi.decode(
+                    hex"000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000017bf257a800000000000000000000000000000000000000000000000000000000",
+                    (bytes4[])
+                );
+        }
         revert(string.concat("Selectors not found for facet: ", facetName));
     }
 }

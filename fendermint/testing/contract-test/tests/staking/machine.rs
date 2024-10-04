@@ -120,7 +120,8 @@ impl StateMachine for StakingMachine {
                 token_address: ethers::types::Address::zero(),
             },
             validator_gater: EthAddress::from(ethers::types::Address::zero()).into(),
-            locking_duration: 0, // TODO This is due to fact FVM/IPC testing suite does not support setting block height on demand
+            token_ratio:  ethers::types::U256::from(0),
+            locking_duration:  ethers::types::U256::from(0), // TODO This is due to fact FVM/IPC testing suite does not support setting block height on demand
         };
 
         eprintln!("\n> PARENT IPC: {parent_ipc:?}");
