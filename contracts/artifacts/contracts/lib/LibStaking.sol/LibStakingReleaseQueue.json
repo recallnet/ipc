@@ -1,0 +1,36 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "LibStakingReleaseQueue",
+  "sourceName": "contracts/lib/LibStaking.sol",
+  "abi": [
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "validator",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "releaseBlock",
+          "type": "uint256"
+        }
+      ],
+      "name": "NewCollateralRelease",
+      "type": "event"
+    }
+  ],
+  "bytecode": "0x60808060405234601757603a9081601d823930815050f35b600080fdfe600080fdfea264697066735822122064232758722cbca0c11fff1d1ce2328ba08d13dbb8fad94d46934283b545e0a764736f6c63430008170033",
+  "deployedBytecode": "0x600080fdfea264697066735822122064232758722cbca0c11fff1d1ce2328ba08d13dbb8fad94d46934283b545e0a764736f6c63430008170033",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

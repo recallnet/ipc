@@ -5,12 +5,9 @@ crytic-export/
 .idea
 .env
 broadcast/
-out/
 binding/src
 
 node_modules
-
-artifacts
 
 solidity-files-cache.json
 

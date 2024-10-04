@@ -1,0 +1,10 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "LibMinPQ",
+  "sourceName": "contracts/lib/priority/LibMinPQ.sol",
+  "abi": [],
+  "bytecode": "0x60808060405234601757603a9081601d823930815050f35b600080fdfe600080fdfea26469706673582212208a46878d710805ea47c8b93a7a5a0b0c37378fb1cb6ffd6e360e651b9afa60b164736f6c63430008170033",
+  "deployedBytecode": "0x600080fdfea26469706673582212208a46878d710805ea47c8b93a7a5a0b0c37378fb1cb6ffd6e360e651b9afa60b164736f6c63430008170033",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

@@ -1,0 +1,1427 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "CrossMsgHelper",
+  "sourceName": "contracts/lib/CrossMsgHelper.sol",
+  "abi": [
+    {
+      "inputs": [],
+      "name": "CannotExecuteEmptyEnvelope",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "NotDelegatedEvmAddress",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "NotEnoughBalance",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "components": [
+            {
+              "internalType": "enum IpcMsgKind",
+              "name": "kind",
+              "type": "IpcMsgKind"
+            },
+            {
+              "components": [
+                {
+                  "components": [
+                    {
+                      "internalType": "uint64",
+                      "name": "root",
+                      "type": "uint64"
+                    },
+                    {
+                      "internalType": "address[]",
+                      "name": "route",
+                      "type": "address[]"
+                    }
+                  ],
+                  "internalType": "struct SubnetID",
+                  "name": "subnetId",
+                  "type": "tuple"
+                },
+                {
+                  "components": [
+                    {
+                      "internalType": "uint8",
+                      "name": "addrType",
+                      "type": "uint8"
+                    },
+                    {
+                      "internalType": "bytes",
+                      "name": "payload",
+                      "type": "bytes"
+                    }
+                  ],
+                  "internalType": "struct FvmAddress",
+                  "name": "rawAddress",
+                  "type": "tuple"
+                }
+              ],
+              "internalType": "struct IPCAddress",
+              "name": "to",
+              "type": "tuple"
+            },
+            {
+              "components": [
+                {
+                  "components": [
+                    {
+                      "internalType": "uint64",
+                      "name": "root",
+                      "type": "uint64"
+                    },
+                    {
+                      "internalType": "address[]",
+                      "name": "route",
+                      "type": "address[]"
+                    }
+                  ],
+                  "internalType": "struct SubnetID",
+                  "name": "subnetId",
+                  "type": "tuple"
+                },
+                {
+                  "components": [
+                    {
+                      "internalType": "uint8",
+                      "name": "addrType",
+                      "type": "uint8"
+                    },
+                    {
+                      "internalType": "bytes",
+                      "name": "payload",
+                      "type": "bytes"
+                    }
+                  ],
+                  "internalType": "struct FvmAddress",
+                  "name": "rawAddress",
+                  "type": "tuple"
+                }
+              ],
+              "internalType": "struct IPCAddress",
+              "name": "from",
+              "type": "tuple"
+            },
+            {
+              "internalType": "uint64",
+              "name": "nonce",
+              "type": "uint64"
+            },
+            {
+              "internalType": "uint256",
+              "name": "value",
+              "type": "uint256"
+            },
+            {
+              "internalType": "bytes",
+              "name": "message",
+              "type": "bytes"
+            }
+          ],
+          "internalType": "struct IpcEnvelope",
+          "name": "message",
+          "type": "tuple"
+        },
+        {
+          "components": [
+            {
+              "internalType": "uint64",
+              "name": "root",
+              "type": "uint64"
+            },
+            {
+              "internalType": "address[]",
+              "name": "route",
+              "type": "address[]"
+            }
+          ],
+          "internalType": "struct SubnetID",
+          "name": "currentSubnet",
+          "type": "tuple"
+        }
+      ],
+      "name": "applyType",
+      "outputs": [
+        {
+          "internalType": "enum IPCMsgType",
+          "name": "",
+          "type": "IPCMsgType"
+        }
+      ],
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "components": [
+            {
+              "components": [
+                {
+                  "internalType": "uint64",
+                  "name": "root",
+                  "type": "uint64"
+                },
+                {
+                  "internalType": "address[]",
+                  "name": "route",
+                  "type": "address[]"
+                }
+              ],
+              "internalType": "struct SubnetID",
+              "name": "subnetId",
+              "type": "tuple"
+            },
+            {
+              "components": [
+                {
+                  "internalType": "uint8",
+                  "name": "addrType",
+                  "type": "uint8"
+                },
+                {
+                  "internalType": "bytes",
+                  "name": "payload",
+                  "type": "bytes"
+                }
+              ],
+              "internalType": "struct FvmAddress",
+              "name": "rawAddress",
+              "type": "tuple"
+            }
+          ],
+          "internalType": "struct IPCAddress",
+          "name": "from",
+          "type": "tuple"
+        },
+        {
+          "components": [
+            {
+              "components": [
+                {
+                  "internalType": "uint64",
+                  "name": "root",
+                  "type": "uint64"
+                },
+                {
+                  "internalType": "address[]",
+                  "name": "route",
+                  "type": "address[]"
+                }
+              ],
+              "internalType": "struct SubnetID",
+              "name": "subnetId",
+              "type": "tuple"
+            },
+            {
+              "components": [
+                {
+                  "internalType": "uint8",
+                  "name": "addrType",
+                  "type": "uint8"
+                },
+                {
+                  "internalType": "bytes",
+                  "name": "payload",
+                  "type": "bytes"
+                }
+              ],
+              "internalType": "struct FvmAddress",
+              "name": "rawAddress",
+              "type": "tuple"
+            }
+          ],
+          "internalType": "struct IPCAddress",
+          "name": "to",
+          "type": "tuple"
+        },
+        {
+          "internalType": "uint256",
+          "name": "value",
+          "type": "uint256"
+        },
+        {
+          "internalType": "bytes4",
+          "name": "method",
+          "type": "bytes4"
+        },
+        {
+          "internalType": "bytes",
+          "name": "params",
+          "type": "bytes"
+        }
+      ],
+      "name": "createCallMsg",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "enum IpcMsgKind",
+              "name": "kind",
+              "type": "IpcMsgKind"
+            },
+            {
+              "components": [
+                {
+                  "components": [
+                    {
+                      "internalType": "uint64",
+                      "name": "root",
+                      "type": "uint64"
+                    },
+                    {
+                      "internalType": "address[]",
+                      "name": "route",
+                      "type": "address[]"
+                    }
+                  ],
+                  "internalType": "struct SubnetID",
+                  "name": "subnetId",
+                  "type": "tuple"
+                },
+                {
+                  "components": [
+                    {
+                      "internalType": "uint8",
+                      "name": "addrType",
+                      "type": "uint8"
+                    },
+                    {
+                      "internalType": "bytes",
+                      "name": "payload",
+                      "type": "bytes"
+                    }
+                  ],
+                  "internalType": "struct FvmAddress",
+                  "name": "rawAddress",
+                  "type": "tuple"
+                }
+              ],
+              "internalType": "struct IPCAddress",
+              "name": "to",
+              "type": "tuple"
+            },
+            {
+              "components": [
+                {
+                  "components": [
+                    {
+                      "internalType": "uint64",
+                      "name": "root",
+                      "type": "uint64"
+                    },
+                    {
+                      "internalType": "address[]",
+                      "name": "route",
+                      "type": "address[]"
+                    }
+                  ],
+                  "internalType": "struct SubnetID",
+                  "name": "subnetId",
+                  "type": "tuple"
+                },
+                {
+                  "components": [
+                    {
+                      "internalType": "uint8",
+                      "name": "addrType",
+                      "type": "uint8"
+                    },
+                    {
+                      "internalType": "bytes",
+                      "name": "payload",
+                      "type": "bytes"
+                    }
+                  ],
+                  "internalType": "struct FvmAddress",
+                  "name": "rawAddress",
+                  "type": "tuple"
+                }
+              ],
+              "internalType": "struct IPCAddress",
+              "name": "from",
+              "type": "tuple"
+            },
+            {
+              "internalType": "uint64",
+              "name": "nonce",
+              "type": "uint64"
+            },
+            {
+              "internalType": "uint256",
+              "name": "value",
+              "type": "uint256"
+            },
+            {
+              "internalType": "bytes",
+              "name": "message",
+              "type": "bytes"
+            }
+          ],
+          "internalType": "struct IpcEnvelope",
+          "name": "",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "components": [
+            {
+              "internalType": "uint64",
+              "name": "root",
+              "type": "uint64"
+            },
+            {
+              "internalType": "address[]",
+              "name": "route",
+              "type": "address[]"
+            }
+          ],
+          "internalType": "struct SubnetID",
+          "name": "subnet",
+          "type": "tuple"
+        },
+        {
+          "internalType": "address",
+          "name": "signer",
+          "type": "address"
+        },
+        {
+          "components": [
+            {
+              "internalType": "uint8",
+              "name": "addrType",
+              "type": "uint8"
+            },
+            {
+              "internalType": "bytes",
+              "name": "payload",
+              "type": "bytes"
+            }
+          ],
+          "internalType": "struct FvmAddress",
+          "name": "to",
+          "type": "tuple"
+        },
+        {
+          "internalType": "uint256",
+          "name": "value",
+          "type": "uint256"
+        }
+      ],
+      "name": "createFundMsg",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "enum IpcMsgKind",
+              "name": "kind",
+              "type": "IpcMsgKind"
+            },
+            {
+              "components": [
+                {
+                  "components": [
+                    {
+                      "internalType": "uint64",
+                      "name": "root",
+                      "type": "uint64"
+                    },
+                    {
+                      "internalType": "address[]",
+                      "name": "route",
+                      "type": "address[]"
+                    }
+                  ],
+                  "internalType": "struct SubnetID",
+                  "name": "subnetId",
+                  "type": "tuple"
+                },
+                {
+                  "components": [
+                    {
+                      "internalType": "uint8",
+                      "name": "addrType",
+                      "type": "uint8"
+                    },
+                    {
+                      "internalType": "bytes",
+                      "name": "payload",
+                      "type": "bytes"
+                    }
+                  ],
+                  "internalType": "struct FvmAddress",
+                  "name": "rawAddress",
+                  "type": "tuple"
+                }
+              ],
+              "internalType": "struct IPCAddress",
+              "name": "to",
+              "type": "tuple"
+            },
+            {
+              "components": [
+                {
+                  "components": [
+                    {
+                      "internalType": "uint64",
+                      "name": "root",
+                      "type": "uint64"
+                    },
+                    {
+                      "internalType": "address[]",
+                      "name": "route",
+                      "type": "address[]"
+                    }
+                  ],
+                  "internalType": "struct SubnetID",
+                  "name": "subnetId",
+                  "type": "tuple"
+                },
+                {
+                  "components": [
+                    {
+                      "internalType": "uint8",
+                      "name": "addrType",
+                      "type": "uint8"
+                    },
+                    {
+                      "internalType": "bytes",
+                      "name": "payload",
+                      "type": "bytes"
+                    }
+                  ],
+                  "internalType": "struct FvmAddress",
+                  "name": "rawAddress",
+                  "type": "tuple"
+                }
+              ],
+              "internalType": "struct IPCAddress",
+              "name": "from",
+              "type": "tuple"
+            },
+            {
+              "internalType": "uint64",
+              "name": "nonce",
+              "type": "uint64"
+            },
+            {
+              "internalType": "uint256",
+              "name": "value",
+              "type": "uint256"
+            },
+            {
+              "internalType": "bytes",
+              "name": "message",
+              "type": "bytes"
+            }
+          ],
+          "internalType": "struct IpcEnvelope",
+          "name": "",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "components": [
+            {
+              "internalType": "uint64",
+              "name": "root",
+              "type": "uint64"
+            },
+            {
+              "internalType": "address[]",
+              "name": "route",
+              "type": "address[]"
+            }
+          ],
+          "internalType": "struct SubnetID",
+          "name": "subnet",
+          "type": "tuple"
+        },
+        {
+          "internalType": "address",
+          "name": "signer",
+          "type": "address"
+        },
+        {
+          "components": [
+            {
+              "internalType": "uint8",
+              "name": "addrType",
+              "type": "uint8"
+            },
+            {
+              "internalType": "bytes",
+              "name": "payload",
+              "type": "bytes"
+            }
+          ],
+          "internalType": "struct FvmAddress",
+          "name": "to",
+          "type": "tuple"
+        },
+        {
+          "internalType": "uint256",
+          "name": "value",
+          "type": "uint256"
+        }
+      ],
+      "name": "createReleaseMsg",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "enum IpcMsgKind",
+              "name": "kind",
+              "type": "IpcMsgKind"
+            },
+            {
+              "components": [
+                {
+                  "components": [
+                    {
+                      "internalType": "uint64",
+                      "name": "root",
+                      "type": "uint64"
+                    },
+                    {
+                      "internalType": "address[]",
+                      "name": "route",
+                      "type": "address[]"
+                    }
+                  ],
+                  "internalType": "struct SubnetID",
+                  "name": "subnetId",
+                  "type": "tuple"
+                },
+                {
+                  "components": [
+                    {
+                      "internalType": "uint8",
+                      "name": "addrType",
+                      "type": "uint8"
+                    },
+                    {
+                      "internalType": "bytes",
+                      "name": "payload",
+                      "type": "bytes"
+                    }
+                  ],
+                  "internalType": "struct FvmAddress",
+                  "name": "rawAddress",
+                  "type": "tuple"
+                }
+              ],
+              "internalType": "struct IPCAddress",
+              "name": "to",
+              "type": "tuple"
+            },
+            {
+              "components": [
+                {
+                  "components": [
+                    {
+                      "internalType": "uint64",
+                      "name": "root",
+                      "type": "uint64"
+                    },
+                    {
+                      "internalType": "address[]",
+                      "name": "route",
+                      "type": "address[]"
+                    }
+                  ],
+                  "internalType": "struct SubnetID",
+                  "name": "subnetId",
+                  "type": "tuple"
+                },
+                {
+                  "components": [
+                    {
+                      "internalType": "uint8",
+                      "name": "addrType",
+                      "type": "uint8"
+                    },
+                    {
+                      "internalType": "bytes",
+                      "name": "payload",
+                      "type": "bytes"
+                    }
+                  ],
+                  "internalType": "struct FvmAddress",
+                  "name": "rawAddress",
+                  "type": "tuple"
+                }
+              ],
+              "internalType": "struct IPCAddress",
+              "name": "from",
+              "type": "tuple"
+            },
+            {
+              "internalType": "uint64",
+              "name": "nonce",
+              "type": "uint64"
+            },
+            {
+              "internalType": "uint256",
+              "name": "value",
+              "type": "uint256"
+            },
+            {
+              "internalType": "bytes",
+              "name": "message",
+              "type": "bytes"
+            }
+          ],
+          "internalType": "struct IpcEnvelope",
+          "name": "",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "components": [
+            {
+              "internalType": "enum IpcMsgKind",
+              "name": "kind",
+              "type": "IpcMsgKind"
+            },
+            {
+              "components": [
+                {
+                  "components": [
+                    {
+                      "internalType": "uint64",
+                      "name": "root",
+                      "type": "uint64"
+                    },
+                    {
+                      "internalType": "address[]",
+                      "name": "route",
+                      "type": "address[]"
+                    }
+                  ],
+                  "internalType": "struct SubnetID",
+                  "name": "subnetId",
+                  "type": "tuple"
+                },
+                {
+                  "components": [
+                    {
+                      "internalType": "uint8",
+                      "name": "addrType",
+                      "type": "uint8"
+                    },
+                    {
+                      "internalType": "bytes",
+                      "name": "payload",
+                      "type": "bytes"
+                    }
+                  ],
+                  "internalType": "struct FvmAddress",
+                  "name": "rawAddress",
+                  "type": "tuple"
+                }
+              ],
+              "internalType": "struct IPCAddress",
+              "name": "to",
+              "type": "tuple"
+            },
+            {
+              "components": [
+                {
+                  "components": [
+                    {
+                      "internalType": "uint64",
+                      "name": "root",
+                      "type": "uint64"
+                    },
+                    {
+                      "internalType": "address[]",
+                      "name": "route",
+                      "type": "address[]"
+                    }
+                  ],
+                  "internalType": "struct SubnetID",
+                  "name": "subnetId",
+                  "type": "tuple"
+                },
+                {
+                  "components": [
+                    {
+                      "internalType": "uint8",
+                      "name": "addrType",
+                      "type": "uint8"
+                    },
+                    {
+                      "internalType": "bytes",
+                      "name": "payload",
+                      "type": "bytes"
+                    }
+                  ],
+                  "internalType": "struct FvmAddress",
+                  "name": "rawAddress",
+                  "type": "tuple"
+                }
+              ],
+              "internalType": "struct IPCAddress",
+              "name": "from",
+              "type": "tuple"
+            },
+            {
+              "internalType": "uint64",
+              "name": "nonce",
+              "type": "uint64"
+            },
+            {
+              "internalType": "uint256",
+              "name": "value",
+              "type": "uint256"
+            },
+            {
+              "internalType": "bytes",
+              "name": "message",
+              "type": "bytes"
+            }
+          ],
+          "internalType": "struct IpcEnvelope",
+          "name": "crossMsg",
+          "type": "tuple"
+        },
+        {
+          "internalType": "enum OutcomeType",
+          "name": "outcome",
+          "type": "OutcomeType"
+        },
+        {
+          "internalType": "bytes",
+          "name": "ret",
+          "type": "bytes"
+        }
+      ],
+      "name": "createResultMsg",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "enum IpcMsgKind",
+              "name": "kind",
+              "type": "IpcMsgKind"
+            },
+            {
+              "components": [
+                {
+                  "components": [
+                    {
+                      "internalType": "uint64",
+                      "name": "root",
+                      "type": "uint64"
+                    },
+                    {
+                      "internalType": "address[]",
+                      "name": "route",
+                      "type": "address[]"
+                    }
+                  ],
+                  "internalType": "struct SubnetID",
+                  "name": "subnetId",
+                  "type": "tuple"
+                },
+                {
+                  "components": [
+                    {
+                      "internalType": "uint8",
+                      "name": "addrType",
+                      "type": "uint8"
+                    },
+                    {
+                      "internalType": "bytes",
+                      "name": "payload",
+                      "type": "bytes"
+                    }
+                  ],
+                  "internalType": "struct FvmAddress",
+                  "name": "rawAddress",
+                  "type": "tuple"
+                }
+              ],
+              "internalType": "struct IPCAddress",
+              "name": "to",
+              "type": "tuple"
+            },
+            {
+              "components": [
+                {
+                  "components": [
+                    {
+                      "internalType": "uint64",
+                      "name": "root",
+                      "type": "uint64"
+                    },
+                    {
+                      "internalType": "address[]",
+                      "name": "route",
+                      "type": "address[]"
+                    }
+                  ],
+                  "internalType": "struct SubnetID",
+                  "name": "subnetId",
+                  "type": "tuple"
+                },
+                {
+                  "components": [
+                    {
+                      "internalType": "uint8",
+                      "name": "addrType",
+                      "type": "uint8"
+                    },
+                    {
+                      "internalType": "bytes",
+                      "name": "payload",
+                      "type": "bytes"
+                    }
+                  ],
+                  "internalType": "struct FvmAddress",
+                  "name": "rawAddress",
+                  "type": "tuple"
+                }
+              ],
+              "internalType": "struct IPCAddress",
+              "name": "from",
+              "type": "tuple"
+            },
+            {
+              "internalType": "uint64",
+              "name": "nonce",
+              "type": "uint64"
+            },
+            {
+              "internalType": "uint256",
+              "name": "value",
+              "type": "uint256"
+            },
+            {
+              "internalType": "bytes",
+              "name": "message",
+              "type": "bytes"
+            }
+          ],
+          "internalType": "struct IpcEnvelope",
+          "name": "",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "components": [
+            {
+              "components": [
+                {
+                  "internalType": "uint64",
+                  "name": "root",
+                  "type": "uint64"
+                },
+                {
+                  "internalType": "address[]",
+                  "name": "route",
+                  "type": "address[]"
+                }
+              ],
+              "internalType": "struct SubnetID",
+              "name": "subnetId",
+              "type": "tuple"
+            },
+            {
+              "components": [
+                {
+                  "internalType": "uint8",
+                  "name": "addrType",
+                  "type": "uint8"
+                },
+                {
+                  "internalType": "bytes",
+                  "name": "payload",
+                  "type": "bytes"
+                }
+              ],
+              "internalType": "struct FvmAddress",
+              "name": "rawAddress",
+              "type": "tuple"
+            }
+          ],
+          "internalType": "struct IPCAddress",
+          "name": "from",
+          "type": "tuple"
+        },
+        {
+          "components": [
+            {
+              "components": [
+                {
+                  "internalType": "uint64",
+                  "name": "root",
+                  "type": "uint64"
+                },
+                {
+                  "internalType": "address[]",
+                  "name": "route",
+                  "type": "address[]"
+                }
+              ],
+              "internalType": "struct SubnetID",
+              "name": "subnetId",
+              "type": "tuple"
+            },
+            {
+              "components": [
+                {
+                  "internalType": "uint8",
+                  "name": "addrType",
+                  "type": "uint8"
+                },
+                {
+                  "internalType": "bytes",
+                  "name": "payload",
+                  "type": "bytes"
+                }
+              ],
+              "internalType": "struct FvmAddress",
+              "name": "rawAddress",
+              "type": "tuple"
+            }
+          ],
+          "internalType": "struct IPCAddress",
+          "name": "to",
+          "type": "tuple"
+        },
+        {
+          "internalType": "uint256",
+          "name": "value",
+          "type": "uint256"
+        }
+      ],
+      "name": "createTransferMsg",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "enum IpcMsgKind",
+              "name": "kind",
+              "type": "IpcMsgKind"
+            },
+            {
+              "components": [
+                {
+                  "components": [
+                    {
+                      "internalType": "uint64",
+                      "name": "root",
+                      "type": "uint64"
+                    },
+                    {
+                      "internalType": "address[]",
+                      "name": "route",
+                      "type": "address[]"
+                    }
+                  ],
+                  "internalType": "struct SubnetID",
+                  "name": "subnetId",
+                  "type": "tuple"
+                },
+                {
+                  "components": [
+                    {
+                      "internalType": "uint8",
+                      "name": "addrType",
+                      "type": "uint8"
+                    },
+                    {
+                      "internalType": "bytes",
+                      "name": "payload",
+                      "type": "bytes"
+                    }
+                  ],
+                  "internalType": "struct FvmAddress",
+                  "name": "rawAddress",
+                  "type": "tuple"
+                }
+              ],
+              "internalType": "struct IPCAddress",
+              "name": "to",
+              "type": "tuple"
+            },
+            {
+              "components": [
+                {
+                  "components": [
+                    {
+                      "internalType": "uint64",
+                      "name": "root",
+                      "type": "uint64"
+                    },
+                    {
+                      "internalType": "address[]",
+                      "name": "route",
+                      "type": "address[]"
+                    }
+                  ],
+                  "internalType": "struct SubnetID",
+                  "name": "subnetId",
+                  "type": "tuple"
+                },
+                {
+                  "components": [
+                    {
+                      "internalType": "uint8",
+                      "name": "addrType",
+                      "type": "uint8"
+                    },
+                    {
+                      "internalType": "bytes",
+                      "name": "payload",
+                      "type": "bytes"
+                    }
+                  ],
+                  "internalType": "struct FvmAddress",
+                  "name": "rawAddress",
+                  "type": "tuple"
+                }
+              ],
+              "internalType": "struct IPCAddress",
+              "name": "from",
+              "type": "tuple"
+            },
+            {
+              "internalType": "uint64",
+              "name": "nonce",
+              "type": "uint64"
+            },
+            {
+              "internalType": "uint256",
+              "name": "value",
+              "type": "uint256"
+            },
+            {
+              "internalType": "bytes",
+              "name": "message",
+              "type": "bytes"
+            }
+          ],
+          "internalType": "struct IpcEnvelope",
+          "name": "",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "components": [
+            {
+              "internalType": "enum IpcMsgKind",
+              "name": "kind",
+              "type": "IpcMsgKind"
+            },
+            {
+              "components": [
+                {
+                  "components": [
+                    {
+                      "internalType": "uint64",
+                      "name": "root",
+                      "type": "uint64"
+                    },
+                    {
+                      "internalType": "address[]",
+                      "name": "route",
+                      "type": "address[]"
+                    }
+                  ],
+                  "internalType": "struct SubnetID",
+                  "name": "subnetId",
+                  "type": "tuple"
+                },
+                {
+                  "components": [
+                    {
+                      "internalType": "uint8",
+                      "name": "addrType",
+                      "type": "uint8"
+                    },
+                    {
+                      "internalType": "bytes",
+                      "name": "payload",
+                      "type": "bytes"
+                    }
+                  ],
+                  "internalType": "struct FvmAddress",
+                  "name": "rawAddress",
+                  "type": "tuple"
+                }
+              ],
+              "internalType": "struct IPCAddress",
+              "name": "to",
+              "type": "tuple"
+            },
+            {
+              "components": [
+                {
+                  "components": [
+                    {
+                      "internalType": "uint64",
+                      "name": "root",
+                      "type": "uint64"
+                    },
+                    {
+                      "internalType": "address[]",
+                      "name": "route",
+                      "type": "address[]"
+                    }
+                  ],
+                  "internalType": "struct SubnetID",
+                  "name": "subnetId",
+                  "type": "tuple"
+                },
+                {
+                  "components": [
+                    {
+                      "internalType": "uint8",
+                      "name": "addrType",
+                      "type": "uint8"
+                    },
+                    {
+                      "internalType": "bytes",
+                      "name": "payload",
+                      "type": "bytes"
+                    }
+                  ],
+                  "internalType": "struct FvmAddress",
+                  "name": "rawAddress",
+                  "type": "tuple"
+                }
+              ],
+              "internalType": "struct IPCAddress",
+              "name": "from",
+              "type": "tuple"
+            },
+            {
+              "internalType": "uint64",
+              "name": "nonce",
+              "type": "uint64"
+            },
+            {
+              "internalType": "uint256",
+              "name": "value",
+              "type": "uint256"
+            },
+            {
+              "internalType": "bytes",
+              "name": "message",
+              "type": "bytes"
+            }
+          ],
+          "internalType": "struct IpcEnvelope[]",
+          "name": "crossMsgs",
+          "type": "tuple[]"
+        }
+      ],
+      "name": "isSorted",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "components": [
+            {
+              "internalType": "enum IpcMsgKind",
+              "name": "kind",
+              "type": "IpcMsgKind"
+            },
+            {
+              "components": [
+                {
+                  "components": [
+                    {
+                      "internalType": "uint64",
+                      "name": "root",
+                      "type": "uint64"
+                    },
+                    {
+                      "internalType": "address[]",
+                      "name": "route",
+                      "type": "address[]"
+                    }
+                  ],
+                  "internalType": "struct SubnetID",
+                  "name": "subnetId",
+                  "type": "tuple"
+                },
+                {
+                  "components": [
+                    {
+                      "internalType": "uint8",
+                      "name": "addrType",
+                      "type": "uint8"
+                    },
+                    {
+                      "internalType": "bytes",
+                      "name": "payload",
+                      "type": "bytes"
+                    }
+                  ],
+                  "internalType": "struct FvmAddress",
+                  "name": "rawAddress",
+                  "type": "tuple"
+                }
+              ],
+              "internalType": "struct IPCAddress",
+              "name": "to",
+              "type": "tuple"
+            },
+            {
+              "components": [
+                {
+                  "components": [
+                    {
+                      "internalType": "uint64",
+                      "name": "root",
+                      "type": "uint64"
+                    },
+                    {
+                      "internalType": "address[]",
+                      "name": "route",
+                      "type": "address[]"
+                    }
+                  ],
+                  "internalType": "struct SubnetID",
+                  "name": "subnetId",
+                  "type": "tuple"
+                },
+                {
+                  "components": [
+                    {
+                      "internalType": "uint8",
+                      "name": "addrType",
+                      "type": "uint8"
+                    },
+                    {
+                      "internalType": "bytes",
+                      "name": "payload",
+                      "type": "bytes"
+                    }
+                  ],
+                  "internalType": "struct FvmAddress",
+                  "name": "rawAddress",
+                  "type": "tuple"
+                }
+              ],
+              "internalType": "struct IPCAddress",
+              "name": "from",
+              "type": "tuple"
+            },
+            {
+              "internalType": "uint64",
+              "name": "nonce",
+              "type": "uint64"
+            },
+            {
+              "internalType": "uint256",
+              "name": "value",
+              "type": "uint256"
+            },
+            {
+              "internalType": "bytes",
+              "name": "message",
+              "type": "bytes"
+            }
+          ],
+          "internalType": "struct IpcEnvelope[]",
+          "name": "crossMsgs",
+          "type": "tuple[]"
+        }
+      ],
+      "name": "toHash",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "pure",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x6080806040523461001c57611b5a90816100228239308160a50152f35b600080fdfe6080604052600436101561001257600080fd5b60003560e01c80631860845e146100cf5780633f74f188146100a25780635404605f1461009d578063855f7e451461009857806399aa0eb4146100935780639b7df85a1461008e5780639b814ea014610089578063dd1fcec7146100845763f43cec671461007f57600080fd5b610b78565b610a80565b6109fe565b6108c9565b6107e9565b610787565b610728565b307f0000000000000000000000000000000000000000000000000000000000000000036104c1575b600080fd5b6102cd565b908160409103126100ca5790565b6001600160a01b038116036100ca57565b60806003198201126100ca576001600160401b03916004358381116100ca578261011f916004016100d4565b9260243561012c816100e2565b926044359182116100ca57610143916004016100d4565b9060643590565b634e487b7160e01b600052602160045260246000fd5b6003111561016a57565b61014a565b604082016001600160401b0382511683526020606081809401519460408382015285518094520193019160005b8281106101aa575050505090565b83516001600160a01b03168552938101939281019260010161019c565b60005b8381106101da5750506000910152565b81810151838201526020016101ca565b90602091610203815180928185528580860191016101c7565b601f01601f1916010190565b6040602061024b938161022985518584528584019061016f565b940151908281860391015260ff815116845201519181602082015201906101ea565b90565b9061024b9160208152815161026281610160565b6020820152610280602083015160c0604084015260e083019061020f565b9060c060a06102a1604086015194601f19958686830301606087015261020f565b946001600160401b036060820151166080850152608081015182850152015192828503019101526101ea565b6102f6610336600061031c6102e1366100f3565b949293916102f0979197610c64565b506115b2565b9260405193610304856103ed565b61030e3683610570565b855260208501523690610570565b604051809581926308c7427760e11b835260048301610d6b565b038173__$3fbe32418a9ca7804328967972fb037388$__5af49081156103c4576103979461038b9460009361039b575b506103819060405193610378856103ed565b84523690610687565b60208301526110e0565b6040519182918261024e565b0390f35b6103819193506103bd903d806000833e6103b5818361045e565b810190610cb0565b9290610366565b610d7c565b908160c09103126100ca5790565b634e487b7160e01b600052604160045260246000fd5b604081019081106001600160401b0382111761040857604052565b6103d7565b60c081019081106001600160401b0382111761040857604052565b606081019081106001600160401b0382111761040857604052565b602081019081106001600160401b0382111761040857604052565b90601f801991011681019081106001600160401b0382111761040857604052565b6040519061048c82610428565b565b6040519061048c8261040d565b6040519061048c826103ed565b60409061024b93921515815281602082015201906101ea565b60603660031901126100ca576004356001600160401b0381116100ca576104ec9036906004016103c9565b60403660231901126100ca57604051610504816103ed565b6024359160028310156100ca5761052d928252604435610523816100e2565b6020830152610fcc565b90610397604051928392836104a8565b6001600160401b038116036100ca57565b359061048c8261053d565b6001600160401b0381116104085760051b60200190565b91906040838203126100ca5760405192610589846103ed565b8381356105958161053d565b815260209182810135906001600160401b0382116100ca57019280601f850112156100ca5783356105c581610559565b946105d3604051968761045e565b818652848087019260051b8201019283116100ca5784809101915b8383106105fd57505050500152565b8190833561060a816100e2565b81520191019084906105ee565b359060ff821682036100ca57565b6001600160401b03811161040857601f01601f191660200190565b81601f820112156100ca5780359061065782610625565b92610665604051948561045e565b828452602083830101116100ca57816000926020809301838601378301015290565b91906040838203126100ca57604051906106a0826103ed565b81936106ab81610617565b83526020810135916001600160401b0383116100ca576020926106ce9201610640565b910152565b91906040838203126100ca57604051906106ec826103ed565b81938035916001600160401b03928381116100ca578161070d918401610570565b845260208201359283116100ca576020926106ce9201610687565b60603660031901126100ca576001600160401b036004358181116100ca576107549036906004016106d3565b906024359081116100ca576103979161077461038b9236906004016106d3565b604435916110e0565b6002111561016a57565b60403660031901126100ca576001600160401b036004358181116100ca576107b39036906004016103c9565b906024359081116100ca576020916107d26107d89236906004016100d4565b90611168565b604051906107e58161077d565b8152f35b6108296107f5366100f3565b9161080294939194610c64565b50600061080f3684610570565b604051809681926308c7427760e11b835260048301610d6b565b038173__$3fbe32418a9ca7804328967972fb037388$__5af480156103c4576103979561038b95600092610891575b5061086661038192936115b2565b60405193610873856103ed565b845260208401526103786040519461088a866103ed565b3690610570565b61038192506108ad610866913d806000833e6103b5818361045e565b9250610858565b600311156100ca57565b359061048c826108b4565b60603660031901126100ca576001600160401b036004358181116100ca576108f59036906004016103c9565b60243591610902836108b4565b6044359081116100ca57610397926109216109a2923690600401610640565b9261092a610c64565b5061093d6109383683610add565b6119c2565b9361094661047f565b94855261095683602087016112eb565b604085015260808101359161096a81610160565b156109f5575b806109b061099261098760206109d3950184610d93565b926040810190610d93565b95604051958691602083016112f7565b03601f19810186528561045e565b6109c76109bb61048e565b600281529536906106d3565b602086015236906106d3565b604084015260006060840152608083015260a08201526040519182918261024e565b60009150610970565b60a03660031901126100ca576001600160401b036004358181116100ca57610a2a9036906004016106d3565b906024358181116100ca57610a439036906004016106d3565b6064356001600160e01b0319811681036100ca576084359283116100ca5761039793610a7661038b943690600401610640565b926044359161132c565b60203660031901126100ca576001600160401b036004358181116100ca57366023820112156100ca5780600401359182116100ca573660248360051b830101116100ca576020916024610ad392016113ce565b6040519015158152f35b91909160c0818403126100ca57610af261048e565b92610afc826108be565b84526001600160401b0360208301358181116100ca5782610b1e9185016106d3565b602086015260408301358181116100ca5782610b3b9185016106d3565b6040860152610b4c6060840161054e565b60608601526080830135608086015260a08301359081116100ca57610b719201610640565b60a0830152565b6020806003193601126100ca576001600160401b03906004358281116100ca57366023820112156100ca5760246004820135610bb381610559565b94610bc1604051968761045e565b8186526024602087019260051b850101933685116100ca5760248101925b858410610c0257610397610bf289611530565b6040519081529081906020820190565b83358381116100ca578791610c1d8392883691870101610add565b815201930192610bdf565b60405190610c35826103ed565b6060602083600081520152565b60405190610c4f826103ed565b81610c58610c28565b815260206106ce610c28565b60405190610c718261040d565b606060a08360008152610c82610c42565b6020820152610c8f610c42565b6040820152600083820152600060808201520152565b61024b903690610570565b90602080838303126100ca5782516001600160401b03938482116100ca5701926040848403126100ca5760405193610ce7856103ed565b8051610cf28161053d565b8552828101519182116100ca57019180601f840112156100ca578251610d1781610559565b93610d25604051958661045e565b818552838086019260051b8201019283116100ca5783809101915b838310610d51575050505082015290565b81908351610d5e816100e2565b8152019101908390610d40565b90602061024b92818152019061016f565b6040513d6000823e3d90fd5b61024b903690610687565b903590603e19813603018212156100ca570190565b3561024b816108b4565b9035603e19823603018112156100ca570190565b9035601e19823603018112156100ca5701602081359101916001600160401b0382116100ca5781360383136100ca57565b908060209392818452848401376000828201840152601f01601f1916010190565b906040610e3a61024b9360ff610e2d82610617565b1684526020810190610dc6565b9190928160208201520191610df7565b919091610e578180610db2565b604084526080840193813592610e6c8461053d565b6001600160401b03809416604083015260209283810135601e19823603018112156100ca57019583873597019487116100ca578660051b360385136100ca578690604060608501525260a08201936000965b808810610ee657505061024b9495508083610eda920190610db2565b91818403910152610e18565b909484806001928835610ef8816100e2565b848060a01b0316815201960197019690610ebe565b9060c061024b92602081528235610f23816108b4565b610f2c81610160565b6020820152610f51610f416020850185610db2565b83604084015260e0830190610e4a565b90610faa610f79610f656040870187610db2565b93601f199485858303016060860152610e4a565b946001600160401b036060820135610f908161053d565b166080840152608081013560a084015260a0810190610dc6565b93909282860301910152610df7565b60405190610fc682610443565b60008252565b610fde610fd93683610add565b61166a565b6110ce5761101461100f61100a611005610ffb6020860186610d93565b6020810190610d93565b610d88565b611745565b6117dd565b9061101e81610da8565b61102781610160565b6110495761104592608090910135916001600160a01b031690611917565b9091565b600161105482610da8565b61105d81610160565b1480156110b3575b61107957505050611074610fb9565b600091565b61104592608060405192632a52428160e21b60208501526110a1846109a28360248301610f0d565b0135926001600160a01b031690611835565b5060026110bf82610da8565b6110c881610160565b14611065565b604051630c2f41e760e41b8152600490fd5b90916110ea610c64565b50604051916110f883610443565b60008352604051936111098561040d565b600085526020850152604084015260006060840152608083015260a082015290565b909161114261024b9360408452604084019061016f565b91602081840391015261016f565b908160209103126100ca575180151581036100ca5790565b9060206111a761119f61118f61118961119461118f611189878a018a610d93565b80610d93565b610ca5565b966040810190610d93565b923690610570565b9173__$3fbe32418a9ca7804328967972fb037388$__84604051631ccc893360e11b9586825281806111e060009a8b946004840161112b565b0381865af49182156103c45761120e96889283946112cf575b5060405197889283928352876004840161112b565b0381855af49485156103c45786956112ab575b508461124592859260405180958194829363c836244d60e01b84526004840161112b565b03915af49081156103c457859161127e575b50611263575b50505090565b8101515191015151106112785738808061125d565b50600190565b61129e9150833d85116112a4575b611296818361045e565b810190611150565b38611257565b503d61128c565b611245929550906112c685923d808a833e6103b5818361045e565b95925090611221565b6112e49194503d8085833e6103b5818361045e565b92386111f9565b6112f482610160565b52565b6080604061024b936020845280516020850152602081015161131881610160565b8285015201519160608082015201906101ea565b90936113a56113929461133d610c64565b506109a260409384519263ffffffff60e01b16602084015260048352611362836103ed565b84519261136e846103ed565b835260208301908152845197889360208086015251868086015260808501906101ea565b9051838203603f190160608501526101ea565b6113ad61048e565b6001815294602086015284015260006060840152608083015260a082015290565b600090815b8383106113e35750505050600190565b8260051b82013560be19833603018112156100ca5760606001600160401b0391840101356114108161053d565b1680911015611425575b6001909201916113d3565b821561141a5750505050600090565b91908251906040815260808101936001600160401b038351166040830152602080930151946040606084015285518091528360a0840196019060005b8181106114a4575050509360408381938161024b97980151908281860391015260ff815116845201519382015201906101ea565b82516001600160a01b031688529685019691850191600101611470565b61024b9181516114d081610160565b815260a06115026114f0602085015160c0602086015260c0850190611434565b60408501518482036040860152611434565b926001600160401b0360608201511660608401526080810151608084015201519060a08184039101526101ea565b6040516020816020810193604082016020865281518091526060830193602060608360051b8601019301946000905b838210611583575050505061157d925003601f19810183528261045e565b51902090565b91600191939550806115a08196605f198b820301865289516114c1565b9701920192018694929593919561155f565b6116556001600160401b03916115c6610c28565b50604051906bffffffffffffffffffffffff199060601b166020820152601481526115f0816103ed565b6116476040519161160083610428565b600a83526001600160801b036020840160148152604085019283526040519687956020808801525116604086015251166060840152516060608084015260a08301906101ea565b03601f19810183528261045e565b61165d61049b565b6004815290602082015290565b805161167581610160565b61167e81610160565b1561168c5760a00151511590565b608001511590565b90602080838303126100ca5782516001600160401b03938482116100ca5701926060848403126100ca57604051936116cb85610428565b80516116d68161053d565b8552828101516001600160801b03811681036100ca578386015260408101519182116100ca570182601f820112156100ca5780519061171482610625565b93611722604051958661045e565b8285528383830101116100ca578261173d93850191016101c7565b604082015290565b600460ff611754835160ff1690565b16036117cb57602061177191015160208082518301019101611694565b600a6001600160401b0361178c83516001600160401b031690565b16036117cb5760146001600160801b036117b060208401516001600160801b031690565b16036117cb576040016014815151036117cb57516014015190565b60405163c5f8961f60e01b8152600490fd5b60008073ffffffffffffffffffffffff0000000000000000831660ff60981b14611822575b1561181e57611810906119df565b90611819575090565b905090565b5090565b50506001600160401b0381166001611802565b93929190600060609584156118fd57805161184f8161077d565b6118588161077d565b611873575093945061104593506001600160a01b0316611a89565b91600183959295516118848161077d565b61188d8161077d565b1461189b575b505050509190565b9295506001600160a01b0390921692506118b791908390611aa9565b93909391846118e5575b505082156118d3579138808080611893565b805190816118e057600080fd5b602001fd5b9091506118f3929350611a71565b91909138806118c1565b5093945061104593509091506001600160a01b0316611a71565b60009060609080516119288161077d565b6119318161077d565b61198457505050814710611972576000918291829182916001600160a01b03165af19061195c611a41565b506040519161196a83610443565b600083529190565b60405163569d45cf60e11b8152600490fd5b9093919492600182516119968161077d565b61199f8161077d565b146119a957505050565b929450611045935090916001600160a01b031690611aa9565b60405161157d8161164760208201946020865260408301906114c1565b60009081526016600a6020836002607f60991b015afa9181519161040a8360018060a01b03169360a01c61ffff1603611a35575b83158015611a2a575b611a235750565b9250829150565b5060163d1415611a1c565b60009350915081611a13565b3d15611a6c573d90611a5282610625565b91611a60604051938461045e565b82523d6000602084013e565b606090565b600091829182602083519301915af19061024b611a41565b9190814710611972576000928392602083519301915af19061024b611a41565b9160206000809493819460018060a01b0393849101511693604051936020850192168252604084015260408352611adf83610428565b611b1760246040518093611b07602083019763a9059cbb60e01b8952518092858501906101c7565b810103600481018452018261045e565b51925af19061024b611a4156fea2646970667358221220c49d3c15eb799bad64e71b61f6aa6374fee1924d9fe34581d8d87f26ecd58c5764736f6c63430008170033",
+  "deployedBytecode": "0x6080604052600436101561001257600080fd5b60003560e01c80631860845e146100cf5780633f74f188146100a25780635404605f1461009d578063855f7e451461009857806399aa0eb4146100935780639b7df85a1461008e5780639b814ea014610089578063dd1fcec7146100845763f43cec671461007f57600080fd5b610b78565b610a80565b6109fe565b6108c9565b6107e9565b610787565b610728565b307f0000000000000000000000000000000000000000000000000000000000000000036104c1575b600080fd5b6102cd565b908160409103126100ca5790565b6001600160a01b038116036100ca57565b60806003198201126100ca576001600160401b03916004358381116100ca578261011f916004016100d4565b9260243561012c816100e2565b926044359182116100ca57610143916004016100d4565b9060643590565b634e487b7160e01b600052602160045260246000fd5b6003111561016a57565b61014a565b604082016001600160401b0382511683526020606081809401519460408382015285518094520193019160005b8281106101aa575050505090565b83516001600160a01b03168552938101939281019260010161019c565b60005b8381106101da5750506000910152565b81810151838201526020016101ca565b90602091610203815180928185528580860191016101c7565b601f01601f1916010190565b6040602061024b938161022985518584528584019061016f565b940151908281860391015260ff815116845201519181602082015201906101ea565b90565b9061024b9160208152815161026281610160565b6020820152610280602083015160c0604084015260e083019061020f565b9060c060a06102a1604086015194601f19958686830301606087015261020f565b946001600160401b036060820151166080850152608081015182850152015192828503019101526101ea565b6102f6610336600061031c6102e1366100f3565b949293916102f0979197610c64565b506115b2565b9260405193610304856103ed565b61030e3683610570565b855260208501523690610570565b604051809581926308c7427760e11b835260048301610d6b565b038173__$3fbe32418a9ca7804328967972fb037388$__5af49081156103c4576103979461038b9460009361039b575b506103819060405193610378856103ed565b84523690610687565b60208301526110e0565b6040519182918261024e565b0390f35b6103819193506103bd903d806000833e6103b5818361045e565b810190610cb0565b9290610366565b610d7c565b908160c09103126100ca5790565b634e487b7160e01b600052604160045260246000fd5b604081019081106001600160401b0382111761040857604052565b6103d7565b60c081019081106001600160401b0382111761040857604052565b606081019081106001600160401b0382111761040857604052565b602081019081106001600160401b0382111761040857604052565b90601f801991011681019081106001600160401b0382111761040857604052565b6040519061048c82610428565b565b6040519061048c8261040d565b6040519061048c826103ed565b60409061024b93921515815281602082015201906101ea565b60603660031901126100ca576004356001600160401b0381116100ca576104ec9036906004016103c9565b60403660231901126100ca57604051610504816103ed565b6024359160028310156100ca5761052d928252604435610523816100e2565b6020830152610fcc565b90610397604051928392836104a8565b6001600160401b038116036100ca57565b359061048c8261053d565b6001600160401b0381116104085760051b60200190565b91906040838203126100ca5760405192610589846103ed565b8381356105958161053d565b815260209182810135906001600160401b0382116100ca57019280601f850112156100ca5783356105c581610559565b946105d3604051968761045e565b818652848087019260051b8201019283116100ca5784809101915b8383106105fd57505050500152565b8190833561060a816100e2565b81520191019084906105ee565b359060ff821682036100ca57565b6001600160401b03811161040857601f01601f191660200190565b81601f820112156100ca5780359061065782610625565b92610665604051948561045e565b828452602083830101116100ca57816000926020809301838601378301015290565b91906040838203126100ca57604051906106a0826103ed565b81936106ab81610617565b83526020810135916001600160401b0383116100ca576020926106ce9201610640565b910152565b91906040838203126100ca57604051906106ec826103ed565b81938035916001600160401b03928381116100ca578161070d918401610570565b845260208201359283116100ca576020926106ce9201610687565b60603660031901126100ca576001600160401b036004358181116100ca576107549036906004016106d3565b906024359081116100ca576103979161077461038b9236906004016106d3565b604435916110e0565b6002111561016a57565b60403660031901126100ca576001600160401b036004358181116100ca576107b39036906004016103c9565b906024359081116100ca576020916107d26107d89236906004016100d4565b90611168565b604051906107e58161077d565b8152f35b6108296107f5366100f3565b9161080294939194610c64565b50600061080f3684610570565b604051809681926308c7427760e11b835260048301610d6b565b038173__$3fbe32418a9ca7804328967972fb037388$__5af480156103c4576103979561038b95600092610891575b5061086661038192936115b2565b60405193610873856103ed565b845260208401526103786040519461088a866103ed565b3690610570565b61038192506108ad610866913d806000833e6103b5818361045e565b9250610858565b600311156100ca57565b359061048c826108b4565b60603660031901126100ca576001600160401b036004358181116100ca576108f59036906004016103c9565b60243591610902836108b4565b6044359081116100ca57610397926109216109a2923690600401610640565b9261092a610c64565b5061093d6109383683610add565b6119c2565b9361094661047f565b94855261095683602087016112eb565b604085015260808101359161096a81610160565b156109f5575b806109b061099261098760206109d3950184610d93565b926040810190610d93565b95604051958691602083016112f7565b03601f19810186528561045e565b6109c76109bb61048e565b600281529536906106d3565b602086015236906106d3565b604084015260006060840152608083015260a08201526040519182918261024e565b60009150610970565b60a03660031901126100ca576001600160401b036004358181116100ca57610a2a9036906004016106d3565b906024358181116100ca57610a439036906004016106d3565b6064356001600160e01b0319811681036100ca576084359283116100ca5761039793610a7661038b943690600401610640565b926044359161132c565b60203660031901126100ca576001600160401b036004358181116100ca57366023820112156100ca5780600401359182116100ca573660248360051b830101116100ca576020916024610ad392016113ce565b6040519015158152f35b91909160c0818403126100ca57610af261048e565b92610afc826108be565b84526001600160401b0360208301358181116100ca5782610b1e9185016106d3565b602086015260408301358181116100ca5782610b3b9185016106d3565b6040860152610b4c6060840161054e565b60608601526080830135608086015260a08301359081116100ca57610b719201610640565b60a0830152565b6020806003193601126100ca576001600160401b03906004358281116100ca57366023820112156100ca5760246004820135610bb381610559565b94610bc1604051968761045e565b8186526024602087019260051b850101933685116100ca5760248101925b858410610c0257610397610bf289611530565b6040519081529081906020820190565b83358381116100ca578791610c1d8392883691870101610add565b815201930192610bdf565b60405190610c35826103ed565b6060602083600081520152565b60405190610c4f826103ed565b81610c58610c28565b815260206106ce610c28565b60405190610c718261040d565b606060a08360008152610c82610c42565b6020820152610c8f610c42565b6040820152600083820152600060808201520152565b61024b903690610570565b90602080838303126100ca5782516001600160401b03938482116100ca5701926040848403126100ca5760405193610ce7856103ed565b8051610cf28161053d565b8552828101519182116100ca57019180601f840112156100ca578251610d1781610559565b93610d25604051958661045e565b818552838086019260051b8201019283116100ca5783809101915b838310610d51575050505082015290565b81908351610d5e816100e2565b8152019101908390610d40565b90602061024b92818152019061016f565b6040513d6000823e3d90fd5b61024b903690610687565b903590603e19813603018212156100ca570190565b3561024b816108b4565b9035603e19823603018112156100ca570190565b9035601e19823603018112156100ca5701602081359101916001600160401b0382116100ca5781360383136100ca57565b908060209392818452848401376000828201840152601f01601f1916010190565b906040610e3a61024b9360ff610e2d82610617565b1684526020810190610dc6565b9190928160208201520191610df7565b919091610e578180610db2565b604084526080840193813592610e6c8461053d565b6001600160401b03809416604083015260209283810135601e19823603018112156100ca57019583873597019487116100ca578660051b360385136100ca578690604060608501525260a08201936000965b808810610ee657505061024b9495508083610eda920190610db2565b91818403910152610e18565b909484806001928835610ef8816100e2565b848060a01b0316815201960197019690610ebe565b9060c061024b92602081528235610f23816108b4565b610f2c81610160565b6020820152610f51610f416020850185610db2565b83604084015260e0830190610e4a565b90610faa610f79610f656040870187610db2565b93601f199485858303016060860152610e4a565b946001600160401b036060820135610f908161053d565b166080840152608081013560a084015260a0810190610dc6565b93909282860301910152610df7565b60405190610fc682610443565b60008252565b610fde610fd93683610add565b61166a565b6110ce5761101461100f61100a611005610ffb6020860186610d93565b6020810190610d93565b610d88565b611745565b6117dd565b9061101e81610da8565b61102781610160565b6110495761104592608090910135916001600160a01b031690611917565b9091565b600161105482610da8565b61105d81610160565b1480156110b3575b61107957505050611074610fb9565b600091565b61104592608060405192632a52428160e21b60208501526110a1846109a28360248301610f0d565b0135926001600160a01b031690611835565b5060026110bf82610da8565b6110c881610160565b14611065565b604051630c2f41e760e41b8152600490fd5b90916110ea610c64565b50604051916110f883610443565b60008352604051936111098561040d565b600085526020850152604084015260006060840152608083015260a082015290565b909161114261024b9360408452604084019061016f565b91602081840391015261016f565b908160209103126100ca575180151581036100ca5790565b9060206111a761119f61118f61118961119461118f611189878a018a610d93565b80610d93565b610ca5565b966040810190610d93565b923690610570565b9173__$3fbe32418a9ca7804328967972fb037388$__84604051631ccc893360e11b9586825281806111e060009a8b946004840161112b565b0381865af49182156103c45761120e96889283946112cf575b5060405197889283928352876004840161112b565b0381855af49485156103c45786956112ab575b508461124592859260405180958194829363c836244d60e01b84526004840161112b565b03915af49081156103c457859161127e575b50611263575b50505090565b8101515191015151106112785738808061125d565b50600190565b61129e9150833d85116112a4575b611296818361045e565b810190611150565b38611257565b503d61128c565b611245929550906112c685923d808a833e6103b5818361045e565b95925090611221565b6112e49194503d8085833e6103b5818361045e565b92386111f9565b6112f482610160565b52565b6080604061024b936020845280516020850152602081015161131881610160565b8285015201519160608082015201906101ea565b90936113a56113929461133d610c64565b506109a260409384519263ffffffff60e01b16602084015260048352611362836103ed565b84519261136e846103ed565b835260208301908152845197889360208086015251868086015260808501906101ea565b9051838203603f190160608501526101ea565b6113ad61048e565b6001815294602086015284015260006060840152608083015260a082015290565b600090815b8383106113e35750505050600190565b8260051b82013560be19833603018112156100ca5760606001600160401b0391840101356114108161053d565b1680911015611425575b6001909201916113d3565b821561141a5750505050600090565b91908251906040815260808101936001600160401b038351166040830152602080930151946040606084015285518091528360a0840196019060005b8181106114a4575050509360408381938161024b97980151908281860391015260ff815116845201519382015201906101ea565b82516001600160a01b031688529685019691850191600101611470565b61024b9181516114d081610160565b815260a06115026114f0602085015160c0602086015260c0850190611434565b60408501518482036040860152611434565b926001600160401b0360608201511660608401526080810151608084015201519060a08184039101526101ea565b6040516020816020810193604082016020865281518091526060830193602060608360051b8601019301946000905b838210611583575050505061157d925003601f19810183528261045e565b51902090565b91600191939550806115a08196605f198b820301865289516114c1565b9701920192018694929593919561155f565b6116556001600160401b03916115c6610c28565b50604051906bffffffffffffffffffffffff199060601b166020820152601481526115f0816103ed565b6116476040519161160083610428565b600a83526001600160801b036020840160148152604085019283526040519687956020808801525116604086015251166060840152516060608084015260a08301906101ea565b03601f19810183528261045e565b61165d61049b565b6004815290602082015290565b805161167581610160565b61167e81610160565b1561168c5760a00151511590565b608001511590565b90602080838303126100ca5782516001600160401b03938482116100ca5701926060848403126100ca57604051936116cb85610428565b80516116d68161053d565b8552828101516001600160801b03811681036100ca578386015260408101519182116100ca570182601f820112156100ca5780519061171482610625565b93611722604051958661045e565b8285528383830101116100ca578261173d93850191016101c7565b604082015290565b600460ff611754835160ff1690565b16036117cb57602061177191015160208082518301019101611694565b600a6001600160401b0361178c83516001600160401b031690565b16036117cb5760146001600160801b036117b060208401516001600160801b031690565b16036117cb576040016014815151036117cb57516014015190565b60405163c5f8961f60e01b8152600490fd5b60008073ffffffffffffffffffffffff0000000000000000831660ff60981b14611822575b1561181e57611810906119df565b90611819575090565b905090565b5090565b50506001600160401b0381166001611802565b93929190600060609584156118fd57805161184f8161077d565b6118588161077d565b611873575093945061104593506001600160a01b0316611a89565b91600183959295516118848161077d565b61188d8161077d565b1461189b575b505050509190565b9295506001600160a01b0390921692506118b791908390611aa9565b93909391846118e5575b505082156118d3579138808080611893565b805190816118e057600080fd5b602001fd5b9091506118f3929350611a71565b91909138806118c1565b5093945061104593509091506001600160a01b0316611a71565b60009060609080516119288161077d565b6119318161077d565b61198457505050814710611972576000918291829182916001600160a01b03165af19061195c611a41565b506040519161196a83610443565b600083529190565b60405163569d45cf60e11b8152600490fd5b9093919492600182516119968161077d565b61199f8161077d565b146119a957505050565b929450611045935090916001600160a01b031690611aa9565b60405161157d8161164760208201946020865260408301906114c1565b60009081526016600a6020836002607f60991b015afa9181519161040a8360018060a01b03169360a01c61ffff1603611a35575b83158015611a2a575b611a235750565b9250829150565b5060163d1415611a1c565b60009350915081611a13565b3d15611a6c573d90611a5282610625565b91611a60604051938461045e565b82523d6000602084013e565b606090565b600091829182602083519301915af19061024b611a41565b9190814710611972576000928392602083519301915af19061024b611a41565b9160206000809493819460018060a01b0393849101511693604051936020850192168252604084015260408352611adf83610428565b611b1760246040518093611b07602083019763a9059cbb60e01b8952518092858501906101c7565b810103600481018452018261045e565b51925af19061024b611a4156fea2646970667358221220c49d3c15eb799bad64e71b61f6aa6374fee1924d9fe34581d8d87f26ecd58c5764736f6c63430008170033",
+  "linkReferences": {
+    "contracts/lib/SubnetIDHelper.sol": {
+      "SubnetIDHelper": [
+        {
+          "length": 20,
+          "start": 860
+        },
+        {
+          "length": 20,
+          "start": 2127
+        },
+        {
+          "length": 20,
+          "start": 4556
+        }
+      ]
+    }
+  },
+  "deployedLinkReferences": {
+    "contracts/lib/SubnetIDHelper.sol": {
+      "SubnetIDHelper": [
+        {
+          "length": 20,
+          "start": 826
+        },
+        {
+          "length": 20,
+          "start": 2093
+        },
+        {
+          "length": 20,
+          "start": 4522
+        }
+      ]
+    }
+  }
+}

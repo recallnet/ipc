@@ -1,0 +1,189 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "LibGateway",
+  "sourceName": "contracts/lib/LibGateway.sol",
+  "abi": [
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "components": [
+            {
+              "components": [
+                {
+                  "internalType": "uint256",
+                  "name": "weight",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "address",
+                  "name": "addr",
+                  "type": "address"
+                },
+                {
+                  "internalType": "bytes",
+                  "name": "metadata",
+                  "type": "bytes"
+                }
+              ],
+              "internalType": "struct Validator[]",
+              "name": "validators",
+              "type": "tuple[]"
+            },
+            {
+              "internalType": "uint64",
+              "name": "configurationNumber",
+              "type": "uint64"
+            }
+          ],
+          "indexed": false,
+          "internalType": "struct Membership",
+          "name": "",
+          "type": "tuple"
+        }
+      ],
+      "name": "MembershipUpdated",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "epoch",
+          "type": "uint256"
+        }
+      ],
+      "name": "NewBottomUpMsgBatch",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "subnet",
+          "type": "address"
+        },
+        {
+          "components": [
+            {
+              "internalType": "enum IpcMsgKind",
+              "name": "kind",
+              "type": "uint8"
+            },
+            {
+              "components": [
+                {
+                  "components": [
+                    {
+                      "internalType": "uint64",
+                      "name": "root",
+                      "type": "uint64"
+                    },
+                    {
+                      "internalType": "address[]",
+                      "name": "route",
+                      "type": "address[]"
+                    }
+                  ],
+                  "internalType": "struct SubnetID",
+                  "name": "subnetId",
+                  "type": "tuple"
+                },
+                {
+                  "components": [
+                    {
+                      "internalType": "uint8",
+                      "name": "addrType",
+                      "type": "uint8"
+                    },
+                    {
+                      "internalType": "bytes",
+                      "name": "payload",
+                      "type": "bytes"
+                    }
+                  ],
+                  "internalType": "struct FvmAddress",
+                  "name": "rawAddress",
+                  "type": "tuple"
+                }
+              ],
+              "internalType": "struct IPCAddress",
+              "name": "to",
+              "type": "tuple"
+            },
+            {
+              "components": [
+                {
+                  "components": [
+                    {
+                      "internalType": "uint64",
+                      "name": "root",
+                      "type": "uint64"
+                    },
+                    {
+                      "internalType": "address[]",
+                      "name": "route",
+                      "type": "address[]"
+                    }
+                  ],
+                  "internalType": "struct SubnetID",
+                  "name": "subnetId",
+                  "type": "tuple"
+                },
+                {
+                  "components": [
+                    {
+                      "internalType": "uint8",
+                      "name": "addrType",
+                      "type": "uint8"
+                    },
+                    {
+                      "internalType": "bytes",
+                      "name": "payload",
+                      "type": "bytes"
+                    }
+                  ],
+                  "internalType": "struct FvmAddress",
+                  "name": "rawAddress",
+                  "type": "tuple"
+                }
+              ],
+              "internalType": "struct IPCAddress",
+              "name": "from",
+              "type": "tuple"
+            },
+            {
+              "internalType": "uint64",
+              "name": "nonce",
+              "type": "uint64"
+            },
+            {
+              "internalType": "uint256",
+              "name": "value",
+              "type": "uint256"
+            },
+            {
+              "internalType": "bytes",
+              "name": "message",
+              "type": "bytes"
+            }
+          ],
+          "indexed": false,
+          "internalType": "struct IpcEnvelope",
+          "name": "message",
+          "type": "tuple"
+        }
+      ],
+      "name": "NewTopDownMessage",
+      "type": "event"
+    }
+  ],
+  "bytecode": "0x60808060405234601757603a9081601d823930815050f35b600080fdfe600080fdfea2646970667358221220032537243309086137b72596ca3ffbce159fcc8fd2f817ddbe393d1ca342830964736f6c63430008170033",
+  "deployedBytecode": "0x600080fdfea2646970667358221220032537243309086137b72596ca3ffbce159fcc8fd2f817ddbe393d1ca342830964736f6c63430008170033",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

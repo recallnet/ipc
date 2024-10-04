@@ -315,7 +315,7 @@ pub mod register_subnet_facet {
     pub struct SubnetDeployedFilter {
         pub subnet_addr: ::ethers::core::types::Address,
     }
-    ///Container type for all input parameters for the `newSubnetActor` function with signature `newSubnetActor((uint256,uint64,uint64,address,uint16,uint8,uint8,int8,uint8,(uint8,address),(uint64,address[]),uint256, uint256, uint256))` and selector `0xc7939ffd `
+    ///Container type for all input parameters for the `newSubnetActor` function with signature `newSubnetActor((uint256,uint64,uint64,address,uint16,uint8,uint8,int8,uint8,(uint8,address),(uint64,address[]),uint256,uint256,uint256))` and selector `0xc7939ffd `
     #[derive(
         Clone,
         ::ethers::contract::EthCall,
@@ -328,12 +328,12 @@ pub mod register_subnet_facet {
     )]
     #[ethcall(
         name = "newSubnetActor",
-        abi = "newSubnetActor((uint256,uint64,uint64,address,uint16,uint8,uint8,int8,uint8,(uint8,address),(uint8,address),(uint64,address[]),address, uint256, uint256))"
+        abi = "newSubnetActor((uint256,uint64,uint64,address,uint16,uint8,uint8,int8,uint8,(uint8,address),(uint8,address),(uint64,address[]),address,uint256,uint256))"
     )]
     pub struct NewSubnetActorCall {
         pub params: ConstructorParams,
     }
-    ///Container type for all return fields from the `newSubnetActor` function with signature `newSubnetActor((uint256,uint64,uint64,address,uint16,uint8,uint8,int8,uint8,(uint8,address),(uint8,address),(uint64,address[]),address))` and selector `0x84716146`
+    ///Container type for all return fields from the `newSubnetActor` function with signature `newSubnetActor((uint256,uint64,uint64,address,uint16,uint8,uint8,int8,uint8,(uint8,address),(uint8,address),(uint64,address[]),address,uint256,uint256))` and selector `0x84716146`
     #[derive(
         Clone,
         ::ethers::contract::EthAbiType,
@@ -362,7 +362,7 @@ pub mod register_subnet_facet {
         pub kind: u8,
         pub token_address: ::ethers::core::types::Address,
     }
-    ///`ConstructorParams(uint256,uint64,uint64,address,uint16,uint8,uint8,int8,uint8,(uint8,address),(uint8,address),(uint64,address[]),address, uint256, uint256)`
+    ///`ConstructorParams(uint256,uint64,uint64,address,uint16,uint8,uint8,int8,uint8,(uint8,address),(uint8,address),(uint64,address[]),address,uint256,uint256)`
     #[derive(
         Clone,
         ::ethers::contract::EthAbiType,

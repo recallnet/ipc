@@ -1,0 +1,10 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "LibGatewayActorStorage",
+  "sourceName": "contracts/lib/LibGatewayActorStorage.sol",
+  "abi": [],
+  "bytecode": "0x60808060405234601757603a9081601d823930815050f35b600080fdfe600080fdfea2646970667358221220f9c7c2e33d845a20d54d35546784889cac8e64648d04b397984e72857d4f44ca64736f6c63430008170033",
+  "deployedBytecode": "0x600080fdfea2646970667358221220f9c7c2e33d845a20d54d35546784889cac8e64648d04b397984e72857d4f44ca64736f6c63430008170033",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

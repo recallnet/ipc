@@ -1,0 +1,42 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "LibStakingChangeLog",
+  "sourceName": "contracts/lib/LibStakingChangeLog.sol",
+  "abi": [
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "enum StakingOperation",
+          "name": "op",
+          "type": "uint8"
+        },
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "validator",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "bytes",
+          "name": "payload",
+          "type": "bytes"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint64",
+          "name": "configurationNumber",
+          "type": "uint64"
+        }
+      ],
+      "name": "NewStakingChangeRequest",
+      "type": "event"
+    }
+  ],
+  "bytecode": "0x60808060405234601757603a9081601d823930815050f35b600080fdfe600080fdfea264697066735822122024573f513769fed9f4eb669bddca5f4b8c7b33b97b97240b1fa9927a54e4d0f964736f6c63430008170033",
+  "deployedBytecode": "0x600080fdfea264697066735822122024573f513769fed9f4eb669bddca5f4b8c7b33b97b97240b1fa9927a54e4d0f964736f6c63430008170033",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

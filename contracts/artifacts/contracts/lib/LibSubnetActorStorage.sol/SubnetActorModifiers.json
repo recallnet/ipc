@@ -1,0 +1,10 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "SubnetActorModifiers",
+  "sourceName": "contracts/lib/LibSubnetActorStorage.sol",
+  "abi": [],
+  "bytecode": "0x60808060405234601357603a908160198239f35b600080fdfe600080fdfea26469706673582212209bcc5178d734421845fe7374a14fe8a76ca67e312593a6fac3b1df2b861cc72264736f6c63430008170033",
+  "deployedBytecode": "0x600080fdfea26469706673582212209bcc5178d734421845fe7374a14fe8a76ca67e312593a6fac3b1df2b861cc72264736f6c63430008170033",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}
