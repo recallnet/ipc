@@ -204,31 +204,7 @@ contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausa
         uint256 storageAmount,
         bool includeCollateral
     ) external nonReentrant whenNotPaused notKilled {
-        // disabling validator changes for federated validation subnets
-        LibSubnetActor.enforceCollateralValidation();
-
-        if (storageAmount == 0) {
-            revert CannotReleaseZero();
-        }
-
-        uint256 totalStorage = LibStorageStakingGetters.totalValidatorStorage(msg.sender);
-
-        if (totalStorage == 0) {
-            revert NotValidator(msg.sender);
-        }
-        if (totalStorage <= storageAmount) {
-            revert NotEnoughStorageCommitment();
-        }
-        if (!s.bootstrapped) {
-            LibStorageStaking.withdrawStorageWithConfirm(msg.sender, storageAmount);
-        } else {
-            LibStorageStaking.withdrawStorage(msg.sender, storageAmount);
-        }
-
-        if (includeCollateral) {
-            uint256 collateral = storageAmount * s.tokensPerStorageRatio;
-            LibStaking.processUnstake(msg.sender, collateral, s.bootstrapped, s.collateralSource);
-        }
+        LibStorageStakingOps.unStakeStorage(storageAmount, includeCollateral);
     }
 
     /// @notice method that allows a validator to leave the subnet.

@@ -6,7 +6,7 @@ import {LibSubnetActorStorage, SubnetActorStorage} from "./LibSubnetActorStorage
 import {LibSubnetActor} from "./LibSubnetActor.sol";
 import {LibStakingChangeLog} from "./LibStakingChangeLog.sol";
 import {LibValidatorSet, LibStaking} from "./LibStaking.sol";
-import {NotEnoughStorageCommitment} from "../errors/IPCErrors.sol";
+import {NotEnoughStorageCommitment, CannotReleaseZero, NotValidator} from "../errors/IPCErrors.sol";
 
 library LibStorageStaking {
     using LibStakingChangeLog for StakingChangeLog;
@@ -89,7 +89,34 @@ library LibStorageStakingOps {
         }
     }
 
-    // No unstakeStorage included since solidity compilation exceeds size limit
+    function unStakeStorage( uint256 storageAmount, bool includeCollateral) external {
+        SubnetActorStorage storage s = LibSubnetActorStorage.appStorage();
+        // disabling validator changes for federated validation subnets
+        LibSubnetActor.enforceCollateralValidation();
+
+        if (storageAmount == 0) {
+            revert CannotReleaseZero();
+        }
+
+        uint256 totalStorage = LibStorageStakingGetters.totalValidatorStorage(msg.sender);
+
+        if (totalStorage == 0) {
+            revert NotValidator(msg.sender);
+        }
+        if (totalStorage <= storageAmount) {
+            revert NotEnoughStorageCommitment();
+        }
+        if (!s.bootstrapped) {
+            LibStorageStaking.withdrawStorageWithConfirm(msg.sender, storageAmount);
+        } else {
+            LibStorageStaking.withdrawStorage(msg.sender, storageAmount);
+        }
+
+        if (includeCollateral) {
+            uint256 collateral = storageAmount * s.tokensPerStorageRatio;
+            LibStaking.processUnstake(msg.sender, collateral, s.bootstrapped, s.collateralSource);
+        }
+    }
 }
 
 library LibStorageStakingGetters {
