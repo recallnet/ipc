@@ -80,9 +80,9 @@ struct StakingReleaseQueue {
 }
 
 /// @notice Keeping track of the validator information.
-/// @dev There are two types of collaterals:
-///     - Confirmed: The amount of collateral actually confirmed in child subnet;
-///     - Total: Aside from Confirmed, there is also the collateral has been supplied, but not yet confirmed in child.
+/// @dev There are two types of collaterals and storage:
+///     - Confirmed: The amount of collateral or storage actually confirmed in child subnet;
+///     - Total: Aside from Confirmed, there is also the collateral or storage has been supplied, but not yet confirmed in child.
 struct ValidatorInfo {
     /// The power set by contract admin
     uint256 federatedPower;
@@ -92,6 +92,8 @@ struct ValidatorInfo {
     /// This information is not important to the protocol, off-chain should know how
     /// to parse or decode the bytes.
     bytes metadata;
+    uint256 confirmedStorageAmount;
+    uint256 totalStorageAmount; 
 }
 
 /// @notice Determines the permission mode for validators.
@@ -137,6 +139,8 @@ struct ValidatorSet {
     MinPQ activeValidators;
     /// @notice The waiting validators tracked using max priority queue.
     MaxPQ waitingValidators;
+    /// The total committed storage.
+    uint256 totalConfirmedStorage;
 }
 
 /// @notice Tracks the parent validator changes and apply them in the child.
