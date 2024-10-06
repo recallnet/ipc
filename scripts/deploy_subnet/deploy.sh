@@ -49,11 +49,15 @@ IPC_CONFIG_FOLDER=${HOME}/.ipc
 if [[ -z "${FM_LOG_LEVEL:-}" ]]; then
   FM_LOG_LEVEL="info"
 fi
+if [[ -z "${FM_LOG_DOMAINS:-}" ]]; then
+  FM_LOG_DOMAINS=Bottomup,Consensus,Execution,Mpool,System,Topdown
+fi
 
 echo "$DASHES starting with env $DASHES"
 echo "IPC_FOLDER $IPC_FOLDER"
 echo "IPC_CONFIG_FOLDER $IPC_CONFIG_FOLDER"
 echo "FM_LOG_LEVEL $FM_LOG_LEVEL"
+echo "FM_LOG_DOMAINS $FM_LOG_DOMAINS"
 
 wallet_addresses=()
 public_keys=()
@@ -533,6 +537,7 @@ bootstrap_output=$(cargo make --makefile infra/fendermint/Makefile.toml \
     -e PARENT_GATEWAY="${PARENT_GATEWAY_ADDRESS}" \
     -e FM_PULL_SKIP=1 \
     -e FM_LOG_LEVEL="${FM_LOG_LEVEL}" \
+    -e FM_LOG_DOMAINS="${FM_LOG_DOMAINS}" \
     child-validator 2>&1)
 echo "$bootstrap_output"
 bootstrap_node_id=$(echo "$bootstrap_output" | sed -n '/CometBFT node ID:/ {n;p;}' | tr -d "[:blank:]")
@@ -573,6 +578,7 @@ do
       -e PARENT_GATEWAY="${PARENT_GATEWAY_ADDRESS}" \
       -e FM_PULL_SKIP=1 \
       -e FM_LOG_LEVEL="${FM_LOG_LEVEL}" \
+      -e FM_LOG_DOMAINS="${FM_LOG_DOMAINS}" \
       child-validator
 done
 
@@ -625,13 +631,13 @@ do
 done
 
 # Test Prometheus endpoints
-echo
 echo "$DASHES Test Prometheus endpoints of validator nodes"
-echo
 curl -s -o /dev/null -w "%{http_code}" --location http://localhost:"${PROMETHEUS_HOST_PORT}"/graph
+echo
 for i in {0..2}
 do
   curl -s -o /dev/null -w "%{http_code}" --location http://localhost:"${FENDERMINT_METRICS_HOST_PORTS[i]}"/metrics
+  echo
 done
 
 # Start relayer
