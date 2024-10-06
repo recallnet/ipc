@@ -65,6 +65,8 @@ import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet
         address[] genesisBalanceKeys;
         /// @notice The validator gater, if address(0), no validator gating is performed
         address validatorGater;
+        /// @notice The token-to-storage ratio indicates the amount of collateral that must be provided per unit of storage.
+        uint256 tokenStorageRatio;
     }
 
 library LibSubnetActorStorage {

@@ -37,6 +37,7 @@ contract SubnetActorDiamond {
         Asset collateralSource;
         SubnetID parentId;
         address validatorGater;
+        uint256 tokenStorageRatio;
     }
 
     constructor(IDiamond.FacetCut[] memory _diamondCut, ConstructorParams memory params, address owner) {
@@ -102,6 +103,8 @@ contract SubnetActorDiamond {
         if (params.validatorGater != address(0)) {
             s.validatorGater = params.validatorGater;
         }
+
+        s.tokenStorageRatio = params.tokenStorageRatio;
     }
 
     function _fallback() internal {

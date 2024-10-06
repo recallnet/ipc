@@ -28,7 +28,9 @@ enum StakingOperation {
     Deposit,
     Withdraw,
     SetMetadata,
-    SetFederatedPower
+    SetFederatedPower,
+    CommitStorage,
+    WithdrawStorage
 }
 
 /// @notice The change request to validator staking.

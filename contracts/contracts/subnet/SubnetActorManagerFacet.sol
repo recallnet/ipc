@@ -121,7 +121,8 @@ contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausa
     ///         then  subnet will be registered.
     /// @param publicKey The off-chain 65 byte public key that should be associated with the validator
     /// @param amount The amount of collateral provided as stake
-    function join(bytes calldata publicKey, uint256 amount) external payable nonReentrant whenNotPaused notKilled {
+    /// @param storageCommitment The amount of storage to be committed 
+    function join(bytes calldata publicKey, uint256 amount, uint256 storageCommitment) external payable nonReentrant whenNotPaused notKilled {
         // Adding this check to prevent new validators from joining
         // after the subnet has been bootstrapped, if the subnet mode is not Collateral.
         // We will increase the functionality in the future to support explicit permissioning.
