@@ -83,12 +83,7 @@ contract SubnetActorManagerFacetTest is Test {
             uint256 newValidatorConfirmedStorage,
             uint256 newTotalConfirmedStorage
         ) = getStorageValues();
-        console.log(
-            totalConfirmedStorage,
-            newValidatorTotalStorage,
-            newValidatorConfirmedStorage,
-            newTotalConfirmedStorage
-        );
+
         assertEq(newValidatorTotalStorage, 0);
         assertEq(newValidatorConfirmedStorage, 0);
         assertEq(newTotalConfirmedStorage, 0);
@@ -110,7 +105,6 @@ contract SubnetActorManagerFacetTest is Test {
         subnetActorManagerFacet.unstakeStorage(validatorTotalStorage + 1, false); // Cannot exceed total storage
 
         subnetActorManagerFacet.unstakeStorage(amount, false);
-        vm.stopPrank();
 
         (
             uint256 newValidatorTotalStorage,
@@ -121,6 +115,14 @@ contract SubnetActorManagerFacetTest is Test {
         assertEq(newValidatorTotalStorage, validatorTotalStorage - amount);
         assertEq(newValidatorConfirmedStorage, validatorTotalStorage - amount);
         assertEq(newTotalConfirmedStorage, totalConfirmedStorage - amount);
+
+        // test if includeCollateral is true
+        subnetActorManagerFacet.stakeStorage{value: deposit}(storageCommintment, deposit);
+        uint256 prevBalance = subnetActorManagerFacet.getTotalCollateral(walletAddr);
+        subnetActorManagerFacet.unstakeStorage(amount, true);
+        uint256 postBalance = subnetActorManagerFacet.getTotalCollateral(walletAddr);
+
+        assertEq(postBalance, prevBalance - deposit); // unstake of funds did happened
     }
 
     function testEnforceStorageCollateralOnUnstake() public {

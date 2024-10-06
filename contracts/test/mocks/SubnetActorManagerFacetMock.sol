@@ -20,8 +20,12 @@ contract SubnetActorManagerFacetMock is SubnetActorManagerFacet {
         return LibStaking.isValidator(validator);
     }
 
+    function getTotalCollateral(address validator) external view returns (uint256) {
+        return LibStaking.totalValidatorCollateral(validator);
+    }
+
     function hasStorage(address validator) external view returns (bool) {
-        return LibStorageStakingGetters.hasStorage(validator); //TODO julssa: do we need these?
+        return LibStorageStakingGetters.hasStorage(validator); //TODO julissa: do we need these?
     }
 
     function getTotalStorage(address validator) external view returns (uint256) {
