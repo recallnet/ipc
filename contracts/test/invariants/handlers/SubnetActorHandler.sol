@@ -19,6 +19,7 @@ contract SubnetActorHandler is CommonBase, StdCheats, StdUtils {
     SubnetActorGetterFacet private getterFacet;
 
     uint256 private constant DEFAULT_MIN_VALIDATOR_STAKE = 10 ether;
+    uint256 constant MIN_STORAGE = 1;
 
     // Ghost variables.
 
@@ -80,7 +81,7 @@ contract SubnetActorHandler is CommonBase, StdCheats, StdUtils {
 
         _pay(validator, amount);
         vm.prank(validator);
-        managerFacet.join{value: amount}(publicKey, amount);
+        managerFacet.join{value: amount}(publicKey, amount, MIN_STORAGE);
         managerFacet.confirmNextChange();
 
         ghost_stakedSum += amount;

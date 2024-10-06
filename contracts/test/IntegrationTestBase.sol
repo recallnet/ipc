@@ -97,6 +97,9 @@ contract TestParams {
 
     address CHILD_NETWORK_ADDRESS = address(new SubnetWithNativeTokenMock());
     address CHILD_NETWORK_ADDRESS_2 = address(new SubnetWithNativeTokenMock());
+
+    uint256 constant DEFAULT_STORAGE_RATIO = 0;
+    uint256 constant MIN_STORAGE = 1;
 }
 
 contract TestRegistry is Test, TestParams {
@@ -205,7 +208,8 @@ contract TestSubnetActor is Test, TestParams {
             permissionMode: PermissionMode.Collateral,
             supplySource: source,
             collateralSource: AssetHelper.native(),
-            validatorGater: address(0)
+            validatorGater: address(0),
+            tokenStorageRatio: DEFAULT_STORAGE_RATIO
         });
         return params;
     }
@@ -229,7 +233,8 @@ contract TestSubnetActor is Test, TestParams {
             permissionMode: PermissionMode.Collateral,
             supplySource: source,
             collateralSource: collateral,
-            validatorGater: address(0)
+            validatorGater: address(0),
+            tokenStorageRatio: DEFAULT_STORAGE_RATIO
         });
         return params;
     }
@@ -263,7 +268,8 @@ contract TestSubnetActor is Test, TestParams {
             permissionMode: PermissionMode.Collateral,
             supplySource: Asset({kind: AssetKind.ERC20, tokenAddress: tokenAddress}),
             collateralSource: AssetHelper.native(),
-            validatorGater: address(0)
+            validatorGater: address(0),
+            tokenStorageRatio: DEFAULT_STORAGE_RATIO
         });
         return params;
     }
@@ -606,7 +612,8 @@ contract IntegrationTestBase is Test, TestParams, TestRegistry, TestSubnetActor,
             permissionMode: _permissionMode,
             supplySource: AssetHelper.native(),
             collateralSource: AssetHelper.native(),
-            validatorGater: address(0)
+            validatorGater: address(0),
+            tokenStorageRatio: 0
         });
         saDiamond = createSubnetActor(params);
     }
@@ -637,7 +644,8 @@ contract IntegrationTestBase is Test, TestParams, TestRegistry, TestSubnetActor,
             permissionMode: _permissionMode,
             supplySource: AssetHelper.native(),
             collateralSource: AssetHelper.native(),
-            validatorGater: _validatorGater
+            validatorGater: _validatorGater,
+            tokenStorageRatio: 0
         });
         saDiamond = createSubnetActor(params);
     }
@@ -853,7 +861,7 @@ contract IntegrationTestBase is Test, TestParams, TestRegistry, TestSubnetActor,
     function join(address validatorAddress, bytes memory pubkey) public {
         vm.prank(validatorAddress);
         vm.deal(validatorAddress, DEFAULT_COLLATERAL_AMOUNT + 1);
-        saDiamond.manager().join{value: DEFAULT_COLLATERAL_AMOUNT}(pubkey, DEFAULT_COLLATERAL_AMOUNT);
+        saDiamond.manager().join{value: DEFAULT_COLLATERAL_AMOUNT}(pubkey, DEFAULT_COLLATERAL_AMOUNT, MIN_STORAGE);
     }
 
     function confirmChange(address validator, uint256 privKey) internal {

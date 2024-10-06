@@ -1398,7 +1398,7 @@ contract MultiSubnetTest is Test, IntegrationTestBase {
             vm.deal(parentValidators[i], 10 gwei);
             parentPubKeys[i] = TestUtils.deriveValidatorPubKeyBytes(parentKeys[i]);
             vm.prank(parentValidators[i]);
-            manager.join{value: 10}(parentPubKeys[i], 10);
+            manager.join{value: 10}(parentPubKeys[i], 10, MIN_STORAGE);
         }
 
         bytes32 hash = keccak256(abi.encode(checkpoint));

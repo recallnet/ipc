@@ -137,7 +137,7 @@ contract SubnetActorDataStorageFacet is SubnetActorModifiers, ReentrancyGuard, P
 
     /// @notice Retuns true if validator has storage
     /// @dev reverts if storage equals 0
-    function hasEnoughStorage(uint256 storageAmount) private view {
+    function hasEnoughStorage(uint256 storageAmount) private pure {
         if (storageAmount == 0) {
             revert NotEnoughStorageCommitment();
         }
