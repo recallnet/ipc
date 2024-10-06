@@ -182,49 +182,29 @@ contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausa
     }
 
     /// @notice method that allows a validator to increase its storage commited by amount.
-    function stakeStorage(uint256 amount) external payable whenNotPaused notKilled {
-        LibStorageStakingOps.stakeStorage(amount, msg.value, s.bootstrapped);
+    /// @param storageAmount The amount of storage to commit.
+    /// @param stakeAmount The amount to stake, could be 0 if staked collateral is already more than needed for the storage amount.
+    function stakeStorage(uint256 storageAmount, uint256 stakeAmount) external payable whenNotPaused notKilled {
+        if (stakeAmount > 0)  s.collateralSource.lock(stakeAmount);
+        LibStorageStakingOps.stakeStorage(storageAmount, stakeAmount, s.bootstrapped);
     }
 
     /// @notice method that allows a validator to unstake a part of its collateral from a subnet.
     /// @dev `leave` must be used to unstake the entire stake.
     /// @param amount The amount to unstake.
     function unstake(uint256 amount) external nonReentrant whenNotPaused notKilled {
-        if (amount == 0) {
-            revert CannotReleaseZero();
-        }
-
-        if (!LibStaking.isValidator(msg.sender)) {
-            revert NotValidator(msg.sender);
-        }
-        LibSubnetActor.enforceCollateralValidation();
-
-        uint256 collateral = LibStaking.totalValidatorCollateral(msg.sender);
-        uint256 totalStorage = LibStorageStakingGetters.totalValidatorStorage(msg.sender);
-
-        if (collateral <= amount) {
-            revert NotEnoughCollateral();
-        }
-
-        LibSubnetActor.enforceStorageCollateralValidation(collateral - amount, totalStorage);
-        LibSubnetActor.gateValidatorPowerDelta(msg.sender, collateral, collateral - amount);
-
-        if (!s.bootstrapped) {
-            LibStaking.withdrawWithConfirm(msg.sender, amount);
-            s.collateralSource.transferFunds(payable(msg.sender), amount);
-        } else {
-            LibStaking.withdraw(msg.sender, amount);
-        }
+        LibStaking.processUnstake(msg.sender, amount, s.bootstrapped, s.collateralSource);
     }
 
     /// @notice method that allows a validator to unstake a part of its storage from a subnet.
     /// @dev `leave` must be used to unstake the entire stake.
-    /// @param amount The storage amount to unstake.
-    function unstakeStorage(uint256 amount) external nonReentrant whenNotPaused notKilled {
+    /// @param storageAmount The storage amount to unstake.
+    /// @param includeCollateral If true, allows the validator to withdraw the collateral tied to the storage being unstaked.
+    function unstakeStorage(uint256 storageAmount, bool includeCollateral) external nonReentrant whenNotPaused notKilled {
         // disabling validator changes for federated validation subnets
         LibSubnetActor.enforceCollateralValidation();
 
-        if (amount == 0) {
+        if (storageAmount == 0) {
             revert CannotReleaseZero();
         }
 
@@ -233,15 +213,20 @@ contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausa
         if (totalStorage == 0) {
             revert NotValidator(msg.sender);
         }
-        if (totalStorage <= amount) {
+        if (totalStorage <= storageAmount) {
             revert NotEnoughStorageCommitment();
         }
         if (!s.bootstrapped) {
-            LibStorageStaking.withdrawStorageWithConfirm(msg.sender, amount);
+            LibStorageStaking.withdrawStorageWithConfirm(msg.sender, storageAmount);
             return;
         }
 
-        LibStorageStaking.withdrawStorage(msg.sender, amount);
+        LibStorageStaking.withdrawStorage(msg.sender, storageAmount);
+
+        if (includeCollateral) {
+            uint256 collateral = storageAmount * s.tokensPerStorageRatio;
+            LibStaking.processUnstake(msg.sender, collateral, s.bootstrapped, s.collateralSource);
+        }
     }
 
     /// @notice method that allows a validator to leave the subnet.

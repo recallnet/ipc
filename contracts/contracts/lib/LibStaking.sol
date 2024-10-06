@@ -8,9 +8,10 @@ import {LibMinPQ, MinPQ} from "./priority/LibMinPQ.sol";
 import {LibStakingChangeLog} from "./LibStakingChangeLog.sol";
 import {AssetHelper} from "./AssetHelper.sol";
 import {PermissionMode, StakingReleaseQueue, StakingChangeLog, StakingChange, StakingChangeRequest, StakingOperation, StakingRelease, ValidatorSet, AddressStakingReleases, ParentValidatorsTracker, Validator, Asset} from "../structs/Subnet.sol";
-import {WithdrawExceedingCollateral, NotValidator, CannotConfirmFutureChanges, NoCollateralToWithdraw, AddressShouldBeValidator, InvalidConfigurationNumber, WithdrawExceedingStorage} from "../errors/IPCErrors.sol";
+import {WithdrawExceedingCollateral, NotValidator, CannotConfirmFutureChanges, NoCollateralToWithdraw, AddressShouldBeValidator, InvalidConfigurationNumber, WithdrawExceedingStorage, CannotReleaseZero, NotEnoughCollateral} from "../errors/IPCErrors.sol";
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
-import {LibStorageStaking} from "./LibStorageStaking.sol";
+import {LibStorageStaking, LibStorageStakingGetters} from "./LibStorageStaking.sol";
+import {LibSubnetActor} from "../lib/LibSubnetActor.sol";
 
 library LibAddressStakingReleases {
     /// @notice Add new release to the storage. Caller makes sure the release.releasedAt is ordered
@@ -575,6 +576,39 @@ library LibStaking {
 
         s.changeSet.withdrawRequest(validator, amount);
         s.validatorSet.recordWithdraw(validator, amount);
+    }
+
+     function processUnstake(
+        address validator,
+        uint256 amount,
+        bool bootstrapped,
+        Asset memory collateralSource
+    ) internal {
+        if (amount == 0) {
+            revert CannotReleaseZero();
+        }
+
+        if (!LibStaking.isValidator(validator)) {
+            revert NotValidator(validator);
+        }
+        LibSubnetActor.enforceCollateralValidation();
+
+        uint256 collateral = LibStaking.totalValidatorCollateral(validator);
+        uint256 totalStorage = LibStorageStakingGetters.totalValidatorStorage(validator);
+
+        if (collateral <= amount) {
+            revert NotEnoughCollateral();
+        }
+
+        LibSubnetActor.enforceStorageCollateralValidation(collateral - amount, totalStorage);
+        LibSubnetActor.gateValidatorPowerDelta(validator, collateral, collateral - amount);
+
+        if (!bootstrapped) {
+            LibStaking.withdrawWithConfirm(validator, amount);
+            collateralSource.transferFunds(payable(validator), amount);
+        } else {
+            LibStaking.withdraw(validator, amount);
+        }
     }
 
     // =============== Other functions ================

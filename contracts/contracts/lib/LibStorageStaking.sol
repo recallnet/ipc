@@ -66,18 +66,27 @@ library LibStorageStaking {
 }
 
 library LibStorageStakingOps {
-    function stakeStorage(uint256 amount, uint256 value, bool bootstrapped) external {
+    function stakeStorage(uint256 storageAmount, uint256 stakeAmount, bool bootstrapped) external {
         LibSubnetActor.enforceCollateralValidation();
 
-        uint256 collateral = value + LibStaking.totalValidatorCollateral(msg.sender);
-        uint256 totalStorage = amount + LibStorageStakingGetters.totalValidatorStorage(msg.sender);
-        LibSubnetActor.enforceStorageCollateralValidation(msg.value + collateral, totalStorage + amount);
+        uint256 collateral = stakeAmount + LibStaking.totalValidatorCollateral(msg.sender);
+        uint256 totalStorage = storageAmount + LibStorageStakingGetters.totalValidatorStorage(msg.sender);
+        LibSubnetActor.enforceStorageCollateralValidation(stakeAmount + collateral, totalStorage + storageAmount);
+
+        if (stakeAmount > 0) {
+            if (!bootstrapped) {
+                LibStaking.depositWithConfirm(msg.sender, stakeAmount);
+                LibSubnetActor.bootstrapSubnetIfNeeded();
+            } else {
+                LibStaking.deposit(msg.sender, stakeAmount);
+            }
+        }
 
         if (!bootstrapped) {
-            LibStorageStaking.commitStorageWithConfirm(msg.sender, amount);
+            LibStorageStaking.commitStorageWithConfirm(msg.sender, storageAmount);
         } else {
-            LibStorageStaking.commitStorage(msg.sender, amount);
-        }   
+            LibStorageStaking.commitStorage(msg.sender, storageAmount);
+        }
     }
 
     // No unstakeStorage included since solidity compilation exceeds size limit

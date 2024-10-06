@@ -51,14 +51,14 @@ contract SubnetActorManagerFacetTest is Test {
 
         // Must revert if validator have not joined the subnet
         vm.expectRevert();
-        subnetActorManagerFacet.stakeStorage(storageCommintment);
+        subnetActorManagerFacet.stakeStorage(storageCommintment, 0);
 
         vm.startPrank(walletAddr);
         subnetActorManagerFacet.join{value: deposit}(publicKey, deposit, storageCommintment); // Call join before staking
         vm.expectRevert();
-        subnetActorManagerFacet.stakeStorage{value: 1}(storageCommintment); // Not enough collateral
+        subnetActorManagerFacet.stakeStorage{value: 1}(storageCommintment, 1); // Not enough collateral
 
-        subnetActorManagerFacet.stakeStorage{value: deposit}(storageCommintment);
+        subnetActorManagerFacet.stakeStorage{value: deposit}(storageCommintment, deposit);
         vm.stopPrank();
 
         assertGt(subnetActorManagerFacet.getTotalStorage(walletAddr), validatorTotalStorage);
@@ -98,18 +98,18 @@ contract SubnetActorManagerFacetTest is Test {
         vm.startPrank(walletAddr);
 
         subnetActorManagerFacet.join{value: deposit}(publicKey, deposit, storageCommintment); // Call join before unstaking
-        subnetActorManagerFacet.stakeStorage{value: deposit}(storageCommintment);
+        subnetActorManagerFacet.stakeStorage{value: deposit}(storageCommintment, deposit);
 
         (uint256 validatorTotalStorage, , uint256 totalConfirmedStorage) = getStorageValues();
         uint256 amount = storageCommintment;
 
         vm.expectRevert();
-        subnetActorManagerFacet.unstakeStorage(0); // Cannot unstake 0
+        subnetActorManagerFacet.unstakeStorage(0, false); // Cannot unstake 0
 
         vm.expectRevert();
-        subnetActorManagerFacet.unstakeStorage(validatorTotalStorage + 1); // Cannot exceed total storage
+        subnetActorManagerFacet.unstakeStorage(validatorTotalStorage + 1, false); // Cannot exceed total storage
 
-        subnetActorManagerFacet.unstakeStorage(amount);
+        subnetActorManagerFacet.unstakeStorage(amount, false);
         vm.stopPrank();
 
         (
