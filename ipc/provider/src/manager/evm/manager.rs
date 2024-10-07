@@ -281,6 +281,7 @@ impl SubnetManager for EthSubnetManager {
             supply_source: register_subnet_facet::Asset::try_from(params.supply_source)?,
             collateral_source: register_subnet_facet::Asset::try_from(params.collateral_source)?,
             validator_gater: payload_to_evm_address(params.validator_gater.payload())?,
+            token_storage_ratio: U256::from(0)
         };
 
         tracing::info!("creating subnet on evm with params: {params:?}");
@@ -333,6 +334,7 @@ impl SubnetManager for EthSubnetManager {
         from: Address,
         collateral: TokenAmount,
         pub_key: Vec<u8>,
+        storage_amount: u128,
     ) -> Result<ChainEpoch> {
         let collateral = collateral
             .atto()
@@ -348,7 +350,7 @@ impl SubnetManager for EthSubnetManager {
         let contract =
             subnet_actor_manager_facet::SubnetActorManagerFacet::new(address, signer.clone());
 
-        let mut txn = contract.join(ethers::types::Bytes::from(pub_key), U256::from(collateral));
+        let mut txn = contract.join(ethers::types::Bytes::from(pub_key), U256::from(collateral), U256::from(storage_amount));
         txn = self.handle_txn_token(&subnet, txn, collateral, 0).await?;
 
         let txn = call_with_premium_estimation(signer, txn).await?;

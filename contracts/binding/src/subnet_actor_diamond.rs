@@ -74,6 +74,7 @@ pub mod subnet_actor_diamond {
                                     ],
                                 ),
                                 ::ethers::core::abi::ethabi::ParamType::Address,
+                                ::ethers::core::abi::ethabi::ParamType::Uint(256usize),
                             ],
                         ),
                         internal_type: ::core::option::Option::Some(
@@ -1508,7 +1509,7 @@ pub mod subnet_actor_diamond {
         pub action: u8,
         pub function_selectors: ::std::vec::Vec<[u8; 4]>,
     }
-    ///`ConstructorParams(uint256,uint64,uint64,address,uint16,uint8,uint8,int8,uint8,(uint8,address),(uint8,address),(uint64,address[]),address)`
+    ///`ConstructorParams(uint256,uint64,uint64,address,uint16,uint8,uint8,int8,uint8,(uint8,address),(uint8,address),(uint64,address[]),address,uint256)`
     #[derive(
         Clone,
         ::ethers::contract::EthAbiType,
@@ -1533,6 +1534,7 @@ pub mod subnet_actor_diamond {
         pub collateral_source: Asset,
         pub parent_id: SubnetID,
         pub validator_gater: ::ethers::core::types::Address,
+        pub token_storage_ratio: ::ethers::core::types::U256,
     }
     ///`SubnetID(uint64,address[])`
     #[derive(
