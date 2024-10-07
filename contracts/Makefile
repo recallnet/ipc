@@ -55,6 +55,7 @@ rust-binding:
 # Running security checks within the local computer
 
 slither:
+	echo "Probably Slither will not work on your machine: TODO"
 	slither . --config-file ./slither.config.json
 
 # ==============================================================================
