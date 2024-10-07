@@ -231,7 +231,7 @@ contract SubnetActorGetterFacet {
     /// @notice Returns the total storage of the validator
     /// @param validator address of the validator to check
     function getTotalValidatorStorage(address validator) external view returns (uint256) {
-        return LibDataStorage.getTotalValidatorStorage(validator);
+        return LibDataStorage.totalValidatorStorage(validator);
     }
 
     /// @notice Returns the total confirmed storage of the validator

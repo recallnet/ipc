@@ -29,7 +29,7 @@ contract SubnetActorDataStorageMock is SubnetActorModifiers {
     }
 
     function getTotalValidatorStorage(address validator) external view returns (uint256) {
-        return LibDataStorage.getTotalValidatorStorage(validator);
+        return LibDataStorage.totalValidatorStorage(validator);
     }
 
     function getTotalValidatorConfirmedStorage(address validator) external view returns (uint256) {
