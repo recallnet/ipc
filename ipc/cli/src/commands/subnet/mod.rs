@@ -16,9 +16,8 @@ use crate::commands::subnet::show_gateway_contract_commit_sha::{
 use crate::commands::subnet::validator::{ValidatorInfo, ValidatorInfoArgs};
 use crate::{CommandLineHandler, GlobalArguments};
 use clap::{Args, Subcommand};
-
+use self::stake::{StakeSubnet, StakeSubnetArgs, UnstakeSubnet, UnstakeSubnetArgs};
 use self::bootstrap::{AddBootstrap, AddBootstrapArgs, ListBootstraps, ListBootstrapsArgs};
-use self::join::{StakeSubnet, StakeSubnetArgs, UnstakeSubnet, UnstakeSubnetArgs};
 use self::leave::{Claim, ClaimArgs};
 use self::rpc::{ChainIdSubnet, ChainIdSubnetArgs};
 
@@ -34,6 +33,7 @@ pub mod send_value;
 mod set_federated_power;
 pub mod show_gateway_contract_commit_sha;
 mod validator;
+mod stake;
 
 pub(crate) const ZERO_ADDRESS: &str = "0000000000000000000000000000000000000000";
 
