@@ -231,7 +231,7 @@ contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausa
             //The previous if statement prevents an overflow
             newCollateral = collateral - amount;
         }
-        
+
         LibSubnetActor.gateValidatorPowerDelta(msg.sender, collateral, newCollateral);
 
         if (!s.bootstrapped) {
@@ -275,6 +275,7 @@ contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausa
 
         // remove bootstrap nodes added by this validator
         uint256 amount = LibStaking.totalValidatorCollateral(msg.sender);
+        uint256 totalStorage = LibDataStorage.totalValidatorStorage(msg.sender);
         if (amount == 0) {
             revert NotValidator(msg.sender);
         }
@@ -298,9 +299,11 @@ contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausa
             // interaction must be performed after checks and changes
             LibStaking.withdrawWithConfirm(msg.sender, amount);
             s.collateralSource.transferFunds(payable(msg.sender), amount);
+            s.validatorSet.totalConfirmedStorage -= totalStorage; // No need to explicitly withdraw storage for validator
             return;
         }
         LibStaking.withdraw(msg.sender, amount);
+        LibDataStorage.withdrawStorage(msg.sender, totalStorage);
     }
 
     /// @notice method that allows to kill the subnet when all validators left.

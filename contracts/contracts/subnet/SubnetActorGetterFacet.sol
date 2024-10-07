@@ -10,6 +10,7 @@ import {SubnetIDHelper} from "../lib/SubnetIDHelper.sol";
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import {LibStaking} from "../lib/LibStaking.sol";
+import {LibDataStorage} from "../subnet/LibDataStorage.sol";
 
 contract SubnetActorGetterFacet {
     using EnumerableSet for EnumerableSet.AddressSet;
@@ -220,5 +221,22 @@ contract SubnetActorGetterFacet {
     /// @notice Returns the collateral asset kind for the subnet.
     function collateralSource() external view returns (Asset memory supply) {
         return s.collateralSource;
+    }
+
+    /// @notice Returns the total confirmed storage by the subnet
+    function getTotalConfirmedStorage() external view returns (uint256) {
+        return LibDataStorage.getTotalConfirmedStorage();
+    }
+
+    /// @notice Returns the total storage of the validator
+    /// @param validator address of the validator to check
+    function getTotalValidatorStorage(address validator) external view returns (uint256) {
+        return LibDataStorage.getTotalValidatorStorage(validator);
+    }
+
+    /// @notice Returns the total confirmed storage of the validator
+    /// @param validator address of the validator to check
+    function getTotalValidatorConfirmedStorage(address validator) external view returns (uint256) {
+        return LibDataStorage.getTotalValidatorConfirmedStorage(validator);
     }
 }

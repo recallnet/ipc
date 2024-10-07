@@ -52,7 +52,7 @@ library LibDataStorage {
     }
 
     /// @notice Enforces that remaining collateral is enough for the storage commited
-    /// @dev Reverts if the collateral is not in enough for the storage amoun
+    /// @dev Reverts if the collateral is not in enough for the storage amount
     /// @param newCollateral The new validator's collateral
     function validateUnstake(uint256 newCollateral) external view {
         uint256 totalStorage = totalValidatorStorage(msg.sender);

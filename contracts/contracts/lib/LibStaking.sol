@@ -623,6 +623,10 @@ library LibStaking {
                     s.validatorSet.confirmDeposit(validator, amount);
                     uint256 msgValue = s.collateralSource.makeAvailable(gateway, amount);
                     IGateway(gateway).addStake{value: msgValue}(amount);
+                } else if (change.op == StakingOperation.CommitStorage) {
+                    s.validatorSet.confirmStorageDeposit(validator, amount);
+                } else if (change.op == StakingOperation.WithdrawStorage) {
+                    s.validatorSet.confirmStorageWithdraw(validator, amount);
                 } else {
                     revert("Unknown staking operation");
                 }
