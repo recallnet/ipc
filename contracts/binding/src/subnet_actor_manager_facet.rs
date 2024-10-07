@@ -50,6 +50,13 @@ pub mod subnet_actor_manager_facet {
                                     ::std::borrow::ToOwned::to_owned("uint256"),
                                 ),
                             },
+                            ::ethers::core::abi::ethabi::Param {
+                                name: ::std::borrow::ToOwned::to_owned("storageCommitment"),
+                                kind: ::ethers::core::abi::ethabi::ParamType::Uint(256usize,),
+                                internal_type: ::core::option::Option::Some(
+                                    ::std::borrow::ToOwned::to_owned("uint256"),
+                                ),
+                            },
                         ],
                         outputs: ::std::vec![],
                         constant: ::core::option::Option::None,

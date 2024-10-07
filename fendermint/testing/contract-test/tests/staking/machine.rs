@@ -160,8 +160,8 @@ impl StateMachine for StakingMachine {
             .expect("failed to call config numbers");
 
         assert_eq!(
-            next_configuration_number, 1,
-            "after initial joiners configuration should be 1"
+            next_configuration_number, 2,
+            "after initial joiners configuration should be 2"
         );
 
         eprintln!("BOOTSTRAPPED");
