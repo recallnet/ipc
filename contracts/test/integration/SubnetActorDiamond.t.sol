@@ -1409,9 +1409,9 @@ contract SubnetActorDiamondTest is Test, IntegrationTestBase {
     function test_second_validator_can_join() public {
         (address validatorAddress1, uint256 privKey1, bytes memory publicKey1) = TestUtils.newValidator(101);
         (address validatorAddress2, , bytes memory publicKey2) = TestUtils.newValidator(102);
-
+        console.log("before");
         join(validatorAddress1, publicKey1);
-
+console.log("after");
         require(saDiamond.getter().bootstrapped(), "subnet not bootstrapped");
         require(saDiamond.getter().isActiveValidator(validatorAddress1), "validator 1 is not active");
         require(!saDiamond.getter().isActiveValidator(validatorAddress2), "validator 2 is active");

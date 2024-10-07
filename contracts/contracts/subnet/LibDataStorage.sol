@@ -10,7 +10,7 @@ import {AssetHelper} from "../lib/AssetHelper.sol";
 import {LibStakingChangeLog} from "../lib/LibStakingChangeLog.sol";
 import {SubnetActorStorage, LibSubnetActorStorage} from "../lib/LibSubnetActorStorage.sol";
 
-library SubnetActorDataStorageFacet {
+library LibDataStorage {
     using LibValidatorSet for ValidatorSet;
     using AssetHelper for Asset;
     using LibStakingChangeLog for StakingChangeLog;
@@ -28,6 +28,11 @@ library SubnetActorDataStorageFacet {
     function totalValidatorStorage(address validator) internal view returns (uint256) {
         SubnetActorStorage storage s = LibSubnetActorStorage.appStorage();
         return s.validatorSet.validators[validator].totalStorageAmount;
+    }
+
+    function getTotalValidatorConfirmedStorage(address validator) external view returns (uint256) {
+        SubnetActorStorage storage s = LibSubnetActorStorage.appStorage();
+        return s.validatorSet.validators[validator].confirmedStorageAmount;
     }
 
     /// @notice Getter for total storage committed by all validators in a subnet.
