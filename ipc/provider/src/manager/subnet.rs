@@ -63,7 +63,7 @@ pub trait SubnetManager: Send + Sync + TopDownFinalityQuery + BottomUpCheckpoint
         subnet: SubnetID,
         from: Address,
         storage_amount: u128,
-        stake_amount: TokenAmount
+        stake_amount: TokenAmount,
     ) -> Result<ChainEpoch>;
 
     /// Allows a validator to decrease its storage commited by amount
@@ -72,7 +72,7 @@ pub trait SubnetManager: Send + Sync + TopDownFinalityQuery + BottomUpCheckpoint
         subnet: SubnetID,
         from: Address,
         storage_amount: u128,
-        include_collateral: bool
+        include_collateral: bool,
     ) -> Result<ChainEpoch>;
 
     /// Sends a request to leave a subnet from a wallet address.

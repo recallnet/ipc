@@ -370,7 +370,13 @@ impl IpcProvider {
         conn.manager().unstake(subnet, sender, collateral).await
     }
 
-    pub async fn stake_storage(&mut self, subnet: SubnetID, from: Option<Address>, storage_amount: u128, stake_amount: TokenAmount) -> anyhow::Result<ChainEpoch> {
+    pub async fn stake_storage(
+        &mut self,
+        subnet: SubnetID,
+        from: Option<Address>,
+        storage_amount: u128,
+        stake_amount: TokenAmount,
+    ) -> anyhow::Result<ChainEpoch> {
         let parent = subnet.parent().ok_or_else(|| anyhow!("no parent found"))?;
         let conn = self.get_connection(&parent)?;
 
@@ -393,7 +399,13 @@ impl IpcProvider {
             .await
     }
 
-    pub async fn unstake_storage(&mut self, subnet: SubnetID, from: Option<Address>, storage_amount: u128, include_collateral: bool) -> anyhow::Result<ChainEpoch> {
+    pub async fn unstake_storage(
+        &mut self,
+        subnet: SubnetID,
+        from: Option<Address>,
+        storage_amount: u128,
+        include_collateral: bool,
+    ) -> anyhow::Result<ChainEpoch> {
         let parent = subnet.parent().ok_or_else(|| anyhow!("no parent found"))?;
         let conn = self.get_connection(&parent)?;
 

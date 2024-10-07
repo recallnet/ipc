@@ -103,7 +103,12 @@ impl CommandLineHandler for StakeStorageSubnet {
             None => None,
         };
         let epoch = provider
-            .stake_storage(subnet, from, arguments.storage_amount, f64_to_token_amount(arguments.stake_amount)?)
+            .stake_storage(
+                subnet,
+                from,
+                arguments.storage_amount,
+                f64_to_token_amount(arguments.stake_amount)?,
+            )
             .await?;
         println!("committed storage at epoch: {epoch}");
 
@@ -123,7 +128,10 @@ pub struct StakeStorageSubnetArgs {
     pub subnet: String,
     #[arg(long, help = "Storage amount to commit to in the subnet (in GiBs)")]
     pub storage_amount: u128,
-    #[arg(long, help = "The collateral to stake in the subnet (in whole token units)")]
+    #[arg(
+        long,
+        help = "The collateral to stake in the subnet (in whole token units)"
+    )]
     pub stake_amount: f64,
 }
 
@@ -143,7 +151,12 @@ impl CommandLineHandler for UnstakeStorageSubnet {
             None => None,
         };
         let epoch = provider
-            .unstake_storage(subnet, from, arguments.storage_amount, arguments.include_collateral)
+            .unstake_storage(
+                subnet,
+                from,
+                arguments.storage_amount,
+                arguments.include_collateral,
+            )
             .await?;
         println!("uncommitted storage at epoch: {epoch}");
 
@@ -163,6 +176,9 @@ pub struct UnstakeStorageSubnetArgs {
     pub subnet: String,
     #[arg(long, help = "Storage amount to remove from the subnet (in GiBs)")]
     pub storage_amount: u128,
-    #[arg(long, help = "Withdraw the collateral tied to the storage being unstaked")]
+    #[arg(
+        long,
+        help = "Withdraw the collateral tied to the storage being unstaked"
+    )]
     pub include_collateral: bool,
 }
