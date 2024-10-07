@@ -58,10 +58,22 @@ pub trait SubnetManager: Send + Sync + TopDownFinalityQuery + BottomUpCheckpoint
         -> Result<()>;
 
     /// Allows a validator to increase its storage commited by amount
-    async fn stake_storage(&self, subnet: SubnetID, from: Address, storage_amount: u128, stake_amount: TokenAmount) -> Result<ChainEpoch>;
+    async fn stake_storage(
+        &self,
+        subnet: SubnetID,
+        from: Address,
+        storage_amount: u128,
+        stake_amount: TokenAmount
+    ) -> Result<ChainEpoch>;
 
     /// Allows a validator to decrease its storage commited by amount
-    async fn unstake_storage(&self, subnet: SubnetID, from: Address, storage_amount: u128, include_collateral: bool) -> Result<ChainEpoch>;
+    async fn unstake_storage(
+        &self,
+        subnet: SubnetID,
+        from: Address,
+        storage_amount: u128,
+        include_collateral: bool
+    ) -> Result<ChainEpoch>;
 
     /// Sends a request to leave a subnet from a wallet address.
     async fn leave_subnet(&self, subnet: SubnetID, from: Address) -> Result<()>;

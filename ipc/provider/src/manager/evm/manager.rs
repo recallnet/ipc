@@ -350,7 +350,11 @@ impl SubnetManager for EthSubnetManager {
         let contract =
             subnet_actor_manager_facet::SubnetActorManagerFacet::new(address, signer.clone());
 
-        let mut txn = contract.join(ethers::types::Bytes::from(pub_key), U256::from(collateral), U256::from(storage_amount));
+        let mut txn = contract.join(
+            ethers::types::Bytes::from(pub_key),
+            U256::from(collateral),
+            U256::from(storage_amount),
+        );
         txn = self.handle_txn_token(&subnet, txn, collateral, 0).await?;
 
         let txn = call_with_premium_estimation(signer, txn).await?;
@@ -463,7 +467,13 @@ impl SubnetManager for EthSubnetManager {
         Ok(())
     }
 
-    async fn stake_storage(&self, subnet: SubnetID, from: Address, storage_amount: u128, stake_amount: TokenAmount) -> Result<ChainEpoch> {
+    async fn stake_storage(
+        &self,
+        subnet: SubnetID,
+        from: Address,
+        storage_amount: u128,
+        stake_amount: TokenAmount,
+    ) -> Result<ChainEpoch> {
         let address = contract_address_from_subnet(&subnet)?;
         tracing::info!(
             "interacting with evm subnet contract: {address:} with storage_amount: {storage_amount:}, stake_amount: {stake_amount:}"
@@ -473,7 +483,10 @@ impl SubnetManager for EthSubnetManager {
         let contract =
             subnet_actor_manager_facet::SubnetActorManagerFacet::new(address, signer.clone());
 
-        let stake_amount = stake_amount.atto().to_u128().ok_or_else(|| anyhow!("invalid stake amount"))?;
+        let stake_amount = stake_amount
+            .atto()
+            .to_u128()
+            .ok_or_else(|| anyhow!("invalid stake amount"))?;
         let mut txn = contract.stake_storage(U256::from(storage_amount), U256::from(stake_amount));
         txn = self.handle_txn_token(&subnet, txn, stake_amount, 0).await?;
 
@@ -486,7 +499,13 @@ impl SubnetManager for EthSubnetManager {
         block_number_from_receipt(receipt)
     }
 
-    async fn unstake_storage(&self, subnet: SubnetID, from: Address, storage_amount: u128, include_collateral: bool) -> Result<ChainEpoch> {
+    async fn unstake_storage(
+        &self,
+        subnet: SubnetID,
+        from: Address,
+        storage_amount: u128,
+        include_collateral: bool,
+    ) -> Result<ChainEpoch> {
         let address = contract_address_from_subnet(&subnet)?;
         tracing::info!(
             "interacting with evm subnet contract: {address:} with storage_amount: {storage_amount:}, include_collateral: {include_collateral:}"
