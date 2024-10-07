@@ -16,6 +16,7 @@ import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {LibSubnetActor} from "../lib/LibSubnetActor.sol";
 import {Pausable} from "../lib/LibPausable.sol";
 import {AssetHelper} from "../lib/AssetHelper.sol";
+import {LibDataStorage} from "./LibDataStorage.sol";
 
 contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausable {
     using EnumerableSet for EnumerableSet.AddressSet;
@@ -170,6 +171,8 @@ contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausa
             LibStaking.setValidatorMetadata(msg.sender, publicKey);
             LibStaking.deposit(msg.sender, amount);
         }
+
+        LibDataStorage.processJoin(storageCommitment, s.bootstrapped);
     }
 
     /// @notice method that allows a validator to increase its stake.
@@ -223,7 +226,13 @@ contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausa
             revert NotEnoughCollateral();
         }
 
-        LibSubnetActor.gateValidatorPowerDelta(msg.sender, collateral, collateral - amount);
+        uint256 newCollateral;
+        unchecked {
+            //The previous if statement prevents an overflow
+            newCollateral = collateral - amount;
+        }
+        
+        LibSubnetActor.gateValidatorPowerDelta(msg.sender, collateral, newCollateral);
 
         if (!s.bootstrapped) {
             LibStaking.withdrawWithConfirm(msg.sender, amount);
@@ -231,6 +240,26 @@ contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausa
         } else {
             LibStaking.withdraw(msg.sender, amount);
         }
+
+        LibDataStorage.validateUnstake(newCollateral);
+    }
+
+    /// @notice method that allows a validator to increase its storage commited by amount.
+    /// @param storageAmount The amount of storage to commit.
+    /// @param stakeAmount The amount to stake, could be 0 if staked collateral is already more than needed for the storage amount.
+    function stakeStorage(uint256 storageAmount, uint256 stakeAmount) external payable whenNotPaused notKilled {
+        LibDataStorage.processStorageStake(storageAmount, stakeAmount, s.collateralSource);
+    }
+
+    /// @notice method that allows a validator to unstake a part of its storage from a subnet.
+    /// @dev `leave` must be used to unstake the entire stake.
+    /// @param storageAmount The storage amount to unstake.
+    /// @param includeCollateral If true, allows the validator to withdraw the collateral tied to the storage being unstaked.
+    function unstakeStorage(
+        uint256 storageAmount,
+        bool includeCollateral
+    ) external nonReentrant whenNotPaused notKilled {
+        LibDataStorage.processStorageUnStake(storageAmount, includeCollateral);
     }
 
     /// @notice method that allows a validator to leave the subnet.
