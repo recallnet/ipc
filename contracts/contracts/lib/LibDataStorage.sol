@@ -44,11 +44,7 @@ library LibDataStorage {
     // =============== Operations =============
 
     function processJoin(uint256 storageCommitment, bool bootstrapped) external {
-        if (!bootstrapped) {
-            commitStorageWithConfirm(msg.sender, storageCommitment);
-        } else {
-            commitStorage(msg.sender, storageCommitment);
-        }
+        processCommitStorage(msg.sender, storageCommitment, bootstrapped);
     }
 
     /// @notice Enforces that remaining collateral is enough for the storage commited
@@ -83,9 +79,9 @@ library LibDataStorage {
         }
 
         if (!s.bootstrapped) {
-            withdrawStorageWithConfirm(msg.sender, storageAmount);
+            withdrawStorageWithConfirm(msg.sender, storageAmount, s.validatorSet);
         } else {
-            withdrawStorage(msg.sender, storageAmount);
+            withdrawStorage(msg.sender, storageAmount, s.changeSet, s.validatorSet);
         }
 
         if (includeCollateral) {
@@ -129,29 +125,23 @@ library LibDataStorage {
             }
         }
 
-        if (!bootstrapped) {
-            commitStorageWithConfirm(msg.sender, storageAmount);
-        } else {
-            commitStorage(msg.sender, storageAmount);
-        }
+        processCommitStorage(msg.sender, storageAmount, bootstrapped);
     }
 
     /// @notice Confirm the storage withdraw directly without going through the confirmation process
     /// and releasing from the gateway.
     /// @dev only use for non-bootstrapped subnets
-    function withdrawStorageWithConfirm(address validator, uint256 amount) internal {
-        SubnetActorStorage storage s = LibSubnetActorStorage.appStorage();
+    function withdrawStorageWithConfirm(address validator, uint256 amount, ValidatorSet storage validatorSet) internal {
         // record deposit that updates the total storage
-        s.validatorSet.recordStorageWithdraw(validator, amount);
+        validatorSet.recordStorageWithdraw(validator, amount);
         // confirm deposit that updates the confirmed storage
-        s.validatorSet.confirmStorageWithdraw(validator, amount);
+        validatorSet.confirmStorageWithdraw(validator, amount);
     }
 
     /// @notice Withdraw the storage
-    function withdrawStorage(address validator, uint256 amount) internal {
-        SubnetActorStorage storage s = LibSubnetActorStorage.appStorage();
-        s.changeSet.withdrawStorageRequest(validator, amount);
-        s.validatorSet.recordStorageWithdraw(validator, amount);
+    function withdrawStorage(address validator, uint256 amount, StakingChangeLog storage changeSet, ValidatorSet storage validatorSet) internal {
+        changeSet.withdrawStorageRequest(validator, amount);
+        validatorSet.recordStorageWithdraw(validator, amount);
     }
 
     // ====== Helpers ========
@@ -167,12 +157,21 @@ library LibDataStorage {
     /// @notice Ensures that the provided collateral is enough for the committed storage.
     /// @dev Reverts if the collateral is not in enough for the storage amount
     function enforceStorageCollateralValidation(uint256 collateral, uint256 storageAmount) private view {
+        hasEnoughStorage(storageAmount);
         SubnetActorStorage storage s = LibSubnetActorStorage.appStorage();
         uint256 requiredCollateral = storageAmount * s.tokenStorageRatio;
 
-        if (storageAmount > 0 && collateral < requiredCollateral) {
+        if (collateral < requiredCollateral) {
             revert NotEnoughCollateralForStorageAmount();
         }
         return;
+    }
+
+    function processCommitStorage(address sender, uint256 storageCommitment, bool bootstrapped) private {
+        if (!bootstrapped) {
+            commitStorageWithConfirm(sender, storageCommitment);
+        } else {
+            commitStorage(sender, storageCommitment);
+        }
     }
 }

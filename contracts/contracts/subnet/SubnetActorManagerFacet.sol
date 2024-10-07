@@ -303,7 +303,7 @@ contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausa
             return;
         }
         LibStaking.withdraw(msg.sender, amount);
-        LibDataStorage.withdrawStorage(msg.sender, totalStorage);
+        LibDataStorage.withdrawStorage(msg.sender, totalStorage, s.changeSet, s.validatorSet);
     }
 
     /// @notice method that allows to kill the subnet when all validators left.

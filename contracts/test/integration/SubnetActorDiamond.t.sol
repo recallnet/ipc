@@ -244,7 +244,7 @@ contract SubnetActorDiamondTest is Test, IntegrationTestBase {
         v = saDiamond.getter().getValidator(validator1);
 
         // ======== Step Storage Stake ====
-         vm.startPrank(validator1);
+        vm.startPrank(validator1);
         // Collateral is enough for new storage amount
         saDiamond.manager().stakeStorage{value: 0}(MIN_STORAGE, 0);
 

@@ -49,7 +49,7 @@ contract SubnetActorDataStorageMock is SubnetActorModifiers {
     }
 
     function withdrawStorage(address validator, uint256 amount) external {
-        LibDataStorage.withdrawStorage(validator, amount);
+        LibDataStorage.withdrawStorage(validator, amount, s.changeSet, s.validatorSet);
     }
 
     function confirmStorageWithdraw(address validatorAddress1, uint256 amountToWithdraw) external {
@@ -57,6 +57,6 @@ contract SubnetActorDataStorageMock is SubnetActorModifiers {
     }
 
     function withdrawStorageWithConfirm(address validator, uint256 amount) external {
-        LibDataStorage.withdrawStorageWithConfirm(validator, amount);
+        LibDataStorage.withdrawStorageWithConfirm(validator, amount, s.validatorSet);
     }
 }
