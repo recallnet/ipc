@@ -192,6 +192,31 @@ pub mod subnet_actor_manager_facet {
                     },],
                 ),
                 (
+                    ::std::borrow::ToOwned::to_owned("stakeStorage"),
+                    ::std::vec![::ethers::core::abi::ethabi::Function {
+                        name: ::std::borrow::ToOwned::to_owned("stakeStorage"),
+                        inputs: ::std::vec![
+                            ::ethers::core::abi::ethabi::Param {
+                                name: ::std::borrow::ToOwned::to_owned("storageAmount"),
+                                kind: ::ethers::core::abi::ethabi::ParamType::Uint(256usize,),
+                                internal_type: ::core::option::Option::Some(
+                                    ::std::borrow::ToOwned::to_owned("uint256"),
+                                ),
+                            },
+                            ::ethers::core::abi::ethabi::Param {
+                                name: ::std::borrow::ToOwned::to_owned("stakeAmount"),
+                                kind: ::ethers::core::abi::ethabi::ParamType::Uint(256usize,),
+                                internal_type: ::core::option::Option::Some(
+                                    ::std::borrow::ToOwned::to_owned("uint256"),
+                                ),
+                            },
+                        ],
+                        outputs: ::std::vec![],
+                        constant: ::core::option::Option::None,
+                        state_mutability: ::ethers::core::abi::ethabi::StateMutability::Payable,
+                    },],
+                ),
+                (
                     ::std::borrow::ToOwned::to_owned("unstake"),
                     ::std::vec![::ethers::core::abi::ethabi::Function {
                         name: ::std::borrow::ToOwned::to_owned("unstake"),
@@ -202,6 +227,31 @@ pub mod subnet_actor_manager_facet {
                                 ::std::borrow::ToOwned::to_owned("uint256"),
                             ),
                         },],
+                        outputs: ::std::vec![],
+                        constant: ::core::option::Option::None,
+                        state_mutability: ::ethers::core::abi::ethabi::StateMutability::NonPayable,
+                    },],
+                ),
+                (
+                    ::std::borrow::ToOwned::to_owned("unstakeStorage"),
+                    ::std::vec![::ethers::core::abi::ethabi::Function {
+                        name: ::std::borrow::ToOwned::to_owned("unstakeStorage"),
+                        inputs: ::std::vec![
+                            ::ethers::core::abi::ethabi::Param {
+                                name: ::std::borrow::ToOwned::to_owned("storageAmount"),
+                                kind: ::ethers::core::abi::ethabi::ParamType::Uint(256usize,),
+                                internal_type: ::core::option::Option::Some(
+                                    ::std::borrow::ToOwned::to_owned("uint256"),
+                                ),
+                            },
+                            ::ethers::core::abi::ethabi::Param {
+                                name: ::std::borrow::ToOwned::to_owned("includeCollateral"),
+                                kind: ::ethers::core::abi::ethabi::ParamType::Bool,
+                                internal_type: ::core::option::Option::Some(
+                                    ::std::borrow::ToOwned::to_owned("bool"),
+                                ),
+                            },
+                        ],
                         outputs: ::std::vec![],
                         constant: ::core::option::Option::None,
                         state_mutability: ::ethers::core::abi::ethabi::StateMutability::NonPayable,
@@ -636,6 +686,13 @@ pub mod subnet_actor_manager_facet {
                         inputs: ::std::vec![],
                     },],
                 ),
+                (
+                    ::std::borrow::ToOwned::to_owned("WithdrawExceedingStorage"),
+                    ::std::vec![::ethers::core::abi::ethabi::AbiError {
+                        name: ::std::borrow::ToOwned::to_owned("WithdrawExceedingStorage",),
+                        inputs: ::std::vec![],
+                    },],
+                ),
             ]),
             receive: false,
             fallback: false,
@@ -695,10 +752,10 @@ pub mod subnet_actor_manager_facet {
             &self,
             public_key: ::ethers::core::types::Bytes,
             amount: ::ethers::core::types::U256,
-            storage_amount: ::ethers::core::types::U256,
+            storage_commitment: ::ethers::core::types::U256,
         ) -> ::ethers::contract::builders::ContractCall<M, ()> {
             self.0
-                .method_hash([29, 222, 229, 84], (public_key, amount, storage_amount))
+                .method_hash([29, 222, 229, 84], (public_key, amount, storage_commitment))
                 .expect("method not found (this should never happen)")
         }
         ///Calls the contract's `kill` (0x41c0e1b5) function
@@ -760,6 +817,16 @@ pub mod subnet_actor_manager_facet {
                 .method_hash([166, 148, 252, 58], amount)
                 .expect("method not found (this should never happen)")
         }
+        ///Calls the contract's `stakeStorage` (0x5d7e960b) function
+        pub fn stake_storage(
+            &self,
+            storage_amount: ::ethers::core::types::U256,
+            stake_amount: ::ethers::core::types::U256,
+        ) -> ::ethers::contract::builders::ContractCall<M, ()> {
+            self.0
+                .method_hash([93, 126, 150, 11], (storage_amount, stake_amount))
+                .expect("method not found (this should never happen)")
+        }
         ///Calls the contract's `unstake` (0x2e17de78) function
         pub fn unstake(
             &self,
@@ -767,6 +834,16 @@ pub mod subnet_actor_manager_facet {
         ) -> ::ethers::contract::builders::ContractCall<M, ()> {
             self.0
                 .method_hash([46, 23, 222, 120], amount)
+                .expect("method not found (this should never happen)")
+        }
+        ///Calls the contract's `unstakeStorage` (0xee2555a6) function
+        pub fn unstake_storage(
+            &self,
+            storage_amount: ::ethers::core::types::U256,
+            include_collateral: bool,
+        ) -> ::ethers::contract::builders::ContractCall<M, ()> {
+            self.0
+                .method_hash([238, 37, 85, 166], (storage_amount, include_collateral))
                 .expect("method not found (this should never happen)")
         }
         ///Gets the contract's `ActiveValidatorCollateralUpdated` event
@@ -1278,6 +1355,19 @@ pub mod subnet_actor_manager_facet {
         abi = "WithdrawExceedingCollateral()"
     )]
     pub struct WithdrawExceedingCollateral;
+    ///Custom Error type `WithdrawExceedingStorage` with signature `WithdrawExceedingStorage()` and selector `0x1575ac00`
+    #[derive(
+        Clone,
+        ::ethers::contract::EthError,
+        ::ethers::contract::EthDisplay,
+        Default,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash,
+    )]
+    #[etherror(name = "WithdrawExceedingStorage", abi = "WithdrawExceedingStorage()")]
+    pub struct WithdrawExceedingStorage;
     ///Container type for all of the contract's custom errors
     #[derive(Clone, ::ethers::contract::EthAbiType, Debug, PartialEq, Eq, Hash)]
     pub enum SubnetActorManagerFacetErrors {
@@ -1310,6 +1400,7 @@ pub mod subnet_actor_manager_facet {
         SubnetAlreadyKilled(SubnetAlreadyKilled),
         SubnetNotBootstrapped(SubnetNotBootstrapped),
         WithdrawExceedingCollateral(WithdrawExceedingCollateral),
+        WithdrawExceedingStorage(WithdrawExceedingStorage),
         /// The standard solidity revert string, with selector
         /// Error(string) -- 0x08c379a0
         RevertString(::std::string::String),
@@ -1446,6 +1537,11 @@ pub mod subnet_actor_manager_facet {
             {
                 return Ok(Self::WithdrawExceedingCollateral(decoded));
             }
+            if let Ok(decoded) =
+                <WithdrawExceedingStorage as ::ethers::core::abi::AbiDecode>::decode(data)
+            {
+                return Ok(Self::WithdrawExceedingStorage(decoded));
+            }
             Err(::ethers::core::abi::Error::InvalidData.into())
         }
     }
@@ -1509,6 +1605,9 @@ pub mod subnet_actor_manager_facet {
                     ::ethers::core::abi::AbiEncode::encode(element)
                 }
                 Self::WithdrawExceedingCollateral(element) => {
+                    ::ethers::core::abi::AbiEncode::encode(element)
+                }
+                Self::WithdrawExceedingStorage(element) => {
                     ::ethers::core::abi::AbiEncode::encode(element)
                 }
                 Self::RevertString(s) => ::ethers::core::abi::AbiEncode::encode(s),
@@ -1631,6 +1730,11 @@ pub mod subnet_actor_manager_facet {
                 {
                     true
                 }
+                _ if selector
+                    == <WithdrawExceedingStorage as ::ethers::contract::EthError>::selector() =>
+                {
+                    true
+                }
                 _ => false,
             }
         }
@@ -1667,6 +1771,7 @@ pub mod subnet_actor_manager_facet {
                 Self::SubnetAlreadyKilled(element) => ::core::fmt::Display::fmt(element, f),
                 Self::SubnetNotBootstrapped(element) => ::core::fmt::Display::fmt(element, f),
                 Self::WithdrawExceedingCollateral(element) => ::core::fmt::Display::fmt(element, f),
+                Self::WithdrawExceedingStorage(element) => ::core::fmt::Display::fmt(element, f),
                 Self::RevertString(s) => ::core::fmt::Display::fmt(s, f),
             }
         }
@@ -1819,6 +1924,11 @@ pub mod subnet_actor_manager_facet {
     impl ::core::convert::From<WithdrawExceedingCollateral> for SubnetActorManagerFacetErrors {
         fn from(value: WithdrawExceedingCollateral) -> Self {
             Self::WithdrawExceedingCollateral(value)
+        }
+    }
+    impl ::core::convert::From<WithdrawExceedingStorage> for SubnetActorManagerFacetErrors {
+        fn from(value: WithdrawExceedingStorage) -> Self {
+            Self::WithdrawExceedingStorage(value)
         }
     }
     #[derive(
@@ -2293,6 +2403,22 @@ pub mod subnet_actor_manager_facet {
     pub struct StakeCall {
         pub amount: ::ethers::core::types::U256,
     }
+    ///Container type for all input parameters for the `stakeStorage` function with signature `stakeStorage(uint256,uint256)` and selector `0x5d7e960b`
+    #[derive(
+        Clone,
+        ::ethers::contract::EthCall,
+        ::ethers::contract::EthDisplay,
+        Default,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash,
+    )]
+    #[ethcall(name = "stakeStorage", abi = "stakeStorage(uint256,uint256)")]
+    pub struct StakeStorageCall {
+        pub storage_amount: ::ethers::core::types::U256,
+        pub stake_amount: ::ethers::core::types::U256,
+    }
     ///Container type for all input parameters for the `unstake` function with signature `unstake(uint256)` and selector `0x2e17de78`
     #[derive(
         Clone,
@@ -2308,6 +2434,22 @@ pub mod subnet_actor_manager_facet {
     pub struct UnstakeCall {
         pub amount: ::ethers::core::types::U256,
     }
+    ///Container type for all input parameters for the `unstakeStorage` function with signature `unstakeStorage(uint256,bool)` and selector `0xee2555a6`
+    #[derive(
+        Clone,
+        ::ethers::contract::EthCall,
+        ::ethers::contract::EthDisplay,
+        Default,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash,
+    )]
+    #[ethcall(name = "unstakeStorage", abi = "unstakeStorage(uint256,bool)")]
+    pub struct UnstakeStorageCall {
+        pub storage_amount: ::ethers::core::types::U256,
+        pub include_collateral: bool,
+    }
     ///Container type for all of the contract's call
     #[derive(Clone, ::ethers::contract::EthAbiType, Debug, PartialEq, Eq, Hash)]
     pub enum SubnetActorManagerFacetCalls {
@@ -2320,7 +2462,9 @@ pub mod subnet_actor_manager_facet {
         SetFederatedPower(SetFederatedPowerCall),
         SetValidatorGater(SetValidatorGaterCall),
         Stake(StakeCall),
+        StakeStorage(StakeStorageCall),
         Unstake(UnstakeCall),
+        UnstakeStorage(UnstakeStorageCall),
     }
     impl ::ethers::core::abi::AbiDecode for SubnetActorManagerFacetCalls {
         fn decode(
@@ -2360,8 +2504,17 @@ pub mod subnet_actor_manager_facet {
             if let Ok(decoded) = <StakeCall as ::ethers::core::abi::AbiDecode>::decode(data) {
                 return Ok(Self::Stake(decoded));
             }
+            if let Ok(decoded) = <StakeStorageCall as ::ethers::core::abi::AbiDecode>::decode(data)
+            {
+                return Ok(Self::StakeStorage(decoded));
+            }
             if let Ok(decoded) = <UnstakeCall as ::ethers::core::abi::AbiDecode>::decode(data) {
                 return Ok(Self::Unstake(decoded));
+            }
+            if let Ok(decoded) =
+                <UnstakeStorageCall as ::ethers::core::abi::AbiDecode>::decode(data)
+            {
+                return Ok(Self::UnstakeStorage(decoded));
             }
             Err(::ethers::core::abi::Error::InvalidData.into())
         }
@@ -2378,7 +2531,9 @@ pub mod subnet_actor_manager_facet {
                 Self::SetFederatedPower(element) => ::ethers::core::abi::AbiEncode::encode(element),
                 Self::SetValidatorGater(element) => ::ethers::core::abi::AbiEncode::encode(element),
                 Self::Stake(element) => ::ethers::core::abi::AbiEncode::encode(element),
+                Self::StakeStorage(element) => ::ethers::core::abi::AbiEncode::encode(element),
                 Self::Unstake(element) => ::ethers::core::abi::AbiEncode::encode(element),
+                Self::UnstakeStorage(element) => ::ethers::core::abi::AbiEncode::encode(element),
             }
         }
     }
@@ -2394,7 +2549,9 @@ pub mod subnet_actor_manager_facet {
                 Self::SetFederatedPower(element) => ::core::fmt::Display::fmt(element, f),
                 Self::SetValidatorGater(element) => ::core::fmt::Display::fmt(element, f),
                 Self::Stake(element) => ::core::fmt::Display::fmt(element, f),
+                Self::StakeStorage(element) => ::core::fmt::Display::fmt(element, f),
                 Self::Unstake(element) => ::core::fmt::Display::fmt(element, f),
+                Self::UnstakeStorage(element) => ::core::fmt::Display::fmt(element, f),
             }
         }
     }
@@ -2443,9 +2600,19 @@ pub mod subnet_actor_manager_facet {
             Self::Stake(value)
         }
     }
+    impl ::core::convert::From<StakeStorageCall> for SubnetActorManagerFacetCalls {
+        fn from(value: StakeStorageCall) -> Self {
+            Self::StakeStorage(value)
+        }
+    }
     impl ::core::convert::From<UnstakeCall> for SubnetActorManagerFacetCalls {
         fn from(value: UnstakeCall) -> Self {
             Self::Unstake(value)
+        }
+    }
+    impl ::core::convert::From<UnstakeStorageCall> for SubnetActorManagerFacetCalls {
+        fn from(value: UnstakeStorageCall) -> Self {
+            Self::UnstakeStorage(value)
         }
     }
     ///`Validator(uint256,address,bytes)`
