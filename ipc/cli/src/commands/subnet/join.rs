@@ -35,7 +35,7 @@ impl CommandLineHandler for JoinSubnet {
                 .pre_fund(subnet.clone(), from, f64_to_token_amount(initial_balance)?)
                 .await?;
         }
-        let storage_committed = arguments.storage_committed;
+        let storage_amount = arguments.storage_amount;
         // FIXME Add storage_committed to join_subnet command
         let epoch = provider
             .join_subnet(subnet, from, f64_to_token_amount(arguments.collateral)?, 0) //TODO: send real storage argument on CLI dev
@@ -62,7 +62,7 @@ pub struct JoinSubnetArgs {
         long,
         help = "Storage amount to commit to in the subnet (in GiBs)"
     )]
-    pub storage_committed: u64,
+    pub storage_amount: u64,
     #[arg(
         long,
         help = "Optionally add an initial balance to the validator in genesis in the subnet"

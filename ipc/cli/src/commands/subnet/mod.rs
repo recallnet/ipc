@@ -16,6 +16,7 @@ use crate::commands::subnet::show_gateway_contract_commit_sha::{
 use crate::commands::subnet::validator::{ValidatorInfo, ValidatorInfoArgs};
 use crate::{CommandLineHandler, GlobalArguments};
 use clap::{Args, Subcommand};
+use crate::commands::subnet::stake::{StakeStorageSubnet, StakeStorageSubnetArgs, UnstakeStorageSubnet, UnstakeStorageSubnetArgs};
 use self::stake::{StakeSubnet, StakeSubnetArgs, UnstakeSubnet, UnstakeSubnetArgs};
 use self::bootstrap::{AddBootstrap, AddBootstrapArgs, ListBootstraps, ListBootstrapsArgs};
 use self::leave::{Claim, ClaimArgs};
@@ -61,6 +62,8 @@ impl SubnetCommandsArgs {
             Commands::SendValue(args) => SendValue::handle(global, args).await,
             Commands::Stake(args) => StakeSubnet::handle(global, args).await,
             Commands::Unstake(args) => UnstakeSubnet::handle(global, args).await,
+            Commands::StakeStorage(args) => StakeStorageSubnet::handle(global, args).await,
+            Commands::UnstakeStorage(args) => UnstakeStorageSubnet::handle(global, args).await,
             Commands::Claim(args) => Claim::handle(global, args).await,
             Commands::AddBootstrap(args) => AddBootstrap::handle(global, args).await,
             Commands::ListBootstraps(args) => ListBootstraps::handle(global, args).await,
@@ -86,6 +89,8 @@ pub(crate) enum Commands {
     SendValue(SendValueArgs),
     Stake(StakeSubnetArgs),
     Unstake(UnstakeSubnetArgs),
+    StakeStorage(StakeStorageSubnetArgs),
+    UnstakeStorage(UnstakeStorageSubnetArgs),
     Claim(ClaimArgs),
     AddBootstrap(AddBootstrapArgs),
     ListBootstraps(ListBootstrapsArgs),

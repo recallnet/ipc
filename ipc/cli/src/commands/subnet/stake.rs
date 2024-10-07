@@ -1,4 +1,5 @@
 use std::str::FromStr;
+use anyhow::anyhow;
 use async_trait::async_trait;
 use clap::Args;
 use ipc_api::subnet_id::SubnetID;
@@ -78,4 +79,55 @@ pub struct UnstakeSubnetArgs {
         help = "The collateral to unstake from the subnet (in whole FIL units)"
     )]
     pub collateral: f64,
+}
+
+/// Stake more storage to the subnet
+pub struct StakeStorageSubnet;
+
+#[async_trait]
+impl CommandLineHandler for StakeStorageSubnet {
+    type Arguments = StakeStorageSubnetArgs;
+
+    async fn handle(global: &GlobalArguments, arguments: &Self::Arguments) -> anyhow::Result<()> {
+        todo!()
+    }
+}
+
+#[derive(Debug, Args)]
+#[command(name = "stake-storage", about = "Commit more storage to an already joined subnet")]
+pub struct StakeStorageSubnetArgs {
+    #[arg(long, help = "The address that stakes in the subnet")]
+    pub from: Option<String>,
+    #[arg(long, help = "The subnet to add collateral to")]
+    pub subnet: String,
+    #[arg(
+        long,
+        help = "Storage amount to commit to in the subnet (in GiBs)"
+    )]
+    pub storage_amount: u64,
+}
+
+pub struct UnstakeStorageSubnet;
+
+#[async_trait]
+impl CommandLineHandler for UnstakeStorageSubnet {
+    type Arguments = UnstakeStorageSubnetArgs;
+
+    async fn handle(global: &GlobalArguments, arguments: &Self::Arguments) -> anyhow::Result<()> {
+        todo!()
+    }
+}
+
+#[derive(Debug, Args)]
+#[command(name = "unstake-storage", about = "Uncommit some storage from a subnet")]
+pub struct UnstakeStorageSubnetArgs {
+    #[arg(long, help = "The address that stakes in the subnet")]
+    pub from: Option<String>,
+    #[arg(long, help = "The subnet to add collateral to")]
+    pub subnet: String,
+    #[arg(
+        long,
+        help = "Storage amount to remove from the subnet (in GiBs)"
+    )]
+    pub storage_amount: u64,
 }
