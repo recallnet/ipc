@@ -67,7 +67,8 @@ impl<DB: Blockstore + Clone> SubnetCaller<DB> {
                 public_key.into(),
                 deposit,
                 ethers::types::U256::from(storage_amount),
-            ).from(addr)
+            )
+            .from(addr)
             .value(deposit)
         })
     }
@@ -86,7 +87,7 @@ impl<DB: Blockstore + Clone> SubnetCaller<DB> {
             c.join(
                 public_key.into(),
                 deposit,
-                ethers::types::U256::from(storage_amount)
+                ethers::types::U256::from(storage_amount),
             )
             .from(addr)
             .value(deposit)

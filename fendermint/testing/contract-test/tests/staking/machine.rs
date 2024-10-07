@@ -120,7 +120,7 @@ impl StateMachine for StakingMachine {
                 token_address: ethers::types::Address::zero(),
             },
             validator_gater: EthAddress::from(ethers::types::Address::zero()).into(),
-            token_storage_ratio:  ethers::types::U256::from(0),
+            token_storage_ratio: ethers::types::U256::from(0),
         };
 
         eprintln!("\n> PARENT IPC: {parent_ipc:?}");
