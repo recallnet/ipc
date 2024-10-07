@@ -16,7 +16,7 @@ import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {LibSubnetActor} from "../lib/LibSubnetActor.sol";
 import {Pausable} from "../lib/LibPausable.sol";
 import {AssetHelper} from "../lib/AssetHelper.sol";
-import {LibDataStorage} from "./LibDataStorage.sol";
+import {LibDataStorage} from "../lib/LibDataStorage.sol";
 
 contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausable {
     using EnumerableSet for EnumerableSet.AddressSet;

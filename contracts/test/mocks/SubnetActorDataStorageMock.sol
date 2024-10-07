@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 pragma solidity ^0.8.23;
 
-import {LibDataStorage} from "../../contracts/subnet/LibDataStorage.sol";
+import {LibDataStorage} from "../../contracts/lib/LibDataStorage.sol";
 import {SubnetActorModifiers} from "../../contracts/lib/LibSubnetActorStorage.sol";
 import {ValidatorInfo, ValidatorSet} from "../../contracts/structs/Subnet.sol";
 import {LibValidatorSet} from "../../contracts/lib/LibStaking.sol";

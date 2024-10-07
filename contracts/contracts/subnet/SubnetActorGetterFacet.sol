@@ -10,7 +10,7 @@ import {SubnetIDHelper} from "../lib/SubnetIDHelper.sol";
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import {LibStaking} from "../lib/LibStaking.sol";
-import {LibDataStorage} from "../subnet/LibDataStorage.sol";
+import {LibDataStorage} from "../lib/LibDataStorage.sol";
 
 contract SubnetActorGetterFacet {
     using EnumerableSet for EnumerableSet.AddressSet;

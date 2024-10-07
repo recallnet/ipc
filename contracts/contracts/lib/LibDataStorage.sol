@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 pragma solidity ^0.8.23;
 
-import {ReentrancyGuard} from "../lib/LibReentrancyGuard.sol";
+import {ReentrancyGuard} from "./LibReentrancyGuard.sol";
 import {NotEnoughCollateralForStorageAmount, CannotReleaseZero, NotValidator, NotEnoughStorageCommitment, InsufficientStorage} from "../errors/IPCErrors.sol";
-import {LibSubnetActor} from "../lib/LibSubnetActor.sol";
-import {LibValidatorSet, LibStaking} from "../lib/LibStaking.sol";
+import {LibSubnetActor} from "./LibSubnetActor.sol";
+import {LibValidatorSet, LibStaking} from "./LibStaking.sol";
 import {ValidatorSet, Asset, StakingChangeLog} from "../structs/Subnet.sol";
-import {AssetHelper} from "../lib/AssetHelper.sol";
-import {LibStakingChangeLog} from "../lib/LibStakingChangeLog.sol";
-import {SubnetActorStorage, LibSubnetActorStorage} from "../lib/LibSubnetActorStorage.sol";
+import {AssetHelper} from "./AssetHelper.sol";
+import {LibStakingChangeLog} from "./LibStakingChangeLog.sol";
+import {SubnetActorStorage, LibSubnetActorStorage} from "./LibSubnetActorStorage.sol";
 
 library LibDataStorage {
     using LibValidatorSet for ValidatorSet;
