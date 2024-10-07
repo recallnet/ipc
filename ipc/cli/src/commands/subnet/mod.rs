@@ -1,6 +1,10 @@
 // Copyright 2022-2024 Protocol Labs
 // SPDX-License-Identifier: MIT
 
+use self::bootstrap::{AddBootstrap, AddBootstrapArgs, ListBootstraps, ListBootstrapsArgs};
+use self::leave::{Claim, ClaimArgs};
+use self::rpc::{ChainIdSubnet, ChainIdSubnetArgs};
+use self::stake::{StakeSubnet, StakeSubnetArgs, UnstakeSubnet, UnstakeSubnetArgs};
 pub use crate::commands::subnet::create::{CreateSubnet, CreateSubnetArgs};
 use crate::commands::subnet::genesis_epoch::{GenesisEpoch, GenesisEpochArgs};
 pub use crate::commands::subnet::join::{JoinSubnet, JoinSubnetArgs};
@@ -13,14 +17,12 @@ use crate::commands::subnet::set_federated_power::{SetFederatedPower, SetFederat
 use crate::commands::subnet::show_gateway_contract_commit_sha::{
     ShowGatewayContractCommitSha, ShowGatewayContractCommitShaArgs,
 };
+use crate::commands::subnet::stake::{
+    StakeStorageSubnet, StakeStorageSubnetArgs, UnstakeStorageSubnet, UnstakeStorageSubnetArgs,
+};
 use crate::commands::subnet::validator::{ValidatorInfo, ValidatorInfoArgs};
 use crate::{CommandLineHandler, GlobalArguments};
 use clap::{Args, Subcommand};
-use crate::commands::subnet::stake::{StakeStorageSubnet, StakeStorageSubnetArgs, UnstakeStorageSubnet, UnstakeStorageSubnetArgs};
-use self::stake::{StakeSubnet, StakeSubnetArgs, UnstakeSubnet, UnstakeSubnetArgs};
-use self::bootstrap::{AddBootstrap, AddBootstrapArgs, ListBootstraps, ListBootstrapsArgs};
-use self::leave::{Claim, ClaimArgs};
-use self::rpc::{ChainIdSubnet, ChainIdSubnetArgs};
 
 pub mod bootstrap;
 pub mod create;
@@ -33,8 +35,8 @@ pub mod rpc;
 pub mod send_value;
 mod set_federated_power;
 pub mod show_gateway_contract_commit_sha;
-mod validator;
 mod stake;
+mod validator;
 
 pub(crate) const ZERO_ADDRESS: &str = "0000000000000000000000000000000000000000";
 

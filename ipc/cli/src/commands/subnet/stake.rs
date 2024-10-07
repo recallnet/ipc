@@ -1,10 +1,15 @@
-use std::str::FromStr;
-use anyhow::anyhow;
+// Copyright 2022-2024 Protocol Labs
+// SPDX-License-Identifier: Apache-2.0, MIT
+
 use async_trait::async_trait;
 use clap::Args;
 use ipc_api::subnet_id::SubnetID;
+use std::str::FromStr;
 
-use crate::{CommandLineHandler, GlobalArguments, f64_to_token_amount, get_ipc_provider, require_fil_addr_from_str};
+use crate::{
+    f64_to_token_amount, get_ipc_provider, require_fil_addr_from_str, CommandLineHandler,
+    GlobalArguments,
+};
 
 /// The command to stake in a subnet from validator
 pub struct StakeSubnet;
@@ -88,22 +93,22 @@ pub struct StakeStorageSubnet;
 impl CommandLineHandler for StakeStorageSubnet {
     type Arguments = StakeStorageSubnetArgs;
 
-    async fn handle(global: &GlobalArguments, arguments: &Self::Arguments) -> anyhow::Result<()> {
+    async fn handle(_global: &GlobalArguments, _arguments: &Self::Arguments) -> anyhow::Result<()> {
         todo!()
     }
 }
 
 #[derive(Debug, Args)]
-#[command(name = "stake-storage", about = "Commit more storage to an already joined subnet")]
+#[command(
+    name = "stake-storage",
+    about = "Commit more storage to an already joined subnet"
+)]
 pub struct StakeStorageSubnetArgs {
     #[arg(long, help = "The address that stakes in the subnet")]
     pub from: Option<String>,
     #[arg(long, help = "The subnet to add collateral to")]
     pub subnet: String,
-    #[arg(
-        long,
-        help = "Storage amount to commit to in the subnet (in GiBs)"
-    )]
+    #[arg(long, help = "Storage amount to commit to in the subnet (in GiBs)")]
     pub storage_amount: u64,
 }
 
@@ -113,21 +118,21 @@ pub struct UnstakeStorageSubnet;
 impl CommandLineHandler for UnstakeStorageSubnet {
     type Arguments = UnstakeStorageSubnetArgs;
 
-    async fn handle(global: &GlobalArguments, arguments: &Self::Arguments) -> anyhow::Result<()> {
+    async fn handle(_global: &GlobalArguments, _arguments: &Self::Arguments) -> anyhow::Result<()> {
         todo!()
     }
 }
 
 #[derive(Debug, Args)]
-#[command(name = "unstake-storage", about = "Uncommit some storage from a subnet")]
+#[command(
+    name = "unstake-storage",
+    about = "Uncommit some storage from a subnet"
+)]
 pub struct UnstakeStorageSubnetArgs {
     #[arg(long, help = "The address that stakes in the subnet")]
     pub from: Option<String>,
     #[arg(long, help = "The subnet to add collateral to")]
     pub subnet: String,
-    #[arg(
-        long,
-        help = "Storage amount to remove from the subnet (in GiBs)"
-    )]
+    #[arg(long, help = "Storage amount to remove from the subnet (in GiBs)")]
     pub storage_amount: u64,
 }
