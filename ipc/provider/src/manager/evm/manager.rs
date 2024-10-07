@@ -363,29 +363,6 @@ impl SubnetManager for EthSubnetManager {
         block_number_from_receipt(receipt)
     }
 
-    async fn stake_storage(&self, subnet: SubnetID, from: Address, storage_amount: u128, stake_amount: TokenAmount) -> Result<ChainEpoch> {
-        let address = contract_address_from_subnet(&subnet)?;
-        tracing::info!(
-            "interacting with evm subnet contract: {address:} with storage_amount: {storage_amount:}, stake_amount: {stake_amount:}"
-        );
-
-        let signer = Arc::new(self.get_signer(&from)?);
-        let contract =
-            subnet_actor_manager_facet::SubnetActorManagerFacet::new(address, signer.clone());
-
-        let stake_amount = stake_amount.atto().to_u128().ok_or_else(|| anyhow!("invalid stake amount"))?;
-        let mut txn = contract.stake_storage(U256::from(storage_amount), U256::from(stake_amount));
-        txn = self.handle_txn_token(&subnet, txn, stake_amount, 0).await?;
-
-        let txn = call_with_premium_estimation(signer, txn).await?;
-
-        // Use the pending state to get the nonce because there could have been a pre-fund. Best would be to use this for everything.
-        let txn = txn.block(BlockId::Number(ethers::types::BlockNumber::Pending));
-        let pending_tx = txn.send().await?;
-        let receipt = pending_tx.retries(TRANSACTION_RECEIPT_RETRIES).await?;
-        block_number_from_receipt(receipt)
-    }
-
     async fn pre_fund(&self, subnet: SubnetID, from: Address, balance: TokenAmount) -> Result<()> {
         let balance = balance
             .atto()
@@ -484,6 +461,50 @@ impl SubnetManager for EthSubnetManager {
         txn.send().await?.await?;
 
         Ok(())
+    }
+
+    async fn stake_storage(&self, subnet: SubnetID, from: Address, storage_amount: u128, stake_amount: TokenAmount) -> Result<ChainEpoch> {
+        let address = contract_address_from_subnet(&subnet)?;
+        tracing::info!(
+            "interacting with evm subnet contract: {address:} with storage_amount: {storage_amount:}, stake_amount: {stake_amount:}"
+        );
+
+        let signer = Arc::new(self.get_signer(&from)?);
+        let contract =
+            subnet_actor_manager_facet::SubnetActorManagerFacet::new(address, signer.clone());
+
+        let stake_amount = stake_amount.atto().to_u128().ok_or_else(|| anyhow!("invalid stake amount"))?;
+        let mut txn = contract.stake_storage(U256::from(storage_amount), U256::from(stake_amount));
+        txn = self.handle_txn_token(&subnet, txn, stake_amount, 0).await?;
+
+        let txn = call_with_premium_estimation(signer, txn).await?;
+
+        // Use the pending state to get the nonce because there could have been a pre-fund. Best would be to use this for everything.
+        let txn = txn.block(BlockId::Number(ethers::types::BlockNumber::Pending));
+        let pending_tx = txn.send().await?;
+        let receipt = pending_tx.retries(TRANSACTION_RECEIPT_RETRIES).await?;
+        block_number_from_receipt(receipt)
+    }
+
+    async fn unstake_storage(&self, subnet: SubnetID, from: Address, storage_amount: u128, include_collateral: bool) -> Result<ChainEpoch> {
+        let address = contract_address_from_subnet(&subnet)?;
+        tracing::info!(
+            "interacting with evm subnet contract: {address:} with storage_amount: {storage_amount:}, include_collateral: {include_collateral:}"
+        );
+
+        let signer = Arc::new(self.get_signer(&from)?);
+        let contract =
+            subnet_actor_manager_facet::SubnetActorManagerFacet::new(address, signer.clone());
+
+        let txn = contract.unstake_storage(U256::from(storage_amount), include_collateral);
+
+        let txn = call_with_premium_estimation(signer, txn).await?;
+
+        // Use the pending state to get the nonce because there could have been a pre-fund. Best would be to use this for everything.
+        let txn = txn.block(BlockId::Number(ethers::types::BlockNumber::Pending));
+        let pending_tx = txn.send().await?;
+        let receipt = pending_tx.retries(TRANSACTION_RECEIPT_RETRIES).await?;
+        block_number_from_receipt(receipt)
     }
 
     async fn leave_subnet(&self, subnet: SubnetID, from: Address) -> Result<()> {

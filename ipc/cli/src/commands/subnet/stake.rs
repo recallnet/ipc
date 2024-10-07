@@ -133,8 +133,21 @@ pub struct UnstakeStorageSubnet;
 impl CommandLineHandler for UnstakeStorageSubnet {
     type Arguments = UnstakeStorageSubnetArgs;
 
-    async fn handle(_global: &GlobalArguments, _arguments: &Self::Arguments) -> anyhow::Result<()> {
-        todo!()
+    async fn handle(global: &GlobalArguments, arguments: &Self::Arguments) -> anyhow::Result<()> {
+        log::debug!("uncommit storage from subnet with args: {:?}", arguments);
+
+        let mut provider = get_ipc_provider(global)?;
+        let subnet = SubnetID::from_str(&arguments.subnet)?;
+        let from = match &arguments.from {
+            Some(address) => Some(require_fil_addr_from_str(address)?),
+            None => None,
+        };
+        let epoch = provider
+            .unstake_storage(subnet, from, arguments.storage_amount, arguments.include_collateral)
+            .await?;
+        println!("uncommitted storage at epoch: {epoch}");
+
+        Ok(())
     }
 }
 
@@ -149,5 +162,7 @@ pub struct UnstakeStorageSubnetArgs {
     #[arg(long, help = "The subnet to add collateral to")]
     pub subnet: String,
     #[arg(long, help = "Storage amount to remove from the subnet (in GiBs)")]
-    pub storage_amount: u64,
+    pub storage_amount: u128,
+    #[arg(long, help = "Withdraw the collateral tied to the storage being unstaked")]
+    pub include_collateral: bool,
 }

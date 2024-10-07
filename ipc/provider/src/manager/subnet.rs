@@ -40,8 +40,6 @@ pub trait SubnetManager: Send + Sync + TopDownFinalityQuery + BottomUpCheckpoint
         storage: u128,
     ) -> Result<ChainEpoch>;
 
-    async fn stake_storage(&self, subnet: SubnetID, from: Address, storage_amount: u128, stake_amount: TokenAmount) -> Result<ChainEpoch>;
-
     /// Adds some initial balance to an address before a child subnet bootstraps to make
     /// it available in the subnet at genesis.
     async fn pre_fund(&self, subnet: SubnetID, from: Address, balance: TokenAmount) -> Result<()>;
@@ -58,6 +56,12 @@ pub trait SubnetManager: Send + Sync + TopDownFinalityQuery + BottomUpCheckpoint
     /// and reduce their power in the subnet.
     async fn unstake(&self, subnet: SubnetID, from: Address, collateral: TokenAmount)
         -> Result<()>;
+
+    /// Allows a validator to increase its storage commited by amount
+    async fn stake_storage(&self, subnet: SubnetID, from: Address, storage_amount: u128, stake_amount: TokenAmount) -> Result<ChainEpoch>;
+
+    /// Allows a validator to decrease its storage commited by amount
+    async fn unstake_storage(&self, subnet: SubnetID, from: Address, storage_amount: u128, include_collateral: bool) -> Result<ChainEpoch>;
 
     /// Sends a request to leave a subnet from a wallet address.
     async fn leave_subnet(&self, subnet: SubnetID, from: Address) -> Result<()>;
