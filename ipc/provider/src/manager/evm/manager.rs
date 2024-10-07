@@ -363,6 +363,29 @@ impl SubnetManager for EthSubnetManager {
         block_number_from_receipt(receipt)
     }
 
+    async fn stake_storage(&self, subnet: SubnetID, from: Address, storage_amount: u128, stake_amount: TokenAmount) -> Result<ChainEpoch> {
+        let address = contract_address_from_subnet(&subnet)?;
+        tracing::info!(
+            "interacting with evm subnet contract: {address:} with storage_amount: {storage_amount:}, stake_amount: {stake_amount:}"
+        );
+
+        let signer = Arc::new(self.get_signer(&from)?);
+        let contract =
+            subnet_actor_manager_facet::SubnetActorManagerFacet::new(address, signer.clone());
+
+        let stake_amount = stake_amount.atto().to_u128().ok_or_else(|| anyhow!("invalid stake amount"))?;
+        let mut txn = contract.stake_storage(U256::from(storage_amount), U256::from(stake_amount));
+        txn = self.handle_txn_token(&subnet, txn, stake_amount, 0).await?;
+
+        let txn = call_with_premium_estimation(signer, txn).await?;
+
+        // Use the pending state to get the nonce because there could have been a pre-fund. Best would be to use this for everything.
+        let txn = txn.block(BlockId::Number(ethers::types::BlockNumber::Pending));
+        let pending_tx = txn.send().await?;
+        let receipt = pending_tx.retries(TRANSACTION_RECEIPT_RETRIES).await?;
+        block_number_from_receipt(receipt)
+    }
+
     async fn pre_fund(&self, subnet: SubnetID, from: Address, balance: TokenAmount) -> Result<()> {
         let balance = balance
             .atto()
@@ -576,6 +599,38 @@ impl SubnetManager for EthSubnetManager {
         block_number_from_receipt(receipt)
     }
 
+    async fn fund_with_token(
+        &self,
+        subnet: SubnetID,
+        from: Address,
+        to: Address,
+        amount: TokenAmount,
+    ) -> Result<ChainEpoch> {
+        tracing::debug!(
+            "fund with token, subnet: {subnet}, amount: {amount}, from: {from}, to: {to}"
+        );
+
+        let value = fil_amount_to_eth_amount(&amount)?;
+        let evm_subnet_id = gateway_manager_facet::SubnetID::try_from(&subnet)?;
+
+        let signer = Arc::new(self.get_signer(&from)?);
+        let gateway_contract = gateway_manager_facet::GatewayManagerFacet::new(
+            self.ipc_contract_info.gateway_addr,
+            signer.clone(),
+        );
+
+        let txn = gateway_contract.fund_with_token(
+            evm_subnet_id,
+            gateway_manager_facet::FvmAddress::try_from(to)?,
+            value,
+        );
+        let txn = call_with_premium_estimation(signer, txn).await?;
+
+        let pending_tx = txn.send().await?;
+        let receipt = pending_tx.retries(TRANSACTION_RECEIPT_RETRIES).await?;
+        block_number_from_receipt(receipt)
+    }
+
     /// Approves the `from` address to use up to `amount` tokens from `token_address`.
     async fn approve_token(
         &self,
@@ -603,38 +658,6 @@ impl SubnetManager for EthSubnetManager {
         let token_contract = IERC20::new(token_address, signer.clone());
 
         let txn = token_contract.approve(self.ipc_contract_info.gateway_addr, value);
-        let txn = call_with_premium_estimation(signer, txn).await?;
-
-        let pending_tx = txn.send().await?;
-        let receipt = pending_tx.retries(TRANSACTION_RECEIPT_RETRIES).await?;
-        block_number_from_receipt(receipt)
-    }
-
-    async fn fund_with_token(
-        &self,
-        subnet: SubnetID,
-        from: Address,
-        to: Address,
-        amount: TokenAmount,
-    ) -> Result<ChainEpoch> {
-        tracing::debug!(
-            "fund with token, subnet: {subnet}, amount: {amount}, from: {from}, to: {to}"
-        );
-
-        let value = fil_amount_to_eth_amount(&amount)?;
-        let evm_subnet_id = gateway_manager_facet::SubnetID::try_from(&subnet)?;
-
-        let signer = Arc::new(self.get_signer(&from)?);
-        let gateway_contract = gateway_manager_facet::GatewayManagerFacet::new(
-            self.ipc_contract_info.gateway_addr,
-            signer.clone(),
-        );
-
-        let txn = gateway_contract.fund_with_token(
-            evm_subnet_id,
-            gateway_manager_facet::FvmAddress::try_from(to)?,
-            value,
-        );
         let txn = call_with_premium_estimation(signer, txn).await?;
 
         let pending_tx = txn.send().await?;

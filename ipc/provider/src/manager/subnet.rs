@@ -40,6 +40,8 @@ pub trait SubnetManager: Send + Sync + TopDownFinalityQuery + BottomUpCheckpoint
         storage: u128,
     ) -> Result<ChainEpoch>;
 
+    async fn stake_storage(&self, subnet: SubnetID, from: Address, storage_amount: u128, stake_amount: TokenAmount) -> Result<ChainEpoch>;
+
     /// Adds some initial balance to an address before a child subnet bootstraps to make
     /// it available in the subnet at genesis.
     async fn pre_fund(&self, subnet: SubnetID, from: Address, balance: TokenAmount) -> Result<()>;

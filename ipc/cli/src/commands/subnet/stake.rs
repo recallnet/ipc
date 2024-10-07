@@ -19,7 +19,7 @@ impl CommandLineHandler for StakeSubnet {
     type Arguments = StakeSubnetArgs;
 
     async fn handle(global: &GlobalArguments, arguments: &Self::Arguments) -> anyhow::Result<()> {
-        log::debug!("join subnet with args: {:?}", arguments);
+        log::debug!("stake to subnet with args: {:?}", arguments);
 
         let mut provider = get_ipc_provider(global)?;
         let subnet = SubnetID::from_str(&arguments.subnet)?;
@@ -42,7 +42,7 @@ pub struct StakeSubnetArgs {
     pub subnet: String,
     #[arg(
         long,
-        help = "The collateral to stake in the subnet (in whole FIL units)"
+        help = "The collateral to stake in the subnet (in whole token units)"
     )]
     pub collateral: f64,
 }
@@ -81,7 +81,7 @@ pub struct UnstakeSubnetArgs {
     pub subnet: String,
     #[arg(
         long,
-        help = "The collateral to unstake from the subnet (in whole FIL units)"
+        help = "The collateral to unstake from the subnet (in whole token units)"
     )]
     pub collateral: f64,
 }
@@ -93,8 +93,21 @@ pub struct StakeStorageSubnet;
 impl CommandLineHandler for StakeStorageSubnet {
     type Arguments = StakeStorageSubnetArgs;
 
-    async fn handle(_global: &GlobalArguments, _arguments: &Self::Arguments) -> anyhow::Result<()> {
-        todo!()
+    async fn handle(global: &GlobalArguments, arguments: &Self::Arguments) -> anyhow::Result<()> {
+        log::debug!("stake storage to subnet with args: {:?}", arguments);
+
+        let mut provider = get_ipc_provider(global)?;
+        let subnet = SubnetID::from_str(&arguments.subnet)?;
+        let from = match &arguments.from {
+            Some(address) => Some(require_fil_addr_from_str(address)?),
+            None => None,
+        };
+        let epoch = provider
+            .stake_storage(subnet, from, arguments.storage_amount, f64_to_token_amount(arguments.stake_amount)?)
+            .await?;
+        println!("committed storage at epoch: {epoch}");
+
+        Ok(())
     }
 }
 
@@ -109,7 +122,9 @@ pub struct StakeStorageSubnetArgs {
     #[arg(long, help = "The subnet to add collateral to")]
     pub subnet: String,
     #[arg(long, help = "Storage amount to commit to in the subnet (in GiBs)")]
-    pub storage_amount: u64,
+    pub storage_amount: u128,
+    #[arg(long, help = "The collateral to stake in the subnet (in whole token units)")]
+    pub stake_amount: f64,
 }
 
 pub struct UnstakeStorageSubnet;
