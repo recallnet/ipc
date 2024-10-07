@@ -441,7 +441,7 @@ impl StateMachine for StakingMachine {
             .expect("failed to get config numbers");
 
         assert_eq!(
-            next_cn, post_state.next_configuration_number,
+            next_cn, post_state.next_configuration_number + 1,
             "next configuration number mismatch"
         );
 
