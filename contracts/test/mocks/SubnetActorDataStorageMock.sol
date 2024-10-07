@@ -9,7 +9,13 @@ import {LibValidatorSet} from "../../contracts/lib/LibStaking.sol";
 contract SubnetActorDataStorageMock is SubnetActorModifiers {
     using LibValidatorSet for ValidatorSet;
 
-    constructor (address v1, address v2, uint256 totalConfirmedStorage, ValidatorInfo memory validator1, ValidatorInfo memory validator2) {
+    constructor(
+        address v1,
+        address v2,
+        uint256 totalConfirmedStorage,
+        ValidatorInfo memory validator1,
+        ValidatorInfo memory validator2
+    ) {
         // Set individual validator entries in the mapping
         s.validatorSet.validators[v1] = validator1;
         s.validatorSet.validators[v2] = validator2;
@@ -52,7 +58,5 @@ contract SubnetActorDataStorageMock is SubnetActorModifiers {
 
     function withdrawStorageWithConfirm(address validator, uint256 amount) external {
         LibDataStorage.withdrawStorageWithConfirm(validator, amount);
-
     }
-
 }

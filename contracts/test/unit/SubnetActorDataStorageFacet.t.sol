@@ -19,7 +19,13 @@ contract LibDataStorageTest is Test {
 
     function setUp() public {
         initializeValidatorsInfo();
-        dataStorageFacet = new SubnetActorDataStorageMock(validatorAddress1, validatorAddress2, validator1Storage + validator2Storage, validator1, validator2);
+        dataStorageFacet = new SubnetActorDataStorageMock(
+            validatorAddress1,
+            validatorAddress2,
+            validator1Storage + validator2Storage,
+            validator1,
+            validator2
+        );
     }
 
     function testGetTotalConfirmedStorage() public {
@@ -38,7 +44,6 @@ contract LibDataStorageTest is Test {
         assertEq(storage3, 0);
     }
 
-  
     function testCommitStorage() public {
         uint256 newStorage = 500;
         // Before storage commit
@@ -55,7 +60,7 @@ contract LibDataStorageTest is Test {
 
     function testCommitStorageWithConfirm() public {
         uint256 newStorage = 1000;
-        
+
         uint256 prevTotalStorage = dataStorageFacet.getTotalValidatorStorage(validatorAddress1);
         uint256 prevConfirmedStorage = dataStorageFacet.getTotalConfirmedStorage();
 
@@ -157,7 +162,7 @@ contract LibDataStorageTest is Test {
         // confirmedStorage should remain the same since withdraw was not confirmed
         assertEq(dataStorageFacet.getTotalValidatorConfirmedStorage(validatorAddress1), totalConfirmedStorage);
     }
- 
+
     function initializeValidatorsInfo() public {
         uint256 weight = 700;
         // Initialize ValidatorInfo objects with empty metadata...for now

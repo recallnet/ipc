@@ -95,7 +95,7 @@ struct ValidatorInfo {
     /// to parse or decode the bytes.
     bytes metadata;
     uint256 confirmedStorageAmount;
-    uint256 totalStorageAmount; 
+    uint256 totalStorageAmount;
 }
 
 /// @notice Determines the permission mode for validators.

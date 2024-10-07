@@ -56,7 +56,7 @@ library LibDataStorage {
     /// @param newCollateral The new validator's collateral
     function validateUnstake(uint256 newCollateral) external view {
         uint256 totalStorage = totalValidatorStorage(msg.sender);
-        
+
         enforceStorageCollateralValidation(newCollateral, totalStorage);
     }
 
@@ -89,7 +89,7 @@ library LibDataStorage {
         }
 
         if (includeCollateral) {
-            uint256 collateral = storageAmount * s.tokenStorageRatio;
+            //uint256 collateral = storageAmount * s.tokenStorageRatio;
             //processUnstake(msg.sender, collateral, bootstrapped, s.collateralSource); TODO make normal unstake process
         }
     }
@@ -105,7 +105,7 @@ library LibDataStorage {
         s.validatorSet.confirmStorageDeposit(validator, totalStorage);
     }
 
-    /// @notice Commit the storage. 
+    /// @notice Commit the storage.
     function commitStorage(address validator, uint256 totalStorage) internal {
         hasEnoughStorage(totalStorage);
 
@@ -115,7 +115,7 @@ library LibDataStorage {
     }
 
     function stakeStorage(uint256 storageAmount, uint256 stakeAmount, bool bootstrapped) internal {
-        LibSubnetActor.enforceCollateralValidation();  
+        LibSubnetActor.enforceCollateralValidation();
         uint256 collateral = stakeAmount + LibStaking.totalValidatorCollateral(msg.sender);
         uint256 totalStorage = storageAmount + totalValidatorStorage(msg.sender);
         enforceStorageCollateralValidation(stakeAmount + collateral, totalStorage + storageAmount);
@@ -127,7 +127,7 @@ library LibDataStorage {
             } else {
                 LibStaking.deposit(msg.sender, stakeAmount);
             }
-        }  
+        }
 
         if (!bootstrapped) {
             commitStorageWithConfirm(msg.sender, storageAmount);
@@ -145,7 +145,6 @@ library LibDataStorage {
         s.validatorSet.recordStorageWithdraw(validator, amount);
         // confirm deposit that updates the confirmed storage
         s.validatorSet.confirmStorageWithdraw(validator, amount);
-
     }
 
     /// @notice Withdraw the storage
@@ -168,13 +167,12 @@ library LibDataStorage {
     /// @notice Ensures that the provided collateral is enough for the committed storage.
     /// @dev Reverts if the collateral is not in enough for the storage amount
     function enforceStorageCollateralValidation(uint256 collateral, uint256 storageAmount) private view {
-         SubnetActorStorage storage s = LibSubnetActorStorage.appStorage();
+        SubnetActorStorage storage s = LibSubnetActorStorage.appStorage();
         uint256 requiredCollateral = storageAmount * s.tokenStorageRatio;
-        
+
         if (storageAmount > 0 && collateral < requiredCollateral) {
             revert NotEnoughCollateralForStorageAmount();
         }
         return;
     }
-
 }
