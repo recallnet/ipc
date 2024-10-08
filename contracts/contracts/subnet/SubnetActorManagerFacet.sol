@@ -201,7 +201,7 @@ contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausa
     /// @param stakeAmount The amount to stake, could be 0 if staked collateral is already more than needed for the storage amount.
     function stakeStorage(uint256 storageAmount, uint256 stakeAmount) external payable whenNotPaused notKilled {
         if (stakeAmount > 0) _stake(stakeAmount);
-        LibDataStorage.processStorageStake(storageAmount);
+        LibDataStorage.processStorageStake(storageAmount, s.bootstrapped, s.tokenStorageRatio);
     }
 
     /// @notice method that allows a validator to unstake a part of its storage from a subnet.
@@ -348,6 +348,6 @@ contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausa
             LibStaking.withdraw(msg.sender, amount);
         }
 
-        LibDataStorage.validateUnstake(newCollateral);
+        LibDataStorage.validateUnstake(newCollateral, s.tokenStorageRatio);
     }
 }

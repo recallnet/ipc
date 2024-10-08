@@ -44,15 +44,19 @@ library LibDataStorage {
     /// @notice Enforces that remaining collateral is enough for the storage commited
     /// @dev Reverts if the collateral is not in enough for the storage amount
     /// @param newCollateral The new validator's collateral
-    function validateUnstake(uint256 newCollateral) external view {
+    function validateUnstake(uint256 newCollateral, uint256 tokenStorageRatio) external view {
         uint256 totalStorage = totalValidatorStorage(msg.sender);
 
-        enforceStorageCollateralValidation(newCollateral, totalStorage);
+        enforceStorageCollateralValidation(newCollateral, totalStorage, tokenStorageRatio);
     }
 
-    function processStorageStake(uint256 storageAmount) external {
-        SubnetActorStorage storage s = LibSubnetActorStorage.appStorage();
-        stakeStorage(storageAmount, s.bootstrapped);
+    function processStorageStake(uint256 storageAmount, bool bootstrapped, uint256 tokenStorageRatio) external {
+        uint256 collateral = LibStaking.totalValidatorCollateral(msg.sender);
+        uint256 totalStorage = storageAmount + totalValidatorStorage(msg.sender);
+
+        enforceStorageCollateralValidation(collateral, totalStorage, tokenStorageRatio);
+
+        processCommitStorage(msg.sender, storageAmount, bootstrapped);
     }
 
     function processStorageUnStake(uint256 storageAmount) external {
@@ -98,15 +102,6 @@ library LibDataStorage {
         s.validatorSet.recordStorageDeposit(validator, totalStorage);
     }
 
-    function stakeStorage(uint256 storageAmount, bool bootstrapped) internal {
-        uint256 collateral = LibStaking.totalValidatorCollateral(msg.sender);
-        uint256 totalStorage = storageAmount + totalValidatorStorage(msg.sender);
-
-        enforceStorageCollateralValidation(collateral, totalStorage);
-
-        processCommitStorage(msg.sender, storageAmount, bootstrapped);
-    }
-
     /// @notice Confirm the storage withdraw directly without going through the confirmation process
     /// and releasing from the gateway.
     /// @dev only use for non-bootstrapped subnets
@@ -135,15 +130,12 @@ library LibDataStorage {
 
     /// @notice Ensures that the provided collateral is enough for the committed storage.
     /// @dev Reverts if the collateral is not in enough for the storage amount
-    function enforceStorageCollateralValidation(uint256 collateral, uint256 storageAmount) private view {
+    function enforceStorageCollateralValidation(uint256 collateral, uint256 storageAmount, uint256 tokenStorageRatio) private pure {
         hasEnoughStorage(storageAmount);
-        SubnetActorStorage storage s = LibSubnetActorStorage.appStorage();
-        uint256 requiredCollateral = storageAmount * s.tokenStorageRatio;
 
-        if (collateral < requiredCollateral) {
+        if (collateral < storageAmount * tokenStorageRatio) {
             revert NotEnoughCollateralForStorageAmount();
         }
-        return;
     }
 
     function processCommitStorage(address sender, uint256 storageCommitment, bool bootstrapped) private {
