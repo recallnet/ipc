@@ -1253,6 +1253,27 @@ contract SubnetActorDiamondTest is Test, IntegrationTestBase {
             saDiamond.getter().getValidator(validator).totalCollateral == DEFAULT_MIN_VALIDATOR_STAKE - 5,
             "collateral correct after unstaking"
         );
+
+        // ==== Unstake with Storage check
+        // Default ratio is 0
+        saDiamond.manager().setTokenStorageRatio(1);
+        ValidatorInfo memory v = saDiamond.getter().getValidator(validator);
+        uint256 collateral = v.totalCollateral;
+        uint256 newCollateral = collateral * 2;
+        uint256 newStorageAmount = newCollateral - v.totalStorageAmount;
+        vm.deal(validator, collateral);
+        // Stake bigger storage amount needed
+        vm.startPrank(validator);
+        saDiamond.manager().stakeStorage{value: collateral}(newStorageAmount, collateral);
+        require(
+            saDiamond.getter().getValidator(validator).totalCollateral == newCollateral,
+            "Invalid collateral after staking storage"
+        );
+
+        // Unstake only funds should revert because it breaks the ratio
+        vm.expectRevert(NotEnoughCollateralForStorageAmount.selector);
+        saDiamond.manager().unstake(5);
+        vm.stopPrank();
     }
 
     function testSubnetActorDiamond_PreFundRelease_works() public {
@@ -2433,6 +2454,14 @@ contract SubnetActorDiamondTest is Test, IntegrationTestBase {
         vm.prank(address(0));
         vm.expectRevert();
         saDiamond.manager().setValidatorGater(address(1));
+    }
+
+    function testSubnetActorDiamond_TokenStorageRatio_set_works() public {
+        saDiamond.manager().setTokenStorageRatio(1);
+
+        vm.prank(address(0));
+        vm.expectRevert();
+        saDiamond.manager().setTokenStorageRatio(1);
     }
 
     function testSubnetActorDiamond_ValidatorGater_collateralLiftCycle() public {

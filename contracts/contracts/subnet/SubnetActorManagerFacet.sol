@@ -79,6 +79,11 @@ contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausa
         s.validatorGater = gater;
     }
 
+    function setTokenStorageRatio(uint256 newRatio) external notKilled {
+        LibDiamond.enforceIsContractOwner();
+        s.tokenStorageRatio = newRatio;
+    }
+
     /// @notice Sets the federated power of validators.
     /// @dev method that allows the contract owner to set the validators' federated power.
     /// @param validators The addresses of validators.
@@ -181,74 +186,22 @@ contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausa
     ///         then  subnet will be registered.
     /// @param amount The amount of collateral provided as stake
     function stake(uint256 amount) external payable whenNotPaused notKilled {
-        // disabling validator changes for federated subnets (at least for now
-        // until a more complex mechanism is implemented).
-        LibSubnetActor.enforceCollateralValidation();
-        if (amount == 0) {
-            revert CollateralIsZero();
-        }
-
-        if (!LibStaking.isValidator(msg.sender)) {
-            revert MethodNotAllowed(ERR_VALIDATOR_NOT_JOINED);
-        }
-
-        uint256 collateral = LibStaking.totalValidatorCollateral(msg.sender);
-        LibSubnetActor.gateValidatorPowerDelta(msg.sender, collateral, collateral + amount);
-
-        s.collateralSource.lock(amount);
-
-        if (!s.bootstrapped) {
-            LibStaking.depositWithConfirm(msg.sender, amount);
-            LibSubnetActor.bootstrapSubnetIfNeeded();
-        } else {
-            LibStaking.deposit(msg.sender, amount);
-        }
+        _stake(amount);
     }
 
     /// @notice method that allows a validator to unstake a part of its collateral from a subnet.
     /// @dev `leave` must be used to unstake the entire stake.
     /// @param amount The amount to unstake.
     function unstake(uint256 amount) external nonReentrant whenNotPaused notKilled {
-        // disabling validator changes for federated validation subnets (at least for now
-        // until a more complex mechanism is implemented).
-        LibSubnetActor.enforceCollateralValidation();
-
-        if (amount == 0) {
-            revert CannotReleaseZero();
-        }
-
-        uint256 collateral = LibStaking.totalValidatorCollateral(msg.sender);
-
-        if (collateral == 0) {
-            revert NotValidator(msg.sender);
-        }
-        if (collateral <= amount) {
-            revert NotEnoughCollateral();
-        }
-
-        uint256 newCollateral;
-        unchecked {
-            //The previous if statement prevents an overflow
-            newCollateral = collateral - amount;
-        }
-
-        LibSubnetActor.gateValidatorPowerDelta(msg.sender, collateral, newCollateral);
-
-        if (!s.bootstrapped) {
-            LibStaking.withdrawWithConfirm(msg.sender, amount);
-            s.collateralSource.transferFunds(payable(msg.sender), amount);
-        } else {
-            LibStaking.withdraw(msg.sender, amount);
-        }
-
-        LibDataStorage.validateUnstake(newCollateral);
+        _unstake(amount);
     }
 
     /// @notice method that allows a validator to increase its storage commited by amount.
     /// @param storageAmount The amount of storage to commit.
     /// @param stakeAmount The amount to stake, could be 0 if staked collateral is already more than needed for the storage amount.
     function stakeStorage(uint256 storageAmount, uint256 stakeAmount) external payable whenNotPaused notKilled {
-        LibDataStorage.processStorageStake(storageAmount, stakeAmount, s.collateralSource);
+        if (stakeAmount > 0) _stake(stakeAmount);
+        LibDataStorage.processStorageStake(storageAmount);
     }
 
     /// @notice method that allows a validator to unstake a part of its storage from a subnet.
@@ -259,7 +212,11 @@ contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausa
         uint256 storageAmount,
         bool includeCollateral
     ) external nonReentrant whenNotPaused notKilled {
-        LibDataStorage.processStorageUnStake(storageAmount, includeCollateral);
+        if (includeCollateral) {
+            uint256 collateral = storageAmount * s.tokenStorageRatio;
+            _unstake(collateral);
+        }
+        LibDataStorage.processStorageUnStake(storageAmount);
     }
 
     /// @notice method that allows a validator to leave the subnet.
@@ -331,5 +288,66 @@ contract SubnetActorManagerFacet is SubnetActorModifiers, ReentrancyGuard, Pausa
         s.bootstrapNodes[msg.sender] = netAddress;
         // slither-disable-next-line unused-return
         s.bootstrapOwners.add(msg.sender);
+    }
+
+    function _stake(uint256 amount) internal {
+        // disabling validator changes for federated subnets (at least for now
+        // until a more complex mechanism is implemented).
+        LibSubnetActor.enforceCollateralValidation();
+        if (amount == 0) {
+            revert CollateralIsZero();
+        }
+
+        if (!LibStaking.isValidator(msg.sender)) {
+            revert MethodNotAllowed(ERR_VALIDATOR_NOT_JOINED);
+        }
+
+        uint256 collateral = LibStaking.totalValidatorCollateral(msg.sender);
+        LibSubnetActor.gateValidatorPowerDelta(msg.sender, collateral, collateral + amount);
+
+        s.collateralSource.lock(amount);
+
+        if (!s.bootstrapped) {
+            LibStaking.depositWithConfirm(msg.sender, amount);
+            LibSubnetActor.bootstrapSubnetIfNeeded();
+        } else {
+            LibStaking.deposit(msg.sender, amount);
+        }
+    }
+
+    function _unstake(uint256 amount) internal {
+        // disabling validator changes for federated validation subnets (at least for now
+        // until a more complex mechanism is implemented).
+        LibSubnetActor.enforceCollateralValidation();
+
+        if (amount == 0) {
+            revert CannotReleaseZero();
+        }
+
+        uint256 collateral = LibStaking.totalValidatorCollateral(msg.sender);
+
+        if (collateral == 0) {
+            revert NotValidator(msg.sender);
+        }
+        if (collateral <= amount) {
+            revert NotEnoughCollateral();
+        }
+
+        uint256 newCollateral;
+        unchecked {
+            //The previous if statement prevents an overflow
+            newCollateral = collateral - amount;
+        }
+
+        LibSubnetActor.gateValidatorPowerDelta(msg.sender, collateral, newCollateral);
+
+        if (!s.bootstrapped) {
+            LibStaking.withdrawWithConfirm(msg.sender, amount);
+            s.collateralSource.transferFunds(payable(msg.sender), amount);
+        } else {
+            LibStaking.withdraw(msg.sender, amount);
+        }
+
+        LibDataStorage.validateUnstake(newCollateral);
     }
 }

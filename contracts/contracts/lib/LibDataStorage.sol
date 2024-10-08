@@ -50,13 +50,12 @@ library LibDataStorage {
         enforceStorageCollateralValidation(newCollateral, totalStorage);
     }
 
-    function processStorageStake(uint256 storageAmount, uint256 stakeAmount, Asset storage collateralSource) external {
-        if (stakeAmount > 0) collateralSource.lock(stakeAmount);
+    function processStorageStake(uint256 storageAmount) external {
         SubnetActorStorage storage s = LibSubnetActorStorage.appStorage();
-        stakeStorage(storageAmount, stakeAmount, s.bootstrapped);
+        stakeStorage(storageAmount, s.bootstrapped);
     }
 
-    function processStorageUnStake(uint256 storageAmount, bool includeCollateral) external {
+    function processStorageUnStake(uint256 storageAmount) external {
         SubnetActorStorage storage s = LibSubnetActorStorage.appStorage();
         // disabling validator changes for federated validation subnets
         LibSubnetActor.enforceCollateralValidation();
@@ -76,11 +75,6 @@ library LibDataStorage {
             withdrawStorageWithConfirm(msg.sender, storageAmount, s.validatorSet);
         } else {
             withdrawStorage(msg.sender, storageAmount, s.changeSet, s.validatorSet);
-        }
-
-        if (includeCollateral) {
-            //uint256 collateral = storageAmount * s.tokenStorageRatio;
-            //processUnstake(msg.sender, collateral, bootstrapped, s.collateralSource); TODO make normal unstake process
         }
     }
 
@@ -104,20 +98,11 @@ library LibDataStorage {
         s.validatorSet.recordStorageDeposit(validator, totalStorage);
     }
 
-    function stakeStorage(uint256 storageAmount, uint256 stakeAmount, bool bootstrapped) internal {
-        LibSubnetActor.enforceCollateralValidation();
-        uint256 collateral = stakeAmount + LibStaking.totalValidatorCollateral(msg.sender);
+    function stakeStorage(uint256 storageAmount, bool bootstrapped) internal {
+        uint256 collateral = LibStaking.totalValidatorCollateral(msg.sender);
         uint256 totalStorage = storageAmount + totalValidatorStorage(msg.sender);
-        enforceStorageCollateralValidation(stakeAmount + collateral, totalStorage + storageAmount);
 
-        if (stakeAmount > 0) {
-            if (!bootstrapped) {
-                LibStaking.depositWithConfirm(msg.sender, stakeAmount);
-                LibSubnetActor.bootstrapSubnetIfNeeded();
-            } else {
-                LibStaking.deposit(msg.sender, stakeAmount);
-            }
-        }
+        enforceStorageCollateralValidation(collateral, totalStorage);
 
         processCommitStorage(msg.sender, storageAmount, bootstrapped);
     }
