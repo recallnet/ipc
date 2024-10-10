@@ -29,11 +29,11 @@ task('deploy-registry')
             deployer,
             {
                 name: 'SubnetActorGetterFacet',
-                libraries: ['SubnetIDHelper'],
+                libraries: ['SubnetIDHelper', 'LibDataStorage'],
             },
             {
                 name: 'SubnetActorManagerFacet',
-                libraries: ['SubnetIDHelper'],
+                libraries: ['SubnetIDHelper', 'LibDataStorage'],
             },
             { name: 'SubnetActorPauseFacet' },
             { name: 'SubnetActorRewardFacet' },
