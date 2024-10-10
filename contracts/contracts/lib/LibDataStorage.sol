@@ -19,7 +19,7 @@ library LibDataStorage {
 
     /// @notice Gets the total storage committed by the validator.
     /// @param validator The address to check for storage amount.
-    function totalValidatorStorage(address validator) public view returns (uint256) {
+    function totalValidatorStorage(address validator) internal view returns (uint256) {
         SubnetActorStorage storage s = LibSubnetActorStorage.appStorage();
         return s.validatorSet.validators[validator].totalStorageAmount;
     }
