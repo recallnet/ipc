@@ -746,7 +746,7 @@ where
         &self,
         (env, state): Self::State,
     ) -> anyhow::Result<(Self::State, Self::EndOutput)> {
-        let (state, out) = self.inner.end(state).await?;
+        let (mut state, out) = self.inner.end(state).await?;
 
         // Update any component that needs to know about changes in the power table.
         if !out.0 .0.is_empty() {
@@ -766,6 +766,8 @@ where
                     .update_power_table(power_updates.clone())
             })
             .await;
+
+            // TODO Continue update power table in blobs actor
         }
 
         Ok(((env, state), out))
