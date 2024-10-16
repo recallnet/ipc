@@ -493,11 +493,15 @@ async fn handle_object_download<F: QueryClient + Send + Sync>(
                             message: format!("failed to create entangler: {}", e),
                         })
                     })?;
-                    let bytes = ent.download(&hash.to_string(), None).await.map_err(|e| {
-                        Rejection::from(BadRequest {
-                            message: format!("failed to download object: {} {}", hash, e),
-                        })
-                    })?;
+                    let recovery_hash = Hash::from_bytes(object.recovery_hash.0);
+                    let bytes = ent
+                        .download(&hash.to_string(), Some(&recovery_hash.to_string()))
+                        .await
+                        .map_err(|e| {
+                            Rejection::from(BadRequest {
+                                message: format!("failed to download object: {} {}", hash, e),
+                            })
+                        })?;
                     let body = Body::from(bytes);
                     ObjectRange {
                         start: 0,
