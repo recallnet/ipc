@@ -154,13 +154,10 @@ pub struct Subscription {
 pub struct Power(pub u64);
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-pub struct PowerTable(pub Vec<Validator<Power>>);
+pub struct PowerTable(pub Vec<Validator>);
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-pub struct ValidatorKey(pub PublicKey);
-
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-pub struct Validator<P> {
-    pub public_key: ValidatorKey,
-    pub power: P,
+pub struct Validator {
+    pub address: Address,
+    pub power: Power,
 }

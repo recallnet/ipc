@@ -167,6 +167,11 @@ impl State {
         Ok(approval.clone())
     }
 
+    pub fn update_power_table(&mut self, power_table: PowerTable) -> anyhow::Result<(), ActorError> {
+        self.power_table = power_table;
+        Ok(())
+    }
+
     pub fn revoke_credit(
         &mut self,
         from: Address,
