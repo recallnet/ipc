@@ -8,6 +8,8 @@ use anyhow::anyhow;
 use anyhow::Context;
 use base64::{engine::general_purpose, Engine};
 use bytes::Buf;
+use entangler::Entangler;
+use entangler_storage::iroh::IrohStorage as EntanglerIrohStorage;
 use fendermint_actor_bucket::{GetParams, Object};
 use fendermint_app_settings::objects::ObjectsSettings;
 use fendermint_rpc::client::FendermintClient;
@@ -85,7 +87,6 @@ cmd! {
                 .and(warp::path::tail())
                 .and(
                     warp::get().map(|| "GET".to_string()).or(warp::head().map(|| "HEAD".to_string())).unify()
-
                 )
                 .and(warp::header::optional::<String>("Range"))
                 .and(warp::query::<HeightQuery>())
@@ -241,6 +242,9 @@ impl ObjectParser {
                 "hash" => {
                     object_parser.read_hash(part).await?;
                 }
+                "metadata_hash" => {
+                    object_parser.read_hash(part).await?;
+                }
                 "size" => {
                     object_parser.read_size(part).await?;
                 }
@@ -267,6 +271,12 @@ async fn handle_node_addr(iroh: iroh::client::Iroh) -> Result<impl Reply, Reject
         })
     })?;
     Ok(warp::reply::json(&node_addr))
+}
+
+#[derive(Serialize)]
+struct UploadResponse {
+    hash: String,
+    metadata_hash: String,
 }
 
 async fn handle_object_upload<F: QueryClient>(
@@ -342,16 +352,38 @@ async fn handle_object_upload<F: QueryClient>(
         })
     })?;
 
+    let ent = new_entangler(iroh).map_err(|e| {
+        Rejection::from(BadRequest {
+            message: format!("failed to create entangler: {}", e),
+        })
+    })?;
+    let metadata_hash = ent.entangle_uploaded(hash.to_string()).await.map_err(|e| {
+        Rejection::from(BadRequest {
+            message: format!("failed to entangle uploaded data: {}", e),
+        })
+    })?;
+
     tracing::info!(
-        "downloaded blob {} in {:?} (size: {}; local_size: {}; downloaded_size: {})",
+        "downloaded blob {} in {:?} (size: {}; local_size: {}; downloaded_size: {}; metadata: {})",
         hash,
         outcome.stats.elapsed,
         size,
         outcome.local_size,
         outcome.downloaded_size,
+        metadata_hash,
     );
 
-    Ok(hash.to_string())
+    let response = UploadResponse {
+        hash: hash.to_string(),
+        metadata_hash,
+    };
+    Ok(warp::reply::json(&response))
+}
+
+fn new_entangler(
+    iroh: iroh::client::Iroh,
+) -> Result<Entangler<EntanglerIrohStorage>, entangler::Error> {
+    Entangler::new(EntanglerIrohStorage::from_client(iroh), 3, 5, 5)
 }
 
 async fn ensure_bucket_exists<F: QueryClient>(client: F, to: Address) -> anyhow::Result<()> {
@@ -456,12 +488,17 @@ async fn handle_object_download<F: QueryClient + Send + Sync>(
                     }
                 }
                 None => {
-                    let reader = iroh.blobs().read(hash).await.map_err(|e| {
+                    let ent = new_entangler(iroh).map_err(|e| {
                         Rejection::from(BadRequest {
-                            message: format!("failed to fetch object: {} {}", hash, e),
+                            message: format!("failed to create entangler: {}", e),
                         })
                     })?;
-                    let body = Body::wrap_stream(reader);
+                    let bytes = ent.download(&hash.to_string(), None).await.map_err(|e| {
+                        Rejection::from(BadRequest {
+                            message: format!("failed to download object: {} {}", hash, e),
+                        })
+                    })?;
+                    let body = Body::from(bytes);
                     ObjectRange {
                         start: 0,
                         end: size - 1,
@@ -587,6 +624,7 @@ async fn os_get<F: QueryClient + Send + Sync>(
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
+    use std::str::FromStr;
 
     use super::*;
     use ethers::core::k256::ecdsa::SigningKey;
@@ -640,6 +678,7 @@ mod tests {
         boundary: &str,
         serialized_signed_message_b64: &str,
         hash: Hash,
+        metadata_hash: Hash,
         source: NodeAddr,
         size: u64,
     ) -> Vec<u8> {
@@ -656,16 +695,20 @@ mod tests {
             content-disposition: form-data; name=\"hash\"\r\n\r\n\
             {2}\r\n\
             --{0}\r\n\
-            content-disposition: form-data; name=\"size\"\r\n\r\n\
+            content-disposition: form-data; name=\"metadata_hash\"\r\n\r\n\
             {3}\r\n\
             --{0}\r\n\
-            content-disposition: form-data; name=\"source\"\r\n\r\n\
+            content-disposition: form-data; name=\"size\"\r\n\r\n\
             {4}\r\n\
+            --{0}\r\n\
+            content-disposition: form-data; name=\"source\"\r\n\r\n\
+            {5}\r\n\
             --{0}--\r\n\
             ",
             boundary,
             serialized_signed_message_b64,
             hash,
+            metadata_hash,
             size,
             serde_json::to_string_pretty(&source).unwrap(),
         );
@@ -678,11 +721,19 @@ mod tests {
     async fn multipart_form(
         serialized_signed_message_b64: &str,
         hash: Hash,
+        metadata_hash: Hash,
         source: NodeAddr,
         size: u64,
     ) -> warp::multipart::FormData {
         let boundary = "--abcdef1234--";
-        let body = form_body(boundary, serialized_signed_message_b64, hash, source, size);
+        let body = form_body(
+            boundary,
+            serialized_signed_message_b64,
+            hash,
+            metadata_hash,
+            source,
+            size,
+        );
         warp::test::request()
             .method("POST")
             .header("content-length", body.len())
@@ -733,6 +784,12 @@ mod tests {
             .hash;
         let client_node_addr = client_iroh.net().node_addr().await.unwrap();
 
+        let iroh_storage = EntanglerIrohStorage::from_client(client_iroh.client().clone());
+        let ent = Entangler::new(iroh_storage, 3, 5, 5).unwrap();
+        let metadata_hash = ent.entangle_uploaded(hash.to_string()).await.unwrap();
+
+        let iroh_metadata_hash = Hash::from_str(&metadata_hash.as_str()).unwrap();
+
         let store = Address::new_id(90);
         let key = b"key";
         let size = 11;
@@ -741,6 +798,9 @@ mod tests {
             key: key.to_vec(),
             hash: fendermint_actor_blobs_shared::state::Hash(*hash.as_bytes()),
             size,
+            recovery_hash: fendermint_actor_blobs_shared::state::Hash(
+                *iroh_metadata_hash.as_bytes(),
+            ),
             ttl: None,
             metadata: HashMap::new(),
             overwrite: true,
@@ -769,8 +829,14 @@ mod tests {
         let serialized_signed_message_b64 =
             general_purpose::URL_SAFE.encode(&serialized_signed_message);
 
-        let multipart_form =
-            multipart_form(&serialized_signed_message_b64, hash, client_node_addr, size).await;
+        let multipart_form = multipart_form(
+            &serialized_signed_message_b64,
+            hash,
+            iroh_metadata_hash,
+            client_node_addr,
+            size,
+        )
+        .await;
 
         let reply = handle_object_upload(client, iroh.client().clone(), multipart_form)
             .await

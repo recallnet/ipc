@@ -198,6 +198,14 @@ ipc-observability = { path = "ipc/observability" }
 ipc_actors_abis = { path = "contracts/binding" }
 fendermint_actors_api = { path = "fendermint/actors/api" }
 
+entangler = { git = "https://github.com/hokunet/entanglement.git", branch = "main" }
+entangler_storage = { package = "storage", git = "https://github.com/hokunet/entanglement.git", branch = "main" }
+
+# Use below when working locally on entanglement and this repo simultaneously.
+# Assumes the entanglement checkout is in a sibling directory with the same name.
+#entangler = { path = "../entanglement/entangler" }
+#entangler_storage = { package = "storage", path = "../entanglement/storage" }
+
 # Vendored for cross-compilation, see https://github.com/cross-rs/cross/wiki/Recipes#openssl
 # Make sure every top level build target actually imports this dependency, and don't end up
 # depending on the same _without_ the "vendored" feature, because then the Docker build for

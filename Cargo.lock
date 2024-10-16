@@ -2528,6 +2528,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "entangler"
+version = "0.1.0"
+source = "git+https://github.com/hokunet/entanglement.git?branch=main#c473e2aa6a78b0b63ff78bc6a43c2d6d293cd6f7"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "bytes",
+ "cid",
+ "futures",
+ "iroh",
+ "serde",
+ "serde_json",
+ "storage",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
 name = "enum-as-inner"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3137,6 +3155,7 @@ dependencies = [
 name = "fendermint_actor_blobs_shared"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "data-encoding",
  "fil_actors_runtime",
  "frc42_dispatch",
@@ -3323,6 +3342,7 @@ dependencies = [
  "base64 0.21.7",
  "bytes",
  "cid",
+ "entangler",
  "ethers",
  "fendermint_abci",
  "fendermint_actor_blobs_shared",
@@ -3381,6 +3401,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_with 2.3.3",
+ "storage",
  "tempfile",
  "tendermint 0.31.1",
  "tendermint-config 0.33.2",
@@ -10971,6 +10992,23 @@ name = "static_assertions"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
+
+[[package]]
+name = "storage"
+version = "0.1.0"
+source = "git+https://github.com/hokunet/entanglement.git?branch=main#c473e2aa6a78b0b63ff78bc6a43c2d6d293cd6f7"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "bytes",
+ "cid",
+ "futures",
+ "iroh",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+]
 
 [[package]]
 name = "storage-proofs-core"
