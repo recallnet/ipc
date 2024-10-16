@@ -146,3 +146,21 @@ pub struct Subscription {
     /// The delegate origin and caller that may have created the subscription via a credit approval.
     pub delegate: Option<(Address, Address)>,
 }
+
+// --- Copied from fendermint_vm_interpreter: PowerTable and friends --- //
+
+/// Total voting power of a validator.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct Power(pub u64);
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PowerTable(pub Vec<Validator<Power>>);
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ValidatorKey(pub PublicKey);
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct Validator<P> {
+    pub public_key: ValidatorKey,
+    pub power: P,
+}
