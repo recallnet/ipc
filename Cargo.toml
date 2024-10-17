@@ -47,7 +47,7 @@ members = [
     "hoku/blobs_actor_sdk",
     "hoku/blobs_syscall",
     "hoku/maybe_iroh",
-    "hoku-cli",
+    "hoku-dev-cli",
 ]
 exclude = ["builtin-actors"]
 
