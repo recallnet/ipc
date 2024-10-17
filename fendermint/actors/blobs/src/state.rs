@@ -384,6 +384,7 @@ impl State {
             // New blob increases network capacity as well.
             // Ensure there is enough capacity available.
             let available_capacity = &self.capacity_total - &self.capacity_used;
+
             if size > available_capacity {
                 return Err(ActorError::forbidden(format!(
                     "subnet has insufficient storage capacity (available: {}; required: {})",
