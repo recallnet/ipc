@@ -38,6 +38,12 @@ use crate::cmd;
 use crate::options::objects::{ObjectsArgs, ObjectsCommands};
 
 const MAX_OBJECT_LENGTH: u64 = 1024 * 1024 * 1024;
+/// The alpha parameter for alpha entanglement determines the number of parity blob to generate for the original blob.
+const ENTANGLER_ALPHA: u8 = 3;
+/// The s parameter for alpha entanglement determines the number of horizontal strands in the grid.
+const ENTANGLER_S: u8 = 5;
+/// The p parameter for alpha entanglement determines the number of helical strands in the grid.
+const ENTANGLER_P: u8 = 5;
 
 cmd! {
     ObjectsArgs(self, settings: ObjectsSettings) {
@@ -242,9 +248,6 @@ impl ObjectParser {
                 "hash" => {
                     object_parser.read_hash(part).await?;
                 }
-                "metadata_hash" => {
-                    object_parser.read_hash(part).await?;
-                }
                 "size" => {
                     object_parser.read_size(part).await?;
                 }
@@ -383,7 +386,12 @@ async fn handle_object_upload<F: QueryClient>(
 fn new_entangler(
     iroh: iroh::client::Iroh,
 ) -> Result<Entangler<EntanglerIrohStorage>, entangler::Error> {
-    Entangler::new(EntanglerIrohStorage::from_client(iroh), 3, 5, 5)
+    Entangler::new(
+        EntanglerIrohStorage::from_client(iroh),
+        ENTANGLER_ALPHA,
+        ENTANGLER_S,
+        ENTANGLER_P,
+    )
 }
 
 async fn ensure_bucket_exists<F: QueryClient>(client: F, to: Address) -> anyhow::Result<()> {
@@ -682,7 +690,6 @@ mod tests {
         boundary: &str,
         serialized_signed_message_b64: &str,
         hash: Hash,
-        metadata_hash: Hash,
         source: NodeAddr,
         size: u64,
     ) -> Vec<u8> {
@@ -699,20 +706,16 @@ mod tests {
             content-disposition: form-data; name=\"hash\"\r\n\r\n\
             {2}\r\n\
             --{0}\r\n\
-            content-disposition: form-data; name=\"metadata_hash\"\r\n\r\n\
+            content-disposition: form-data; name=\"size\"\r\n\r\n\
             {3}\r\n\
             --{0}\r\n\
-            content-disposition: form-data; name=\"size\"\r\n\r\n\
-            {4}\r\n\
-            --{0}\r\n\
             content-disposition: form-data; name=\"source\"\r\n\r\n\
-            {5}\r\n\
+            {4}\r\n\
             --{0}--\r\n\
             ",
             boundary,
             serialized_signed_message_b64,
             hash,
-            metadata_hash,
             size,
             serde_json::to_string_pretty(&source).unwrap(),
         );
@@ -725,19 +728,11 @@ mod tests {
     async fn multipart_form(
         serialized_signed_message_b64: &str,
         hash: Hash,
-        metadata_hash: Hash,
         source: NodeAddr,
         size: u64,
     ) -> warp::multipart::FormData {
         let boundary = "--abcdef1234--";
-        let body = form_body(
-            boundary,
-            serialized_signed_message_b64,
-            hash,
-            metadata_hash,
-            source,
-            size,
-        );
+        let body = form_body(boundary, serialized_signed_message_b64, hash, source, size);
         warp::test::request()
             .method("POST")
             .header("content-length", body.len())
@@ -833,14 +828,8 @@ mod tests {
         let serialized_signed_message_b64 =
             general_purpose::URL_SAFE.encode(&serialized_signed_message);
 
-        let multipart_form = multipart_form(
-            &serialized_signed_message_b64,
-            hash,
-            iroh_metadata_hash,
-            client_node_addr,
-            size,
-        )
-        .await;
+        let multipart_form =
+            multipart_form(&serialized_signed_message_b64, hash, client_node_addr, size).await;
 
         let reply = handle_object_upload(client, iroh.client().clone(), multipart_form)
             .await
