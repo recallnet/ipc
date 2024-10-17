@@ -189,8 +189,8 @@ warp = "0.3.7"
 zeroize = "1.6"
 
 # Workspace deps
-entangler = { git = "https://github.com/hokunet/entanglement.git", branch = "main" }
-entangler_storage = { package = "storage", git = "https://github.com/hokunet/entanglement.git", branch = "main" }
+entangler = { git = "ssh://git@github.com/hokunet/entanglement.git", rev = "c473e2aa6a78b0b63ff78bc6a43c2d6d293cd6f7" }
+entangler_storage = { package = "storage", git = "ssh://git@github.com/hokunet/entanglement.git", rev = "c473e2aa6a78b0b63ff78bc6a43c2d6d293cd6f7" }
 
 # Use below when working locally on entanglement and this repo simultaneously.
 # Assumes the entanglement checkout is in a sibling directory with the same name.
