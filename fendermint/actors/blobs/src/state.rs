@@ -7,7 +7,8 @@ use std::ops::Bound::{Included, Unbounded};
 
 use fendermint_actor_blobs_shared::params::GetStatsReturn;
 use fendermint_actor_blobs_shared::state::{
-    Account, Blob, BlobStatus, CreditApproval, Hash, PowerTable, PublicKey, Subscription,
+    Account, Blob, BlobStatus, CreditApproval, Hash, PowerTable, PowerTableUpdates, PublicKey,
+    Subscription,
 };
 use fil_actors_runtime::ActorError;
 use fvm_ipld_encoding::tuple::*;
@@ -79,7 +80,7 @@ impl State {
             blobs: HashMap::new(),
             expiries: BTreeMap::new(),
             pending: BTreeMap::new(),
-            power_table: PowerTable(vec![]),
+            power_table: HashMap::new(),
         }
     }
 
@@ -171,9 +172,18 @@ impl State {
 
     pub fn update_power_table(
         &mut self,
-        power_table: PowerTable,
+        power_table_updates: PowerTableUpdates,
     ) -> anyhow::Result<(), ActorError> {
-        self.power_table = power_table;
+        power_table_updates.0.iter().for_each(|validator| {
+            if validator.power.0.is_zero() {
+                // Remove if zero
+                self.power_table.remove(&validator.address);
+            } else {
+                // Update or insert if nonzero
+                self.power_table
+                    .insert(validator.address.clone(), validator.power.clone());
+            }
+        });
         Ok(())
     }
 

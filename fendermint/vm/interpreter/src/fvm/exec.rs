@@ -6,7 +6,7 @@ use async_trait::async_trait;
 use std::collections::HashMap;
 
 use fendermint_actor_blobs_shared::params::UpdatePowerTableParams;
-use fendermint_actor_blobs_shared::state::{Power, PowerTable as BlobsPowerTable, Validator};
+use fendermint_actor_blobs_shared::state::{Power, PowerTableUpdates, Validator};
 use fendermint_actor_blobs_shared::Method::UpdatePowerTable;
 use fendermint_vm_actor_interface::{blobs, chainmetadata, cron, system};
 use fvm::executor::ApplyRet;
@@ -24,7 +24,6 @@ use super::{
     BlockGasLimit, FvmMessage, FvmMessageInterpreter,
 };
 
-use crate::fvm::checkpoint::PowerTable;
 use crate::ExecInterpreter;
 
 /// The return value extended with some things from the message that
@@ -209,11 +208,11 @@ where
                 });
             });
 
-        let updates = if let Some((checkpoint, power_table, updates)) =
+        let updates = if let Some((checkpoint, updates)) =
             checkpoint::maybe_create_checkpoint(&self.gateway, &mut state)
                 .context("failed to create checkpoint")?
         {
-            let power_table = prepare_blobs_power_table(power_table);
+            let power_table = prepare_blobs_power_table(&updates);
             let params = RawBytes::serialize(UpdatePowerTableParams(power_table))?;
             let msg = Message {
                 version: Default::default(),
@@ -279,8 +278,8 @@ where
     }
 }
 
-fn prepare_blobs_power_table(input: PowerTable) -> BlobsPowerTable {
-    BlobsPowerTable(
+fn prepare_blobs_power_table(input: &PowerUpdates) -> PowerTableUpdates {
+    PowerTableUpdates(
         input
             .0
             .iter()
@@ -301,6 +300,6 @@ fn prepare_blobs_power_table(input: PowerTable) -> BlobsPowerTable {
                     }
                 }
             })
-            .collect()
+            .collect(),
     )
 }

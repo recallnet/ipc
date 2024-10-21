@@ -50,7 +50,7 @@ pub struct PowerUpdates(pub Vec<Validator<Power>>);
 pub fn maybe_create_checkpoint<DB>(
     gateway: &GatewayCaller<DB>,
     state: &mut FvmExecState<DB>,
-) -> anyhow::Result<Option<(BottomUpCheckpoint, PowerTable, PowerUpdates)>>
+) -> anyhow::Result<Option<(BottomUpCheckpoint, PowerUpdates)>>
 where
     DB: Blockstore + Sync + Send + Clone + 'static,
 {
@@ -130,7 +130,7 @@ where
         config_number: next_configuration_number,
     });
 
-    Ok(Some((checkpoint, curr_power_table, power_updates)))
+    Ok(Some((checkpoint, power_updates)))
 }
 
 /// Wait until CometBFT has reached a specific block height.

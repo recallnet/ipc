@@ -153,8 +153,15 @@ pub struct Subscription {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Power(pub u64);
 
+/// Power table weights stored in Blobs actor state
+pub type PowerTable = HashMap<Address, Power>;
+
+/// Updates of the power table:
+/// - new entries,
+/// - changed entries contain the current value for `power`,
+/// - deleted entries contain zero for `power`.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-pub struct PowerTable(pub Vec<Validator>);
+pub struct PowerTableUpdates(pub Vec<Validator>);
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Validator {
