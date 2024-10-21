@@ -171,7 +171,7 @@ impl State {
 
     pub fn update_power_table(
         &mut self,
-        power_table: PowerTable
+        power_table: PowerTable,
     ) -> anyhow::Result<(), ActorError> {
         self.power_table = power_table;
         Ok(())
