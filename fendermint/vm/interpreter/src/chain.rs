@@ -17,9 +17,9 @@ use crate::{
 use anyhow::{anyhow, bail, Context};
 use async_stm::atomically;
 use async_trait::async_trait;
-use fendermint_actor_blobs_shared::params::{GetBlobStatusParams, GetPendingBlobsParams, UpdatePowerTableParams};
-use fendermint_actor_blobs_shared::state::{BlobStatus, Power, PowerTable, Validator};
-use fendermint_actor_blobs_shared::Method::{DebitAccounts, UpdatePowerTable};
+use fendermint_actor_blobs_shared::params::{GetBlobStatusParams, GetPendingBlobsParams};
+use fendermint_actor_blobs_shared::state::BlobStatus;
+use fendermint_actor_blobs_shared::Method::DebitAccounts;
 use fendermint_actor_blobs_shared::{
     params::FinalizeBlobParams,
     Method::{FinalizeBlob, GetBlobStatus, GetPendingBlobs},
@@ -44,7 +44,7 @@ use fendermint_vm_topdown::{
 };
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::RawBytes;
-use fvm_shared::address::{Address, Error};
+use fvm_shared::address::Address;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::econ::TokenAmount;
 use fvm_shared::message::Message;
@@ -600,41 +600,6 @@ where
                         .block_producer()
                         .map(|id| hex::encode(id.serialize_compressed()));
                     let proposer_ref = proposer.as_deref();
-
-                    let (_configuration_number, powers) = self.gateway_caller.current_power_table(&mut state)?;
-                    let power_table = PowerTable(powers.iter().filter_map(|validator| {
-                        let public_key = validator.public_key.0.serialize();
-                        let address = Address::new_secp256k1(&public_key);
-                        match address {
-                            Ok(address) => {
-                                let validator = Validator {
-                                    power: Power(validator.power.0),
-                                    address,
-                                };
-                                Some(validator)
-                            }
-                            Err(_) => {
-                                tracing::debug!(
-                                    "can not construct secp256k1 address from public key"
-                                );
-                                None
-                            }
-                        }
-                    }).collect());
-                    let params = RawBytes::serialize(UpdatePowerTableParams(power_table))?;
-                    let msg = Message {
-                        version: Default::default(),
-                        from: system::SYSTEM_ACTOR_ADDR,
-                        to: blobs::BLOBS_ACTOR_ADDR,
-                        sequence: 0,
-                        value: Default::default(),
-                        method_num: UpdatePowerTable as u64,
-                        params: params,
-                        gas_limit: fvm_shared::BLOCK_GAS_LIMIT,
-                        gas_fee_cap: Default::default(),
-                        gas_premium: Default::default(),
-                    };
-                    state.execute_implicit(msg)?;
 
                     atomically(|| {
                         env.parent_finality_provider
