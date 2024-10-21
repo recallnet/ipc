@@ -50,7 +50,7 @@ pub struct PowerUpdates(pub Vec<Validator<Power>>);
 pub fn maybe_create_checkpoint<DB>(
     gateway: &GatewayCaller<DB>,
     state: &mut FvmExecState<DB>,
-) -> anyhow::Result<Option<(checkpoint::BottomUpCheckpoint, PowerUpdates)>>
+) -> anyhow::Result<Option<(BottomUpCheckpoint, PowerTable, PowerUpdates)>>
 where
     DB: Blockstore + Sync + Send + Clone + 'static,
 {
@@ -130,7 +130,7 @@ where
         config_number: next_configuration_number,
     });
 
-    Ok(Some((checkpoint, power_updates)))
+    Ok(Some((checkpoint, curr_power_table, power_updates)))
 }
 
 /// Wait until CometBFT has reached a specific block height.
@@ -422,7 +422,7 @@ where
 /// Calculate the difference between the current and the next power table, to return to CometBFT only what changed:
 /// * include any new validator, or validators whose power has been updated
 /// * include validators to be removed with a power of 0, as [expected](https://github.com/informalsystems/tendermint-rs/blob/bcc0b377812b8e53a02dff156988569c5b3c81a2/rpc/src/dialect/end_block.rs#L12-L14) by CometBFT
-fn power_diff(current: PowerTable, next: PowerTable) -> PowerUpdates {
+fn power_diff(current: &PowerTable, next: &PowerTable) -> PowerUpdates {
     let current = into_power_map(current);
     let next = into_power_map(next);
 
@@ -457,10 +457,10 @@ fn power_diff(current: PowerTable, next: PowerTable) -> PowerUpdates {
 ///
 /// Unfortunately in their raw format the [`PublicKey`] does not implement `Hash`,
 /// so we have to use the serialized format.
-fn into_power_map(value: PowerTable) -> HashMap<[u8; 65], Validator<Power>> {
+fn into_power_map(value: &PowerTable) -> HashMap<[u8; 65], Validator<Power>> {
     value
         .0
-        .into_iter()
+        .iter()
         .map(|v| {
             let k = v.public_key.0.serialize();
             (k, v)
@@ -478,7 +478,7 @@ mod tests {
     use super::{PowerTable, PowerUpdates};
 
     fn power_update(current: PowerTable, updates: PowerUpdates) -> PowerTable {
-        let mut current = into_power_map(current);
+        let mut current = into_power_map(&current);
 
         for v in updates.0 {
             let k = v.public_key.0.serialize();

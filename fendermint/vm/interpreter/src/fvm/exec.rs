@@ -5,13 +5,17 @@ use anyhow::Context;
 use async_trait::async_trait;
 use std::collections::HashMap;
 
-use fendermint_vm_actor_interface::{chainmetadata, cron, system};
+use fendermint_vm_actor_interface::{blobs, chainmetadata, cron, system};
 use fvm::executor::ApplyRet;
 use fvm_ipld_blockstore::Blockstore;
+use fvm_ipld_encoding::RawBytes;
 use fvm_shared::{address::Address, ActorID, MethodNum, BLOCK_GAS_LIMIT};
+use fvm_shared::message::Message;
 use ipc_observability::{emit, measure_time, observe::TracingError, Traceable};
 use tendermint_rpc::Client;
-
+use fendermint_actor_blobs_shared::Method::UpdatePowerTable;
+use fendermint_actor_blobs_shared::params::UpdatePowerTableParams;
+use fendermint_actor_blobs_shared::state::{Power, PowerTable, Validator};
 use crate::ExecInterpreter;
 
 use super::{
@@ -203,10 +207,45 @@ where
                 });
             });
 
-        let updates = if let Some((checkpoint, updates)) =
+        let updates = if let Some((checkpoint, power_table, updates)) =
             checkpoint::maybe_create_checkpoint(&self.gateway, &mut state)
                 .context("failed to create checkpoint")?
         {
+
+            let power_table = PowerTable(power_table.0.iter().filter_map(|validator| {
+                let public_key = validator.public_key.0.serialize();
+                let address = Address::new_secp256k1(&public_key);
+                match address {
+                    Ok(address) => {
+                        let validator = Validator {
+                            power: Power(validator.power.0),
+                            address,
+                        };
+                        Some(validator)
+                    }
+                    Err(_) => {
+                        tracing::debug!(
+                                    "can not construct secp256k1 address from public key"
+                                );
+                        None
+                    }
+                }
+            }).collect());
+            let params = RawBytes::serialize(UpdatePowerTableParams(power_table))?;
+            let msg = Message {
+                version: Default::default(),
+                from: system::SYSTEM_ACTOR_ADDR,
+                to: blobs::BLOBS_ACTOR_ADDR,
+                sequence: 0,
+                value: Default::default(),
+                method_num: UpdatePowerTable as u64,
+                params: params,
+                gas_limit: fvm_shared::BLOCK_GAS_LIMIT,
+                gas_fee_cap: Default::default(),
+                gas_premium: Default::default(),
+            };
+            state.execute_implicit(msg)?;
+
             // Asynchronously broadcast signature, if validating.
             if let Some(ref ctx) = self.validator_ctx {
                 // Do not resend past signatures.
