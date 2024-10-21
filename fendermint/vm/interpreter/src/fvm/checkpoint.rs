@@ -50,7 +50,7 @@ pub struct PowerUpdates(pub Vec<Validator<Power>>);
 pub fn maybe_create_checkpoint<DB>(
     gateway: &GatewayCaller<DB>,
     state: &mut FvmExecState<DB>,
-) -> anyhow::Result<Option<(BottomUpCheckpoint, PowerUpdates)>>
+) -> anyhow::Result<Option<(checkpoint::BottomUpCheckpoint, PowerUpdates)>>
 where
     DB: Blockstore + Sync + Send + Clone + 'static,
 {
@@ -120,7 +120,7 @@ where
 
         debug_assert_eq!(next_power_configuration_number, next_configuration_number);
 
-        power_diff(curr_power_table.clone(), next_power_table)
+        power_diff(curr_power_table, next_power_table)
     };
 
     emit(CheckpointCreated {
