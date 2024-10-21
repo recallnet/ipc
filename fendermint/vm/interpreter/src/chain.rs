@@ -781,7 +781,7 @@ where
         &self,
         (env, state): Self::State,
     ) -> anyhow::Result<(Self::State, Self::EndOutput)> {
-        let (mut state, out) = self.inner.end(state).await?;
+        let (state, out) = self.inner.end(state).await?;
 
         // Update any component that needs to know about changes in the power table.
         if !out.0 .0.is_empty() {
