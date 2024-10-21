@@ -6,7 +6,9 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::ops::Bound::{Included, Unbounded};
 
 use fendermint_actor_blobs_shared::params::GetStatsReturn;
-use fendermint_actor_blobs_shared::state::{Account, Blob, BlobStatus, CreditApproval, Hash, PowerTable, PublicKey, Subscription};
+use fendermint_actor_blobs_shared::state::{
+    Account, Blob, BlobStatus, CreditApproval, Hash, PowerTable, PublicKey, Subscription,
+};
 use fil_actors_runtime::ActorError;
 use fvm_ipld_encoding::tuple::*;
 use fvm_shared::address::Address;
@@ -167,7 +169,10 @@ impl State {
         Ok(approval.clone())
     }
 
-    pub fn update_power_table(&mut self, power_table: PowerTable) -> anyhow::Result<(), ActorError> {
+    pub fn update_power_table(
+        &mut self,
+        power_table: PowerTable
+    ) -> anyhow::Result<(), ActorError> {
         self.power_table = power_table;
         Ok(())
     }

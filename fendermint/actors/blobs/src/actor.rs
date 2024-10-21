@@ -4,7 +4,11 @@
 
 use std::collections::HashSet;
 
-use fendermint_actor_blobs_shared::params::{AddBlobParams, ApproveCreditParams, BuyCreditParams, DeleteBlobParams, FinalizeBlobParams, GetAccountParams, GetBlobParams, GetBlobStatusParams, GetPendingBlobsParams, GetStatsReturn, RevokeCreditParams, UpdatePowerTableParams};
+use fendermint_actor_blobs_shared::params::{
+    AddBlobParams, ApproveCreditParams, BuyCreditParams, DeleteBlobParams, FinalizeBlobParams,
+    GetAccountParams, GetBlobParams, GetBlobStatusParams, GetPendingBlobsParams, GetStatsReturn,
+    RevokeCreditParams, UpdatePowerTableParams
+};
 use fendermint_actor_blobs_shared::state::{
     Account, Blob, BlobStatus, CreditApproval, Hash, PublicKey, Subscription,
 };
@@ -112,11 +116,12 @@ impl BlobsActor {
         })
     }
 
-    fn update_power_table(rt: &impl Runtime, params: UpdatePowerTableParams) -> Result<(), ActorError> {
+    fn update_power_table(
+        rt: &impl Runtime,
+        params: UpdatePowerTableParams
+    ) -> Result<(), ActorError> {
         rt.validate_immediate_caller_is(std::iter::once(&SYSTEM_ACTOR_ADDR))?;
-        rt.transaction(|st: &mut State, _rt| {
-            st.update_power_table(params.0)
-        })
+        rt.transaction(|st: &mut State, _rt| st.update_power_table(params.0))
     }
 
     fn revoke_credit(rt: &impl Runtime, params: RevokeCreditParams) -> Result<(), ActorError> {
