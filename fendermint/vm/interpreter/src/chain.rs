@@ -783,9 +783,6 @@ where
     ) -> anyhow::Result<(Self::State, Self::EndOutput)> {
         let (mut state, out) = self.inner.end(state).await?;
 
-        // TODO SU Wrong
-        let a = self.gateway_caller.current_power_table(&mut state);
-
         // Update any component that needs to know about changes in the power table.
         if !out.0 .0.is_empty() {
             let power_updates = out
@@ -804,8 +801,6 @@ where
                     .update_power_table(power_updates.clone())
             })
             .await;
-
-            // TODO Continue update power table in blobs actor
         }
 
         Ok(((env, state), out))
