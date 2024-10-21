@@ -15,9 +15,9 @@ use ipc_observability::{emit, measure_time, observe::TracingError, Traceable};
 use tendermint_rpc::Client;
 use fendermint_actor_blobs_shared::Method::UpdatePowerTable;
 use fendermint_actor_blobs_shared::params::UpdatePowerTableParams;
-use fendermint_actor_blobs_shared::state::{Power, PowerTable, Validator};
+use fendermint_actor_blobs_shared::state::{Power, PowerTable as BlobsPowerTable, Validator};
 use crate::ExecInterpreter;
-
+use crate::fvm::checkpoint::PowerTable;
 use super::{
     checkpoint::{self, PowerUpdates},
     observe::{CheckpointFinalized, MsgExec, MsgExecPurpose},
@@ -212,25 +212,7 @@ where
                 .context("failed to create checkpoint")?
         {
 
-            let power_table = PowerTable(power_table.0.iter().filter_map(|validator| {
-                let public_key = validator.public_key.0.serialize();
-                let address = Address::new_secp256k1(&public_key);
-                match address {
-                    Ok(address) => {
-                        let validator = Validator {
-                            power: Power(validator.power.0),
-                            address,
-                        };
-                        Some(validator)
-                    }
-                    Err(_) => {
-                        tracing::debug!(
-                                    "can not construct secp256k1 address from public key"
-                                );
-                        None
-                    }
-                }
-            }).collect());
+            let power_table = prepare_blobs_power_table(power_table);
             let params = RawBytes::serialize(UpdatePowerTableParams(power_table))?;
             let msg = Message {
                 version: Default::default(),
@@ -294,4 +276,26 @@ where
         let ret = (updates, next_gas_market.block_gas_limit);
         Ok((state, ret))
     }
+}
+
+fn prepare_blobs_power_table(input: PowerTable) -> BlobsPowerTable {
+    BlobsPowerTable(input.0.iter().filter_map(|validator| {
+        let public_key = validator.public_key.0.serialize();
+        let address = Address::new_secp256k1(&public_key);
+        match address {
+            Ok(address) => {
+                let validator = Validator {
+                    power: Power(validator.power.0),
+                    address,
+                };
+                Some(validator)
+            }
+            Err(_) => {
+                tracing::debug!(
+                                    "can not construct secp256k1 address from public key"
+                                );
+                None
+            }
+        }
+    }).collect())
 }
