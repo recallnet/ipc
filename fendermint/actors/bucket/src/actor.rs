@@ -25,12 +25,14 @@ fil_actors_runtime::wasm_trampoline!(Actor);
 pub struct Actor;
 
 impl Actor {
-    fn add_object(rt: &impl Runtime, params: AddParams) -> Result<Cid, ActorError> {
+    fn add_object(rt: &impl Runtime, params: AddParams) -> Result<ObjectState, ActorError> {
         // Self::ensure_write_allowed(rt)?;
         rt.validate_immediate_caller_accept_any()?;
         let state = rt.state::<State>()?;
         let key = BytesKey(params.key);
+        let mut ret = ObjectState { hash: params.hash.clone(), metadata: params.metadata.clone() };
         if let Some(object) = state.get(rt.store(), &key)? {
+            ret = object.clone();
             if params.overwrite {
                 delete_blob(rt, Some(state.owner), object.hash)?;
             } else {
@@ -51,7 +53,7 @@ impl Actor {
             params.ttl,
         )?;
         // Update state
-        let root = rt.transaction(|st: &mut State, rt| {
+        let _root = rt.transaction(|st: &mut State, rt| {
             st.add(
                 rt.store(),
                 key,
@@ -60,7 +62,7 @@ impl Actor {
                 params.overwrite,
             )
         })?;
-        Ok(root)
+        Ok(ret)
     }
 
     fn delete_object(rt: &impl Runtime, params: DeleteParams) -> Result<Cid, ActorError> {
@@ -293,10 +295,11 @@ mod tests {
             )
             .unwrap()
             .unwrap()
-            .deserialize::<Cid>()
+            .deserialize::<ObjectState>()
             .unwrap();
-        let state = rt.state::<State>().unwrap();
-        assert_eq!(state.root, result);
+        // let state = rt.state::<State>().unwrap();
+        assert_eq!(add_params.hash, result.hash);
+        assert_eq!(add_params.metadata, result.metadata);
         rt.verify();
     }
 
