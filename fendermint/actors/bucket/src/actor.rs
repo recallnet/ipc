@@ -32,9 +32,9 @@ impl Actor {
         let key = BytesKey(params.key);
         let mut ret = ObjectState { hash: params.hash.clone(), metadata: params.metadata.clone() };
         if let Some(object) = state.get(rt.store(), &key)? {
-            ret = object.clone();
+            ret = object;
             if params.overwrite {
-                delete_blob(rt, Some(state.owner), object.hash)?;
+                delete_blob(rt, Some(state.owner), ret.hash)?;
             } else {
                 return Err(ActorError::illegal_state(
                     "key exists; use overwrite".into(),
