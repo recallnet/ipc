@@ -2,7 +2,6 @@
 // Copyright 2021-2023 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use cid::Cid;
 use fendermint_actor_blobs_shared::state::{Blob, BlobStatus};
 use fendermint_actor_blobs_shared::{add_blob, delete_blob, get_blob};
 use fendermint_actor_machine::MachineActor;
