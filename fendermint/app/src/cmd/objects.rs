@@ -8,7 +8,7 @@ use anyhow::anyhow;
 use anyhow::Context;
 use base64::{engine::general_purpose, Engine};
 use bytes::Buf;
-use entangler::Entangler;
+use entangler::{ChunkRange, Entangler};
 use entangler_storage::iroh::IrohStorage as EntanglerIrohStorage;
 use fendermint_actor_bucket::{GetParams, Object};
 use fendermint_app_settings::objects::ObjectsSettings;
@@ -21,7 +21,7 @@ use futures_util::StreamExt;
 use fvm_shared::chainid::ChainID;
 use fvm_shared::{address::Address, econ::TokenAmount};
 use iroh::blobs::Hash;
-use iroh::client::blobs::{BlobStatus, ReadAtLen};
+use iroh::client::blobs::BlobStatus;
 use iroh::net::NodeAddr;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -44,6 +44,8 @@ const ENTANGLER_ALPHA: u8 = 3;
 const ENTANGLER_S: u8 = 5;
 /// The p parameter for alpha entanglement determines the number of helical strands in the grid.
 const ENTANGLER_P: u8 = 5;
+/// Chunk size used by the entangler.
+const CHUNK_SIZE: u64 = 1024;
 
 cmd! {
     ObjectsArgs(self, settings: ObjectsSettings) {
@@ -409,7 +411,7 @@ fn get_range_params(range: String, size: u64) -> Result<(u64, u64), ObjectsError
     if range.len() != 2 {
         return Err(ObjectsError::RangeHeaderInvalid);
     }
-    let (start, end): (u64, u64) = match (!range[0].is_empty(), !range[1].is_empty()) {
+    let (first, last): (u64, u64) = match (!range[0].is_empty(), !range[1].is_empty()) {
         (true, true) => (range[0].parse::<u64>()?, range[1].parse::<u64>()?),
         (true, false) => (range[0].parse::<u64>()?, size - 1),
         (false, true) => {
@@ -422,10 +424,10 @@ fn get_range_params(range: String, size: u64) -> Result<(u64, u64), ObjectsError
         }
         (false, false) => (0, size - 1),
     };
-    if start > end || end >= size {
+    if first > last || last >= size {
         return Err(ObjectsError::RangeHeaderInvalid);
     }
-    Ok((start, end))
+    Ok((first, last))
 }
 
 pub(crate) struct ObjectRange {
@@ -473,35 +475,44 @@ async fn handle_object_download<F: QueryClient + Send + Sync>(
                 }));
             };
 
+            let ent = new_entangler(iroh).map_err(|e| {
+                Rejection::from(BadRequest {
+                    message: format!("failed to create entangler: {}", e),
+                })
+            })?;
+            let recovery_hash = Hash::from_bytes(object.recovery_hash.0);
+
             let object_range = match range {
                 Some(range) => {
-                    let (start, end) = get_range_params(range, size).unwrap();
-                    let len = (end - start) + 1;
-                    let reader = iroh
-                        .blobs()
-                        .read_at(hash, start, ReadAtLen::AtMost(len))
+                    let (first_byte, last_byte) = get_range_params(range, size).unwrap();
+                    let len = (last_byte - first_byte) + 1;
+
+                    let fist_chunk = first_byte / CHUNK_SIZE;
+                    let last_chunk = last_byte / CHUNK_SIZE;
+
+                    let bytes = ent
+                        .download_range(
+                            &hash.to_string(),
+                            ChunkRange::Between(fist_chunk, last_chunk),
+                            Some(&recovery_hash.to_string()),
+                        )
                         .await
                         .map_err(|e| {
                             Rejection::from(BadRequest {
-                                message: format!("failed to fetch object: {} {}", hash, e),
+                                message: format!("failed to download object: {} {}", hash, e),
                             })
                         })?;
-                    let body = Body::wrap_stream(reader);
+                    let offset = (first_byte - fist_chunk * CHUNK_SIZE) as usize;
+                    let body = Body::from(bytes.slice(offset..offset + len as usize));
                     ObjectRange {
-                        start,
-                        end,
+                        start: first_byte,
+                        end: last_byte,
                         len,
                         size,
                         body,
                     }
                 }
                 None => {
-                    let ent = new_entangler(iroh).map_err(|e| {
-                        Rejection::from(BadRequest {
-                            message: format!("failed to create entangler: {}", e),
-                        })
-                    })?;
-                    let recovery_hash = Hash::from_bytes(object.recovery_hash.0);
                     let bytes = ent
                         .download(&hash.to_string(), Some(&recovery_hash.to_string()))
                         .await
