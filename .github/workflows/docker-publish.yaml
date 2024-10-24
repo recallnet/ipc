@@ -6,6 +6,8 @@ on:
 
 env:
   PROFILE: "ci"
+  CARGO_TERM_COLOR: always
+  CARGO_NET_GIT_FETCH_WITH_CLI: true
 
 jobs:
 
