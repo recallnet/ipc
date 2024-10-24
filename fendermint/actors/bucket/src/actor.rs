@@ -65,7 +65,7 @@ impl Actor {
         Ok(ret)
     }
 
-    fn delete_object(rt: &impl Runtime, params: DeleteParams) -> Result<Cid, ActorError> {
+    fn delete_object(rt: &impl Runtime, params: DeleteParams) -> Result<(), ActorError> {
         // Self::ensure_write_allowed(rt)?;
         rt.validate_immediate_caller_accept_any()?;
         let state = rt.state::<State>()?;
@@ -76,8 +76,8 @@ impl Actor {
         // Delete blob for object
         delete_blob(rt, Some(state.owner), object.hash)?;
         // Update state
-        let res = rt.transaction(|st: &mut State, rt| st.delete(rt.store(), &key))?;
-        Ok(res.1)
+        let _res = rt.transaction(|st: &mut State, rt| st.delete(rt.store(), &key))?;
+        Ok(())
     }
 
     fn get_object(rt: &impl Runtime, params: GetParams) -> Result<Option<Object>, ActorError> {
