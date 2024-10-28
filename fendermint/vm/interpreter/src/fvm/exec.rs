@@ -16,7 +16,7 @@ use fvm_shared::message::Message;
 use fvm_shared::{address::Address, ActorID, MethodNum, BLOCK_GAS_LIMIT};
 use ipc_observability::{emit, measure_time, observe::TracingError, Traceable};
 use tendermint_rpc::Client;
-
+use fendermint_vm_actor_interface::eam::{EthAddress, EAM_ACTOR_ID};
 use crate::ExecInterpreter;
 
 use super::{
@@ -285,8 +285,9 @@ fn prepare_blobs_power_table(input: &PowerUpdates) -> PowerTableUpdates {
             .iter()
             .filter_map(|validator| {
                 let public_key = validator.public_key.0.serialize();
-                let address = Address::new_secp256k1(&public_key);
-                match address {
+                let eth_address = EthAddress::from(public_key);
+                let delegated = Address::new_delegated(EAM_ACTOR_ID, &eth_address.0);
+                match delegated {
                     Ok(address) => {
                         let validator = Validator {
                             power: Power(validator.power.0),
