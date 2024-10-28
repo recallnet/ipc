@@ -3,21 +3,22 @@
 
 use anyhow::Context;
 use async_trait::async_trait;
-use std::collections::HashMap;
-use ethers::abi::ParamType::Address;
 use fendermint_actor_blobs_shared::params::UpdatePowerTableParams;
 use fendermint_actor_blobs_shared::state::{Power, PowerTableUpdates, Validator};
 use fendermint_actor_blobs_shared::Method::UpdatePowerTable;
+use fendermint_vm_actor_interface::eam::{EthAddress, EAM_ACTOR_ID};
 use fendermint_vm_actor_interface::{blobs, chainmetadata, cron, system};
+use futures_util::FutureExt;
 use fvm::executor::ApplyRet;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::RawBytes;
+use fvm_shared::address::Error;
 use fvm_shared::message::Message;
 use fvm_shared::{address::Address, ActorID, MethodNum, BLOCK_GAS_LIMIT};
-use fvm_shared::address::Error;
 use ipc_observability::{emit, measure_time, observe::TracingError, Traceable};
+use std::collections::HashMap;
 use tendermint_rpc::Client;
-use fendermint_vm_actor_interface::eam::{EthAddress, EAM_ACTOR_ID};
+
 use crate::ExecInterpreter;
 
 use super::{
@@ -286,28 +287,13 @@ fn prepare_blobs_power_table(input: &PowerUpdates) -> PowerTableUpdates {
             .iter()
             .filter_map(|validator| {
                 let public_key = validator.public_key.0.serialize();
-                match EthAddress::new_secp256k1(&public_key) {
-                    Ok(eth_address) => {
-                        let delegated = Address::new_delegated(EAM_ACTOR_ID, &eth_address.0);
-                        match delegated {
-                            Ok(address) => {
-                                let validator = Validator {
-                                    power: Power(validator.power.0),
-                                    address,
-                                };
-                                Some(validator)
-                            }
-                            Err(_) => {
-                                tracing::debug!("can not construct delegated address from eth_address {}", eth_address);
-                                None
-                            }
-                        }
-                    }
-                    Err(_) => {
-                        tracing::debug!("can not construct EthAddress address from public key");
+                EthAddress::new_secp256k1(&public_key)
+                    .and_then(|eth_address| Address::new_delegated(EAM_ACTOR_ID, &eth_address.0))
+                    .map(Some)
+                    .unwrap_or_else(|_error| {
+                        tracing::debug!("can not construct delegated address from public key");
                         None
-                    }
-                }
+                    })
             })
             .collect(),
     )
