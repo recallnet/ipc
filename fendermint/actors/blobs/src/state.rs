@@ -3,9 +3,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::btree_map::Entry;
 use std::ops::Bound::{Included, Unbounded};
 
-use fendermint_actor_blobs_shared::params::GetStatsReturn;
+use fendermint_actor_blobs_shared::params::{GetStatsReturn, StorageStakedReturn};
 use fendermint_actor_blobs_shared::state::{
     Account, Blob, BlobStatus, CreditApproval, Hash, PublicKey, Subscription,
 };
@@ -15,7 +16,7 @@ use fvm_shared::address::Address;
 use fvm_shared::bigint::{BigInt, BigUint};
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::econ::TokenAmount;
-use log::{debug, error, warn};
+use log::{debug, warn};
 use num_traits::{Signed, ToPrimitive, Zero};
 
 /// The minimum epoch duration a blob can be stored.
@@ -98,26 +99,40 @@ impl State {
         }
     }
 
-    pub fn get_storage_staked(&mut self, validator: Address) -> anyhow::Result<(Address, u64), ActorError> {
+    pub fn get_storage_staked(&mut self, validator: Address) -> StorageStakedReturn {
         let storage_commitment = self.capacity_commited.entry(validator).or_default();
-        Ok((validator, storage_commitment.clone()))
+        StorageStakedReturn {
+            address: validator,
+            storage: *storage_commitment,
+        }
     }
 
-    pub fn stake_storage(&mut self, validator: Address, amount: u64) -> anyhow::Result<(Address, u64), ActorError> {
+    pub fn stake_storage(&mut self, validator: Address, amount: u64) -> Result<StorageStakedReturn, ActorError> {
         let storage_commitment = self.capacity_commited.entry(validator).and_modify(|v| *v += amount).or_insert(amount);
-        Ok((validator, storage_commitment.clone()))
+        Ok(StorageStakedReturn {
+            address: validator,
+            storage: *storage_commitment,
+        })
     }
 
-    pub fn unstake_storage(&mut self, validator: Address, amount: u64) -> anyhow::Result<(Address, u64), ActorError> {
-        let storage_commitment = self.capacity_commited.entry(validator).and_modify(|v| {
-            let current = *v;
-            if (current > amount) {
-                *v -= amount;
+    pub fn unstake_storage(&mut self, validator: Address, amount: u64) -> anyhow::Result<StorageStakedReturn, ActorError> {
+        if let Entry::Occupied(mut entry) = self.capacity_commited.entry(validator) {
+            let current = entry.get_mut();
+            // If current commitment is gt amount, deduct, otherwise remove the entry
+            if *current > amount {
+                *current -= amount;
+                return Ok(StorageStakedReturn {
+                    address: validator,
+                    storage: *current,
+                })
             } else {
-                *v = 0;
+                entry.remove();
             }
-        }).or_default();
-        Ok((validator, storage_commitment.clone()))
+        }
+        Ok(StorageStakedReturn {
+            address: validator,
+            storage: 0,
+        })
     }
 
     pub fn buy_credit(

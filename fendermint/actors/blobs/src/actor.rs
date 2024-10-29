@@ -4,7 +4,7 @@
 
 use std::collections::HashSet;
 
-use fendermint_actor_blobs_shared::params::{AddBlobParams, ApproveCreditParams, BuyCreditParams, DeleteBlobParams, FinalizeBlobParams, GetAccountParams, GetBlobParams, GetBlobStatusParams, GetPendingBlobsParams, GetStatsReturn, GetStorageStakedParams, RevokeCreditParams, StakeStorageParams, UnstakeStorageParams};
+use fendermint_actor_blobs_shared::params::{AddBlobParams, ApproveCreditParams, BuyCreditParams, DeleteBlobParams, FinalizeBlobParams, GetAccountParams, GetBlobParams, GetBlobStatusParams, GetPendingBlobsParams, GetStatsReturn, GetStorageStakedParams, RevokeCreditParams, StakeStorageParams, StorageStakedReturn, UnstakeStorageParams};
 use fendermint_actor_blobs_shared::state::{
     Account, Blob, BlobStatus, CreditApproval, Hash, PublicKey, Subscription,
 };
@@ -43,16 +43,29 @@ impl BlobsActor {
         Ok(stats)
     }
 
-    fn get_storage_staked(rt: &impl Runtime, params: GetStorageStakedParams) -> Result<u64, ActorError> {
-        Ok(0)
+    fn get_storage_staked(rt: &impl Runtime, params: GetStorageStakedParams) -> Result<StorageStakedReturn, ActorError> {
+        rt.validate_immediate_caller_accept_any()?;
+        let address = resolve_external_non_machine(rt, params.0)?;
+        let storage_committed = rt.state::<State>()?.get_storage_staked(address);
+        Ok(storage_committed)
     }
 
-    fn stake_storage(rt: &impl Runtime, params: StakeStorageParams) -> Result<u64, ActorError> {
-        Ok(0)
+    fn stake_storage(rt: &impl Runtime, params: StakeStorageParams) -> Result<StorageStakedReturn, ActorError> {
+        rt.validate_immediate_caller_accept_any()?;
+        let address = resolve_external_non_machine(rt, params.address)?;
+        assert_message_source(rt, address)?;
+        rt.transaction(|st: &mut State, _rt| {
+            st.stake_storage(address, params.storage)
+        })
     }
 
-    fn unstake_storage(rt: &impl Runtime, params: UnstakeStorageParams) -> Result<u64, ActorError> {
-        Ok(0)
+    fn unstake_storage(rt: &impl Runtime, params: UnstakeStorageParams) -> Result<StorageStakedReturn, ActorError> {
+        rt.validate_immediate_caller_accept_any()?;
+        let address = resolve_external_non_machine(rt, params.address)?;
+        assert_message_source(rt, address)?;
+        rt.transaction(|st: &mut State, _rt| {
+            st.unstake_storage(address, params.storage)
+        })
     }
 
     fn buy_credit(rt: &impl Runtime, params: BuyCreditParams) -> Result<Account, ActorError> {
@@ -75,29 +88,9 @@ impl BlobsActor {
         params: ApproveCreditParams,
     ) -> Result<CreditApproval, ActorError> {
         rt.validate_immediate_caller_accept_any()?;
-        let (from, actor_type) = resolve_external(rt, params.from)?;
-        let (origin, caller) = if rt.message().origin() == rt.message().caller() {
-            let (origin, _) = resolve_external(rt, rt.message().origin())?;
-            (origin, origin)
-        } else {
-            let (origin, _) = resolve_external(rt, rt.message().origin())?;
-            let (caller, _) = resolve_external(rt, rt.message().caller())?;
-            (origin, caller)
-        };
-        // Credit owner must be the transaction origin or caller
-        if from != caller && from != origin {
-            return Err(ActorError::illegal_argument(format!(
-                "from {} does not match origin or caller",
-                from
-            )));
-        }
         // Credit owner cannot be a machine
-        if matches!(actor_type, ActorType::Machine) {
-            return Err(ActorError::illegal_argument(format!(
-                "from {} cannot be a machine",
-                from
-            )));
-        }
+        let from = resolve_external_non_machine(rt, params.from)?;
+        assert_message_source(rt, from)?;
         let (receiver, actor_type) = resolve_external(rt, params.receiver)?;
         // Receiver cannot be a machine
         if matches!(actor_type, ActorType::Machine) {
@@ -126,37 +119,10 @@ impl BlobsActor {
 
     fn revoke_credit(rt: &impl Runtime, params: RevokeCreditParams) -> Result<(), ActorError> {
         rt.validate_immediate_caller_accept_any()?;
-        let (from, actor_type) = resolve_external(rt, params.from)?;
-        let (origin, caller) = if rt.message().origin() == rt.message().caller() {
-            let (origin, _) = resolve_external(rt, rt.message().origin())?;
-            (origin, origin)
-        } else {
-            let (origin, _) = resolve_external(rt, rt.message().origin())?;
-            let (caller, _) = resolve_external(rt, rt.message().caller())?;
-            (origin, caller)
-        };
-        // Credit owner must be the transaction origin or caller
-        if from != caller && from != origin {
-            return Err(ActorError::illegal_argument(format!(
-                "from {} does not match origin or caller",
-                from
-            )));
-        }
         // Credit owner cannot be a machine
-        if matches!(actor_type, ActorType::Machine) {
-            return Err(ActorError::illegal_argument(format!(
-                "from {} cannot be a machine",
-                from
-            )));
-        }
-        let (receiver, actor_type) = resolve_external(rt, params.receiver)?;
-        // Receiver cannot be a machine
-        if matches!(actor_type, ActorType::Machine) {
-            return Err(ActorError::illegal_argument(format!(
-                "receiver {} cannot be a machine",
-                receiver
-            )));
-        }
+        let from = resolve_external_non_machine(rt, params.from)?;
+        assert_message_source(rt, from)?;
+        let receiver = resolve_external_non_machine(rt, params.receiver)?;
         let required_caller = if let Some(required_caller) = params.required_caller {
             let (required_caller, _) = resolve_external(rt, required_caller)?;
             Some(required_caller)
@@ -350,6 +316,39 @@ enum ActorType {
     Machine,
 }
 
+/// Return Err if `source` is neither `rt.message().origin()` nor `rt.message.caller()`.
+fn assert_message_source(rt: &impl Runtime, source: Address) -> Result<(), ActorError> {
+    let (origin, caller) = if rt.message().origin() == rt.message().caller() {
+        let (origin, _) = resolve_external(rt, rt.message().origin())?;
+        (origin, origin)
+    } else {
+        let (origin, _) = resolve_external(rt, rt.message().origin())?;
+        let (caller, _) = resolve_external(rt, rt.message().caller())?;
+        (origin, caller)
+    };
+    if source != caller && source != origin {
+        return Err(ActorError::illegal_argument(format!(
+            "address {} does not match origin or caller",
+            source
+        )));
+    }
+    Ok(())
+}
+
+/// Resolve robust address and ensure it is not a Machine actor type.
+/// See `resolve_external`.
+fn resolve_external_non_machine(rt: &impl Runtime, address: Address) -> Result<Address, ActorError> {
+    let (address, actor_type) = resolve_external(rt, address)?;
+    if matches!(actor_type, ActorType::Machine) {
+        Err(ActorError::illegal_argument(format!(
+            "address {} cannot be a machine",
+            address
+        )))
+    } else {
+        Ok(address)
+    }
+}
+
 // Resolves robust address of an actor.
 fn resolve_external(
     rt: &impl Runtime,
@@ -469,6 +468,24 @@ mod tests {
         let mut data = [0u8; 32];
         rng.fill_bytes(&mut data);
         PublicKey(data)
+    }
+
+    // TODO SU add tokens to the stake
+
+    fn get_storage_staked(rt: &MockRuntime, address: Address) -> StorageStakedReturn {
+        let get_storage_staked_params = GetStorageStakedParams(address);
+        rt.expect_validate_caller_any();
+        let result = rt
+            .call::<BlobsActor>(
+                Method::GetStorageStaked as u64,
+                IpldBlock::serialize_cbor(&get_storage_staked_params).unwrap(),
+            )
+            .unwrap()
+            .unwrap()
+            .deserialize::<StorageStakedReturn>()
+            .unwrap();
+        rt.verify();
+        result
     }
 
     pub fn construct_and_verify(capacity: u64, debit_rate: u64) -> MockRuntime {
@@ -820,56 +837,95 @@ mod tests {
         ));
         let f4_eth_addr = Address::new_delegated(10, &eth_addr.0).unwrap();
 
+        let f4_eth_addr_wrong = Address::new_delegated(10, &hex_literal::hex!(
+            "DEADB0BA00000000000000000000000000000000"
+        )).unwrap();
+
         rt.set_delegated_address(id_addr.id().unwrap(), f4_eth_addr);
         rt.set_caller(*ETHACCOUNT_ACTOR_CODE_ID, id_addr);
         rt.set_origin(id_addr);
 
-        let mut expected_credits = BigInt::from(1000000000000000000u64);
-        rt.set_received(TokenAmount::from_whole(1));
-        rt.expect_validate_caller_any();
-        let fund_params = BuyCreditParams(f4_eth_addr);
-        let result = rt
-            .call::<BlobsActor>(
-                Method::BuyCredit as u64,
-                IpldBlock::serialize_cbor(&fund_params).unwrap(),
-            )
-            .unwrap()
-            .unwrap()
-            .deserialize::<Account>()
-            .unwrap();
-        assert_eq!(result.credit_free, expected_credits);
-        rt.verify();
+        let staked_0 = get_storage_staked(&rt, f4_eth_addr);
+        assert_eq!(staked_0.storage, 0);
 
-        expected_credits += BigInt::from(1000000000u64);
-        rt.set_received(TokenAmount::from_nano(1));
+        // Stake 42
         rt.expect_validate_caller_any();
-        let fund_params = BuyCreditParams(f4_eth_addr);
-        let result = rt
-            .call::<BlobsActor>(
-                Method::BuyCredit as u64,
-                IpldBlock::serialize_cbor(&fund_params).unwrap(),
-            )
-            .unwrap()
-            .unwrap()
-            .deserialize::<Account>()
-            .unwrap();
-        assert_eq!(result.credit_free, expected_credits);
+        let stake_params = StakeStorageParams {
+            // Use id_addr, see below why
+            address: id_addr,
+            storage: 42,
+        };
+        let result = rt.call::<BlobsActor>(
+            Method::StakeStorage as u64,
+            IpldBlock::serialize_cbor(&stake_params).unwrap(),
+        );
         rt.verify();
+        let result_params = result.unwrap().unwrap().deserialize::<StorageStakedReturn>().unwrap();
+        // Used id_addr, but robust address returned is f4_eth_addr
+        assert_eq!(result_params.address, f4_eth_addr);
+        assert_eq!(result_params.storage, 42);
+        assert_eq!(get_storage_staked(&rt, id_addr).storage, 42);
 
-        expected_credits += BigInt::from(1u64);
-        rt.set_received(TokenAmount::from_atto(1));
+        // Stake 58 more, to get to 100 total
         rt.expect_validate_caller_any();
-        let fund_params = BuyCreditParams(f4_eth_addr);
-        let result = rt
-            .call::<BlobsActor>(
-                Method::BuyCredit as u64,
-                IpldBlock::serialize_cbor(&fund_params).unwrap(),
-            )
-            .unwrap()
-            .unwrap()
-            .deserialize::<Account>()
-            .unwrap();
-        assert_eq!(result.credit_free, expected_credits);
+        let stake_params = StakeStorageParams {
+            address: f4_eth_addr,
+            storage: 58,
+        };
+        let result = rt.call::<BlobsActor>(
+            Method::StakeStorage as u64,
+            IpldBlock::serialize_cbor(&stake_params).unwrap(),
+        );
         rt.verify();
+        let result_params = result.unwrap().unwrap().deserialize::<StorageStakedReturn>().unwrap();
+        assert_eq!(result_params.address, f4_eth_addr);
+        assert_eq!(result_params.storage, 100);
+        assert_eq!(get_storage_staked(&rt, id_addr).storage, 100);
+
+        // Unstake 20
+        rt.expect_validate_caller_any();
+        let unstake_params = UnstakeStorageParams {
+            address: f4_eth_addr,
+            storage: 20,
+        };
+        let result = rt.call::<BlobsActor>(
+            Method::UnstakeStorage as u64,
+            IpldBlock::serialize_cbor(&unstake_params).unwrap(),
+        );
+        rt.verify();
+        let result_params = result.unwrap().unwrap().deserialize::<StorageStakedReturn>().unwrap();
+        assert_eq!(result_params.address, f4_eth_addr);
+        assert_eq!(result_params.storage, 80);
+        assert_eq!(get_storage_staked(&rt, id_addr).storage, 80);
+
+        // Unstake 200
+        rt.expect_validate_caller_any();
+        let unstake_params = UnstakeStorageParams {
+            address: id_addr,
+            storage: 200,
+        };
+        let result = rt.call::<BlobsActor>(
+            Method::UnstakeStorage as u64,
+            IpldBlock::serialize_cbor(&unstake_params).unwrap(),
+        );
+        rt.verify();
+        let result_params = result.unwrap().unwrap().deserialize::<StorageStakedReturn>().unwrap();
+        assert_eq!(result_params.address, f4_eth_addr);
+        assert_eq!(result_params.storage, 0);
+        assert_eq!(get_storage_staked(&rt, id_addr).storage, 0);
+
+        // Try staking as a "wrong" address -> should err
+        rt.expect_validate_caller_any();
+        let stake_params = StakeStorageParams {
+            // Use id_addr, see below why
+            address: f4_eth_addr_wrong,
+            storage: 42,
+        };
+        let result = rt.call::<BlobsActor>(
+            Method::StakeStorage as u64,
+            IpldBlock::serialize_cbor(&stake_params).unwrap(),
+        );
+        rt.verify();
+        assert!(result.is_err());
     }
 }

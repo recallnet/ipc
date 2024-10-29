@@ -16,6 +16,12 @@ use crate::state::{BlobStatus, Hash, PublicKey};
 #[serde(transparent)]
 pub struct GetStorageStakedParams(pub Address);
 
+#[derive(Clone, Debug, Serialize_tuple, Deserialize_tuple)]
+pub struct StorageStakedReturn {
+    pub address: Address,
+    pub storage: u64,
+}
+
 /// Params to increase storage staked per validator.
 #[derive(Clone, Debug, Serialize_tuple, Deserialize_tuple)]
 pub struct StakeStorageParams {
