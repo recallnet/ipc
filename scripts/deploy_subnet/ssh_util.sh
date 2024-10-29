@@ -7,6 +7,7 @@ declare -A REPO_KEYS=(
   ["ipc"]="$HOME/.ssh/id_ed25519.hokunet.ipc"
   ["builtin-actors"]="$HOME/.ssh/id_ed25519.hokunet.builtin-actors"
   ["contracts"]="$HOME/.ssh/id_ed25519.hokunet.contracts"
+  ["entanglement"]="$HOME/.ssh/id_ed25519.hokunet.entanglement"
 )
 
 # Define the SSH alias to submodule mapping
