@@ -70,14 +70,8 @@ impl BlobsActor {
 
     fn buy_credit(rt: &impl Runtime, params: BuyCreditParams) -> Result<Account, ActorError> {
         rt.validate_immediate_caller_accept_any()?;
-        let (recipient, actor_type) = resolve_external(rt, params.0)?;
         // Recipient cannot be a machine
-        if matches!(actor_type, ActorType::Machine) {
-            return Err(ActorError::illegal_argument(format!(
-                "recipient {} cannot be a machine",
-                recipient
-            )));
-        }
+        let recipient = resolve_external_non_machine(rt, params.0)?;
         rt.transaction(|st: &mut State, rt| {
             st.buy_credit(recipient, rt.message().value_received(), rt.curr_epoch())
         })
@@ -91,14 +85,7 @@ impl BlobsActor {
         // Credit owner cannot be a machine
         let from = resolve_external_non_machine(rt, params.from)?;
         assert_message_source(rt, from)?;
-        let (receiver, actor_type) = resolve_external(rt, params.receiver)?;
-        // Receiver cannot be a machine
-        if matches!(actor_type, ActorType::Machine) {
-            return Err(ActorError::illegal_argument(format!(
-                "receiver {} cannot be a machine",
-                receiver
-            )));
-        }
+        let receiver = resolve_external_non_machine(rt, params.receiver)?;
         let required_caller = if let Some(required_caller) = params.required_caller {
             let (required_caller, _) = resolve_external(rt, required_caller)?;
             Some(required_caller)
@@ -156,15 +143,7 @@ impl BlobsActor {
         let (caller, _) = resolve_external(rt, rt.message().caller())?;
         // The blob subscriber will be the sponsor if specified and approved
         let subscriber = if let Some(sponsor) = params.sponsor {
-            let (sponsor, actor_type) = resolve_external(rt, sponsor)?;
-            // Sponsor cannot be a machine
-            if matches!(actor_type, ActorType::Machine) {
-                return Err(ActorError::illegal_argument(format!(
-                    "sponsor {} cannot be a machine",
-                    sponsor
-                )));
-            }
-            sponsor
+            resolve_external_non_machine(rt, sponsor)?
         } else {
             origin
         };
@@ -229,15 +208,7 @@ impl BlobsActor {
         let (caller, _) = resolve_external(rt, rt.message().caller())?;
         // The blob subscriber will be the sponsor if specified and approved
         let subscriber = if let Some(sponsor) = params.sponsor {
-            let (sponsor, actor_type) = resolve_external(rt, sponsor)?;
-            // Sponsor cannot be a machine
-            if matches!(actor_type, ActorType::Machine) {
-                return Err(ActorError::illegal_argument(format!(
-                    "sponsor {} cannot be a machine",
-                    sponsor
-                )));
-            }
-            sponsor
+            resolve_external_non_machine(rt, sponsor)?
         } else {
             origin
         };
