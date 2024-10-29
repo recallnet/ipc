@@ -15,7 +15,7 @@ use fvm_shared::address::Address;
 use fvm_shared::bigint::{BigInt, BigUint};
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::econ::TokenAmount;
-use log::{debug, warn};
+use log::{debug, error, warn};
 use num_traits::{Signed, ToPrimitive, Zero};
 
 /// The minimum epoch duration a blob can be stored.
@@ -28,7 +28,9 @@ const AUTO_TTL: ChainEpoch = 3600; // one hour
 #[derive(Debug, Serialize_tuple, Deserialize_tuple)]
 pub struct State {
     /// The total storage capacity of the subnet.
-    pub capacity_total: BigInt,
+    pub capacity_total: BigInt, // TODO SU That should be maintained as a cache of total(capacity_committed)
+    /// Committed storage capacity of the subnet.
+    pub capacity_commited: BTreeMap<Address, u64>,
     /// The total used storage capacity of the subnet.
     pub capacity_used: BigInt,
     /// The total number of credits sold in the subnet.
@@ -69,6 +71,7 @@ impl State {
         Self {
             capacity_total: BigInt::from(capacity),
             capacity_used: BigInt::zero(),
+            capacity_commited: BTreeMap::new(),
             credit_sold: BigInt::zero(),
             credit_committed: BigInt::zero(),
             credit_debited: BigInt::zero(),
@@ -93,6 +96,28 @@ impl State {
             num_blobs: self.blobs.len() as u64,
             num_resolving: self.pending.len() as u64,
         }
+    }
+
+    pub fn get_storage_staked(&mut self, validator: Address) -> anyhow::Result<(Address, u64), ActorError> {
+        let storage_commitment = self.capacity_commited.entry(validator).or_default();
+        Ok((validator, storage_commitment.clone()))
+    }
+
+    pub fn stake_storage(&mut self, validator: Address, amount: u64) -> anyhow::Result<(Address, u64), ActorError> {
+        let storage_commitment = self.capacity_commited.entry(validator).and_modify(|v| *v += amount).or_insert(amount);
+        Ok((validator, storage_commitment.clone()))
+    }
+
+    pub fn unstake_storage(&mut self, validator: Address, amount: u64) -> anyhow::Result<(Address, u64), ActorError> {
+        let storage_commitment = self.capacity_commited.entry(validator).and_modify(|v| {
+            let current = *v;
+            if (current > amount) {
+                *v -= amount;
+            } else {
+                *v = 0;
+            }
+        }).or_default();
+        Ok((validator, storage_commitment.clone()))
     }
 
     pub fn buy_credit(

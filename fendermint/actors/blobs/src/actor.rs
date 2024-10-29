@@ -4,11 +4,7 @@
 
 use std::collections::HashSet;
 
-use fendermint_actor_blobs_shared::params::{
-    AddBlobParams, ApproveCreditParams, BuyCreditParams, DeleteBlobParams, FinalizeBlobParams,
-    GetAccountParams, GetBlobParams, GetBlobStatusParams, GetPendingBlobsParams, GetStatsReturn,
-    RevokeCreditParams,
-};
+use fendermint_actor_blobs_shared::params::{AddBlobParams, ApproveCreditParams, BuyCreditParams, DeleteBlobParams, FinalizeBlobParams, GetAccountParams, GetBlobParams, GetBlobStatusParams, GetPendingBlobsParams, GetStatsReturn, GetStorageStakedParams, RevokeCreditParams, StakeStorageParams, UnstakeStorageParams};
 use fendermint_actor_blobs_shared::state::{
     Account, Blob, BlobStatus, CreditApproval, Hash, PublicKey, Subscription,
 };
@@ -45,6 +41,18 @@ impl BlobsActor {
         rt.validate_immediate_caller_accept_any()?;
         let stats = rt.state::<State>()?.get_stats(rt.current_balance());
         Ok(stats)
+    }
+
+    fn get_storage_staked(rt: &impl Runtime, params: GetStorageStakedParams) -> Result<u64, ActorError> {
+        Ok(0)
+    }
+
+    fn stake_storage(rt: &impl Runtime, params: StakeStorageParams) -> Result<u64, ActorError> {
+        Ok(0)
+    }
+
+    fn unstake_storage(rt: &impl Runtime, params: UnstakeStorageParams) -> Result<u64, ActorError> {
+        Ok(0)
     }
 
     fn buy_credit(rt: &impl Runtime, params: BuyCreditParams) -> Result<Account, ActorError> {
@@ -317,6 +325,9 @@ impl ActorCode for BlobsActor {
     actor_dispatch! {
         Constructor => constructor,
         GetStats => get_stats,
+        StakeStorage => stake_storage,
+        UnstakeStorage => unstake_storage,
+        GetStorageStaked => get_storage_staked,
         BuyCredit => buy_credit,
         ApproveCredit => approve_credit,
         RevokeCredit => revoke_credit,
@@ -796,6 +807,69 @@ mod tests {
         assert_eq!(subscription.expiry, 3605);
         assert!(!subscription.auto_renew);
         assert_eq!(subscription.delegate, None);
+        rt.verify();
+    }
+
+    #[test]
+    fn test_stake_storage() {
+        let rt = construct_and_verify(1024 * 1024, 1);
+
+        let id_addr = Address::new_id(110);
+        let eth_addr = EthAddress(hex_literal::hex!(
+            "CAFEB0BA00000000000000000000000000000000"
+        ));
+        let f4_eth_addr = Address::new_delegated(10, &eth_addr.0).unwrap();
+
+        rt.set_delegated_address(id_addr.id().unwrap(), f4_eth_addr);
+        rt.set_caller(*ETHACCOUNT_ACTOR_CODE_ID, id_addr);
+        rt.set_origin(id_addr);
+
+        let mut expected_credits = BigInt::from(1000000000000000000u64);
+        rt.set_received(TokenAmount::from_whole(1));
+        rt.expect_validate_caller_any();
+        let fund_params = BuyCreditParams(f4_eth_addr);
+        let result = rt
+            .call::<BlobsActor>(
+                Method::BuyCredit as u64,
+                IpldBlock::serialize_cbor(&fund_params).unwrap(),
+            )
+            .unwrap()
+            .unwrap()
+            .deserialize::<Account>()
+            .unwrap();
+        assert_eq!(result.credit_free, expected_credits);
+        rt.verify();
+
+        expected_credits += BigInt::from(1000000000u64);
+        rt.set_received(TokenAmount::from_nano(1));
+        rt.expect_validate_caller_any();
+        let fund_params = BuyCreditParams(f4_eth_addr);
+        let result = rt
+            .call::<BlobsActor>(
+                Method::BuyCredit as u64,
+                IpldBlock::serialize_cbor(&fund_params).unwrap(),
+            )
+            .unwrap()
+            .unwrap()
+            .deserialize::<Account>()
+            .unwrap();
+        assert_eq!(result.credit_free, expected_credits);
+        rt.verify();
+
+        expected_credits += BigInt::from(1u64);
+        rt.set_received(TokenAmount::from_atto(1));
+        rt.expect_validate_caller_any();
+        let fund_params = BuyCreditParams(f4_eth_addr);
+        let result = rt
+            .call::<BlobsActor>(
+                Method::BuyCredit as u64,
+                IpldBlock::serialize_cbor(&fund_params).unwrap(),
+            )
+            .unwrap()
+            .unwrap()
+            .deserialize::<Account>()
+            .unwrap();
+        assert_eq!(result.credit_free, expected_credits);
         rt.verify();
     }
 }
