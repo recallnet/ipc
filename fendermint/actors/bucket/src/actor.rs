@@ -24,16 +24,18 @@ fil_actors_runtime::wasm_trampoline!(Actor);
 pub struct Actor;
 
 impl Actor {
-    fn add_object(rt: &impl Runtime, params: AddParams) -> Result<ObjectState, ActorError> {
+    fn add_object(rt: &impl Runtime, params: AddParams) -> Result<Object, ActorError> {
         // Self::ensure_write_allowed(rt)?;
         rt.validate_immediate_caller_accept_any()?;
         let state = rt.state::<State>()?;
         let key = BytesKey(params.key);
-        let mut ret = ObjectState { hash: params.hash, metadata: params.metadata.clone() };
+        let mut hash = params.hash;
+        let mut metadata = params.metadata.clone();
         if let Some(object) = state.get(rt.store(), &key)? {
-            ret = object;
+            hash = object.hash;
+            metadata = object.metadata;
             if params.overwrite {
-                delete_blob(rt, Some(state.owner), ret.hash)?;
+                delete_blob(rt, Some(state.owner), hash)?;
             } else {
                 return Err(ActorError::illegal_state(
                     "key exists; use overwrite".into(),
@@ -42,7 +44,7 @@ impl Actor {
         }
 
         // Add blob for object
-        add_blob(
+        let sub = add_blob(
             rt,
             Some(state.owner),
             params.source,
@@ -61,7 +63,7 @@ impl Actor {
                 params.overwrite,
             )
         })?;
-        Ok(ret)
+        Ok(Object { hash, size: params.size, expiry: sub.expiry, metadata })
     }
 
     fn delete_object(rt: &impl Runtime, params: DeleteParams) -> Result<(), ActorError> {
