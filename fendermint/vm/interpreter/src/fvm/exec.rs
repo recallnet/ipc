@@ -8,11 +8,9 @@ use fendermint_actor_blobs_shared::state::{Power, PowerTableUpdates, Validator};
 use fendermint_actor_blobs_shared::Method::UpdatePowerTable;
 use fendermint_vm_actor_interface::eam::{EthAddress, EAM_ACTOR_ID};
 use fendermint_vm_actor_interface::{blobs, chainmetadata, cron, system};
-use futures_util::FutureExt;
 use fvm::executor::ApplyRet;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::RawBytes;
-use fvm_shared::address::Error;
 use fvm_shared::message::Message;
 use fvm_shared::{address::Address, ActorID, MethodNum, BLOCK_GAS_LIMIT};
 use ipc_observability::{emit, measure_time, observe::TracingError, Traceable};
@@ -286,6 +284,7 @@ fn prepare_blobs_power_table(input: &PowerUpdates) -> PowerTableUpdates {
             .0
             .iter()
             .filter_map(|validator| {
+                let power = validator.power.0;
                 let public_key = validator.public_key.0.serialize();
                 EthAddress::new_secp256k1(&public_key)
                     .and_then(|eth_address| Address::new_delegated(EAM_ACTOR_ID, &eth_address.0))
@@ -293,7 +292,12 @@ fn prepare_blobs_power_table(input: &PowerUpdates) -> PowerTableUpdates {
                     .unwrap_or_else(|_error| {
                         tracing::debug!("can not construct delegated address from public key");
                         None
-                    })
+                    }).map(|address| {
+                    Validator {
+                        power: Power(power),
+                        address
+                    }
+                })
             })
             .collect(),
     )
