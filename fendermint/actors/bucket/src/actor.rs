@@ -29,7 +29,7 @@ impl Actor {
         rt.validate_immediate_caller_accept_any()?;
         let state = rt.state::<State>()?;
         let key = BytesKey(params.key);
-        let mut ret = ObjectState { hash: params.hash.clone(), metadata: params.metadata.clone() };
+        let mut ret = ObjectState { hash: params.hash, metadata: params.metadata.clone() };
         if let Some(object) = state.get(rt.store(), &key)? {
             ret = object;
             if params.overwrite {
