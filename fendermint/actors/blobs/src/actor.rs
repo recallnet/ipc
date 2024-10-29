@@ -627,7 +627,7 @@ mod tests {
             IpldBlock::serialize_cbor(&approve_params).unwrap(),
         );
         let expected_return = Err(ActorError::illegal_argument(format!(
-            "from {} does not match origin or caller",
+            "address {} does not match origin or caller",
             receiver_f4_eth_addr
         )));
         assert_eq!(result, expected_return);
@@ -728,7 +728,7 @@ mod tests {
             IpldBlock::serialize_cbor(&revoke_params).unwrap(),
         );
         let expected_return = Err(ActorError::illegal_argument(format!(
-            "from {} does not match origin or caller",
+            "address {} does not match origin or caller",
             receiver_f4_eth_addr
         )));
         assert_eq!(result, expected_return);
