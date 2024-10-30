@@ -54,7 +54,7 @@ impl Actor {
             params.ttl,
         )?;
         // Update state
-        let _root = rt.transaction(|st: &mut State, rt| {
+        rt.transaction(|st: &mut State, rt| {
             st.add(
                 rt.store(),
                 key,
@@ -77,7 +77,7 @@ impl Actor {
         // Delete blob for object
         delete_blob(rt, Some(state.owner), object.hash)?;
         // Update state
-        let _res = rt.transaction(|st: &mut State, rt| st.delete(rt.store(), &key))?;
+        rt.transaction(|st: &mut State, rt| st.delete(rt.store(), &key))?;
         Ok(())
     }
 
