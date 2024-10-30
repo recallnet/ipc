@@ -882,7 +882,7 @@ mod tests {
         rt.verify();
         assert!(result.is_err());
 
-        // Uncommit 80
+        // Uncommit 80 -> okay
         rt.expect_validate_caller_any();
         let uncommit_params = RemoveStorageCommitmentParams {
             address: id_addr,
