@@ -26,9 +26,18 @@ const AUTO_TTL: ChainEpoch = 3600; // one hour
 
 /// Storage commitment, along with tokens committed
 #[derive(Debug, Serialize_tuple, Deserialize_tuple)]
-struct CapacityCommitted {
+pub struct CapacityCommitted {
     pub storage: u64,
     pub tokens: TokenAmount,
+}
+
+impl Default for CapacityCommitted {
+    fn default() -> Self {
+        Self {
+            storage: 0,
+            tokens: TokenAmount::zero(),
+        }
+    }
 }
 
 /// The state represents all accounts and stored blobs.
@@ -110,15 +119,18 @@ impl State {
         let storage_commitment = self.capacity_commited.entry(validator).or_default();
         StorageCommitment {
             address: validator,
-            storage: *storage_commitment.storage,
+            storage: storage_commitment.storage,
         }
     }
 
     pub fn add_storage_commitment(&mut self, validator: Address, amount: u64) -> Result<StorageCommitment, ActorError> {
-        let storage_commitment = self.capacity_commited.entry(validator).and_modify(|v| *v += amount).or_default();
+        let storage_commitment = self.capacity_commited.entry(validator).and_modify(|v| v.storage += amount).or_insert(CapacityCommitted{
+            storage: amount,
+            tokens: TokenAmount::zero(),
+        });
         Ok(StorageCommitment {
             address: validator,
-            storage: *storage_commitment.storage,
+            storage: storage_commitment.storage,
         })
     }
 
@@ -126,13 +138,13 @@ impl State {
         if let Entry::Occupied(mut entry) = self.capacity_commited.entry(validator) {
             let current = entry.get_mut();
             // If current commitment is gt amount, deduct, otherwise remove the entry
-            if *current > amount {
-                *current -= amount;
+            if current.storage > amount {
+                current.storage -= amount;
                 Ok(StorageCommitment {
                     address: validator,
-                    storage: *current.storage,
+                    storage: current.storage,
                 })
-            } else if *current == amount {
+            } else if current.storage == amount {
                 entry.remove();
                 Ok(StorageCommitment {
                     address: validator,
