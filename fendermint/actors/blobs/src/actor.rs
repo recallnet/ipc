@@ -4,7 +4,7 @@
 
 use std::collections::HashSet;
 
-use fendermint_actor_blobs_shared::params::{AddBlobParams, ApproveCreditParams, BuyCreditParams, DeleteBlobParams, FinalizeBlobParams, GetAccountParams, GetBlobParams, GetBlobStatusParams, GetPendingBlobsParams, GetStatsReturn, GetStorageCommittedParams, RevokeCreditParams, CommitStorageParams, StorageCommitment, UncommitStorageParams};
+use fendermint_actor_blobs_shared::params::{AddBlobParams, ApproveCreditParams, BuyCreditParams, DeleteBlobParams, FinalizeBlobParams, GetAccountParams, GetBlobParams, GetBlobStatusParams, GetPendingBlobsParams, GetStatsReturn, GetStorageCommittedParams, RevokeCreditParams, AddStorageCommitmentParams, StorageCommitment, UncommitStorageParams};
 use fendermint_actor_blobs_shared::state::{
     Account, Blob, BlobStatus, CreditApproval, Hash, PublicKey, Subscription,
 };
@@ -50,21 +50,21 @@ impl BlobsActor {
         Ok(storage_committed)
     }
 
-    fn commit_storage(rt: &impl Runtime, params: CommitStorageParams) -> Result<StorageCommitment, ActorError> {
+    fn add_storage_commitment(rt: &impl Runtime, params: AddStorageCommitmentParams) -> Result<StorageCommitment, ActorError> {
         rt.validate_immediate_caller_accept_any()?;
         let address = resolve_external_non_machine(rt, params.address)?;
         assert_message_source(rt, address)?;
         rt.transaction(|st: &mut State, _rt| {
-            st.commit_storage(address, params.storage)
+            st.add_storage_commitment(address, params.storage)
         })
     }
 
-    fn uncommit_storage(rt: &impl Runtime, params: UncommitStorageParams) -> Result<StorageCommitment, ActorError> {
+    fn remove_storage_commitment(rt: &impl Runtime, params: UncommitStorageParams) -> Result<StorageCommitment, ActorError> {
         rt.validate_immediate_caller_accept_any()?;
         let address = resolve_external_non_machine(rt, params.address)?;
         assert_message_source(rt, address)?;
         rt.transaction(|st: &mut State, _rt| {
-            st.uncommit_storage(address, params.storage)
+            st.remove_storage_commitment(address, params.storage)
         })
     }
 
@@ -262,9 +262,9 @@ impl ActorCode for BlobsActor {
     actor_dispatch! {
         Constructor => constructor,
         GetStats => get_stats,
-        CommitStorage => commit_storage,
-        UncommitStorage => uncommit_storage,
         GetStorageCommitment => get_storage_commitment,
+        AddStorageCommitment => add_storage_commitment,
+        RemoveStorageCommitment => remove_storage_commitment,
         BuyCredit => buy_credit,
         ApproveCredit => approve_credit,
         RevokeCredit => revoke_credit,
@@ -821,13 +821,13 @@ mod tests {
 
         // Commit 42
         rt.expect_validate_caller_any();
-        let commitment_params = CommitStorageParams {
+        let commitment_params = AddStorageCommitmentParams {
             // Use id_addr, see below why
             address: id_addr,
             storage: 42,
         };
         let result = rt.call::<BlobsActor>(
-            Method::CommitStorage as u64,
+            Method::AddStorageCommitment as u64,
             IpldBlock::serialize_cbor(&commitment_params).unwrap(),
         );
         rt.verify();
@@ -839,12 +839,12 @@ mod tests {
 
         // Commit 58 more, to get to 100 total
         rt.expect_validate_caller_any();
-        let commitment_params = CommitStorageParams {
+        let commitment_params = AddStorageCommitmentParams {
             address: f4_eth_addr,
             storage: 58,
         };
         let result = rt.call::<BlobsActor>(
-            Method::CommitStorage as u64,
+            Method::AddStorageCommitment as u64,
             IpldBlock::serialize_cbor(&commitment_params).unwrap(),
         );
         rt.verify();
@@ -860,7 +860,7 @@ mod tests {
             storage: 20,
         };
         let result = rt.call::<BlobsActor>(
-            Method::UncommitStorage as u64,
+            Method::RemoveStorageCommitment as u64,
             IpldBlock::serialize_cbor(&uncommit_params).unwrap(),
         );
         rt.verify();
@@ -876,7 +876,7 @@ mod tests {
             storage: 200,
         };
         let result = rt.call::<BlobsActor>(
-            Method::UncommitStorage as u64,
+            Method::RemoveStorageCommitment as u64,
             IpldBlock::serialize_cbor(&uncommit_params).unwrap(),
         );
         rt.verify();
@@ -887,13 +887,13 @@ mod tests {
 
         // Try committing as a "wrong" address -> should err
         rt.expect_validate_caller_any();
-        let commitment_params = CommitStorageParams {
+        let commitment_params = AddStorageCommitmentParams {
             // Use id_addr, see below why
             address: f4_eth_addr_wrong,
             storage: 42,
         };
         let result = rt.call::<BlobsActor>(
-            Method::CommitStorage as u64,
+            Method::AddStorageCommitment as u64,
             IpldBlock::serialize_cbor(&commitment_params).unwrap(),
         );
         rt.verify();

@@ -24,7 +24,7 @@ pub struct StorageCommitment {
 
 /// Params to increase storage committed per validator.
 #[derive(Clone, Debug, Serialize_tuple, Deserialize_tuple)]
-pub struct CommitStorageParams {
+pub struct AddStorageCommitmentParams {
     pub address: Address,
     pub storage: u64,
 }

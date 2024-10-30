@@ -107,7 +107,7 @@ impl State {
         }
     }
 
-    pub fn commit_storage(&mut self, validator: Address, amount: u64) -> Result<StorageCommitment, ActorError> {
+    pub fn add_storage_commitment(&mut self, validator: Address, amount: u64) -> Result<StorageCommitment, ActorError> {
         let storage_commitment = self.capacity_commited.entry(validator).and_modify(|v| *v += amount).or_insert(amount);
         Ok(StorageCommitment {
             address: validator,
@@ -115,7 +115,7 @@ impl State {
         })
     }
 
-    pub fn uncommit_storage(&mut self, validator: Address, amount: u64) -> anyhow::Result<StorageCommitment, ActorError> {
+    pub fn remove_storage_commitment(&mut self, validator: Address, amount: u64) -> anyhow::Result<StorageCommitment, ActorError> {
         if let Entry::Occupied(mut entry) = self.capacity_commited.entry(validator) {
             let current = entry.get_mut();
             // If current commitment is gt amount, deduct, otherwise remove the entry

@@ -37,8 +37,8 @@ pub enum Method {
     FinalizeBlob = frc42_dispatch::method_hash!("FinalizeBlob"),
     DeleteBlob = frc42_dispatch::method_hash!("DeleteBlob"),
     GetStorageCommitment = frc42_dispatch::method_hash!("GetStorageCommitment"),
-    CommitStorage = frc42_dispatch::method_hash!("CommitStorage"),
-    UncommitStorage = frc42_dispatch::method_hash!("UncommitStorage"),
+    AddStorageCommitment = frc42_dispatch::method_hash!("CommitStorage"),
+    RemoveStorageCommitment = frc42_dispatch::method_hash!("UncommitStorage"),
 }
 
 pub fn buy_credit(rt: &impl Runtime, recipient: Address) -> Result<Account, ActorError> {
