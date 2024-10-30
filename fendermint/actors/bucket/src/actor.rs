@@ -63,7 +63,7 @@ impl Actor {
                 params.overwrite,
             )
         })?;
-        Ok(Object { hash, size: params.size, expiry: sub.expiry, metadata })
+        Ok(Object { hash, recovery_hash: params.recovery_hash, size: params.size, expiry: sub.expiry, metadata })
     }
 
     fn delete_object(rt: &impl Runtime, params: DeleteParams) -> Result<(), ActorError> {
@@ -298,8 +298,8 @@ mod tests {
             .unwrap()
             .deserialize::<Object>()
             .unwrap();
-        // let state = rt.state::<State>().unwrap();
         assert_eq!(add_params.hash, result.hash);
+        assert_eq!(add_params.recovery_hash, result.recovery_hash);
         assert_eq!(add_params.size, result.size);
         assert_eq!(add_params.metadata, result.metadata);
         rt.verify();
