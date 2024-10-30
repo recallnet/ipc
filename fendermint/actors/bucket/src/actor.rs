@@ -296,10 +296,11 @@ mod tests {
             )
             .unwrap()
             .unwrap()
-            .deserialize::<ObjectState>()
+            .deserialize::<Object>()
             .unwrap();
         // let state = rt.state::<State>().unwrap();
         assert_eq!(add_params.hash, result.hash);
+        assert_eq!(add_params.size, result.size);
         assert_eq!(add_params.metadata, result.metadata);
         rt.verify();
     }
