@@ -184,8 +184,7 @@ mod tests {
     use super::*;
 
     use std::collections::HashMap;
-
-    use cid::Cid;
+    
     use fendermint_actor_blobs_shared::params::{AddBlobParams, DeleteBlobParams, GetBlobParams};
     use fendermint_actor_blobs_shared::state::{BlobStatus, Hash, PublicKey, Subscription};
     use fendermint_actor_blobs_shared::{Method as BlobMethod, BLOBS_ACTOR_ADDR};
@@ -353,10 +352,12 @@ mod tests {
             )
             .unwrap()
             .unwrap()
-            .deserialize::<Cid>()
+            .deserialize::<Object>()
             .unwrap();
-        let state = rt.state::<State>().unwrap();
-        assert_eq!(state.root, result);
+        assert_eq!(add_params.hash, result.hash);
+        assert_eq!(add_params.metadata, result.metadata);
+        assert_eq!(add_params.recovery_hash, result.recovery_hash);
+        assert_eq!(add_params.size, result.size);
         rt.verify();
 
         let hash = new_hash(256);
@@ -406,10 +407,12 @@ mod tests {
             )
             .unwrap()
             .unwrap()
-            .deserialize::<Cid>()
+            .deserialize::<Object>()
             .unwrap();
-        let state = rt.state::<State>().unwrap();
-        assert_eq!(state.root, result);
+        assert_eq!(add_params2.hash, result.hash);
+        assert_eq!(add_params2.metadata, result.metadata);
+        assert_eq!(add_params2.recovery_hash, result.recovery_hash);
+        assert_eq!(add_params2.size, result.size);
         rt.verify();
     }
 
@@ -461,10 +464,13 @@ mod tests {
             )
             .unwrap()
             .unwrap()
-            .deserialize::<Cid>()
+            .deserialize::<Object>()
             .unwrap();
         let state = rt.state::<State>().unwrap();
-        assert_eq!(state.root, result);
+        assert_eq!(add_params.hash, result.hash);
+        assert_eq!(add_params.metadata, result.metadata);
+        assert_eq!(add_params.recovery_hash, result.recovery_hash);
+        assert_eq!(add_params.size, result.size);
         rt.verify();
 
         let hash = new_hash(256);
@@ -540,10 +546,12 @@ mod tests {
             )
             .unwrap()
             .unwrap()
-            .deserialize::<Cid>()
+            .deserialize::<Object>()
             .unwrap();
-        let state = rt.state::<State>().unwrap();
-        assert_eq!(state.root, result_add);
+        assert_eq!(add_params.hash, result_add.hash);
+        assert_eq!(add_params.metadata, result_add.metadata);
+        assert_eq!(add_params.recovery_hash, result_add.recovery_hash);
+        assert_eq!(add_params.size, result_add.size);
         rt.verify();
 
         // Now actually delete it.
@@ -648,7 +656,7 @@ mod tests {
         )
         .unwrap()
         .unwrap()
-        .deserialize::<Cid>()
+        .deserialize::<Object>()
         .unwrap();
         rt.verify();
 
