@@ -19,6 +19,7 @@ use fvm_ipld_encoding::ipld_block::IpldBlock;
 use fvm_shared::address::Address;
 use fvm_shared::sys::SendFlags;
 use fvm_shared::{error::ExitCode, MethodNum};
+use fvm_shared::econ::TokenAmount;
 use num_traits::Zero;
 
 use crate::{ext, ConstructorParams, State, BLOBS_ACTOR_NAME};
@@ -55,7 +56,7 @@ impl BlobsActor {
         let address = resolve_external_non_machine(rt, params.address)?;
         assert_message_source(rt, address)?;
         rt.transaction(|st: &mut State, _rt| {
-            st.add_storage_commitment(address, params.storage)
+            st.add_storage_commitment(address, params.storage, TokenAmount::zero())
         })
     }
 
@@ -64,7 +65,7 @@ impl BlobsActor {
         let address = resolve_external_non_machine(rt, params.address)?;
         assert_message_source(rt, address)?;
         rt.transaction(|st: &mut State, _rt| {
-            st.remove_storage_commitment(address, params.storage)
+            st.remove_storage_commitment(address, params.storage, TokenAmount::zero())
         })
     }
 

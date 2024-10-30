@@ -119,36 +119,40 @@ impl State {
         let storage_commitment = self.capacity_commited.entry(validator).or_default();
         StorageCommitment {
             address: validator,
-            storage: storage_commitment.storage,
+            storage: storage_commitment.storage.clone(),
+            tokens: storage_commitment.tokens.clone(),
         }
     }
 
-    pub fn add_storage_commitment(&mut self, validator: Address, amount: u64) -> Result<StorageCommitment, ActorError> {
+    pub fn add_storage_commitment(&mut self, validator: Address, amount: u64, token_amount: TokenAmount) -> Result<StorageCommitment, ActorError> {
         let storage_commitment = self.capacity_commited.entry(validator).and_modify(|v| v.storage += amount).or_insert(CapacityCommitted{
             storage: amount,
-            tokens: TokenAmount::zero(),
+            tokens: token_amount,
         });
         Ok(StorageCommitment {
             address: validator,
-            storage: storage_commitment.storage,
+            storage: storage_commitment.storage.clone(),
+            tokens: storage_commitment.tokens.clone(),
         })
     }
 
-    pub fn remove_storage_commitment(&mut self, validator: Address, amount: u64) -> anyhow::Result<StorageCommitment, ActorError> {
+    pub fn remove_storage_commitment(&mut self, validator: Address, amount: u64, token_amount: TokenAmount) -> anyhow::Result<StorageCommitment, ActorError> {
         if let Entry::Occupied(mut entry) = self.capacity_commited.entry(validator) {
             let current = entry.get_mut();
-            // If current commitment is gt amount, deduct, otherwise remove the entry
-            if current.storage > amount {
+            if current.storage > amount && current.tokens > token_amount {
                 current.storage -= amount;
+                current.tokens -= token_amount;
                 Ok(StorageCommitment {
                     address: validator,
-                    storage: current.storage,
+                    storage: current.storage.clone(),
+                    tokens: current.tokens.clone(),
                 })
-            } else if current.storage == amount {
+            } else if current.storage == amount && current.tokens == token_amount {
                 entry.remove();
                 Ok(StorageCommitment {
                     address: validator,
                     storage: 0,
+                    tokens: TokenAmount::zero(),
                 })
             } else {
                 Err(ActorError::illegal_state(format!("can not remove more than currently committed on address {}", validator)))

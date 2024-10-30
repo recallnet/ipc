@@ -20,6 +20,7 @@ pub struct GetStorageCommittedParams(pub Address);
 pub struct StorageCommitment {
     pub address: Address,
     pub storage: u64,
+    pub tokens: TokenAmount,
 }
 
 /// Params to increase storage committed per validator.
