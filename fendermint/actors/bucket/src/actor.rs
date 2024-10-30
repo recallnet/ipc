@@ -29,13 +29,10 @@ impl Actor {
         rt.validate_immediate_caller_accept_any()?;
         let state = rt.state::<State>()?;
         let key = BytesKey(params.key);
-        let mut hash = params.hash;
-        let mut metadata = params.metadata.clone();
+        let metadata = params.metadata.clone();
         if let Some(object) = state.get(rt.store(), &key)? {
-            hash = object.hash;
-            metadata = object.metadata;
             if params.overwrite {
-                delete_blob(rt, Some(state.owner), hash)?;
+                delete_blob(rt, Some(state.owner), object.hash)?;
             } else {
                 return Err(ActorError::illegal_state(
                     "key exists; use overwrite".into(),
@@ -63,7 +60,7 @@ impl Actor {
                 params.overwrite,
             )
         })?;
-        Ok(Object { hash, recovery_hash: params.recovery_hash, size: params.size, expiry: sub.expiry, metadata })
+        Ok(Object { hash: params.hash, recovery_hash: params.recovery_hash, size: params.size, expiry: sub.expiry, metadata })
     }
 
     fn delete_object(rt: &impl Runtime, params: DeleteParams) -> Result<(), ActorError> {
@@ -360,12 +357,13 @@ mod tests {
         assert_eq!(add_params.size, result.size);
         rt.verify();
 
+        let hash = new_hash(256);
         let add_params2 = AddParams {
             source: add_params.source,
             key: add_params.key,
-            hash: add_params.hash,
+            hash: hash.0,
             recovery_hash: new_hash(256).0,
-            size: add_params.size,
+            size: hash.1,
             ttl: None,
             metadata: HashMap::new(),
             overwrite: true,
