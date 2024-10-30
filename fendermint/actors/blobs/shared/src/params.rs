@@ -17,7 +17,7 @@ use crate::state::{BlobStatus, Hash, PublicKey};
 pub struct GetStorageCommittedParams(pub Address);
 
 #[derive(Clone, Debug, Serialize_tuple, Deserialize_tuple)]
-pub struct StorageCommittedReturn {
+pub struct StorageCommitment {
     pub address: Address,
     pub storage: u64,
 }

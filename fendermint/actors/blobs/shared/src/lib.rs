@@ -36,7 +36,7 @@ pub enum Method {
     GetPendingBlobs = frc42_dispatch::method_hash!("GetPendingBlobs"),
     FinalizeBlob = frc42_dispatch::method_hash!("FinalizeBlob"),
     DeleteBlob = frc42_dispatch::method_hash!("DeleteBlob"),
-    GetStorageCommitted = frc42_dispatch::method_hash!("GetStorageCommitted"),
+    GetStorageCommitment = frc42_dispatch::method_hash!("GetStorageCommitment"),
     CommitStorage = frc42_dispatch::method_hash!("CommitStorage"),
     UncommitStorage = frc42_dispatch::method_hash!("UncommitStorage"),
 }

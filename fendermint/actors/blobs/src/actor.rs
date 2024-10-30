@@ -4,7 +4,7 @@
 
 use std::collections::HashSet;
 
-use fendermint_actor_blobs_shared::params::{AddBlobParams, ApproveCreditParams, BuyCreditParams, DeleteBlobParams, FinalizeBlobParams, GetAccountParams, GetBlobParams, GetBlobStatusParams, GetPendingBlobsParams, GetStatsReturn, GetStorageCommittedParams, RevokeCreditParams, CommitStorageParams, StorageCommittedReturn, UncommitStorageParams};
+use fendermint_actor_blobs_shared::params::{AddBlobParams, ApproveCreditParams, BuyCreditParams, DeleteBlobParams, FinalizeBlobParams, GetAccountParams, GetBlobParams, GetBlobStatusParams, GetPendingBlobsParams, GetStatsReturn, GetStorageCommittedParams, RevokeCreditParams, CommitStorageParams, StorageCommitment, UncommitStorageParams};
 use fendermint_actor_blobs_shared::state::{
     Account, Blob, BlobStatus, CreditApproval, Hash, PublicKey, Subscription,
 };
@@ -43,14 +43,14 @@ impl BlobsActor {
         Ok(stats)
     }
 
-    fn get_storage_committed(rt: &impl Runtime, params: GetStorageCommittedParams) -> Result<StorageCommittedReturn, ActorError> {
+    fn get_storage_commitment(rt: &impl Runtime, params: GetStorageCommittedParams) -> Result<StorageCommitment, ActorError> {
         rt.validate_immediate_caller_accept_any()?;
         let address = resolve_external_non_machine(rt, params.0)?;
-        let storage_committed = rt.state::<State>()?.get_storage_committed(address);
+        let storage_committed = rt.state::<State>()?.get_storage_commitment(address);
         Ok(storage_committed)
     }
 
-    fn commit_storage(rt: &impl Runtime, params: CommitStorageParams) -> Result<StorageCommittedReturn, ActorError> {
+    fn commit_storage(rt: &impl Runtime, params: CommitStorageParams) -> Result<StorageCommitment, ActorError> {
         rt.validate_immediate_caller_accept_any()?;
         let address = resolve_external_non_machine(rt, params.address)?;
         assert_message_source(rt, address)?;
@@ -59,7 +59,7 @@ impl BlobsActor {
         })
     }
 
-    fn uncommit_storage(rt: &impl Runtime, params: UncommitStorageParams) -> Result<StorageCommittedReturn, ActorError> {
+    fn uncommit_storage(rt: &impl Runtime, params: UncommitStorageParams) -> Result<StorageCommitment, ActorError> {
         rt.validate_immediate_caller_accept_any()?;
         let address = resolve_external_non_machine(rt, params.address)?;
         assert_message_source(rt, address)?;
@@ -264,7 +264,7 @@ impl ActorCode for BlobsActor {
         GetStats => get_stats,
         CommitStorage => commit_storage,
         UncommitStorage => uncommit_storage,
-        GetStorageCommitted => get_storage_committed,
+        GetStorageCommitment => get_storage_commitment,
         BuyCredit => buy_credit,
         ApproveCredit => approve_credit,
         RevokeCredit => revoke_credit,
@@ -443,17 +443,17 @@ mod tests {
 
     // TODO SU add tokens to the storage commitment
 
-    fn get_storage_committed(rt: &MockRuntime, address: Address) -> StorageCommittedReturn {
+    fn get_storage_committed(rt: &MockRuntime, address: Address) -> StorageCommitment {
         let get_storage_committed_params = GetStorageCommittedParams(address);
         rt.expect_validate_caller_any();
         let result = rt
             .call::<BlobsActor>(
-                Method::GetStorageCommitted as u64,
+                Method::GetStorageCommitment as u64,
                 IpldBlock::serialize_cbor(&get_storage_committed_params).unwrap(),
             )
             .unwrap()
             .unwrap()
-            .deserialize::<StorageCommittedReturn>()
+            .deserialize::<StorageCommitment>()
             .unwrap();
         rt.verify();
         result
@@ -831,7 +831,7 @@ mod tests {
             IpldBlock::serialize_cbor(&commitment_params).unwrap(),
         );
         rt.verify();
-        let result_params = result.unwrap().unwrap().deserialize::<StorageCommittedReturn>().unwrap();
+        let result_params = result.unwrap().unwrap().deserialize::<StorageCommitment>().unwrap();
         // Used id_addr, but robust address returned is f4_eth_addr
         assert_eq!(result_params.address, f4_eth_addr);
         assert_eq!(result_params.storage, 42);
@@ -848,7 +848,7 @@ mod tests {
             IpldBlock::serialize_cbor(&commitment_params).unwrap(),
         );
         rt.verify();
-        let result_params = result.unwrap().unwrap().deserialize::<StorageCommittedReturn>().unwrap();
+        let result_params = result.unwrap().unwrap().deserialize::<StorageCommitment>().unwrap();
         assert_eq!(result_params.address, f4_eth_addr);
         assert_eq!(result_params.storage, 100);
         assert_eq!(get_storage_committed(&rt, id_addr).storage, 100);
@@ -864,7 +864,7 @@ mod tests {
             IpldBlock::serialize_cbor(&uncommit_params).unwrap(),
         );
         rt.verify();
-        let result_params = result.unwrap().unwrap().deserialize::<StorageCommittedReturn>().unwrap();
+        let result_params = result.unwrap().unwrap().deserialize::<StorageCommitment>().unwrap();
         assert_eq!(result_params.address, f4_eth_addr);
         assert_eq!(result_params.storage, 80);
         assert_eq!(get_storage_committed(&rt, id_addr).storage, 80);
@@ -880,7 +880,7 @@ mod tests {
             IpldBlock::serialize_cbor(&uncommit_params).unwrap(),
         );
         rt.verify();
-        let result_params = result.unwrap().unwrap().deserialize::<StorageCommittedReturn>().unwrap();
+        let result_params = result.unwrap().unwrap().deserialize::<StorageCommitment>().unwrap();
         assert_eq!(result_params.address, f4_eth_addr);
         assert_eq!(result_params.storage, 0);
         assert_eq!(get_storage_committed(&rt, id_addr).storage, 0);
