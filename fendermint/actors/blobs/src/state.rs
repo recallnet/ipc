@@ -124,9 +124,9 @@ impl State {
         }
     }
 
-    pub fn add_storage_commitment(&mut self, validator: Address, amount: u64, token_amount: TokenAmount) -> Result<StorageCommitment, ActorError> {
-        let storage_commitment = self.capacity_commited.entry(validator).and_modify(|v| v.storage += amount).or_insert(CapacityCommitted{
-            storage: amount,
+    pub fn add_storage_commitment(&mut self, validator: Address, storage_amount: u64, token_amount: TokenAmount) -> Result<StorageCommitment, ActorError> {
+        let storage_commitment = self.capacity_commited.entry(validator).and_modify(|v| v.storage += storage_amount).or_insert(CapacityCommitted{
+            storage: storage_amount,
             tokens: token_amount,
         });
         Ok(StorageCommitment {
@@ -136,18 +136,18 @@ impl State {
         })
     }
 
-    pub fn remove_storage_commitment(&mut self, validator: Address, amount: u64, token_amount: TokenAmount) -> anyhow::Result<StorageCommitment, ActorError> {
+    pub fn remove_storage_commitment(&mut self, validator: Address, storage_amount: u64, token_amount: TokenAmount) -> anyhow::Result<StorageCommitment, ActorError> {
         if let Entry::Occupied(mut entry) = self.capacity_commited.entry(validator) {
             let current = entry.get_mut();
-            if current.storage > amount && current.tokens > token_amount {
-                current.storage -= amount;
+            if current.storage > storage_amount && current.tokens > token_amount {
+                current.storage -= storage_amount;
                 current.tokens -= token_amount;
                 Ok(StorageCommitment {
                     address: validator,
                     storage: current.storage.clone(),
                     tokens: current.tokens.clone(),
                 })
-            } else if current.storage == amount && current.tokens == token_amount {
+            } else if current.storage == storage_amount && current.tokens == token_amount {
                 entry.remove();
                 Ok(StorageCommitment {
                     address: validator,

@@ -55,8 +55,10 @@ impl BlobsActor {
         rt.validate_immediate_caller_accept_any()?;
         let address = resolve_external_non_machine(rt, params.address)?;
         assert_message_source(rt, address)?;
+        // TODO SU maintain correspondence between token and storage
+        let tokens = rt.message().value_received();
         rt.transaction(|st: &mut State, _rt| {
-            st.add_storage_commitment(address, params.storage, TokenAmount::zero())
+            st.add_storage_commitment(address, params.storage, tokens)
         })
     }
 
