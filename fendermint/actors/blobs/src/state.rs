@@ -24,14 +24,21 @@ const MIN_TTL: ChainEpoch = 3600; // one hour
 /// The rolling epoch duration used for non-expiring blobs.
 const AUTO_TTL: ChainEpoch = 3600; // one hour
 
+/// Storage commitment, along with tokens committed
+#[derive(Debug, Serialize_tuple, Deserialize_tuple)]
+struct CapacityCommitted {
+    pub storage: u64,
+    pub tokens: TokenAmount,
+}
+
 /// The state represents all accounts and stored blobs.
 /// TODO: use raw HAMTs
 #[derive(Debug, Serialize_tuple, Deserialize_tuple)]
 pub struct State {
     /// The total storage capacity of the subnet.
-    pub capacity_total: BigInt, // TODO SU That should be maintained as a cache of total(capacity_committed)
+    pub capacity_total: BigInt,
     /// Committed storage capacity of the subnet.
-    pub capacity_commited: BTreeMap<Address, u64>,
+    pub capacity_commited: BTreeMap<Address, CapacityCommitted>,
     /// The total used storage capacity of the subnet.
     pub capacity_used: BigInt,
     /// The total number of credits sold in the subnet.
@@ -103,15 +110,15 @@ impl State {
         let storage_commitment = self.capacity_commited.entry(validator).or_default();
         StorageCommitment {
             address: validator,
-            storage: *storage_commitment,
+            storage: *storage_commitment.storage,
         }
     }
 
     pub fn add_storage_commitment(&mut self, validator: Address, amount: u64) -> Result<StorageCommitment, ActorError> {
-        let storage_commitment = self.capacity_commited.entry(validator).and_modify(|v| *v += amount).or_insert(amount);
+        let storage_commitment = self.capacity_commited.entry(validator).and_modify(|v| *v += amount).or_default();
         Ok(StorageCommitment {
             address: validator,
-            storage: *storage_commitment,
+            storage: *storage_commitment.storage,
         })
     }
 
@@ -123,7 +130,7 @@ impl State {
                 *current -= amount;
                 Ok(StorageCommitment {
                     address: validator,
-                    storage: *current,
+                    storage: *current.storage,
                 })
             } else if *current == amount {
                 entry.remove();
