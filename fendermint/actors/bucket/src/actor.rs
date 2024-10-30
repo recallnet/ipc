@@ -360,13 +360,12 @@ mod tests {
         assert_eq!(add_params.size, result.size);
         rt.verify();
 
-        let hash = new_hash(256);
         let add_params2 = AddParams {
             source: add_params.source,
             key: add_params.key,
-            hash: hash.0,
+            hash: add_params.hash,
             recovery_hash: new_hash(256).0,
-            size: hash.1,
+            size: add_params.size,
             ttl: None,
             metadata: HashMap::new(),
             overwrite: true,
