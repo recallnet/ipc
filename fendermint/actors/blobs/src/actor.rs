@@ -4,7 +4,7 @@
 
 use std::collections::HashSet;
 
-use fendermint_actor_blobs_shared::params::{AddBlobParams, ApproveCreditParams, BuyCreditParams, DeleteBlobParams, FinalizeBlobParams, GetAccountParams, GetBlobParams, GetBlobStatusParams, GetPendingBlobsParams, GetStatsReturn, GetStorageCommittedParams, RevokeCreditParams, AddStorageCommitmentParams, StorageCommitment, UncommitStorageParams};
+use fendermint_actor_blobs_shared::params::{AddBlobParams, ApproveCreditParams, BuyCreditParams, DeleteBlobParams, FinalizeBlobParams, GetAccountParams, GetBlobParams, GetBlobStatusParams, GetPendingBlobsParams, GetStatsReturn, GetStorageCommittedParams, RevokeCreditParams, AddStorageCommitmentParams, StorageCommitment, RemoveStorageCommitmentParams};
 use fendermint_actor_blobs_shared::state::{
     Account, Blob, BlobStatus, CreditApproval, Hash, PublicKey, Subscription,
 };
@@ -59,7 +59,7 @@ impl BlobsActor {
         })
     }
 
-    fn remove_storage_commitment(rt: &impl Runtime, params: UncommitStorageParams) -> Result<StorageCommitment, ActorError> {
+    fn remove_storage_commitment(rt: &impl Runtime, params: RemoveStorageCommitmentParams) -> Result<StorageCommitment, ActorError> {
         rt.validate_immediate_caller_accept_any()?;
         let address = resolve_external_non_machine(rt, params.address)?;
         assert_message_source(rt, address)?;
@@ -855,7 +855,7 @@ mod tests {
 
         // Uncommit 20
         rt.expect_validate_caller_any();
-        let uncommit_params = UncommitStorageParams {
+        let uncommit_params = RemoveStorageCommitmentParams {
             address: f4_eth_addr,
             storage: 20,
         };
@@ -869,11 +869,24 @@ mod tests {
         assert_eq!(result_params.storage, 80);
         assert_eq!(get_storage_committed(&rt, id_addr).storage, 80);
 
-        // Uncommit 200
+        // Uncommit 200 -> error
         rt.expect_validate_caller_any();
-        let uncommit_params = UncommitStorageParams {
+        let uncommit_params = RemoveStorageCommitmentParams {
             address: id_addr,
             storage: 200,
+        };
+        let result = rt.call::<BlobsActor>(
+            Method::RemoveStorageCommitment as u64,
+            IpldBlock::serialize_cbor(&uncommit_params).unwrap(),
+        );
+        rt.verify();
+        assert!(result.is_err());
+
+        // Uncommit 80
+        rt.expect_validate_caller_any();
+        let uncommit_params = RemoveStorageCommitmentParams {
+            address: id_addr,
+            storage: 80,
         };
         let result = rt.call::<BlobsActor>(
             Method::RemoveStorageCommitment as u64,

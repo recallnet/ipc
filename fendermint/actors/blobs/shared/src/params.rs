@@ -31,7 +31,7 @@ pub struct AddStorageCommitmentParams {
 
 /// Params to decrease storage committed per validator.
 #[derive(Clone, Debug, Serialize_tuple, Deserialize_tuple)]
-pub struct UncommitStorageParams {
+pub struct RemoveStorageCommitmentParams {
     pub address: Address,
     pub storage: u64,
 }

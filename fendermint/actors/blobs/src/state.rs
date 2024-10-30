@@ -121,18 +121,22 @@ impl State {
             // If current commitment is gt amount, deduct, otherwise remove the entry
             if *current > amount {
                 *current -= amount;
-                return Ok(StorageCommitment {
+                Ok(StorageCommitment {
                     address: validator,
                     storage: *current,
                 })
-            } else {
+            } else if *current == amount {
                 entry.remove();
+                Ok(StorageCommitment {
+                    address: validator,
+                    storage: 0,
+                })
+            } else {
+                Err(ActorError::illegal_state(format!("can not remove more than currently committed on address {}", validator)))
             }
+        } else {
+            Err(ActorError::illegal_state(format!("no storage committed on address {}", validator)))
         }
-        Ok(StorageCommitment {
-            address: validator,
-            storage: 0,
-        })
     }
 
     pub fn buy_credit(
