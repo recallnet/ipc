@@ -4,7 +4,7 @@
 
 use std::collections::HashSet;
 
-use fendermint_actor_blobs_shared::params::{AddBlobParams, ApproveCreditParams, BuyCreditParams, DeleteBlobParams, FinalizeBlobParams, GetAccountParams, GetBlobParams, GetBlobStatusParams, GetPendingBlobsParams, GetStatsReturn, GetStorageStakedParams, RevokeCreditParams, StakeStorageParams, StorageStakedReturn, UnstakeStorageParams};
+use fendermint_actor_blobs_shared::params::{AddBlobParams, ApproveCreditParams, BuyCreditParams, DeleteBlobParams, FinalizeBlobParams, GetAccountParams, GetBlobParams, GetBlobStatusParams, GetPendingBlobsParams, GetStatsReturn, GetStorageCommittedParams, RevokeCreditParams, CommitStorageParams, StorageCommittedReturn, UncommitStorageParams};
 use fendermint_actor_blobs_shared::state::{
     Account, Blob, BlobStatus, CreditApproval, Hash, PublicKey, Subscription,
 };
@@ -43,28 +43,28 @@ impl BlobsActor {
         Ok(stats)
     }
 
-    fn get_storage_staked(rt: &impl Runtime, params: GetStorageStakedParams) -> Result<StorageStakedReturn, ActorError> {
+    fn get_storage_committed(rt: &impl Runtime, params: GetStorageCommittedParams) -> Result<StorageCommittedReturn, ActorError> {
         rt.validate_immediate_caller_accept_any()?;
         let address = resolve_external_non_machine(rt, params.0)?;
-        let storage_committed = rt.state::<State>()?.get_storage_staked(address);
+        let storage_committed = rt.state::<State>()?.get_storage_committed(address);
         Ok(storage_committed)
     }
 
-    fn stake_storage(rt: &impl Runtime, params: StakeStorageParams) -> Result<StorageStakedReturn, ActorError> {
+    fn commit_storage(rt: &impl Runtime, params: CommitStorageParams) -> Result<StorageCommittedReturn, ActorError> {
         rt.validate_immediate_caller_accept_any()?;
         let address = resolve_external_non_machine(rt, params.address)?;
         assert_message_source(rt, address)?;
         rt.transaction(|st: &mut State, _rt| {
-            st.stake_storage(address, params.storage)
+            st.commit_storage(address, params.storage)
         })
     }
 
-    fn unstake_storage(rt: &impl Runtime, params: UnstakeStorageParams) -> Result<StorageStakedReturn, ActorError> {
+    fn uncommit_storage(rt: &impl Runtime, params: UncommitStorageParams) -> Result<StorageCommittedReturn, ActorError> {
         rt.validate_immediate_caller_accept_any()?;
         let address = resolve_external_non_machine(rt, params.address)?;
         assert_message_source(rt, address)?;
         rt.transaction(|st: &mut State, _rt| {
-            st.unstake_storage(address, params.storage)
+            st.uncommit_storage(address, params.storage)
         })
     }
 
@@ -262,9 +262,9 @@ impl ActorCode for BlobsActor {
     actor_dispatch! {
         Constructor => constructor,
         GetStats => get_stats,
-        StakeStorage => stake_storage,
-        UnstakeStorage => unstake_storage,
-        GetStorageStaked => get_storage_staked,
+        CommitStorage => commit_storage,
+        UncommitStorage => uncommit_storage,
+        GetStorageCommitted => get_storage_committed,
         BuyCredit => buy_credit,
         ApproveCredit => approve_credit,
         RevokeCredit => revoke_credit,
@@ -441,19 +441,19 @@ mod tests {
         PublicKey(data)
     }
 
-    // TODO SU add tokens to the stake
+    // TODO SU add tokens to the storage commitment
 
-    fn get_storage_staked(rt: &MockRuntime, address: Address) -> StorageStakedReturn {
-        let get_storage_staked_params = GetStorageStakedParams(address);
+    fn get_storage_committed(rt: &MockRuntime, address: Address) -> StorageCommittedReturn {
+        let get_storage_committed_params = GetStorageCommittedParams(address);
         rt.expect_validate_caller_any();
         let result = rt
             .call::<BlobsActor>(
-                Method::GetStorageStaked as u64,
-                IpldBlock::serialize_cbor(&get_storage_staked_params).unwrap(),
+                Method::GetStorageCommitted as u64,
+                IpldBlock::serialize_cbor(&get_storage_committed_params).unwrap(),
             )
             .unwrap()
             .unwrap()
-            .deserialize::<StorageStakedReturn>()
+            .deserialize::<StorageCommittedReturn>()
             .unwrap();
         rt.verify();
         result
@@ -799,7 +799,7 @@ mod tests {
     }
 
     #[test]
-    fn test_stake_storage() {
+    fn test_commit_storage() {
         let rt = construct_and_verify(1024 * 1024, 1);
 
         let id_addr = Address::new_id(110);
@@ -816,85 +816,85 @@ mod tests {
         rt.set_caller(*ETHACCOUNT_ACTOR_CODE_ID, id_addr);
         rt.set_origin(id_addr);
 
-        let staked_0 = get_storage_staked(&rt, f4_eth_addr);
-        assert_eq!(staked_0.storage, 0);
+        let committed_0 = get_storage_committed(&rt, f4_eth_addr);
+        assert_eq!(committed_0.storage, 0);
 
-        // Stake 42
+        // Commit 42
         rt.expect_validate_caller_any();
-        let stake_params = StakeStorageParams {
+        let commitment_params = CommitStorageParams {
             // Use id_addr, see below why
             address: id_addr,
             storage: 42,
         };
         let result = rt.call::<BlobsActor>(
-            Method::StakeStorage as u64,
-            IpldBlock::serialize_cbor(&stake_params).unwrap(),
+            Method::CommitStorage as u64,
+            IpldBlock::serialize_cbor(&commitment_params).unwrap(),
         );
         rt.verify();
-        let result_params = result.unwrap().unwrap().deserialize::<StorageStakedReturn>().unwrap();
+        let result_params = result.unwrap().unwrap().deserialize::<StorageCommittedReturn>().unwrap();
         // Used id_addr, but robust address returned is f4_eth_addr
         assert_eq!(result_params.address, f4_eth_addr);
         assert_eq!(result_params.storage, 42);
-        assert_eq!(get_storage_staked(&rt, id_addr).storage, 42);
+        assert_eq!(get_storage_committed(&rt, id_addr).storage, 42);
 
-        // Stake 58 more, to get to 100 total
+        // Commit 58 more, to get to 100 total
         rt.expect_validate_caller_any();
-        let stake_params = StakeStorageParams {
+        let commitment_params = CommitStorageParams {
             address: f4_eth_addr,
             storage: 58,
         };
         let result = rt.call::<BlobsActor>(
-            Method::StakeStorage as u64,
-            IpldBlock::serialize_cbor(&stake_params).unwrap(),
+            Method::CommitStorage as u64,
+            IpldBlock::serialize_cbor(&commitment_params).unwrap(),
         );
         rt.verify();
-        let result_params = result.unwrap().unwrap().deserialize::<StorageStakedReturn>().unwrap();
+        let result_params = result.unwrap().unwrap().deserialize::<StorageCommittedReturn>().unwrap();
         assert_eq!(result_params.address, f4_eth_addr);
         assert_eq!(result_params.storage, 100);
-        assert_eq!(get_storage_staked(&rt, id_addr).storage, 100);
+        assert_eq!(get_storage_committed(&rt, id_addr).storage, 100);
 
-        // Unstake 20
+        // Uncommit 20
         rt.expect_validate_caller_any();
-        let unstake_params = UnstakeStorageParams {
+        let uncommit_params = UncommitStorageParams {
             address: f4_eth_addr,
             storage: 20,
         };
         let result = rt.call::<BlobsActor>(
-            Method::UnstakeStorage as u64,
-            IpldBlock::serialize_cbor(&unstake_params).unwrap(),
+            Method::UncommitStorage as u64,
+            IpldBlock::serialize_cbor(&uncommit_params).unwrap(),
         );
         rt.verify();
-        let result_params = result.unwrap().unwrap().deserialize::<StorageStakedReturn>().unwrap();
+        let result_params = result.unwrap().unwrap().deserialize::<StorageCommittedReturn>().unwrap();
         assert_eq!(result_params.address, f4_eth_addr);
         assert_eq!(result_params.storage, 80);
-        assert_eq!(get_storage_staked(&rt, id_addr).storage, 80);
+        assert_eq!(get_storage_committed(&rt, id_addr).storage, 80);
 
-        // Unstake 200
+        // Uncommit 200
         rt.expect_validate_caller_any();
-        let unstake_params = UnstakeStorageParams {
+        let uncommit_params = UncommitStorageParams {
             address: id_addr,
             storage: 200,
         };
         let result = rt.call::<BlobsActor>(
-            Method::UnstakeStorage as u64,
-            IpldBlock::serialize_cbor(&unstake_params).unwrap(),
+            Method::UncommitStorage as u64,
+            IpldBlock::serialize_cbor(&uncommit_params).unwrap(),
         );
         rt.verify();
-        let result_params = result.unwrap().unwrap().deserialize::<StorageStakedReturn>().unwrap();
+        let result_params = result.unwrap().unwrap().deserialize::<StorageCommittedReturn>().unwrap();
         assert_eq!(result_params.address, f4_eth_addr);
         assert_eq!(result_params.storage, 0);
-        assert_eq!(get_storage_staked(&rt, id_addr).storage, 0);
+        assert_eq!(get_storage_committed(&rt, id_addr).storage, 0);
 
-        // Try staking as a "wrong" address -> should err
+        // Try committing as a "wrong" address -> should err
         rt.expect_validate_caller_any();
-        let stake_params = StakeStorageParams {
+        let commitment_params = CommitStorageParams {
             // Use id_addr, see below why
             address: f4_eth_addr_wrong,
             storage: 42,
         };
         let result = rt.call::<BlobsActor>(
-            Method::StakeStorage as u64,
-            IpldBlock::serialize_cbor(&stake_params).unwrap(),
+            Method::CommitStorage as u64,
+            IpldBlock::serialize_cbor(&commitment_params).unwrap(),
         );
         rt.verify();
         assert!(result.is_err());

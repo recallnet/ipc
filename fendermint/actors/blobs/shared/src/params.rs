@@ -11,27 +11,27 @@ use serde::{Deserialize, Serialize};
 
 use crate::state::{BlobStatus, Hash, PublicKey};
 
-/// Params to get storage staked per validator.
+/// Params to get storage committed per validator.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct GetStorageStakedParams(pub Address);
+pub struct GetStorageCommittedParams(pub Address);
 
 #[derive(Clone, Debug, Serialize_tuple, Deserialize_tuple)]
-pub struct StorageStakedReturn {
+pub struct StorageCommittedReturn {
     pub address: Address,
     pub storage: u64,
 }
 
-/// Params to increase storage staked per validator.
+/// Params to increase storage committed per validator.
 #[derive(Clone, Debug, Serialize_tuple, Deserialize_tuple)]
-pub struct StakeStorageParams {
+pub struct CommitStorageParams {
     pub address: Address,
     pub storage: u64,
 }
 
-/// Params to decrease storage staked per validator.
+/// Params to decrease storage committed per validator.
 #[derive(Clone, Debug, Serialize_tuple, Deserialize_tuple)]
-pub struct UnstakeStorageParams {
+pub struct UncommitStorageParams {
     pub address: Address,
     pub storage: u64,
 }

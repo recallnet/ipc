@@ -6,7 +6,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::collections::btree_map::Entry;
 use std::ops::Bound::{Included, Unbounded};
 
-use fendermint_actor_blobs_shared::params::{GetStatsReturn, StorageStakedReturn};
+use fendermint_actor_blobs_shared::params::{GetStatsReturn, StorageCommittedReturn};
 use fendermint_actor_blobs_shared::state::{
     Account, Blob, BlobStatus, CreditApproval, Hash, PublicKey, Subscription,
 };
@@ -99,29 +99,29 @@ impl State {
         }
     }
 
-    pub fn get_storage_staked(&mut self, validator: Address) -> StorageStakedReturn {
+    pub fn get_storage_committed(&mut self, validator: Address) -> StorageCommittedReturn {
         let storage_commitment = self.capacity_commited.entry(validator).or_default();
-        StorageStakedReturn {
+        StorageCommittedReturn {
             address: validator,
             storage: *storage_commitment,
         }
     }
 
-    pub fn stake_storage(&mut self, validator: Address, amount: u64) -> Result<StorageStakedReturn, ActorError> {
+    pub fn commit_storage(&mut self, validator: Address, amount: u64) -> Result<StorageCommittedReturn, ActorError> {
         let storage_commitment = self.capacity_commited.entry(validator).and_modify(|v| *v += amount).or_insert(amount);
-        Ok(StorageStakedReturn {
+        Ok(StorageCommittedReturn {
             address: validator,
             storage: *storage_commitment,
         })
     }
 
-    pub fn unstake_storage(&mut self, validator: Address, amount: u64) -> anyhow::Result<StorageStakedReturn, ActorError> {
+    pub fn uncommit_storage(&mut self, validator: Address, amount: u64) -> anyhow::Result<StorageCommittedReturn, ActorError> {
         if let Entry::Occupied(mut entry) = self.capacity_commited.entry(validator) {
             let current = entry.get_mut();
             // If current commitment is gt amount, deduct, otherwise remove the entry
             if *current > amount {
                 *current -= amount;
-                return Ok(StorageStakedReturn {
+                return Ok(StorageCommittedReturn {
                     address: validator,
                     storage: *current,
                 })
@@ -129,7 +129,7 @@ impl State {
                 entry.remove();
             }
         }
-        Ok(StorageStakedReturn {
+        Ok(StorageCommittedReturn {
             address: validator,
             storage: 0,
         })
