@@ -5,6 +5,7 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::ops::Bound::{Included, Unbounded};
 use std::ops::Mul;
+
 use fendermint_actor_blobs_shared::params::GetStatsReturn;
 use fendermint_actor_blobs_shared::state::{
     Account, Blob, BlobStatus, CreditApproval, Hash, PublicKey, Subscription,
@@ -264,7 +265,6 @@ impl State {
         // Tokens to send from the actor
         let tokens_to_retire = accrued - &tokens_to_stash;
         self.tokens_stash += tokens_to_stash;
-
 
         Ok((delete_from_disc, tokens_to_retire))
     }
