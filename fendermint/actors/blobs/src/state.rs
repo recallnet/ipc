@@ -47,6 +47,8 @@ pub struct State {
     pub expiries: BTreeMap<ChainEpoch, HashMap<Address, HashMap<Hash, bool>>>,
     /// Map of currently pending blob hashes to account and source Iroh node IDs.
     pub pending: BTreeMap<Hash, HashSet<(Address, PublicKey)>>,
+    /// Tokens to be redistributed at a later time
+    pub tokens_stash: TokenAmount,
 }
 
 /// Helper for handling credit approvals.
@@ -77,6 +79,7 @@ impl State {
             blobs: HashMap::new(),
             expiries: BTreeMap::new(),
             pending: BTreeMap::new(),
+            tokens_stash: TokenAmount::zero(),
         }
     }
 
