@@ -25,7 +25,7 @@ const MIN_TTL: ChainEpoch = 3600; // one hour
 const AUTO_TTL: ChainEpoch = 3600; // one hour
 
 /// Proportion of tokens to be stashed, in bps.
-const STASH_PROPORTION_BPS: u32 = 5000;
+const STASH_PROPORTION_BPS: u16 = 5000;
 
 /// The state represents all accounts and stored blobs.
 /// TODO: use raw HAMTs
