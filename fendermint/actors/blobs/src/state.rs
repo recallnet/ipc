@@ -47,8 +47,10 @@ pub struct State {
     pub expiries: BTreeMap<ChainEpoch, HashMap<Address, HashMap<Hash, bool>>>,
     /// Map of currently pending blob hashes to account and source Iroh node IDs.
     pub pending: BTreeMap<Hash, HashSet<(Address, PublicKey)>>,
-    /// Tokens to be redistributed at a later time
+    /// Tokens to be redistributed at a later time.
     pub tokens_stash: TokenAmount,
+    /// Proportion of tokens to be stashed, in bps.
+    pub stash_proportion_bps: u32,
 }
 
 /// Helper for handling credit approvals.
@@ -80,6 +82,7 @@ impl State {
             expiries: BTreeMap::new(),
             pending: BTreeMap::new(),
             tokens_stash: TokenAmount::zero(),
+            stash_proportion_bps: 5000,
         }
     }
 
@@ -256,10 +259,10 @@ impl State {
 
         // Amount accrued since the last call
         let accrued = current_balance - &self.tokens_stash;
-        // Tokens to send from the actor
-        let tokens_to_retire = accrued.div_ceil(10000).mul(5000);
         // Tokens added to the stash
-        let tokens_to_stash = accrued - &tokens_to_retire;
+        let tokens_to_stash = accrued.div_ceil(10000).mul(&self.stash_proportion_bps);
+        // Tokens to send from the actor
+        let tokens_to_retire = accrued - &tokens_to_stash;
         self.tokens_stash += tokens_to_stash;
 
 
