@@ -22,6 +22,7 @@ use fil_actors_runtime::{
 };
 use fvm_ipld_encoding::ipld_block::IpldBlock;
 use fvm_shared::address::Address;
+use fvm_shared::econ::TokenAmount;
 use fvm_shared::sys::SendFlags;
 use fvm_shared::{error::ExitCode, MethodNum, METHOD_SEND};
 use num_traits::Zero;
@@ -46,6 +47,12 @@ impl BlobsActor {
         rt.validate_immediate_caller_accept_any()?;
         let stats = rt.state::<State>()?.get_stats(rt.current_balance());
         Ok(stats)
+    }
+
+    fn get_tokens_stash(rt: &impl Runtime) -> Result<TokenAmount, ActorError> {
+        rt.validate_immediate_caller_accept_any()?;
+        let stash = rt.state::<State>()?.tokens_stash;
+        Ok(stash)
     }
 
     fn buy_credit(rt: &impl Runtime, params: BuyCreditParams) -> Result<Account, ActorError> {
@@ -174,9 +181,6 @@ impl BlobsActor {
         let (deletes, tokens_to_send) = rt.transaction(|st: &mut State, _| {
             st.handle_debit_accounts(rt.curr_epoch(), current_balance)
         })?;
-        for hash in deletes {
-            delete_from_disc(hash)?;
-        }
         // TODO When virtual gas is in place, the gas actor should be set as a destination
         extract_send_result(rt.send_simple(
             &BURNT_FUNDS_ACTOR_ADDR,
@@ -184,6 +188,9 @@ impl BlobsActor {
             None,
             tokens_to_send,
         ))?;
+        for hash in deletes {
+            delete_from_disc(hash)?;
+        }
         Ok(())
     }
 
@@ -328,6 +335,7 @@ impl ActorCode for BlobsActor {
     actor_dispatch! {
         Constructor => constructor,
         GetStats => get_stats,
+        GetTokensStash => get_tokens_stash,
         BuyCredit => buy_credit,
         ApproveCredit => approve_credit,
         RevokeCredit => revoke_credit,
@@ -808,5 +816,110 @@ mod tests {
         assert!(!subscription.auto_renew);
         assert_eq!(subscription.delegate, None);
         rt.verify();
+    }
+
+    /// Test if tokens get stashed on debit_accounts call.
+    #[test]
+    fn test_tokens_stash() {
+        let rt = construct_and_verify(1024 * 1024, 1);
+
+        let id_addr = Address::new_id(110);
+        let eth_addr = EthAddress(hex_literal::hex!(
+            "CAFEB0BA00000000000000000000000000000000"
+        ));
+        let f4_eth_addr = Address::new_delegated(10, &eth_addr.0).unwrap();
+
+        rt.set_delegated_address(id_addr.id().unwrap(), f4_eth_addr);
+        rt.set_caller(*ETHACCOUNT_ACTOR_CODE_ID, id_addr);
+        rt.set_origin(id_addr);
+
+        // Ask for the stash
+        rt.expect_validate_caller_any();
+        let stash = rt
+            .call::<BlobsActor>(Method::GetTokensStash as u64, None)
+            .unwrap()
+            .unwrap()
+            .deserialize::<TokenAmount>()
+            .unwrap();
+        rt.verify();
+        assert!(stash.is_zero());
+
+        // debit_credit for zero balance
+        rt.set_balance(TokenAmount::zero());
+        rt.expect_validate_caller_addr(vec![SYSTEM_ACTOR_ADDR]);
+        rt.set_caller(*SYSTEM_ACTOR_CODE_ID, SYSTEM_ACTOR_ADDR);
+        rt.expect_send_simple(
+            BURNT_FUNDS_ACTOR_ADDR,
+            METHOD_SEND,
+            None,
+            TokenAmount::zero(),
+            None,
+            ExitCode::OK,
+        );
+        let result = rt.call::<BlobsActor>(Method::DebitAccounts as u64, None);
+        assert!(result.is_ok());
+        // Ask for the stash -> should be zero
+        rt.expect_validate_caller_any();
+        let stash = rt
+            .call::<BlobsActor>(Method::GetTokensStash as u64, None)
+            .unwrap()
+            .unwrap()
+            .deserialize::<TokenAmount>()
+            .unwrap();
+        rt.verify();
+        assert!(stash.is_zero());
+
+        // debit_credit for balance eq 1
+        let one = TokenAmount::from_whole(1);
+        let zero_point_five = one.div_ceil(2);
+        rt.set_balance(one.clone());
+        rt.expect_validate_caller_addr(vec![SYSTEM_ACTOR_ADDR]);
+        rt.set_caller(*SYSTEM_ACTOR_CODE_ID, SYSTEM_ACTOR_ADDR);
+        rt.expect_send_simple(
+            BURNT_FUNDS_ACTOR_ADDR,
+            METHOD_SEND,
+            None,
+            zero_point_five.clone(),
+            None,
+            ExitCode::OK,
+        );
+        let result = rt.call::<BlobsActor>(Method::DebitAccounts as u64, None);
+        assert!(result.is_ok());
+        // Ask for the stash -> should be 0.5
+        rt.expect_validate_caller_any();
+        let stash = rt
+            .call::<BlobsActor>(Method::GetTokensStash as u64, None)
+            .unwrap()
+            .unwrap()
+            .deserialize::<TokenAmount>()
+            .unwrap();
+        rt.verify();
+        assert!(stash.eq(&zero_point_five));
+
+        // And now let's pretend the funds have been sent, while stash is 0.5
+        // So no new tokens accrued
+        rt.set_balance(zero_point_five.clone());
+        rt.expect_validate_caller_addr(vec![SYSTEM_ACTOR_ADDR]);
+        rt.set_caller(*SYSTEM_ACTOR_CODE_ID, SYSTEM_ACTOR_ADDR);
+        rt.expect_send_simple(
+            BURNT_FUNDS_ACTOR_ADDR,
+            METHOD_SEND,
+            None,
+            TokenAmount::zero(), // Zero should be sent
+            None,
+            ExitCode::OK,
+        );
+        let result = rt.call::<BlobsActor>(Method::DebitAccounts as u64, None);
+        assert!(result.is_ok());
+        // Ask for the stash -> should be 0.5 still
+        rt.expect_validate_caller_any();
+        let stash = rt
+            .call::<BlobsActor>(Method::GetTokensStash as u64, None)
+            .unwrap()
+            .unwrap()
+            .deserialize::<TokenAmount>()
+            .unwrap();
+        rt.verify();
+        assert!(stash.eq(&zero_point_five));
     }
 }
