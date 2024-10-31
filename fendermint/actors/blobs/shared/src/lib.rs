@@ -25,7 +25,6 @@ pub const BLOBS_ACTOR_ADDR: Address = Address::new_id(BLOBS_ACTOR_ID);
 pub enum Method {
     Constructor = METHOD_CONSTRUCTOR,
     GetStats = frc42_dispatch::method_hash!("GetStats"),
-    GetTokensStash = frc42_dispatch::method_hash!("GetTokensStash"),
     BuyCredit = frc42_dispatch::method_hash!("BuyCredit"),
     ApproveCredit = frc42_dispatch::method_hash!("ApproveCredit"),
     RevokeCredit = frc42_dispatch::method_hash!("RevokeCredit"),

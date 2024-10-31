@@ -4,7 +4,6 @@
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::ops::Bound::{Included, Unbounded};
-use std::ops::Mul;
 
 use fendermint_actor_blobs_shared::params::GetStatsReturn;
 use fendermint_actor_blobs_shared::state::{
@@ -23,9 +22,6 @@ use num_traits::{Signed, ToPrimitive, Zero};
 const MIN_TTL: ChainEpoch = 3600; // one hour
 /// The rolling epoch duration used for non-expiring blobs.
 const AUTO_TTL: ChainEpoch = 3600; // one hour
-
-/// Proportion of tokens to be stashed, in bps.
-const STASH_PROPORTION_BPS: u16 = 5000;
 
 /// The state represents all accounts and stored blobs.
 /// TODO: use raw HAMTs
@@ -51,8 +47,6 @@ pub struct State {
     pub expiries: BTreeMap<ChainEpoch, HashMap<Address, HashMap<Hash, bool>>>,
     /// Map of currently pending blob hashes to account and source Iroh node IDs.
     pub pending: BTreeMap<Hash, HashSet<(Address, PublicKey)>>,
-    /// Tokens to be redistributed at a later time.
-    pub tokens_stash: TokenAmount,
 }
 
 /// Helper for handling credit approvals.
@@ -83,7 +77,6 @@ impl State {
             blobs: HashMap::new(),
             expiries: BTreeMap::new(),
             pending: BTreeMap::new(),
-            tokens_stash: TokenAmount::zero(),
         }
     }
 
@@ -197,14 +190,11 @@ impl State {
         self.accounts.get(&address).cloned()
     }
 
-    /// Called periodically to debit accounts and adjust tokens stash.
-    /// Returns hashes to delete from disc and token amount to be retired.
     #[allow(clippy::type_complexity)]
-    pub fn handle_debit_accounts(
+    pub fn debit_accounts(
         &mut self,
         current_epoch: ChainEpoch,
-        current_balance: TokenAmount,
-    ) -> anyhow::Result<(HashSet<Hash>, TokenAmount), ActorError> {
+    ) -> anyhow::Result<HashSet<Hash>, ActorError> {
         // Delete expired subscriptions
         let mut delete_from_disc = HashSet::new();
         let expiries: Vec<(ChainEpoch, HashMap<Address, HashMap<Hash, bool>>)> = self
@@ -258,15 +248,7 @@ impl State {
             debug!("debited {} credits from {}", debit, address);
         }
 
-        // Amount accrued since the last call
-        let accrued = current_balance - &self.tokens_stash;
-        // Tokens added to the stash
-        let tokens_to_stash = accrued.div_ceil(10000).mul(&STASH_PROPORTION_BPS);
-        // Tokens to send from the actor
-        let tokens_to_retire = accrued - &tokens_to_stash;
-        self.tokens_stash += tokens_to_stash;
-
-        Ok((delete_from_disc, tokens_to_retire))
+        Ok(delete_from_disc)
     }
 
     #[allow(clippy::too_many_arguments)]

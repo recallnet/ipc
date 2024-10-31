@@ -1,3 +1,4 @@
+// Copyright 2022-2024 Protocol Labs
 pub use lib_quorum::*;
 /// This module was auto-generated with ethers-rs Abigen.
 /// More information at: <https://github.com/gakonst/ethers-rs>
