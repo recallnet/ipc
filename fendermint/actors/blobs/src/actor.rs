@@ -14,15 +14,11 @@ use fendermint_actor_blobs_shared::state::{
 };
 use fendermint_actor_blobs_shared::Method;
 use fil_actors_runtime::runtime::builtins::Type;
-use fil_actors_runtime::{
-    actor_dispatch, actor_error, deserialize_block,
-    runtime::{ActorCode, Runtime},
-    ActorError, AsActorError, FIRST_EXPORTED_METHOD_NUMBER, SYSTEM_ACTOR_ADDR,
-};
+use fil_actors_runtime::{actor_dispatch, actor_error, deserialize_block, extract_send_result, runtime::{ActorCode, Runtime}, ActorError, BURNT_FUNDS_ACTOR_ADDR, AsActorError, FIRST_EXPORTED_METHOD_NUMBER, SYSTEM_ACTOR_ADDR};
 use fvm_ipld_encoding::ipld_block::IpldBlock;
 use fvm_shared::address::Address;
 use fvm_shared::sys::SendFlags;
-use fvm_shared::{error::ExitCode, MethodNum};
+use fvm_shared::{error::ExitCode, MethodNum, METHOD_SEND};
 use num_traits::Zero;
 
 use crate::{ext, ConstructorParams, State, BLOBS_ACTOR_NAME};
@@ -169,10 +165,17 @@ impl BlobsActor {
 
     fn debit_accounts(rt: &impl Runtime) -> Result<(), ActorError> {
         rt.validate_immediate_caller_is(std::iter::once(&SYSTEM_ACTOR_ADDR))?;
-        let deletes = rt.transaction(|st: &mut State, _| st.debit_accounts(rt.curr_epoch()))?;
+        let current_balance = rt.current_balance();
+        let (deletes, tokens_to_send) = rt.transaction(|st: &mut State, _| st.handle_debit_accounts(rt.curr_epoch(), current_balance))?;
         for hash in deletes {
             delete_from_disc(hash)?;
         }
+        extract_send_result(rt.send_simple(
+            &BURNT_FUNDS_ACTOR_ADDR,
+            METHOD_SEND,
+            None,
+            tokens_to_send,
+        ))?;
         Ok(())
     }
 

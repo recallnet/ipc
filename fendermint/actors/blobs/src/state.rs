@@ -4,7 +4,7 @@
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::ops::Bound::{Included, Unbounded};
-
+use std::ops::Mul;
 use fendermint_actor_blobs_shared::params::GetStatsReturn;
 use fendermint_actor_blobs_shared::state::{
     Account, Blob, BlobStatus, CreditApproval, Hash, PublicKey, Subscription,
@@ -193,11 +193,14 @@ impl State {
         self.accounts.get(&address).cloned()
     }
 
+    /// Called periodically to debit accounts and adjust tokens stash.
+    /// Returns hashes to delete from disc and token amount to be retired.
     #[allow(clippy::type_complexity)]
-    pub fn debit_accounts(
+    pub fn handle_debit_accounts(
         &mut self,
         current_epoch: ChainEpoch,
-    ) -> anyhow::Result<HashSet<Hash>, ActorError> {
+        current_balance: TokenAmount,
+    ) -> anyhow::Result<(HashSet<Hash>, TokenAmount), ActorError> {
         // Delete expired subscriptions
         let mut delete_from_disc = HashSet::new();
         let expiries: Vec<(ChainEpoch, HashMap<Address, HashMap<Hash, bool>>)> = self
@@ -250,7 +253,17 @@ impl State {
             account.last_debit_epoch = current_epoch;
             debug!("debited {} credits from {}", debit, address);
         }
-        Ok(delete_from_disc)
+
+        // Amount accrued since the last call
+        let accrued = current_balance - &self.tokens_stash;
+        // Tokens to send from the actor
+        let tokens_to_retire = accrued.div_ceil(10000).mul(5000);
+        // Tokens added to the stash
+        let tokens_to_stash = accrued - &tokens_to_retire;
+        self.tokens_stash += tokens_to_stash;
+
+
+        Ok((delete_from_disc, tokens_to_retire))
     }
 
     #[allow(clippy::too_many_arguments)]
