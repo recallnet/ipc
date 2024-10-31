@@ -24,6 +24,9 @@ const MIN_TTL: ChainEpoch = 3600; // one hour
 /// The rolling epoch duration used for non-expiring blobs.
 const AUTO_TTL: ChainEpoch = 3600; // one hour
 
+// Proportion of tokens to be stashed, in bps.
+const STASH_PROPORTION_BPS: u32 = 5000;
+
 /// The state represents all accounts and stored blobs.
 /// TODO: use raw HAMTs
 #[derive(Debug, Serialize_tuple, Deserialize_tuple)]
@@ -50,8 +53,6 @@ pub struct State {
     pub pending: BTreeMap<Hash, HashSet<(Address, PublicKey)>>,
     /// Tokens to be redistributed at a later time.
     pub tokens_stash: TokenAmount,
-    /// Proportion of tokens to be stashed, in bps.
-    pub stash_proportion_bps: u32,
 }
 
 /// Helper for handling credit approvals.
@@ -83,7 +84,6 @@ impl State {
             expiries: BTreeMap::new(),
             pending: BTreeMap::new(),
             tokens_stash: TokenAmount::zero(),
-            stash_proportion_bps: 5000,
         }
     }
 
@@ -261,7 +261,7 @@ impl State {
         // Amount accrued since the last call
         let accrued = current_balance - &self.tokens_stash;
         // Tokens added to the stash
-        let tokens_to_stash = accrued.div_ceil(10000).mul(&self.stash_proportion_bps);
+        let tokens_to_stash = accrued.div_ceil(10000).mul(&STASH_PROPORTION_BPS);
         // Tokens to send from the actor
         let tokens_to_retire = accrued - &tokens_to_stash;
         self.tokens_stash += tokens_to_stash;
