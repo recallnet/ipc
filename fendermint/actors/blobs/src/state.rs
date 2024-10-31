@@ -24,7 +24,7 @@ const MIN_TTL: ChainEpoch = 3600; // one hour
 /// The rolling epoch duration used for non-expiring blobs.
 const AUTO_TTL: ChainEpoch = 3600; // one hour
 
-// Proportion of tokens to be stashed, in bps.
+/// Proportion of tokens to be stashed, in bps.
 const STASH_PROPORTION_BPS: u32 = 5000;
 
 /// The state represents all accounts and stored blobs.
