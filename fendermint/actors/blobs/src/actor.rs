@@ -4,11 +4,7 @@
 
 use std::collections::HashSet;
 
-use fendermint_actor_blobs_shared::params::{
-    AddBlobParams, ApproveCreditParams, BuyCreditParams, DeleteBlobParams, FinalizeBlobParams,
-    GetAccountParams, GetBlobParams, GetBlobStatusParams, GetPendingBlobsParams, GetStatsReturn,
-    RevokeCreditParams,
-};
+use fendermint_actor_blobs_shared::params::{AddBlobParams, ApproveCreditParams, BuyCreditParams, DeleteBlobParams, FinalizeBlobParams, GetAccountParams, GetBlobParams, GetBlobStatusParams, GetPendingBlobsParams, GetStatsReturn, GetStorageCommittedParams, RevokeCreditParams, AddStorageCommitmentParams, StorageCommitment, RemoveStorageCommitmentParams};
 use fendermint_actor_blobs_shared::state::{
     Account, Blob, BlobStatus, CreditApproval, Hash, PublicKey, Subscription,
 };
@@ -47,16 +43,35 @@ impl BlobsActor {
         Ok(stats)
     }
 
+    fn get_storage_commitment(rt: &impl Runtime, params: GetStorageCommittedParams) -> Result<StorageCommitment, ActorError> {
+        rt.validate_immediate_caller_accept_any()?;
+        let address = resolve_external_non_machine(rt, params.0)?;
+        let storage_committed = rt.state::<State>()?.get_storage_commitment(address);
+        Ok(storage_committed)
+    }
+
+    fn add_storage_commitment(rt: &impl Runtime, params: AddStorageCommitmentParams) -> Result<StorageCommitment, ActorError> {
+        rt.validate_immediate_caller_accept_any()?;
+        let address = resolve_external_non_machine(rt, params.address)?;
+        assert_message_source(rt, address)?;
+        rt.transaction(|st: &mut State, _rt| {
+            st.add_storage_commitment(address, params.storage)
+        })
+    }
+
+    fn remove_storage_commitment(rt: &impl Runtime, params: RemoveStorageCommitmentParams) -> Result<StorageCommitment, ActorError> {
+        rt.validate_immediate_caller_accept_any()?;
+        let address = resolve_external_non_machine(rt, params.address)?;
+        assert_message_source(rt, address)?;
+        rt.transaction(|st: &mut State, _rt| {
+            st.remove_storage_commitment(address, params.storage)
+        })
+    }
+
     fn buy_credit(rt: &impl Runtime, params: BuyCreditParams) -> Result<Account, ActorError> {
         rt.validate_immediate_caller_accept_any()?;
-        let (recipient, actor_type) = resolve_external(rt, params.0)?;
         // Recipient cannot be a machine
-        if matches!(actor_type, ActorType::Machine) {
-            return Err(ActorError::illegal_argument(format!(
-                "recipient {} cannot be a machine",
-                recipient
-            )));
-        }
+        let recipient = resolve_external_non_machine(rt, params.0)?;
         rt.transaction(|st: &mut State, rt| {
             st.buy_credit(recipient, rt.message().value_received(), rt.curr_epoch())
         })
@@ -67,37 +82,10 @@ impl BlobsActor {
         params: ApproveCreditParams,
     ) -> Result<CreditApproval, ActorError> {
         rt.validate_immediate_caller_accept_any()?;
-        let (from, actor_type) = resolve_external(rt, params.from)?;
-        let (origin, caller) = if rt.message().origin() == rt.message().caller() {
-            let (origin, _) = resolve_external(rt, rt.message().origin())?;
-            (origin, origin)
-        } else {
-            let (origin, _) = resolve_external(rt, rt.message().origin())?;
-            let (caller, _) = resolve_external(rt, rt.message().caller())?;
-            (origin, caller)
-        };
-        // Credit owner must be the transaction origin or caller
-        if from != caller && from != origin {
-            return Err(ActorError::illegal_argument(format!(
-                "from {} does not match origin or caller",
-                from
-            )));
-        }
         // Credit owner cannot be a machine
-        if matches!(actor_type, ActorType::Machine) {
-            return Err(ActorError::illegal_argument(format!(
-                "from {} cannot be a machine",
-                from
-            )));
-        }
-        let (receiver, actor_type) = resolve_external(rt, params.receiver)?;
-        // Receiver cannot be a machine
-        if matches!(actor_type, ActorType::Machine) {
-            return Err(ActorError::illegal_argument(format!(
-                "receiver {} cannot be a machine",
-                receiver
-            )));
-        }
+        let from = resolve_external_non_machine(rt, params.from)?;
+        assert_message_source(rt, from)?;
+        let receiver = resolve_external_non_machine(rt, params.receiver)?;
         let required_caller = if let Some(required_caller) = params.required_caller {
             let (required_caller, _) = resolve_external(rt, required_caller)?;
             Some(required_caller)
@@ -118,37 +106,10 @@ impl BlobsActor {
 
     fn revoke_credit(rt: &impl Runtime, params: RevokeCreditParams) -> Result<(), ActorError> {
         rt.validate_immediate_caller_accept_any()?;
-        let (from, actor_type) = resolve_external(rt, params.from)?;
-        let (origin, caller) = if rt.message().origin() == rt.message().caller() {
-            let (origin, _) = resolve_external(rt, rt.message().origin())?;
-            (origin, origin)
-        } else {
-            let (origin, _) = resolve_external(rt, rt.message().origin())?;
-            let (caller, _) = resolve_external(rt, rt.message().caller())?;
-            (origin, caller)
-        };
-        // Credit owner must be the transaction origin or caller
-        if from != caller && from != origin {
-            return Err(ActorError::illegal_argument(format!(
-                "from {} does not match origin or caller",
-                from
-            )));
-        }
         // Credit owner cannot be a machine
-        if matches!(actor_type, ActorType::Machine) {
-            return Err(ActorError::illegal_argument(format!(
-                "from {} cannot be a machine",
-                from
-            )));
-        }
-        let (receiver, actor_type) = resolve_external(rt, params.receiver)?;
-        // Receiver cannot be a machine
-        if matches!(actor_type, ActorType::Machine) {
-            return Err(ActorError::illegal_argument(format!(
-                "receiver {} cannot be a machine",
-                receiver
-            )));
-        }
+        let from = resolve_external_non_machine(rt, params.from)?;
+        assert_message_source(rt, from)?;
+        let receiver = resolve_external_non_machine(rt, params.receiver)?;
         let required_caller = if let Some(required_caller) = params.required_caller {
             let (required_caller, _) = resolve_external(rt, required_caller)?;
             Some(required_caller)
@@ -182,15 +143,7 @@ impl BlobsActor {
         let (caller, _) = resolve_external(rt, rt.message().caller())?;
         // The blob subscriber will be the sponsor if specified and approved
         let subscriber = if let Some(sponsor) = params.sponsor {
-            let (sponsor, actor_type) = resolve_external(rt, sponsor)?;
-            // Sponsor cannot be a machine
-            if matches!(actor_type, ActorType::Machine) {
-                return Err(ActorError::illegal_argument(format!(
-                    "sponsor {} cannot be a machine",
-                    sponsor
-                )));
-            }
-            sponsor
+            resolve_external_non_machine(rt, sponsor)?
         } else {
             origin
         };
@@ -255,15 +208,7 @@ impl BlobsActor {
         let (caller, _) = resolve_external(rt, rt.message().caller())?;
         // The blob subscriber will be the sponsor if specified and approved
         let subscriber = if let Some(sponsor) = params.sponsor {
-            let (sponsor, actor_type) = resolve_external(rt, sponsor)?;
-            // Sponsor cannot be a machine
-            if matches!(actor_type, ActorType::Machine) {
-                return Err(ActorError::illegal_argument(format!(
-                    "sponsor {} cannot be a machine",
-                    sponsor
-                )));
-            }
-            sponsor
+            resolve_external_non_machine(rt, sponsor)?
         } else {
             origin
         };
@@ -317,6 +262,9 @@ impl ActorCode for BlobsActor {
     actor_dispatch! {
         Constructor => constructor,
         GetStats => get_stats,
+        GetStorageCommitment => get_storage_commitment,
+        AddStorageCommitment => add_storage_commitment,
+        RemoveStorageCommitment => remove_storage_commitment,
         BuyCredit => buy_credit,
         ApproveCredit => approve_credit,
         RevokeCredit => revoke_credit,
@@ -337,6 +285,39 @@ enum ActorType {
     EthAccount,
     Evm,
     Machine,
+}
+
+/// Return Err if `source` is neither `rt.message().origin()` nor `rt.message.caller()`.
+fn assert_message_source(rt: &impl Runtime, source: Address) -> Result<(), ActorError> {
+    let (origin, caller) = if rt.message().origin() == rt.message().caller() {
+        let (origin, _) = resolve_external(rt, rt.message().origin())?;
+        (origin, origin)
+    } else {
+        let (origin, _) = resolve_external(rt, rt.message().origin())?;
+        let (caller, _) = resolve_external(rt, rt.message().caller())?;
+        (origin, caller)
+    };
+    if source != caller && source != origin {
+        return Err(ActorError::illegal_argument(format!(
+            "address {} does not match origin or caller",
+            source
+        )));
+    }
+    Ok(())
+}
+
+/// Resolve robust address and ensure it is not a Machine actor type.
+/// See `resolve_external`.
+fn resolve_external_non_machine(rt: &impl Runtime, address: Address) -> Result<Address, ActorError> {
+    let (address, actor_type) = resolve_external(rt, address)?;
+    if matches!(actor_type, ActorType::Machine) {
+        Err(ActorError::illegal_argument(format!(
+            "address {} cannot be a machine",
+            address
+        )))
+    } else {
+        Ok(address)
+    }
 }
 
 // Resolves robust address of an actor.
@@ -458,6 +439,24 @@ mod tests {
         let mut data = [0u8; 32];
         rng.fill_bytes(&mut data);
         PublicKey(data)
+    }
+
+    // TODO SU add tokens to the storage commitment
+
+    fn get_storage_committed(rt: &MockRuntime, address: Address) -> StorageCommitment {
+        let get_storage_committed_params = GetStorageCommittedParams(address);
+        rt.expect_validate_caller_any();
+        let result = rt
+            .call::<BlobsActor>(
+                Method::GetStorageCommitment as u64,
+                IpldBlock::serialize_cbor(&get_storage_committed_params).unwrap(),
+            )
+            .unwrap()
+            .unwrap()
+            .deserialize::<StorageCommitment>()
+            .unwrap();
+        rt.verify();
+        result
     }
 
     pub fn construct_and_verify(capacity: u64, debit_rate: u64) -> MockRuntime {
@@ -628,7 +627,7 @@ mod tests {
             IpldBlock::serialize_cbor(&approve_params).unwrap(),
         );
         let expected_return = Err(ActorError::illegal_argument(format!(
-            "from {} does not match origin or caller",
+            "address {} does not match origin or caller",
             receiver_f4_eth_addr
         )));
         assert_eq!(result, expected_return);
@@ -729,7 +728,7 @@ mod tests {
             IpldBlock::serialize_cbor(&revoke_params).unwrap(),
         );
         let expected_return = Err(ActorError::illegal_argument(format!(
-            "from {} does not match origin or caller",
+            "address {} does not match origin or caller",
             receiver_f4_eth_addr
         )));
         assert_eq!(result, expected_return);
@@ -797,5 +796,120 @@ mod tests {
         assert!(!subscription.auto_renew);
         assert_eq!(subscription.delegate, None);
         rt.verify();
+    }
+
+    #[test]
+    fn test_commit_storage() {
+        let rt = construct_and_verify(1024 * 1024, 1);
+
+        let id_addr = Address::new_id(110);
+        let eth_addr = EthAddress(hex_literal::hex!(
+            "CAFEB0BA00000000000000000000000000000000"
+        ));
+        let f4_eth_addr = Address::new_delegated(10, &eth_addr.0).unwrap();
+
+        let f4_eth_addr_wrong = Address::new_delegated(10, &hex_literal::hex!(
+            "DEADB0BA00000000000000000000000000000000"
+        )).unwrap();
+
+        rt.set_delegated_address(id_addr.id().unwrap(), f4_eth_addr);
+        rt.set_caller(*ETHACCOUNT_ACTOR_CODE_ID, id_addr);
+        rt.set_origin(id_addr);
+
+        let committed_0 = get_storage_committed(&rt, f4_eth_addr);
+        assert_eq!(committed_0.storage, 0);
+
+        // Commit 42
+        rt.expect_validate_caller_any();
+        let commitment_params = AddStorageCommitmentParams {
+            // Use id_addr, see below why
+            address: id_addr,
+            storage: 42,
+        };
+        let result = rt.call::<BlobsActor>(
+            Method::AddStorageCommitment as u64,
+            IpldBlock::serialize_cbor(&commitment_params).unwrap(),
+        );
+        rt.verify();
+        let result_params = result.unwrap().unwrap().deserialize::<StorageCommitment>().unwrap();
+        // Used id_addr, but robust address returned is f4_eth_addr
+        assert_eq!(result_params.address, f4_eth_addr);
+        assert_eq!(result_params.storage, 42);
+        assert_eq!(get_storage_committed(&rt, id_addr).storage, 42);
+
+        // Commit 58 more, to get to 100 total
+        rt.expect_validate_caller_any();
+        let commitment_params = AddStorageCommitmentParams {
+            address: f4_eth_addr,
+            storage: 58,
+        };
+        let result = rt.call::<BlobsActor>(
+            Method::AddStorageCommitment as u64,
+            IpldBlock::serialize_cbor(&commitment_params).unwrap(),
+        );
+        rt.verify();
+        let result_params = result.unwrap().unwrap().deserialize::<StorageCommitment>().unwrap();
+        assert_eq!(result_params.address, f4_eth_addr);
+        assert_eq!(result_params.storage, 100);
+        assert_eq!(get_storage_committed(&rt, id_addr).storage, 100);
+
+        // Uncommit 20
+        rt.expect_validate_caller_any();
+        let uncommit_params = RemoveStorageCommitmentParams {
+            address: f4_eth_addr,
+            storage: 20,
+        };
+        let result = rt.call::<BlobsActor>(
+            Method::RemoveStorageCommitment as u64,
+            IpldBlock::serialize_cbor(&uncommit_params).unwrap(),
+        );
+        rt.verify();
+        let result_params = result.unwrap().unwrap().deserialize::<StorageCommitment>().unwrap();
+        assert_eq!(result_params.address, f4_eth_addr);
+        assert_eq!(result_params.storage, 80);
+        assert_eq!(get_storage_committed(&rt, id_addr).storage, 80);
+
+        // Uncommit 200 -> error
+        rt.expect_validate_caller_any();
+        let uncommit_params = RemoveStorageCommitmentParams {
+            address: id_addr,
+            storage: 200,
+        };
+        let result = rt.call::<BlobsActor>(
+            Method::RemoveStorageCommitment as u64,
+            IpldBlock::serialize_cbor(&uncommit_params).unwrap(),
+        );
+        rt.verify();
+        assert!(result.is_err());
+
+        // Uncommit 80 -> okay
+        rt.expect_validate_caller_any();
+        let uncommit_params = RemoveStorageCommitmentParams {
+            address: id_addr,
+            storage: 80,
+        };
+        let result = rt.call::<BlobsActor>(
+            Method::RemoveStorageCommitment as u64,
+            IpldBlock::serialize_cbor(&uncommit_params).unwrap(),
+        );
+        rt.verify();
+        let result_params = result.unwrap().unwrap().deserialize::<StorageCommitment>().unwrap();
+        assert_eq!(result_params.address, f4_eth_addr);
+        assert_eq!(result_params.storage, 0);
+        assert_eq!(get_storage_committed(&rt, id_addr).storage, 0);
+
+        // Try committing as a "wrong" address -> should err
+        rt.expect_validate_caller_any();
+        let commitment_params = AddStorageCommitmentParams {
+            // Use id_addr, see below why
+            address: f4_eth_addr_wrong,
+            storage: 42,
+        };
+        let result = rt.call::<BlobsActor>(
+            Method::AddStorageCommitment as u64,
+            IpldBlock::serialize_cbor(&commitment_params).unwrap(),
+        );
+        rt.verify();
+        assert!(result.is_err());
     }
 }

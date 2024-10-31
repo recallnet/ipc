@@ -3,9 +3,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::btree_map::Entry;
 use std::ops::Bound::{Included, Unbounded};
 
-use fendermint_actor_blobs_shared::params::GetStatsReturn;
+use fendermint_actor_blobs_shared::params::{GetStatsReturn, StorageCommitment};
 use fendermint_actor_blobs_shared::state::{
     Account, Blob, BlobStatus, CreditApproval, Hash, PublicKey, Subscription,
 };
@@ -28,7 +29,9 @@ const AUTO_TTL: ChainEpoch = 3600; // one hour
 #[derive(Debug, Serialize_tuple, Deserialize_tuple)]
 pub struct State {
     /// The total storage capacity of the subnet.
-    pub capacity_total: BigInt,
+    pub capacity_total: BigInt, // TODO SU That should be maintained as a cache of total(capacity_committed)
+    /// Committed storage capacity of the subnet.
+    pub capacity_commited: BTreeMap<Address, u64>,
     /// The total used storage capacity of the subnet.
     pub capacity_used: BigInt,
     /// The total number of credits sold in the subnet.
@@ -69,6 +72,7 @@ impl State {
         Self {
             capacity_total: BigInt::from(capacity),
             capacity_used: BigInt::zero(),
+            capacity_commited: BTreeMap::new(),
             credit_sold: BigInt::zero(),
             credit_committed: BigInt::zero(),
             credit_debited: BigInt::zero(),
@@ -92,6 +96,46 @@ impl State {
             num_accounts: self.accounts.len() as u64,
             num_blobs: self.blobs.len() as u64,
             num_resolving: self.pending.len() as u64,
+        }
+    }
+
+    pub fn get_storage_commitment(&mut self, validator: Address) -> StorageCommitment {
+        let storage_commitment = self.capacity_commited.entry(validator).or_default();
+        StorageCommitment {
+            address: validator,
+            storage: *storage_commitment,
+        }
+    }
+
+    pub fn add_storage_commitment(&mut self, validator: Address, amount: u64) -> Result<StorageCommitment, ActorError> {
+        let storage_commitment = self.capacity_commited.entry(validator).and_modify(|v| *v += amount).or_insert(amount);
+        Ok(StorageCommitment {
+            address: validator,
+            storage: *storage_commitment,
+        })
+    }
+
+    pub fn remove_storage_commitment(&mut self, validator: Address, amount: u64) -> anyhow::Result<StorageCommitment, ActorError> {
+        if let Entry::Occupied(mut entry) = self.capacity_commited.entry(validator) {
+            let current = entry.get_mut();
+            // If current commitment is gt amount, deduct, otherwise remove the entry
+            if *current > amount {
+                *current -= amount;
+                Ok(StorageCommitment {
+                    address: validator,
+                    storage: *current,
+                })
+            } else if *current == amount {
+                entry.remove();
+                Ok(StorageCommitment {
+                    address: validator,
+                    storage: 0,
+                })
+            } else {
+                Err(ActorError::illegal_state(format!("can not remove more than currently committed on address {}", validator)))
+            }
+        } else {
+            Err(ActorError::illegal_state(format!("no storage committed on address {}", validator)))
         }
     }
 

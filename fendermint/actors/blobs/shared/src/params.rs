@@ -11,6 +11,31 @@ use serde::{Deserialize, Serialize};
 
 use crate::state::{BlobStatus, Hash, PublicKey};
 
+/// Params to get storage committed per validator.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct GetStorageCommittedParams(pub Address);
+
+#[derive(Clone, Debug, Serialize_tuple, Deserialize_tuple)]
+pub struct StorageCommitment {
+    pub address: Address,
+    pub storage: u64,
+}
+
+/// Params to increase storage committed per validator.
+#[derive(Clone, Debug, Serialize_tuple, Deserialize_tuple)]
+pub struct AddStorageCommitmentParams {
+    pub address: Address,
+    pub storage: u64,
+}
+
+/// Params to decrease storage committed per validator.
+#[derive(Clone, Debug, Serialize_tuple, Deserialize_tuple)]
+pub struct RemoveStorageCommitmentParams {
+    pub address: Address,
+    pub storage: u64,
+}
+
 /// Params for buying credits.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
