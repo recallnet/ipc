@@ -62,7 +62,7 @@ impl BlobsActor {
                 recipient
             )));
         }
-        let token_amount_received = rt.message().value_received();
+        let token_amount_received = rt.message().value_received(); // in TokenAmount
         let token_amount_to_burn = token_amount_received.div_floor(10000).mul(BURNED_PROPORTION_BPS);
         let account = rt.transaction(|st: &mut State, rt| {
             st.buy_credit(recipient, token_amount_received, rt.curr_epoch())
