@@ -62,10 +62,10 @@ impl BlobsActor {
                 recipient
             )));
         }
-        let amount_received = rt.message().value_received();
-        let amount_to_burn = amount_received.div_floor(10000).mul(BURNED_PROPORTION_BPS);
+        let token_amount_received = rt.message().value_received();
+        let token_amount_to_burn = token_amount_received.div_floor(10000).mul(BURNED_PROPORTION_BPS);
         let account = rt.transaction(|st: &mut State, rt| {
-            st.buy_credit(recipient, amount_received, rt.curr_epoch())
+            st.buy_credit(recipient, token_amount_received, rt.curr_epoch())
         });
 
         // TODO When virtual gas is in place, the gas actor should be set as a destination
@@ -73,7 +73,7 @@ impl BlobsActor {
             &BURNT_FUNDS_ACTOR_ADDR,
             METHOD_SEND,
             None,
-            amount_to_burn,
+            token_amount_to_burn,
         ))?;
         account
     }
