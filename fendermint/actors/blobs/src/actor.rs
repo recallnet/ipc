@@ -830,7 +830,6 @@ mod tests {
             Method::BuyCredit as u64,
             IpldBlock::serialize_cbor(&fund_params).unwrap(),
         );
-        println!("r.0 {:?}", result);
         assert!(result.is_ok());
         rt.verify();
 
