@@ -181,7 +181,7 @@ impl State {
             } else {
                 // Update or insert if nonzero
                 self.power_table
-                    .insert(validator.address.clone(), validator.power.clone());
+                    .insert(validator.address, validator.power.clone());
             }
         });
         Ok(())

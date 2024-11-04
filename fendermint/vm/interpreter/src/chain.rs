@@ -17,14 +17,17 @@ use crate::{
 use anyhow::{anyhow, bail, Context};
 use async_stm::atomically;
 use async_trait::async_trait;
-use fendermint_actor_blobs_shared::params::{GetBlobStatusParams, GetPendingBlobsParams};
-use fendermint_actor_blobs_shared::state::BlobStatus;
-use fendermint_actor_blobs_shared::Method::DebitAccounts;
+use fendermint_actor_blobs_shared::params::{
+    GetBlobStatusParams, GetPendingBlobsParams, UpdatePowerTableParams,
+};
+use fendermint_actor_blobs_shared::state::{BlobStatus, Power, PowerTableUpdates, Validator};
+use fendermint_actor_blobs_shared::Method::{DebitAccounts, UpdatePowerTable};
 use fendermint_actor_blobs_shared::{
     params::FinalizeBlobParams,
     Method::{FinalizeBlob, GetBlobStatus, GetPendingBlobs},
 };
 use fendermint_tracing::emit;
+use fendermint_vm_actor_interface::eam::{EthAddress, EAM_ACTOR_ID};
 use fendermint_vm_actor_interface::{blobs, ipc, system};
 use fendermint_vm_event::ParentFinalityMissingQuorum;
 use fendermint_vm_iroh_resolver::pool::{
@@ -746,10 +749,17 @@ where
         &self,
         (env, state): Self::State,
     ) -> anyhow::Result<(Self::State, Self::EndOutput)> {
-        let (state, out) = self.inner.end(state).await?;
+        let (mut state, out) = self.inner.end(state).await?;
 
         // Update any component that needs to know about changes in the power table.
         if !out.0 .0.is_empty() {
+            state.state_tree_mut().begin_transaction();
+            update_blobs_power_table(&mut state, &out.0)?;
+            state
+                .state_tree_mut()
+                .end_transaction(true)
+                .expect("we just started a transaction");
+
             let power_updates = out
                 .0
                  .0
@@ -871,6 +881,51 @@ fn relayed_bottom_up_ckpt_to_fvm(
         .context("failed to create syntetic message")?;
 
     Ok(msg)
+}
+
+fn update_blobs_power_table<DB>(
+    state: &mut FvmExecState<DB>,
+    input_power_updates: &PowerUpdates,
+) -> anyhow::Result<()>
+where
+    DB: Blockstore + Clone + 'static + Send + Sync,
+{
+    let blobs_power_table_updates = PowerTableUpdates(
+        input_power_updates
+            .0
+            .iter()
+            .filter_map(|validator| {
+                let power = validator.power.0;
+                let public_key = validator.public_key.0.serialize();
+                EthAddress::new_secp256k1(&public_key)
+                    .and_then(|eth_address| Address::new_delegated(EAM_ACTOR_ID, &eth_address.0))
+                    .map(Some)
+                    .unwrap_or_else(|_error| {
+                        tracing::debug!("can not construct delegated address from public key");
+                        None
+                    })
+                    .map(|address| Validator {
+                        power: Power(power),
+                        address,
+                    })
+            })
+            .collect::<Vec<_>>(),
+    );
+    let params = RawBytes::serialize(UpdatePowerTableParams(blobs_power_table_updates))?;
+    let msg = Message {
+        version: Default::default(),
+        from: system::SYSTEM_ACTOR_ADDR,
+        to: blobs::BLOBS_ACTOR_ADDR,
+        sequence: 0,
+        value: Default::default(),
+        method_num: UpdatePowerTable as u64,
+        params,
+        gas_limit: fvm_shared::BLOCK_GAS_LIMIT,
+        gas_fee_cap: Default::default(),
+        gas_premium: Default::default(),
+    };
+    state.execute_implicit(msg)?;
+    Ok(())
 }
 
 /// Get pending blobs from on chain state.

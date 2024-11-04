@@ -3,15 +3,9 @@
 
 use anyhow::Context;
 use async_trait::async_trait;
-use fendermint_actor_blobs_shared::params::UpdatePowerTableParams;
-use fendermint_actor_blobs_shared::state::{Power, PowerTableUpdates, Validator};
-use fendermint_actor_blobs_shared::Method::UpdatePowerTable;
-use fendermint_vm_actor_interface::eam::{EthAddress, EAM_ACTOR_ID};
-use fendermint_vm_actor_interface::{blobs, chainmetadata, cron, system};
+use fendermint_vm_actor_interface::{chainmetadata, cron, system};
 use fvm::executor::ApplyRet;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::RawBytes;
-use fvm_shared::message::Message;
 use fvm_shared::{address::Address, ActorID, MethodNum, BLOCK_GAS_LIMIT};
 use ipc_observability::{emit, measure_time, observe::TracingError, Traceable};
 use std::collections::HashMap;
@@ -212,22 +206,6 @@ where
             checkpoint::maybe_create_checkpoint(&self.gateway, &mut state)
                 .context("failed to create checkpoint")?
         {
-            let power_table = prepare_blobs_power_table(&updates);
-            let params = RawBytes::serialize(UpdatePowerTableParams(power_table))?;
-            let msg = Message {
-                version: Default::default(),
-                from: system::SYSTEM_ACTOR_ADDR,
-                to: blobs::BLOBS_ACTOR_ADDR,
-                sequence: 0,
-                value: Default::default(),
-                method_num: UpdatePowerTable as u64,
-                params: params,
-                gas_limit: fvm_shared::BLOCK_GAS_LIMIT,
-                gas_fee_cap: Default::default(),
-                gas_premium: Default::default(),
-            };
-            state.execute_implicit(msg)?;
-
             // Asynchronously broadcast signature, if validating.
             if let Some(ref ctx) = self.validator_ctx {
                 // Do not resend past signatures.
@@ -276,29 +254,4 @@ where
         let ret = (updates, next_gas_market.block_gas_limit);
         Ok((state, ret))
     }
-}
-
-fn prepare_blobs_power_table(input: &PowerUpdates) -> PowerTableUpdates {
-    PowerTableUpdates(
-        input
-            .0
-            .iter()
-            .filter_map(|validator| {
-                let power = validator.power.0;
-                let public_key = validator.public_key.0.serialize();
-                EthAddress::new_secp256k1(&public_key)
-                    .and_then(|eth_address| Address::new_delegated(EAM_ACTOR_ID, &eth_address.0))
-                    .map(Some)
-                    .unwrap_or_else(|_error| {
-                        tracing::debug!("can not construct delegated address from public key");
-                        None
-                    }).map(|address| {
-                    Validator {
-                        power: Power(power),
-                        address
-                    }
-                })
-            })
-            .collect(),
-    )
 }
