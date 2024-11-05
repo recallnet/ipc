@@ -9,12 +9,17 @@ use fvm_shared::clock::ChainEpoch;
 use fvm_shared::econ::TokenAmount;
 use serde::{Deserialize, Serialize};
 
-use crate::state::{BlobStatus, Hash, PublicKey};
+use crate::state::{BlobStatus, Hash, PowerTableUpdates, PublicKey};
 
 /// Params for buying credits.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct BuyCreditParams(pub Address);
+
+/// Push the power table to the actor.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct UpdatePowerTableParams(pub PowerTableUpdates);
 
 /// Params for approving credit.
 #[derive(Clone, Debug, Serialize_tuple, Deserialize_tuple)]

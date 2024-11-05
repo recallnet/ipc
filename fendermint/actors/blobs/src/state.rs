@@ -7,7 +7,8 @@ use std::ops::Bound::{Included, Unbounded};
 
 use fendermint_actor_blobs_shared::params::GetStatsReturn;
 use fendermint_actor_blobs_shared::state::{
-    Account, Blob, BlobStatus, CreditApproval, Hash, PublicKey, Subscription,
+    Account, Blob, BlobStatus, CreditApproval, Hash, PowerTable, PowerTableUpdates, PublicKey,
+    Subscription,
 };
 use fil_actors_runtime::ActorError;
 use fvm_ipld_encoding::tuple::*;
@@ -47,6 +48,8 @@ pub struct State {
     pub expiries: BTreeMap<ChainEpoch, HashMap<Address, HashMap<Hash, bool>>>,
     /// Map of currently pending blob hashes to account and source Iroh node IDs.
     pub pending: BTreeMap<Hash, HashSet<(Address, PublicKey)>>,
+    /// Power table cache
+    pub power_table: PowerTable,
 }
 
 /// Helper for handling credit approvals.
@@ -77,6 +80,7 @@ impl State {
             blobs: HashMap::new(),
             expiries: BTreeMap::new(),
             pending: BTreeMap::new(),
+            power_table: HashMap::new(),
         }
     }
 
@@ -164,6 +168,23 @@ impl State {
         approval.limit = limit;
         approval.expiry = expiry;
         Ok(approval.clone())
+    }
+
+    pub fn update_power_table(
+        &mut self,
+        power_table_updates: PowerTableUpdates,
+    ) -> anyhow::Result<(), ActorError> {
+        power_table_updates.0.iter().for_each(|validator| {
+            if validator.power.0.is_zero() {
+                // Remove if zero
+                self.power_table.remove(&validator.address);
+            } else {
+                // Update or insert if nonzero
+                self.power_table
+                    .insert(validator.address, validator.power.clone());
+            }
+        });
+        Ok(())
     }
 
     pub fn revoke_credit(

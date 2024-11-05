@@ -146,3 +146,25 @@ pub struct Subscription {
     /// The delegate origin and caller that may have created the subscription via a credit approval.
     pub delegate: Option<(Address, Address)>,
 }
+
+// --- Copied from fendermint_vm_interpreter: PowerTable and friends --- //
+
+/// Total voting power of a validator.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct Power(pub u64);
+
+/// Power table weights stored in Blobs actor state
+pub type PowerTable = HashMap<Address, Power>;
+
+/// Updates of the power table:
+/// - new entries,
+/// - changed entries contain the current value for `power`,
+/// - deleted entries contain zero for `power`.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PowerTableUpdates(pub Vec<Validator>);
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct Validator {
+    pub address: Address,
+    pub power: Power,
+}
