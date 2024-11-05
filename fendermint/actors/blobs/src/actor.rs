@@ -16,14 +16,14 @@ use fendermint_actor_blobs_shared::state::{
 use fendermint_actor_blobs_shared::Method;
 use fil_actors_runtime::runtime::builtins::Type;
 use fil_actors_runtime::{
-    actor_dispatch, actor_error, deserialize_block,
+    actor_dispatch, actor_error, deserialize_block, extract_send_result,
     runtime::{ActorCode, Runtime},
     ActorError, AsActorError, FIRST_EXPORTED_METHOD_NUMBER, SYSTEM_ACTOR_ADDR,
 };
 use fvm_ipld_encoding::ipld_block::IpldBlock;
 use fvm_shared::address::Address;
 use fvm_shared::sys::SendFlags;
-use fvm_shared::{error::ExitCode, MethodNum};
+use fvm_shared::{error::ExitCode, MethodNum, METHOD_SEND};
 use num_traits::Zero;
 
 use crate::{ext, ConstructorParams, State, BLOBS_ACTOR_NAME};
@@ -169,7 +169,8 @@ impl BlobsActor {
         } else {
             origin
         };
-        rt.transaction(|st: &mut State, rt| {
+        let tokens_received = rt.message().value_received();
+        let (subscription, tokenback) = rt.transaction(|st: &mut State, rt| {
             st.add_blob(
                 origin,
                 caller,
@@ -180,8 +181,11 @@ impl BlobsActor {
                 params.size,
                 params.ttl,
                 params.source,
+                tokens_received,
             )
-        })
+        })?;
+        extract_send_result(rt.send_simple(&origin, METHOD_SEND, None, tokenback))?;
+        Ok(subscription)
     }
 
     fn get_blob(rt: &impl Runtime, params: GetBlobParams) -> Result<Option<Blob>, ActorError> {
