@@ -80,7 +80,7 @@ pub struct ListParams {
 }
 
 /// The stored representation of an object in the bucket.
-#[derive(Clone, Debug, PartialEq, Serialize_tuple, Deserialize_tuple)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Object {
     /// The object blake3 hash.
     pub hash: Hash,
