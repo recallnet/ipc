@@ -62,5 +62,6 @@ pub mod ipc;
 pub mod multisig;
 pub mod placeholder;
 pub mod reward;
+pub mod sqlite;
 pub mod system;
 pub mod timehub;

@@ -30,6 +30,8 @@ pub enum Kind {
     Bucket,
     /// An MMR accumulator, used for timestamping data.
     Timehub,
+    /// Sqlite actor
+    Sqlite,
 }
 
 impl Display for Kind {
@@ -37,6 +39,7 @@ impl Display for Kind {
         let str = match self {
             Self::Bucket => "bucket",
             Self::Timehub => "timehub",
+            Self::Sqlite => "sqlite",
         };
         write!(f, "{}", str)
     }

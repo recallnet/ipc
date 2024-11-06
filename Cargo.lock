@@ -1476,6 +1476,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "compiler-rt-builtins"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9dc6e7326298fd095daa7892bbf01816cad1d0139e2b51194542f13727640aab"
+dependencies = [
+ "cc",
+]
+
+[[package]]
 name = "concurrent-queue"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3033,6 +3042,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2acce4a10f12dc2fb14a218589d4f1f62ef011b2d0cc4b3cb1bba8e94da14649"
 
 [[package]]
+name = "fallible-streaming-iterator"
+version = "0.1.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7360491ce676a36bf9bb3c56c1aa791658183a54d2744120f27285738d90465a"
+
+[[package]]
 name = "fastrand"
 version = "1.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3298,6 +3313,42 @@ dependencies = [
 ]
 
 [[package]]
+name = "fendermint_actor_sqlite"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "cid",
+ "fendermint_actor_machine",
+ "fendermint_testing",
+ "fil_actors_evm_shared",
+ "fil_actors_runtime",
+ "frc42_dispatch",
+ "fvm_ipld_blockstore",
+ "fvm_ipld_encoding",
+ "fvm_ipld_hamt",
+ "fvm_shared",
+ "getrandom",
+ "hex-literal 0.4.1",
+ "iroh-base",
+ "log",
+ "multihash 0.18.1",
+ "num-derive 0.3.3",
+ "num-traits",
+ "quickcheck",
+ "quickcheck_macros",
+ "rand",
+ "rusqlite",
+ "serde",
+ "serde_ipld_dagcbor",
+ "serde_json",
+ "serde_tuple",
+ "serde_with 2.3.3",
+ "serial_test",
+ "sqlite-vfs",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "fendermint_actor_timehub"
 version = "0.1.0"
 dependencies = [
@@ -3331,6 +3382,7 @@ dependencies = [
  "fendermint_actor_eam",
  "fendermint_actor_gas_market_eip1559",
  "fendermint_actor_hoku_config",
+ "fendermint_actor_sqlite",
  "fendermint_actor_timehub",
  "fil_actor_bundler",
  "fil_actors_runtime",
@@ -3378,6 +3430,7 @@ dependencies = [
  "fendermint_actor_bucket",
  "fendermint_actor_gas_market_eip1559",
  "fendermint_actor_machine",
+ "fendermint_actor_sqlite",
  "fendermint_actor_timehub",
  "fendermint_actors_api",
  "fendermint_app_options",
@@ -3682,6 +3735,7 @@ dependencies = [
  "ethers",
  "fendermint_actor_bucket",
  "fendermint_actor_machine",
+ "fendermint_actor_sqlite",
  "fendermint_actor_timehub",
  "fendermint_crypto",
  "fendermint_vm_actor_interface",
@@ -3868,6 +3922,7 @@ dependencies = [
  "fendermint_actor_gas_market_eip1559",
  "fendermint_actor_hoku_config",
  "fendermint_actor_hoku_config_shared",
+ "fendermint_actor_sqlite",
  "fendermint_actor_timehub",
  "fendermint_actors",
  "fendermint_actors_api",
@@ -7596,6 +7651,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "libsqlite3-sys"
+version = "0.28.0"
+source = "git+https://github.com/dav1do/rusqlite.git?branch=wasm32-unknown-unknown#5e2ef734e234a79be2b7c41f672df24c0a4a2371"
+dependencies = [
+ "cc",
+ "compiler-rt-builtins",
+ "getrandom",
+ "pkg-config",
+ "vcpkg",
+ "wasm32-unknown-unknown-openbsd-libc",
+]
+
+[[package]]
 name = "libz-sys"
 version = "1.1.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10130,6 +10198,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "rusqlite"
+version = "0.31.0"
+source = "git+https://github.com/dav1do/rusqlite.git?branch=wasm32-unknown-unknown#5e2ef734e234a79be2b7c41f672df24c0a4a2371"
+dependencies = [
+ "bitflags 2.6.0",
+ "fallible-iterator",
+ "fallible-streaming-iterator",
+ "hashlink",
+ "libsqlite3-sys",
+ "smallvec",
+]
+
+[[package]]
 name = "rust-ini"
 version = "0.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -11100,6 +11181,14 @@ name = "sptr"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3b9b39299b249ad65f3b7e96443bad61c02ca5cd3589f46cb6d610a0fd6c0d6a"
+
+[[package]]
+name = "sqlite-vfs"
+version = "0.2.0"
+source = "git+https://github.com/sanderpick/sqlite-vfs.git?branch=wasm32-unknown-unknown#404d2c46649f24ea6ed226d2dc0bcd9e3798c20a"
+dependencies = [
+ "log",
+]
 
 [[package]]
 name = "ssh-cipher"
@@ -12883,6 +12972,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7b88b0814c9a2b323a9b46c687e726996c255ac8b64aa237dd11c81ed4854760"
 dependencies = [
  "leb128",
+]
+
+[[package]]
+name = "wasm32-unknown-unknown-openbsd-libc"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f6abee48844f5d109794276675f8f63c2ecdc21a1b941b45dd346e606fca3a8c"
+dependencies = [
+ "cc",
 ]
 
 [[package]]

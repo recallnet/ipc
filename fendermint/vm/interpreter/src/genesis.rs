@@ -383,7 +383,7 @@ impl GenesisBuilder {
         // ADM Address Manager (ADM) actor
         let machine_codes = state
             .custom_actor_manifest
-            .get_subset(vec!["bucket", "timehub"])
+            .get_subset(vec!["bucket", "timehub", "sqlite"])
             .iter()
             .map(|(name, cid)| {
                 (

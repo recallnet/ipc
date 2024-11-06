@@ -78,6 +78,7 @@ fendermint_vm_topdown = { path = "../vm/topdown" }
 fendermint_actor_bucket = { path = "../actors/bucket" }
 fendermint_actor_machine = { path = "../actors/machine" }
 fendermint_actor_timehub = { path = "../actors/timehub" }
+fendermint_actor_sqlite = { path = "../actors/sqlite" }
 fendermint_actor_blobs_shared = { path = "../actors/blobs/shared" }
 
 fvm = { workspace = true }

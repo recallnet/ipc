@@ -44,6 +44,7 @@ members = [
     "fendermint/actors/hoku_config/shared",
     "fendermint/actors/machine",
     "fendermint/actors/timehub",
+    "fendermint/actors/sqlite",
     "hoku/actor_sdk",
     "hoku/executor",
     "hoku/ipld",

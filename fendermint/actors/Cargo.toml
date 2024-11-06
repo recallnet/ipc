@@ -15,6 +15,7 @@ fendermint_actor_eam = { path = "eam", features = ["fil-actor"] }
 fendermint_actor_gas_market_eip1559 = { path = "gas_market/eip1559", features = ["fil-actor"] }
 fendermint_actor_hoku_config = { path = "hoku_config", features = ["fil-actor"] }
 fendermint_actor_timehub = { path = "timehub", features = ["fil-actor"] }
+fendermint_actor_sqlite = { path = "sqlite", features = ["fil-actor"] }
 
 [dependencies]
 cid = { workspace = true }
@@ -29,6 +30,7 @@ fendermint_actor_eam = { path = "eam" }
 fendermint_actor_gas_market_eip1559 = { path = "gas_market/eip1559" }
 fendermint_actor_hoku_config = { path = "hoku_config" }
 fendermint_actor_timehub = { path = "timehub" }
+fendermint_actor_sqlite = { path = "sqlite" }
 
 [build-dependencies]
 anyhow = { workspace = true }
