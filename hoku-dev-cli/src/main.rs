@@ -1,16 +1,17 @@
-use clap::Error;
+mod util;
+
+use clap::{Parser, Subcommand, ValueEnum};
 use regex::Regex;
 use std::fs::File;
 use std::fs::write;
-use std::io::{BufRead, BufReader};
 use std::path::Path;
-use std::process::{Command, Stdio};
+use std::process::Command;
 use std::thread;
 use std::thread::JoinHandle;
 use std::time;
-use serde::{Serialize};
-use colored::{Colorize, ColoredString};
-use const_format::formatcp;
+use serde::Serialize;
+use colored::Colorize;
+use util::pipe_sub_command;
 
 #[derive(Serialize)]
 struct Keystore {
@@ -29,9 +30,15 @@ struct ContractMap {
     supply_source_address: String
 }
 
-// IPC_FOLDER=$(readlink -f -- "$dir"/../..)
-
-const LOG_LEVEL: &str = "info";
+struct NodeConfig<'a> {
+    node_name: &'a str,
+    repo_root_dir: &'a Path,
+    ipc_config_folder: &'a str,
+    contracts: ContractMap,
+    node_number: u8,
+    is_bootstrap: bool,
+    log_level: &'a LogLevel,
+}
 
 // note: the subnet id always has the same value, we need it
 //   before it's created for use int the docker network name
@@ -80,111 +87,55 @@ const ANVIL_PUBLIC_KEYS: [&str; 10] = [
     "0xa0ee7a142d267c1f36714e4a8f75612f20a79720"
 ];
 
-
-const FOUNDRY_DOCKER_IMAGE: &str = "ghcr.io/foundry-rs/foundry:latest";
-const FM_DOCKER_IMAGE: &str = "fendermint:latest";
-const CMT_DOCKER_IMAGE: &str = "cometbft/cometbft:v0.37.x";
-const PROMTAIL_DOCKER_IMAGE: &str = "grafana/promtail:latest";
-
 const PARENT_ENDPOINT: &str = "http://localhost:8545";
 
+#[derive(Parser)]
+#[command(version, about, long_about = None)]
+struct Cli {
+    /// The level of logging
+    #[arg(default_value_t = LogLevel::Info, value_enum)]
+    log: LogLevel,
+
+    #[command(subcommand)]
+    network: Option<Commands>
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
+enum LogLevel {
+    Info,
+    Debug,
+    Silent
+}
+
+#[derive(Subcommand)]
+enum Commands {
+    Local {
+        #[arg(short, long)]
+        nodes: Option<u8>
+    },
+    Dev {
+
+    }
+}
 
 fn main() {
-    let net = std::env::args().nth(1).expect("no net given");
+    let args = Cli::parse();
+    let log_level = args.log;
 
-    if net == "dev" {
-        devnet();
-    }
-    if net == "local" {
-        localnet();
+    match &args.network {
+        Some(Commands::Dev {}) => {
+            devnet(&log_level);
+        }
+        Some(Commands::Local { nodes }) => {
+            localnet(&log_level);
+        }
+        None => {
+            panic!("no network given, network must be either `dev` or `local`");
+        }
     }
 }
 
-fn filtered_print(
-    label: &ColoredString,
-    words: String,
-    filters: &Vec<Result<Regex,regex::Error>>
-) -> () {
-    let mut mtch = false;
-    for i in 0..filters.len() {
-        let filter = filters[i].as_ref().unwrap();
-        if mtch {
-            break;
-        }
-        if filter.is_match(&words) {
-            mtch = true;
-        }
-    }
-    if !mtch {
-        println!("[{}] {}", label, words);
-    }
-}
-
-fn pipe_sub_command(
-    title: ColoredString,
-    cmd: &str,
-    args: Vec<&str>,
-    envs: Option<Vec<Vec<&str>>>,
-    current_dir: Option<&str>,
-    out_filters: Vec<Result<Regex, regex::Error>>,
-    err_filters: Vec<Result<Regex, regex::Error>>
-) -> (JoinHandle<()>, JoinHandle<()>) {
-    let lblout = title.clone();
-    let lblerr = title.clone();
-
-    let mut cmd: &mut Command = &mut Command::new(cmd);
-
-    if let Some(envs) = envs {
-        for i in 0..(envs.len()) {
-            if envs[i].len() == 2 {
-                cmd = cmd.env(envs[i][0], envs[i][1]);
-            }
-        }
-    }
-    if let Some(current_dir) = current_dir {
-        cmd.current_dir(current_dir);
-    }
-
-    let mut command_out = cmd
-        .args(args)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .unwrap();
-    let stdout = command_out.stdout.take().expect(&format!("could not take {} stdout", lblout));
-    let stderr = command_out.stderr.take().expect(&format!("could not take {} stderr", lblerr));
-
-    // let (stdout_tx, stdout_rx) = std::sync::mpsc::channel();
-    // let (stderr_tx, stderr_rx) = std::sync::mpsc::channel();
-
-    let stdout_thread = thread::spawn(move || {
-        let stdout_lines = BufReader::new(stdout).lines();
-        for line in stdout_lines {
-            let line = line.unwrap();
-            filtered_print(&lblout, line, &out_filters);
-        }
-    });
-
-    // TODO: all of our make tasks pipe info through stderr, figure out why
-    let stderr_thread = thread::spawn(move || {
-        let stderr_lines = BufReader::new(stderr).lines();
-        for line in stderr_lines {
-            let line = line.unwrap();
-            filtered_print(&lblerr, line, &err_filters);
-        }
-    });
-
-    // let status = command_out
-    //     .wait()
-    //     .expect("Internal error, failed to wait on child");
-
-    return (stdout_thread, stderr_thread);
-    // let stdout = stdout_rx.into_iter().collect::<Vec<String>>().join("");
-    // let stderr = stderr_rx.into_iter().collect::<Vec<String>>().join("");
-
-}
-
-fn devnet() {
+fn devnet(log_level: &LogLevel) {
     // if do_setup {
     //     Command::new("make")
     //         .args("config-devnet")
@@ -199,7 +150,8 @@ fn devnet() {
         None,
         None,
         vec![],
-        vec![]
+        vec![],
+        log_level
     );
 
     // TODO: use channels to pass ready messages instead of sleep calls, maybe not worth the effort since waiting works?
@@ -211,7 +163,8 @@ fn devnet() {
         None,
         None,
         vec![],
-        vec![]
+        vec![],
+        log_level
     );
     let (fendermint_stdout, fendermint_stderr) = pipe_sub_command(
         String::from("FENDERMINT").bright_yellow().bold(),
@@ -220,7 +173,8 @@ fn devnet() {
         None,
         None,
         vec![],
-        vec![]
+        vec![],
+        log_level
     );
 
     thread::sleep(time::Duration::from_secs(3));
@@ -231,7 +185,8 @@ fn devnet() {
         None,
         None,
         vec![],
-        vec![]
+        vec![],
+        log_level
     );
     let (evm_stdout, evm_stderr) = pipe_sub_command(
         String::from("EVM_RPC").red().bold(),
@@ -240,7 +195,8 @@ fn devnet() {
         None,
         None,
         vec![],
-        vec![]
+        vec![],
+        log_level
     );
 
     iroh_stdout.join().unwrap();
@@ -260,7 +216,8 @@ fn devnet() {
 }
 
 // TODO: this doesn't build or install anything. we are just starting the network here
-fn localnet() {
+fn localnet(log_level: &LogLevel) {
+    // TODO: show startup message, and convert plain printlns to use [STARTUP] tag
 
     let filtered_list = vec![
         Regex::new("eth_blockNumber"),
@@ -285,7 +242,18 @@ fn localnet() {
     let ipc_config_dir = Path::new(&home).join(".ipc");
     let ipc_config_folder = ipc_config_dir.to_str().unwrap(); // "/Users/jwagner/.ipc"
 
-    println!("starting with clean .ipc dir");
+    println!("");
+    println!("--------------------------------------------------");
+    println!("               hoku is starting");
+    println!("--------------------------------------------------");
+    println!("");
+    let three_seconds = time::Duration::from_secs(3);
+    thread::sleep(three_seconds);
+
+    if matches!(log_level, LogLevel::Debug) {
+        println!("starting with clean .ipc dir");
+    }
+
     Command::new("rm")
         .args([
             "-rf",
@@ -298,28 +266,6 @@ fn localnet() {
         .output()
         .expect("failed to mkdir .ipc");
 
-    //    Command::new("docker")
-    //        .args(["network", "create", NETWORK_NAME])
-    //        .output()
-    //        .expect("failed to create network");
-
-    //    let docker_anvil_out = Command::new("docker")
-    //        .args([
-    //            "run",
-    //            "-d",
-    //            "--name",
-    //            "anvil",
-    //            "--network",
-    //            // TODO: hardhat deploy scripts don't know about the docker network, so using host here
-    //            "host",
-    //            // "--publish",
-    //            // &format!("{ANVIL_HOST_PORT}:8545"),
-    //            FOUNDRY_DOCKER_IMAGE,
-    //            "anvil --host 0.0.0.0"
-    //        ])
-    //        .output()
-    //        .expect("failed to start anvil node");
-
     let (anvil_stdout, anvil_stderr) = pipe_sub_command(
         String::from("ANVIL").blue().bold(),
         "anvil",
@@ -327,10 +273,11 @@ fn localnet() {
         None,
         None,
         filtered_list.clone(),
-        filtered_list.clone()
+        filtered_list.clone(),
+        log_level
     );
 
-    println!("anvil started");
+    println!("[{}] anvil started", String::from("STARTUP").white().bold());
 
     // put validate private keys where the create_node func can find them
     for i in 0..(VALIDATOR_COUNT - 1) {
@@ -339,7 +286,9 @@ fn localnet() {
 
         write(filepath, private_key).unwrap();
     }
-    println!("finished setting up validator private keys");
+
+    println!("[{}] finished setting up validator private keys", String::from("STARTUP").white().bold());
+
 
     let lib_deploy_out = Command::new("npx")
         .current_dir(repo_root_dir.join("contracts"))
@@ -355,9 +304,13 @@ fn localnet() {
         .output()
         .expect("failed to run hardhat deploy-libraries");
 
-    println!("library contracts deployed");
-    println!("{:?}", lib_deploy_out);
-    println!("");
+    println!("[{}] library contracts deployed", String::from("STARTUP").white().bold());
+
+    if matches!(log_level, LogLevel::Debug) {
+        println!("");
+        println!("{:?}", lib_deploy_out);
+        println!("");
+    }
 
     let gateway_deploy_out = Command::new("npx")
         .current_dir(repo_root_dir.join("contracts"))
@@ -378,9 +331,14 @@ fn localnet() {
         .output()
         .expect("failed to run hardhat deploy-gateway-local");
 
-    println!("gateway contracts deployed");
-    println!("{:?}", gateway_deploy_out);
-    println!("");
+    if !matches!(log_level, LogLevel::Silent) {
+        println!("[{}] gateway contracts deployed", String::from("STARTUP").white().bold());
+    }
+    if matches!(log_level, LogLevel::Debug) {
+        println!("");
+        println!("{:?}", gateway_deploy_out);
+        println!("");
+    }
 
     let registry_deploy_out = Command::new("npx")
         .current_dir(repo_root_dir.join("contracts"))
@@ -403,11 +361,12 @@ fn localnet() {
         .output()
         .expect("failed to run hardhat deploy-subnet-registry-local");
 
-    println!("registry contracts deployed");
-    println!("{:?}", registry_deploy_out);
-    println!("");
-    println!("[*] IPC actors successfully deployed [*]");
-    println!("");
+    println!("[{}] registry contracts deployed", String::from("STARTUP").white().bold());
+    if matches!(log_level, LogLevel::Debug) {
+        println!("");
+        println!("{:?}", registry_deploy_out);
+        println!("");
+    }
 
     // need to run clean or we hit upgradeable saftey validation errors resulting
     // from contracts with the same name
@@ -416,6 +375,7 @@ fn localnet() {
         .output()
         .expect("failed to forge clean");
 
+    // TODO: sometimes this fails because we need to run `forge clean && forge build`
     let supply_source_token_out = Command::new("forge")
         .current_dir(repo_root_dir.join("hoku-contracts"))
         .env("RPC_URL", PARENT_ENDPOINT)
@@ -437,9 +397,12 @@ fn localnet() {
         .output()
         .expect("failed to run forge to deploy huko supply source token");
 
-    println!("supply source deployed");
-    println!("{:?}", supply_source_token_out);
-    println!("");
+    println!("[{}] supply source deployed", String::from("STARTUP").white().bold());
+    if matches!(log_level, LogLevel::Debug) {
+        println!("");
+        println!("{:?}", supply_source_token_out);
+        println!("");
+    }
 
     // fund each anvil wallet with supply token
     for i in 0..(ANVIL_PUBLIC_KEYS.len() - 1) {
@@ -451,12 +414,9 @@ fn localnet() {
         );
     }
 
-    println!("");
-
     setup_config(repo_root_dir, ipc_config_folder);
 
-    println!("setup config files");
-    println!("");
+    println!("[{}] setup config files", String::from("STARTUP").white().bold());
 
     let create_subnet_out = Command::new("ipc-cli")
         .args([
@@ -484,11 +444,24 @@ fn localnet() {
         .output()
         .expect("failed to create subnet");
 
-    println!("created ipc subnet");
-    println!("{:?}", create_subnet_out);
-    println!("");
+    println!("[{}] created ipc subnet", String::from("STARTUP").white().bold());
+    if matches!(log_level, LogLevel::Debug) {
+        println!("");
+        println!("{:?}", create_subnet_out);
+        println!("");
+    }
 
-    create_node("validator-0", repo_root_dir, ipc_config_folder, contracts, 0, true);
+    let node_0_config = NodeConfig {
+        log_level: &log_level,
+        node_name: "validator-0",
+        repo_root_dir: repo_root_dir,
+        ipc_config_folder: ipc_config_folder,
+        contracts: contracts,
+        node_number: 0,
+        is_bootstrap: true
+    };
+
+    let node_0_outs = create_node(node_0_config);
 
     // TODO: take command flag param to set number of nodes
     // create_node("validator-1", false);
@@ -503,38 +476,87 @@ fn localnet() {
     // echo "Bootstrap node endpoint: ${bootstrap_node_endpoint}"
     // bootstrap_resolver_endpoint="/dns/validator-0-fendermint/tcp/${RESOLVER_HOST_PORTS[0]}/p2p/${bootstrap_peer_id}"
     // echo "Bootstrap resolver endpoint: ${bootstrap_resolver_endpoint}"
-
-
+    println!("");
+    println!("               hoku started");
+    println!("--------------------------------------------------");
+    println!("");
+    println!("   \\\\\\\\\\\\\\\\\\\\\\              \\\\\\\\\\\\\\\\\\\\\\\\");
+    println!("   \\\\\\\\\\\\\\\\\\\\\\\\\\            \\\\\\\\\\\\\\\\\\\\\\\\\\\\");
+    println!("   \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\          \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\");
+    println!("     \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\          \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\");
+    println!("       \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\          \\\\\\\\\\\\\\\\\\\\\\\\\\\\");
+    println!("         \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\          \\\\\\\\\\\\\\\\\\\\\\\\");
+    println!("           \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\");
+    println!("             \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\");
+    println!("   \\\\\\\\\\\\\\\\\\\\\\\\           \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\");
+    println!("   \\\\\\\\\\\\\\\\\\\\\\\\\\\\           \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\");
+    println!("   \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\           \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\");
+    println!("     \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\           \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\");
+    println!("       \\\\\\\\\\\\\\\\\\\\\\\\\\\\             \\\\\\\\\\\\\\\\\\\\\\\\\\");
+    println!("         \\\\\\\\\\\\\\\\\\\\\\\\               \\\\\\\\\\\\\\\\\\\\\\");
+    println!("");
+    println!("--------------------------------------------------");
+    println!("");
 
     anvil_stdout.join().unwrap();
     anvil_stderr.join().unwrap();
 
+    let tup_0 = node_0_outs.0;
+    tup_0.0.join().unwrap();
+    tup_0.1.join().unwrap();
+
+    let tup_1 = node_0_outs.1;
+    tup_1.0.join().unwrap();
+    tup_1.1.join().unwrap();
+
+    let tup_2 = node_0_outs.2;
+    tup_2.0.join().unwrap();
+    tup_2.1.join().unwrap();
+
+    let tup_3 = node_0_outs.3;
+    tup_3.0.join().unwrap();
+    tup_3.1.join().unwrap();
+
+    let tup_4 = node_0_outs.4;
+    tup_4.0.join().unwrap();
+    tup_4.1.join().unwrap();
+
     // TODO: at the end print contract addresses and other useful info
 }
 
-fn create_node(node_name: &str, repo_root_dir: &Path, ipc_config_folder: &str, contracts: ContractMap, node_number: u8, is_bootstrap: bool) {
+fn create_node(
+    config: NodeConfig,
+) -> (
+    (JoinHandle<()>, JoinHandle<()>),
+    (JoinHandle<()>, JoinHandle<()>),
+    (JoinHandle<()>, JoinHandle<()>),
+    (JoinHandle<()>, JoinHandle<()>),
+    (JoinHandle<()>, JoinHandle<()>),
+) {
+    let NodeConfig {
+        log_level,
+        node_name,
+        repo_root_dir,
+        ipc_config_folder,
+        contracts,
+        node_number,
+        is_bootstrap
+    } = config;
 
     let ipc_config_path = Path::new(ipc_config_folder);
     let node_root_path = ipc_config_path.join(NETWORK_NAME).join(node_name);
-    // initialize directory for the node, e.g. ~/.ipc/r31337-t410f6dl55afbyjbpupdtrmedyqrnmxdmpk7rxuduafq/validator-0
-    init_node_dir(&node_root_path, &repo_root_dir, &node_number);
+    init_node_dir(&node_root_path, &node_number);
     let node_path = node_root_path.join(node_name);
     let cmt_dir = node_path.join("cometbft");
-    let env_file = node_root_path.join(".env");
+    // let env_file = node_root_path.join(".env");
     let cmt_config_file = if is_bootstrap { "bootstrap_config.toml" } else { "config.toml" };
     let cmt_config_dir = repo_root_dir.join("hoku-dev-cli").join("config").join("cometbft");
     let keys_dir = repo_root_dir.join("hoku-dev-cli").join("config").join("keys");
+//    let fm_dir = node_path.join("fendermint");
+//    let iroh_dir = node_path.join("iroh");
+//    let iroh_config_dir = repo_root_dir.join("hoku-dev-cli").join("config").join("iroh");
 
-    let fm_dir = node_path.join("fendermint");
-    let iroh_dir = node_path.join("iroh");
-    let iroh_config_dir = repo_root_dir.join("hoku-dev-cli").join("config").join("iroh");
 
-    let fm_container_name: &str = &format!("{}-fendermint", node_name);
-    let cmt_container_name: &str = &format!("{}-cometbft", node_name);
-    let iroh_container_name: &str = &format!("{}-iroh", node_name);
-    let promtail_container_name: &str = &format!("{}-promtail", node_name);
-    let objects_container_name: &str = &format!("{}-objects", node_name);
-    let ethapi_container_name: &str = &format!("{}-ethapi", node_name);
 // TODO: where do all these keys come from?  We don't need to be copying them.
     Command::new("cp")
     .args([
@@ -577,12 +599,14 @@ fn create_node(node_name: &str, repo_root_dir: &Path, ipc_config_folder: &str, c
         .output()
         .expect("failed to copy cometbft bootstrap config");
 
-    println!("copied cometbft config");
-    println!("{:?}", copy_cmt_conf);
-    println!("");
+    if matches!(log_level, LogLevel::Debug) {
+        println!("copied cometbft config");
+        println!("{:?}", copy_cmt_conf);
+        println!("");
+    }
 
     // "iroh-start",
-    let (iroh_stdout, iroh_stderr) = pipe_sub_command(
+    let iroh_out = pipe_sub_command(
         String::from("IROH").magenta().bold(),
         "iroh",
         [
@@ -600,7 +624,8 @@ fn create_node(node_name: &str, repo_root_dir: &Path, ipc_config_folder: &str, c
         ].to_vec()),
         None,
         vec![],
-        vec![]
+        vec![],
+        log_level
     );
 
     // "iroh-wait",
@@ -628,7 +653,7 @@ fn create_node(node_name: &str, repo_root_dir: &Path, ipc_config_folder: &str, c
     println!("");
 
     // "cometbft-start",
-    let (cometbft_stdout, cometbft_stderr) = pipe_sub_command(
+    let cometbft_out = pipe_sub_command(
         String::from("COMETBFT").cyan().bold(),
         "cometbft",
         [
@@ -649,7 +674,8 @@ fn create_node(node_name: &str, repo_root_dir: &Path, ipc_config_folder: &str, c
             Regex::new("indexed block exents"),
             Regex::new("Timed out")
         ],
-        vec![]
+        vec![],
+        log_level
     );
 
     // "cometbft-wait",
@@ -663,9 +689,9 @@ fn create_node(node_name: &str, repo_root_dir: &Path, ipc_config_folder: &str, c
     // Bootstrap node started. Node id 20ee1f8f1c39602c5f7bf8e161c85a6eaf194c86, peer id 16Uiu2HAmH5dzPoWL2wtQQGaPnwJZZn988xDAxbpsYu8nBhfyCrfH
     // Bootstrap node endpoint: 20ee1f8f1c39602c5f7bf8e161c85a6eaf194c86@validator-0-cometbft:26656
     // Bootstrap resolver endpoint: /dns/validator-0-fendermint/tcp/26655/p2p/16Uiu2HAmH5dzPoWL2wtQQGaPnwJZZn988xDAxbpsYu8nBhfyCrfH
-println!("node path: {}", node_path.to_str().unwrap());
+    println!("node path: {}", node_path.to_str().unwrap());
     // "fendermint-start-validator",
-    let (fendermint_stdout, fendermint_stderr) = pipe_sub_command(
+    let fendermint_out = pipe_sub_command(
         String::from("FENDERMINT").yellow().bold(),
         "./target/release/fendermint",
         ["run"].to_vec(),
@@ -681,133 +707,79 @@ println!("node path: {}", node_path.to_str().unwrap());
         ].to_vec()),
         repo_root_dir.to_str(),
         vec![],
-        vec![]
+        vec![],
+        log_level
     );
 
     println!("wait 30 seconds");
     thread::sleep(thirty_seconds);
     println!("");
 
-    // "ethapi-start",
-    let eth_out = Command::new("docker")
-        .args([
-            "run",
-            "-d",
-            "--name",
-            ethapi_container_name,
-            "--init",
-            "--user",
-            "1001",
-            "--network",
-            //NETWORK_NAME,
-            "host",
-            "--publish",
-            &format!("{:?}:8545", ETHAPI_HOST_PORTS[node_number as usize]),
-            "--env",
-            "FM_ETH__CORS__ALLOWED_ORIGINS=*",
-            "--env",
-            "FM_ETH__CORS__ALLOWED_METHODS=GET,HEAD,OPTIONS,POST",
-            "--env",
-            "FM_ETH__CORS__ALLOWED_HEADERS=Accept,Authorization,Content-Type,Origin",
-            "--env",
-            &format!("TENDERMINT_RPC_URL=http://${cmt_container_name}:26657"),
-            "--env",
-            &format!("TENDERMINT_WS_URL=ws://${cmt_container_name}:26657/websocket"),
-            "--env",
-            &format!("LOG_LEVEL={LOG_LEVEL}"),
-            "--env",
-            "RUST_BACKTRACE=1",
-            FM_DOCKER_IMAGE,
+    // "start the etherium json-rpc facade",
+    let evm_out = pipe_sub_command(
+        String::from("EVM_RPC").red().bold(),
+        "./target/release/fendermint",
+        [
             "eth",
-            "run"
-        ])
-        .output()
-        .expect(&format!("failed to start fendermint eth {:?}", node_number));
-
-    println!("started eth api");
-    println!("{:?}", eth_out);
-    println!("");
+            "run",
+            // "--http-url",
+            // "put what ever the cometbft(tendermint) url is in here"
+        ].to_vec(),
+        None,
+        None,
+        vec!(),
+        vec!(),
+        log_level
+    );
 
     // "objects-start",
-    let objects_out = Command::new("docker")
-        .args([
-            "run",
-            "-d",
-            "--name",
-            objects_container_name,
-            "--init",
-            "--user",
-            "1001",
-            "--network",
-            //NETWORK_NAME,
-            "host",
-            "--volume",
-            &format!("{}:/data", node_path.to_str().unwrap()),
-            "--publish",
-            &format!("{:?}:8001", OBJECTS_HOST_PORTS[node_number as usize]),
-            "--env",
-            &format!("FM_CHAIN_NAME={SUBNET_ID}"),
-            "--env",
-            &format!("TENDERMINT_RPC_URL=http://localhost:26657"),
-            //&format!("TENDERMINT_RPC_URL=http://{cmt_container_name}:26657"),
-            "--env",
-            &format!("IROH_RPC_ADDR=localhost:4919"),
-            //&format!("IROH_RPC_ADDR={iroh_container_name}:4919"),
-            "--env",
-            &format!("LOG_LEVEL={LOG_LEVEL}"),
-            "--env",
-            "RUST_BACKTRACE=1",
-            FM_DOCKER_IMAGE,
-            "--network=test",
-            "objects",
-            "run"
-        ])
-        .output()
-        .expect(&format!("failed to start objects {:?}", node_number));
-
-    println!("created objects");
-    println!("{:?}", objects_out);
-    println!("");
+    let objects_out = pipe_sub_command(
+        String::from("OBJECTS").green().bold(),
+        "./target/release/fendermint",
+        ["objects", "run"].to_vec(),
+        Some([["FM_NETWORK", "test"].to_vec()].to_vec()),
+        None,
+        vec!(),
+        vec!(),
+        log_level
+    );
 
     // "promtail-start",
-    Command::new("docker")
-        .args([
-            "run",
-            "-d",
-            "--name",
-            promtail_container_name,
-            "--network",
-            //NETWORK_NAME,
-            "host",
-            "--publish",
-            &format!("127.0.0.1:{}:9080", PROMTAIL_AGENT_HOST_PORTS[node_number as usize]),
-            "--volume",
-            "/var/run/docker.sock:/var/run/docker.sock",
-            "--volume",
-            &format!("{ipc_config_folder}/promtail-config.yaml:/etc/promtail/promtail-config.yaml"),
-            "--volume",
-            &format!("{:?}/data/logs:/var/log/fendermint/", fm_dir),
-            "--volume",
-            &format!("{:?}/logs:/var/log/iroh/", iroh_dir),
-            PROMTAIL_DOCKER_IMAGE,
-            &format!("--client.external-labels=host=$(hostname),node={node_name}"),
-            &format!("--config.file=/etc/promtail/promtail-config.yaml"),
-            "--client.url=http://loki:3100/loki/api/v1/push"
-        ])
-        .output()
-        .expect(&format!("failed to start promtail {:?}", node_number));
+//    let prom_out = Command::new("docker")
+//        .args([
+//            "run",
+//            "-d",
+//            "--name",
+//            promtail_container_name,
+//            "--network",
+//            //NETWORK_NAME,
+//            "host",
+//            "--publish",
+//            &format!("127.0.0.1:{}:9080", PROMTAIL_AGENT_HOST_PORTS[node_number as usize]),
+//            "--volume",
+//            "/var/run/docker.sock:/var/run/docker.sock",
+//            "--volume",
+//            &format!("{ipc_config_folder}/promtail-config.yaml:/etc/promtail/promtail-config.yaml"),
+//            "--volume",
+//            &format!("{:?}/data/logs:/var/log/fendermint/", fm_dir),
+//            "--volume",
+//            &format!("{:?}/logs:/var/log/iroh/", iroh_dir),
+//            PROMTAIL_DOCKER_IMAGE,
+//            &format!("--client.external-labels=host=$(hostname),node={node_name}"),
+//            &format!("--config.file=/etc/promtail/promtail-config.yaml"),
+//            "--client.url=http://loki:3100/loki/api/v1/push"
+//        ])
+//        .output()
+//        .expect(&format!("failed to start promtail {:?}", node_number));
+//
+//    println!("promtail started");
+//    println!("{:?}", prom_out);
+//    println!("");
 
     println!("created subnet node {node_name}");
     println!("");
 
-    iroh_stdout.join().unwrap();
-    iroh_stderr.join().unwrap();
-
-    cometbft_stdout.join().unwrap();
-    cometbft_stderr.join().unwrap();
-
-    fendermint_stdout.join().unwrap();
-    fendermint_stderr.join().unwrap();
+    return (iroh_out, cometbft_out, fendermint_out, evm_out, objects_out);
 }
 
 fn create_keystore(filepath: &str) {
@@ -826,7 +798,7 @@ fn create_keystore(filepath: &str) {
 }
 
 fn fund_wallet_token(public_key: &str, private_key: &str, token_amount: &str, supply_source_address: &String) {
-    println!("funding address {} with supply token", public_key);
+    println!("[{}] funding address {} with supply token", String::from("STARTUP").white().bold(), public_key);
     Command::new("cast")
         .args([
             "send",
@@ -843,7 +815,7 @@ fn fund_wallet_token(public_key: &str, private_key: &str, token_amount: &str, su
         .expect("failed to fund wallet with source token");
 }
 
-fn init_node_dir(dir: &Path, repo_root_dir: &Path, node_number: &u8) {
+fn init_node_dir(dir: &Path, node_number: &u8) {
 
     println!("init node dir {:?}", dir.to_str().unwrap());
 
@@ -903,7 +875,6 @@ fn init_node_dir(dir: &Path, repo_root_dir: &Path, node_number: &u8) {
 fn setup_config(repo_root_dir: &Path, config_folder: &str) {
 
     // copy config files
-println!("config folder {config_folder}");
     Command::new("cp")
         .args([
             &format!("{}/scripts/deploy_subnet/.ipc-local/config.toml",
