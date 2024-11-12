@@ -105,10 +105,8 @@ abigen!(
 #[async_trait]
 impl TopDownFinalityQuery for EthSubnetManager {
     async fn genesis_epoch(&self, subnet_id: &SubnetID) -> Result<ChainEpoch> {
-        tracing::info!("foo TopDownFinalityQuery subnetID: {}", subnet_id);
         let address = contract_address_from_subnet(subnet_id)?;
-        tracing::info!("TopDownFinalityQuery address: {:#x}", address);
-        tracing::info!("querying genesis epoch foo in evm subnet contract: {:#x}", address);
+        tracing::info!("querying genesis epoch in evm subnet contract: {address:}");
 
         let evm_subnet_id = gateway_getter_facet::SubnetID::try_from(subnet_id)?;
 
@@ -1619,10 +1617,8 @@ pub(crate) fn contract_address_from_subnet(subnet: &SubnetID) -> Result<ethers::
     let ipc_addr = children
         .last()
         .ok_or_else(|| anyhow!("{subnet:} has no child"))?;
-println!(" ipc_addr {:?}", ipc_addr);
-    let payload = ipc_addr.payload();
-println!(" payload {:?}", payload);
-    payload_to_evm_address(payload)
+
+    payload_to_evm_address(ipc_addr.payload())
 }
 
 impl TryFrom<gateway_getter_facet::Subnet> for SubnetInfo {

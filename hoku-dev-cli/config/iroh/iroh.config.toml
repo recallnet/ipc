@@ -1,1 +1,10 @@
-metrics_addr = "0.0.0.0:9090"
+#metrics_addr = "127.0.0.1:9090"
+
+[gc_policy]
+enabled = false
+
+# The default directory for the log files can not be
+# expressed here since environment variables can not
+# be used and the location varies by platform.
+# Omitting # it will result in the default being used.
+#dir = "$IROH_DATA_DIR/logs/"
