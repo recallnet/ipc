@@ -133,8 +133,8 @@ impl State {
         let account = self
             .accounts
             .entry(recipient)
-            .and_modify(|a| a.credit_free += &credits)
-            .or_insert(Account::new(credits.clone(), current_epoch));
+            .or_insert(Account::new(BigInt::zero(), current_epoch));
+        account.credit_free += &credits;
         Ok(account.clone())
     }
 
@@ -995,7 +995,8 @@ fn ensure_credit_or_buy(
         let tokens_needed = TokenAmount::from_atto(tokens_needed_atto);
         if tokens_needed < *tokens_received {
             let tokens_to_rebate = tokens_received - tokens_needed;
-            *state_credit_sold += credits_needed;
+            *state_credit_sold += &credits_needed;
+            *account_credit_free += &credits_needed;
             ensure_delegated_credit(subscriber, current_epoch, credit_required, delegate)?;
             Ok(tokens_to_rebate)
         } else {
