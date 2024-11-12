@@ -49,6 +49,36 @@ pub struct State {
     pub pending: BTreeMap<Hash, HashSet<(Address, PublicKey)>>,
 }
 
+struct BlobParameters {
+    auto_renew: bool,
+    ttl: i64,
+    hash: Hash,
+    metadata_hash: Hash,
+    size: BigInt,
+    source: PublicKey,
+    expiry: i64,
+    current_epoch: i64,
+}
+
+struct SubcriptionInfo {
+    new_capacity: BigInt,
+    new_account_capacity: BigInt,
+    credit_required: BigInt,
+    sub: Subscription,
+}
+
+struct DelegatedCredit {
+    pub origin: Address,
+    pub caller: Address,
+    pub credit_approval: CreditApproval,
+}
+
+impl DelegatedCredit {
+    fn addresses(&self) -> (Address, Address) {
+        (self.origin, self.caller)
+    }
+}
+
 /// Helper for handling credit approvals.
 enum CreditDelegate<'a> {
     IsNone,
@@ -250,81 +280,34 @@ impl State {
         Ok(delete_from_disc)
     }
 
-    #[allow(clippy::too_many_arguments)]
-    pub fn add_blob(
+    fn get_blob_subscription(
         &mut self,
-        origin: Address,
-        caller: Address,
         subscriber: Address,
-        current_epoch: ChainEpoch,
-        hash: Hash,
-        metadata_hash: Hash,
-        size: u64,
-        ttl: Option<ChainEpoch>,
-        source: PublicKey,
-        tokens_received: TokenAmount,
-    ) -> anyhow::Result<(Subscription, TokenAmount), ActorError> {
-        let (ttl, auto_renew) = if let Some(ttl) = ttl {
-            (ttl, false)
-        } else {
-            (AUTO_TTL, true)
-        };
-        if ttl < MIN_TTL {
-            return Err(ActorError::illegal_argument(format!(
-                "minimum blob TTL is {}",
-                MIN_TTL
-            )));
-        }
-        let account = self
-            .accounts
-            .entry(subscriber)
-            .or_insert(Account::new(BigInt::zero(), current_epoch));
-        let delegate = if origin != subscriber {
-            // First look for an approval for origin keyed by origin, which denotes it's valid for
-            // any caller.
-            // Second look for an approval for the supplied caller.
-            let approval = if let Some(approvals) = account.approvals.get_mut(&origin) {
-                if let Some(approval) = approvals.get_mut(&origin) {
-                    Some(approval)
-                } else {
-                    approvals.get_mut(&caller)
-                }
-            } else {
-                None
-            };
-            let approval = approval.ok_or(ActorError::forbidden(format!(
-                "approval from {} to {} via caller {} not found",
-                subscriber, origin, caller
-            )))?;
-            CreditDelegate::IsSome((origin, caller), approval)
-        } else {
-            CreditDelegate::IsNone
-        };
+        blob_params: BlobParameters,
+        delegate: Option<(Address, Address)>,
+    ) -> Result<SubcriptionInfo, ActorError> {
         // Capacity updates and required credit depend on whether the subscriber is already
         // subcribing to this blob
-        let size = BigInt::from(size);
-        let expiry = current_epoch + ttl;
+        let BlobParameters {
+            auto_renew,
+            ttl,
+            hash,
+            metadata_hash,
+            size,
+            source,
+            expiry,
+            current_epoch,
+        } = blob_params;
+
         let mut new_capacity = BigInt::zero();
         let mut new_account_capacity = BigInt::zero();
         let credit_required: BigInt;
-        // Like cashback but for sending unspent tokens back
-        let tokenback: TokenAmount;
 
         let sub = if let Some(blob) = self.blobs.get_mut(&hash) {
             let sub = if let Some(sub) = blob.subs.get_mut(&subscriber) {
                 // Required credit can be negative if subscriber is reducing expiry
                 credit_required = (expiry - sub.expiry) as u64 * &size;
 
-                tokenback = ensure_credit_or_buy(
-                    &mut account.credit_free,
-                    &mut self.credit_sold,
-                    &credit_required,
-                    &tokens_received,
-                    self.credit_debit_rate,
-                    &subscriber,
-                    current_epoch,
-                    &delegate,
-                )?;
                 // Update expiry index
                 if expiry != sub.expiry {
                     update_expiry_index(
@@ -339,7 +322,7 @@ impl State {
                 sub.auto_renew = auto_renew;
                 // Overwrite source allows subscriber to retry resolving
                 sub.source = source;
-                sub.delegate = delegate.addresses();
+                sub.delegate = delegate;
                 debug!("updated subscription to {} for {}", hash, subscriber);
                 sub.clone()
             } else {
@@ -349,23 +332,14 @@ impl State {
                 // subscriber, as the existing account(s) may decide to change the
                 // expiry or cancel.
                 credit_required = ttl as u64 * &size;
-                tokenback = ensure_credit_or_buy(
-                    &mut account.credit_free,
-                    &mut self.credit_sold,
-                    &credit_required,
-                    &tokens_received,
-                    self.credit_debit_rate,
-                    &subscriber,
-                    current_epoch,
-                    &delegate,
-                )?;
+
                 // Add new subscription
                 let sub = Subscription {
                     added: current_epoch,
                     expiry,
                     auto_renew,
                     source,
-                    delegate: delegate.addresses(),
+                    delegate,
                 };
                 blob.subs.insert(subscriber, sub.clone());
                 debug!("created new subscription to {} for {}", hash, subscriber);
@@ -395,7 +369,7 @@ impl State {
             new_account_capacity = size.clone();
             // New blob increases network capacity as well.
             // Ensure there is enough capacity available.
-            let available_capacity = &self.capacity_total - &self.capacity_used;
+            let available_capacity = self.capacity_available();
 
             if size > available_capacity {
                 return Err(ActorError::forbidden(format!(
@@ -405,23 +379,13 @@ impl State {
             }
             new_capacity = size.clone();
             credit_required = ttl as u64 * &size;
-            tokenback = ensure_credit_or_buy(
-                &mut account.credit_free,
-                &mut self.credit_sold,
-                &credit_required,
-                &tokens_received,
-                self.credit_debit_rate,
-                &subscriber,
-                current_epoch,
-                &delegate,
-            )?;
             // Create new blob
             let sub = Subscription {
                 added: current_epoch,
                 expiry,
                 auto_renew,
                 source,
-                delegate: delegate.addresses(),
+                delegate,
             };
             let blob = Blob {
                 size: size.to_u64().unwrap(),
@@ -445,6 +409,140 @@ impl State {
                 .insert(hash, HashSet::from([(subscriber, source)]));
             sub
         };
+        Ok(SubcriptionInfo {
+            new_capacity,
+            new_account_capacity,
+            credit_required,
+            sub,
+        })
+    }
+
+    fn get_delegate(
+        account: &Account,
+        origin: Address,
+        caller: Address,
+        subscriber: Address,
+    ) -> Result<Option<DelegatedCredit>, ActorError> {
+        if origin != subscriber {
+            // First look for an approval for origin keyed by origin, which denotes it's valid for
+            // any caller.
+            // Second look for an approval for the supplied caller.
+            let approval = if let Some(approvals) = account.approvals.get(&origin) {
+                if let Some(approval) = approvals.get(&origin) {
+                    Some(approval)
+                } else {
+                    approvals.get(&caller)
+                }
+            } else {
+                None
+            };
+            let approval = approval.ok_or(ActorError::forbidden(format!(
+                "approval from {} to {} via caller {} not found",
+                subscriber, origin, caller
+            )))?;
+            Ok(Some(DelegatedCredit {
+                origin,
+                caller,
+                credit_approval: approval.to_owned(),
+            }))
+        } else {
+            Ok(None)
+        }
+    }
+
+    fn update_committed_delegation(
+        account: &mut Account,
+        delegate: &DelegatedCredit,
+        credit_required: &BigInt,
+    ) -> Result<(), ActorError> {
+        if let Some(approvals) = account.approvals.get_mut(&delegate.origin) {
+            let approval = if let Some(approval) = approvals.get_mut(&delegate.origin) {
+                approval
+            } else {
+                approvals.get_mut(&delegate.caller).ok_or_else(|| {
+                    ActorError::assertion_failed(format!(
+                        "Failed to find credit delegation from {} to {}",
+                        delegate.origin, delegate.caller
+                    ))
+                })?
+            };
+            approval.committed += credit_required;
+            Ok(())
+        } else {
+            Err(ActorError::assertion_failed(format!(
+                "Failed to find expected credit delegation for origin: {}",
+                delegate.origin,
+            )))
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn add_blob(
+        &mut self,
+        origin: Address,
+        caller: Address,
+        subscriber: Address,
+        current_epoch: ChainEpoch,
+        hash: Hash,
+        metadata_hash: Hash,
+        size: u64,
+        ttl: Option<ChainEpoch>,
+        source: PublicKey,
+        tokens_received: TokenAmount,
+    ) -> anyhow::Result<(Subscription, TokenAmount), ActorError> {
+        let (ttl, auto_renew) = if let Some(ttl) = ttl {
+            (ttl, false)
+        } else {
+            (AUTO_TTL, true)
+        };
+        if ttl < MIN_TTL {
+            return Err(ActorError::illegal_argument(format!(
+                "minimum blob TTL is {}",
+                MIN_TTL
+            )));
+        }
+        let mut account = self
+            .accounts
+            .remove(&subscriber)
+            .unwrap_or_else(|| Account::new(BigInt::zero(), current_epoch));
+
+        let delegate = Self::get_delegate(&account, origin, caller, subscriber)?;
+
+        // Capacity updates and required credit depend on whether the subscriber is already
+        // subcribing to this blob
+        let size = BigInt::from(size);
+        let expiry = current_epoch + ttl;
+
+        let SubcriptionInfo {
+            new_capacity,
+            new_account_capacity,
+            credit_required,
+            sub,
+        } = self.get_blob_subscription(
+            subscriber,
+            BlobParameters {
+                auto_renew,
+                ttl,
+                hash,
+                metadata_hash,
+                size,
+                source,
+                expiry,
+                current_epoch,
+            },
+            delegate.as_ref().map(|d| d.addresses()),
+        )?;
+
+        let mut tokenback = TokenAmount::default();
+
+        if let Err(tokens_needed) =
+            check_credits_required(&account, &credit_required, self.credit_debit_rate)
+        {
+            tokenback = &tokens_received - &tokens_needed;
+            // TODO: where do we `ensure_delegated_credit()?`
+            self.buy_credit(caller, tokens_needed, current_epoch)?;
+        }
+
         // Account capacity is changing, debit for existing usage
         let debit_blocks = current_epoch - account.last_debit_epoch;
         let debit = debit_blocks as u64 * &account.capacity_used;
@@ -462,8 +560,8 @@ impl State {
         account.credit_committed += &credit_required;
         account.credit_free -= &credit_required;
         // Update credit approval
-        if let CreditDelegate::IsSome(_, delegation) = delegate {
-            delegation.committed += &credit_required;
+        if let Some(delegate) = delegate.as_ref() {
+            Self::update_committed_delegation(&mut account, delegate, &credit_required)?;
         }
         if credit_required.is_positive() {
             debug!("committed {} credits from {}", credit_required, subscriber);
@@ -474,6 +572,9 @@ impl State {
                 subscriber
             );
         }
+        // put back in state since we don't have &mut access anymore
+        self.accounts.insert(subscriber, account);
+
         Ok((sub, tokenback))
     }
 
@@ -893,6 +994,20 @@ fn ensure_credit(
         )));
     }
     ensure_delegated_credit(subscriber, current_epoch, required_credit, delegate)
+}
+
+fn check_credits_required(
+    account: &Account,
+    credit_required: &BigInt,
+    debit_credit_rate: u64,
+) -> Result<(), TokenAmount> {
+    if &account.credit_free < credit_required {
+        let credits_needed = credit_required - account.credit_free.clone();
+        let tokens_needed_atto = credits_needed / debit_credit_rate;
+        Err(TokenAmount::from_atto(tokens_needed_atto))
+    } else {
+        Ok(())
+    }
 }
 
 fn ensure_credit_or_buy(
