@@ -323,17 +323,7 @@ impl State {
         source: PublicKey,
         tokens_received: TokenAmount,
     ) -> anyhow::Result<(Subscription, TokenAmount), ActorError> {
-        let (ttl, auto_renew) = if let Some(ttl) = ttl {
-            (ttl, false)
-        } else {
-            (AUTO_TTL, true)
-        };
-        if ttl < MIN_TTL {
-            return Err(ActorError::illegal_argument(format!(
-                "minimum blob TTL is {}",
-                MIN_TTL
-            )));
-        }
+        let (ttl, auto_renew) = accept_ttl(ttl)?;
         let account = self
             .accounts
             .entry(subscriber)
@@ -1074,5 +1064,17 @@ fn update_expiry_index(
                 expiries.remove(&remove);
             }
         }
+    }
+}
+
+fn accept_ttl(ttl: Option<ChainEpoch>) -> anyhow::Result<(ChainEpoch, bool), ActorError> {
+    let (ttl, auto_renew) = ttl.map(|ttl| (ttl, true)).unwrap_or((AUTO_TTL, true));
+    if ttl < MIN_TTL {
+        Err(ActorError::illegal_argument(format!(
+            "minimum blob TTL is {}",
+            MIN_TTL
+        )))
+    } else {
+        Ok((ttl, auto_renew))
     }
 }
