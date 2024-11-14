@@ -552,7 +552,7 @@ async fn handle_object_download<F: QueryClient + Send + Sync>(
                         } else {
                             chunk
                         };
-                        Ok::<_, Box<dyn std::error::Error + Send + Sync>>(result)
+                        Ok::<_, anyhow::Error>(result)
                     });
 
                     let body = Body::wrap_stream(bytes_stream);
@@ -573,10 +573,7 @@ async fn handle_object_download<F: QueryClient + Send + Sync>(
                                 message: format!("failed to download object: {} {}", hash, e),
                             })
                         })?;
-                    let body = Body::wrap_stream(
-                        bytes_stream
-                            .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>),
-                    );
+                    let body = Body::wrap_stream(bytes_stream.map_err(|e| anyhow::anyhow!(e)));
                     ObjectRange {
                         start: 0,
                         end: size - 1,
