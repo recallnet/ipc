@@ -334,7 +334,10 @@ enum ActorType {
 
 /// Resolve robust address and ensure it is not a Machine actor type.
 /// See `resolve_external`.
-fn resolve_external_non_machine(rt: &impl Runtime, address: Address) -> Result<Address, ActorError> {
+fn resolve_external_non_machine(
+    rt: &impl Runtime,
+    address: Address,
+) -> Result<Address, ActorError> {
     let (address, actor_type) = resolve_external(rt, address)?;
     if matches!(actor_type, ActorType::Machine) {
         Err(ActorError::illegal_argument(format!(
@@ -865,8 +868,7 @@ mod tests {
             metadata_hash: new_hash(1024).0,
             ttl: Some(3600),
         };
-        let response = rt
-            .call::<BlobsActor>(
+        let response = rt.call::<BlobsActor>(
                 Method::AddBlob as u64,
                 IpldBlock::serialize_cbor(&add_params).unwrap(),
             );
