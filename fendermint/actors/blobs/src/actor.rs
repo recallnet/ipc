@@ -184,7 +184,9 @@ impl BlobsActor {
                 tokens_received,
             )
         })?;
-        extract_send_result(rt.send_simple(&origin, METHOD_SEND, None, tokenback))?;
+        if !tokenback.is_zero() {
+            extract_send_result(rt.send_simple(&origin, METHOD_SEND, None, tokenback))?;
+        }
         Ok(subscription)
     }
 
@@ -802,6 +804,94 @@ mod tests {
         assert_eq!(subscription.expiry, 3605);
         assert!(!subscription.auto_renew);
         assert_eq!(subscription.delegate, None);
+        rt.verify();
+    }
+
+    #[test]
+    fn test_add_blob_inline_buy() {
+        let rt = construct_and_verify(1024 * 1024, 1);
+
+        let id_addr = Address::new_id(110);
+        let eth_addr = EthAddress(hex_literal::hex!(
+            "CAFEB0BA00000000000000000000000000000000"
+        ));
+        let f4_eth_addr = Address::new_delegated(10, &eth_addr.0).unwrap();
+
+        rt.set_delegated_address(id_addr.id().unwrap(), f4_eth_addr);
+        rt.set_caller(*ETHACCOUNT_ACTOR_CODE_ID, id_addr);
+        rt.set_origin(id_addr);
+        rt.set_epoch(ChainEpoch::from(0));
+
+        // Try sending a lot
+        rt.expect_validate_caller_any();
+        let hash = new_hash(1024);
+        let add_params = AddBlobParams {
+            sponsor: None,
+            source: new_pk(),
+            hash: hash.0,
+            size: hash.1,
+            metadata_hash: new_hash(1024).0,
+            ttl: Some(3600),
+        };
+        let tokens_sent = TokenAmount::from_whole(1);
+        rt.set_received(tokens_sent.clone());
+        rt.set_balance(tokens_sent.clone());
+        let tokens_required_atto = add_params.size * add_params.ttl.unwrap() as u64;
+        let expected_tokenback = tokens_sent.atto() - tokens_required_atto;
+        rt.expect_send_simple(
+            f4_eth_addr,
+            METHOD_SEND,
+            None,
+            TokenAmount::from_atto(expected_tokenback),
+            None,
+            ExitCode::OK,
+        );
+        let result = rt.call::<BlobsActor>(
+            Method::AddBlob as u64,
+            IpldBlock::serialize_cbor(&add_params).unwrap(),
+        );
+        assert!(result.is_ok());
+        rt.verify();
+
+        // Try sending zero
+        rt.expect_validate_caller_any();
+        rt.set_received(TokenAmount::zero());
+        let hash = new_hash(1024);
+        let add_params = AddBlobParams {
+            sponsor: None,
+            source: new_pk(),
+            hash: hash.0,
+            size: hash.1,
+            metadata_hash: new_hash(1024).0,
+            ttl: Some(3600),
+        };
+        let response = rt
+            .call::<BlobsActor>(
+                Method::AddBlob as u64,
+                IpldBlock::serialize_cbor(&add_params).unwrap(),
+            );
+        assert!(response.is_err());
+        rt.verify();
+
+        // Try sending exact amount
+        let tokens_required_atto = add_params.size * add_params.ttl.unwrap() as u64;
+        let tokens_sent = TokenAmount::from_atto(tokens_required_atto);
+        rt.set_received(tokens_sent.clone());
+        rt.expect_validate_caller_any();
+        let hash = new_hash(1024);
+        let add_params = AddBlobParams {
+            sponsor: None,
+            source: new_pk(),
+            hash: hash.0,
+            size: hash.1,
+            metadata_hash: new_hash(1024).0,
+            ttl: Some(3600),
+        };
+        let result = rt.call::<BlobsActor>(
+            Method::AddBlob as u64,
+            IpldBlock::serialize_cbor(&add_params).unwrap(),
+        );
+        assert!(result.is_ok());
         rt.verify();
     }
 }

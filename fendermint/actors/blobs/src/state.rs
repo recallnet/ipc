@@ -983,7 +983,7 @@ fn ensure_credit_or_buy(
         let credits_needed = credit_required - &*account_credit_free;
         let tokens_needed_atto = &credits_needed / debit_credit_rate;
         let tokens_needed = TokenAmount::from_atto(tokens_needed_atto);
-        if tokens_needed < *tokens_received {
+        if tokens_needed <= *tokens_received {
             let tokens_to_rebate = tokens_received - tokens_needed;
             *state_credit_sold += &credits_needed;
             *account_credit_free += &credits_needed;
@@ -1068,7 +1068,7 @@ fn update_expiry_index(
 }
 
 fn accept_ttl(ttl: Option<ChainEpoch>) -> anyhow::Result<(ChainEpoch, bool), ActorError> {
-    let (ttl, auto_renew) = ttl.map(|ttl| (ttl, true)).unwrap_or((AUTO_TTL, true));
+    let (ttl, auto_renew) = ttl.map(|ttl| (ttl, false)).unwrap_or((AUTO_TTL, true));
     if ttl < MIN_TTL {
         Err(ActorError::illegal_argument(format!(
             "minimum blob TTL is {}",
