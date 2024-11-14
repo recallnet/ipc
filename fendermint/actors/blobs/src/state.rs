@@ -728,11 +728,9 @@ impl State {
             } else {
                 None
             };
-            if let Some(approval) = approval {
-                Some(CreditDelegation::new(origin, caller, approval))
-            } else {
-                None
-            }
+            approval.map(|approval| {
+                CreditDelegation::new(origin, caller, approval)
+            })
         } else {
             None
         };
@@ -968,6 +966,7 @@ fn ensure_credit(
     ensure_delegated_credit(subscriber, current_epoch, required_credit, delegation)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn ensure_credit_or_buy(
     account_credit_free: &mut BigInt,
     state_credit_sold: &mut BigInt,
