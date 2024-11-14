@@ -728,9 +728,7 @@ impl State {
             } else {
                 None
             };
-            approval.map(|approval| {
-                CreditDelegation::new(origin, caller, approval)
-            })
+            approval.map(|approval| CreditDelegation::new(origin, caller, approval))
         } else {
             None
         };
