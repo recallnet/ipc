@@ -869,9 +869,9 @@ mod tests {
             ttl: Some(3600),
         };
         let response = rt.call::<BlobsActor>(
-                Method::AddBlob as u64,
-                IpldBlock::serialize_cbor(&add_params).unwrap(),
-            );
+            Method::AddBlob as u64,
+            IpldBlock::serialize_cbor(&add_params).unwrap(),
+        );
         assert!(response.is_err());
         rt.verify();
 
