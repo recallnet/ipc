@@ -928,7 +928,6 @@ mod tests {
         rt.set_address_actor_type(proxy_id_addr, *EVM_ACTOR_CODE_ID);
 
         // Sponsor buys credit
-        let expected_credits = BigInt::from(1000000000000000000u64);
         rt.set_caller(*ETHACCOUNT_ACTOR_CODE_ID, sponsor_id_addr);
         rt.set_received(TokenAmount::from_whole(1));
         rt.expect_validate_caller_any();
