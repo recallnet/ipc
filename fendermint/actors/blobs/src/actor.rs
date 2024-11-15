@@ -896,4 +896,105 @@ mod tests {
         assert!(result.is_ok());
         rt.verify();
     }
+
+    #[test]
+    fn test_add_blob_inline_buy_sponsor() {
+        let rt = construct_and_verify(1024 * 1024, 1);
+
+        // Credit sponsor
+        let sponsor_id_addr = Address::new_id(110);
+        let sponsor_eth_addr = EthAddress(hex_literal::hex!(
+            "CAFEB0BA00000000000000000000000000000000"
+        ));
+        let sponsor_f4_eth_addr = Address::new_delegated(10, &sponsor_eth_addr.0).unwrap();
+        rt.set_delegated_address(sponsor_id_addr.id().unwrap(), sponsor_f4_eth_addr);
+
+        // Credit spender
+        let spender_id_addr = Address::new_id(111);
+        let spender_eth_addr = EthAddress(hex_literal::hex!(
+            "CAFEB0BA00000000000000000000000000000001"
+        ));
+        let spender_f4_eth_addr = Address::new_delegated(10, &spender_eth_addr.0).unwrap();
+        rt.set_delegated_address(spender_id_addr.id().unwrap(), spender_f4_eth_addr);
+        rt.set_address_actor_type(spender_id_addr, *ETHACCOUNT_ACTOR_CODE_ID);
+
+        // Proxy EVM contract on behalf of credit owner
+        let proxy_id_addr = Address::new_id(112);
+        let proxy_eth_addr = EthAddress(hex_literal::hex!(
+            "CAFEB0BA00000000000000000000000000000002"
+        ));
+        let proxy_f4_eth_addr = Address::new_delegated(10, &proxy_eth_addr.0).unwrap();
+        rt.set_delegated_address(proxy_id_addr.id().unwrap(), proxy_f4_eth_addr);
+        rt.set_address_actor_type(proxy_id_addr, *EVM_ACTOR_CODE_ID);
+
+        // Sponsor buys credit
+        let expected_credits = BigInt::from(1000000000000000000u64);
+        rt.set_caller(*ETHACCOUNT_ACTOR_CODE_ID, sponsor_id_addr);
+        rt.set_received(TokenAmount::from_whole(1));
+        rt.expect_validate_caller_any();
+        let fund_params = BuyCreditParams(sponsor_id_addr);
+        let buy_credit_result = rt
+            .call::<BlobsActor>(
+                Method::BuyCredit as u64,
+                IpldBlock::serialize_cbor(&fund_params).unwrap(),
+            );
+        assert!(buy_credit_result.is_ok());
+        rt.verify();
+
+        // Sponsors approves credit
+        rt.set_caller(*ETHACCOUNT_ACTOR_CODE_ID, sponsor_id_addr);
+        rt.set_origin(sponsor_id_addr);
+        rt.expect_validate_caller_any();
+        let approve_params = ApproveCreditParams {
+            from: sponsor_id_addr,
+            receiver: spender_id_addr,
+            required_caller: None,
+            limit: None,
+            ttl: None,
+        };
+        let result = rt.call::<BlobsActor>(
+            Method::ApproveCredit as u64,
+            IpldBlock::serialize_cbor(&approve_params).unwrap(),
+        );
+        assert!(result.is_ok());
+        rt.verify();
+
+        rt.set_origin(sponsor_id_addr);
+        rt.set_caller(*ETHACCOUNT_ACTOR_CODE_ID, sponsor_id_addr);
+        rt.expect_validate_caller_any();
+        let approve_params = ApproveCreditParams {
+            from: sponsor_id_addr,
+            receiver: spender_id_addr,
+            required_caller: None,
+            limit: None,
+            ttl: None
+        };
+        let approve_result = rt.call::<BlobsActor>(
+            Method::ApproveCredit as u64,
+            IpldBlock::serialize_cbor(&approve_params).unwrap(),
+        );
+        assert!(approve_result.is_ok());
+        rt.verify();
+
+        // Try sending zero
+        rt.set_origin(spender_id_addr);
+        rt.set_caller(*ETHACCOUNT_ACTOR_CODE_ID, spender_id_addr);
+        rt.expect_validate_caller_any();
+        rt.set_received(TokenAmount::zero());
+        let hash = new_hash(1024);
+        let add_params = AddBlobParams {
+            sponsor: Some(sponsor_id_addr),
+            source: new_pk(),
+            hash: hash.0,
+            size: hash.1,
+            metadata_hash: new_hash(1024).0,
+            ttl: Some(3600),
+        };
+        let response = rt.call::<BlobsActor>(
+            Method::AddBlob as u64,
+            IpldBlock::serialize_cbor(&add_params).unwrap(),
+        );
+        assert!(response.is_ok());
+        rt.verify();
+    }
 }
