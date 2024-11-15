@@ -933,11 +933,10 @@ mod tests {
         rt.set_received(TokenAmount::from_whole(1));
         rt.expect_validate_caller_any();
         let fund_params = BuyCreditParams(sponsor_id_addr);
-        let buy_credit_result = rt
-            .call::<BlobsActor>(
-                Method::BuyCredit as u64,
-                IpldBlock::serialize_cbor(&fund_params).unwrap(),
-            );
+        let buy_credit_result = rt.call::<BlobsActor>(
+            Method::BuyCredit as u64,
+            IpldBlock::serialize_cbor(&fund_params).unwrap(),
+        );
         assert!(buy_credit_result.is_ok());
         rt.verify();
 
@@ -967,7 +966,7 @@ mod tests {
             receiver: spender_id_addr,
             required_caller: None,
             limit: None,
-            ttl: None
+            ttl: None,
         };
         let approve_result = rt.call::<BlobsActor>(
             Method::ApproveCredit as u64,
