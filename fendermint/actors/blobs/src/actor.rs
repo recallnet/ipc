@@ -170,7 +170,7 @@ impl BlobsActor {
             origin
         };
         let tokens_received = rt.message().value_received();
-        let (subscription, tokenback) = rt.transaction(|st: &mut State, rt| {
+        let (subscription, unspent_tokens) = rt.transaction(|st: &mut State, rt| {
             st.add_blob(
                 origin,
                 caller,
@@ -184,8 +184,9 @@ impl BlobsActor {
                 tokens_received,
             )
         })?;
-        if !tokenback.is_zero() {
-            extract_send_result(rt.send_simple(&origin, METHOD_SEND, None, tokenback))?;
+        // Send the tokens not required for the buying back
+        if !unspent_tokens.is_zero() {
+            extract_send_result(rt.send_simple(&origin, METHOD_SEND, None, unspent_tokens))?;
         }
         Ok(subscription)
     }
@@ -840,12 +841,12 @@ mod tests {
         rt.set_received(tokens_sent.clone());
         rt.set_balance(tokens_sent.clone());
         let tokens_required_atto = add_params.size * add_params.ttl.unwrap() as u64;
-        let expected_tokenback = tokens_sent.atto() - tokens_required_atto;
+        let expected_tokens_unspent = tokens_sent.atto() - tokens_required_atto;
         rt.expect_send_simple(
             f4_eth_addr,
             METHOD_SEND,
             None,
-            TokenAmount::from_atto(expected_tokenback),
+            TokenAmount::from_atto(expected_tokens_unspent),
             None,
             ExitCode::OK,
         );

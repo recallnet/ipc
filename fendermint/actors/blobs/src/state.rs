@@ -357,14 +357,14 @@ impl State {
         let mut new_account_capacity = BigInt::zero();
         let credit_required: BigInt;
         // Like cashback but for sending unspent tokens back
-        let tokenback: TokenAmount;
+        let tokens_unspent: TokenAmount;
 
         let sub = if let Some(blob) = self.blobs.get_mut(&hash) {
             let sub = if let Some(sub) = blob.subs.get_mut(&subscriber) {
                 // Required credit can be negative if subscriber is reducing expiry
                 credit_required = (expiry - sub.expiry) as u64 * &size;
 
-                tokenback = ensure_credit_or_buy(
+                tokens_unspent = ensure_credit_or_buy(
                     &mut account.credit_free,
                     &mut self.credit_sold,
                     &credit_required,
@@ -398,7 +398,7 @@ impl State {
                 // subscriber, as the existing account(s) may decide to change the
                 // expiry or cancel.
                 credit_required = ttl as u64 * &size;
-                tokenback = ensure_credit_or_buy(
+                tokens_unspent = ensure_credit_or_buy(
                     &mut account.credit_free,
                     &mut self.credit_sold,
                     &credit_required,
@@ -454,7 +454,7 @@ impl State {
             }
             new_capacity = size.clone();
             credit_required = ttl as u64 * &size;
-            tokenback = ensure_credit_or_buy(
+            tokens_unspent = ensure_credit_or_buy(
                 &mut account.credit_free,
                 &mut self.credit_sold,
                 &credit_required,
@@ -523,7 +523,7 @@ impl State {
                 subscriber
             );
         }
-        Ok((sub, tokenback))
+        Ok((sub, tokens_unspent))
     }
 
     fn renew_blob(
