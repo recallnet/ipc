@@ -133,8 +133,8 @@ impl State {
         let account = self
             .accounts
             .entry(recipient)
-            .or_insert(Account::new(BigInt::zero(), current_epoch));
-        account.credit_free += &credits;
+            .and_modify(|a| a.credit_free += &credits)
+            .or_insert(Account::new(credits.clone(), current_epoch));
         Ok(account.clone())
     }
 
