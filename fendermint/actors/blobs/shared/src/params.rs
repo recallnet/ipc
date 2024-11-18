@@ -36,6 +36,18 @@ pub struct ApproveCreditParams {
     pub ttl: Option<ChainEpoch>,
 }
 
+/// Params for looking up a credit approval
+#[derive(Clone, Debug, Serialize_tuple, Deserialize_tuple)]
+pub struct GetCreditApprovalParams {
+    /// Account address (credit owner) that made the approval.
+    pub from: Address,
+    /// Account address that received the approval.
+    pub receiver: Address,
+    /// The caller address, e.g., a bucket.
+    /// The receiver can only use the approval via a caller contract.
+    pub caller: Address,
+}
+
 /// Params for revoking credit.
 #[derive(Clone, Debug, Serialize_tuple, Deserialize_tuple)]
 pub struct RevokeCreditParams {
@@ -58,7 +70,7 @@ pub struct GetAccountParams(pub Address);
 #[derive(Clone, Debug, Serialize_tuple, Deserialize_tuple)]
 pub struct AddBlobParams {
     /// Optional sponsor address.
-    /// Caller must have a delegation from sponsor.
+    /// Txn origin must have a delegation from sponsor.
     pub sponsor: Option<Address>,
     /// Source Iroh node ID used for ingestion.
     pub source: PublicKey,
@@ -94,6 +106,11 @@ pub struct GetBlobStatusParams {
 #[serde(transparent)]
 pub struct GetPendingBlobsParams(pub u32);
 
+/// Params for getting added blobs.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct GetAddedBlobsParams(pub u32);
+
 /// Params for finalizing a blob.
 #[derive(Clone, Debug, Serialize_tuple, Deserialize_tuple)]
 pub struct FinalizeBlobParams {
@@ -104,6 +121,17 @@ pub struct FinalizeBlobParams {
     pub hash: Hash,
     /// The status to set as final.
     pub status: BlobStatus,
+}
+
+/// Params for setting pending blobs.
+#[derive(Clone, Debug, Serialize_tuple, Deserialize_tuple)]
+pub struct SetPendingParams {
+    /// The address that requested the blob.    
+    pub subscriber: Address,
+    /// Blob blake3 hash.
+    pub hash: Hash,
+    /// The source of the blob.
+    pub source: PublicKey,
 }
 
 /// Params for deleting a blob.
@@ -140,4 +168,10 @@ pub struct GetStatsReturn {
     pub num_blobs: u64,
     /// Total number of currently resolving blobs.
     pub num_resolving: u64,
+    /// Total bytes of all currently resolving blobs.
+    pub bytes_resolving: u64,
+    /// Total number of blobs that are not yet added to the validator's resolve pool.
+    pub num_added: u64,
+    /// Total bytes of all blobs that are not yet added to the validator's resolve pool.
+    pub bytes_added: u64,
 }

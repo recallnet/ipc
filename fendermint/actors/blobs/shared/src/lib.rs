@@ -17,7 +17,7 @@ use crate::state::{Account, CreditApproval, Subscription};
 pub mod params;
 pub mod state;
 
-pub const BLOBS_ACTOR_ID: ActorID = 49;
+pub const BLOBS_ACTOR_ID: ActorID = 66;
 pub const BLOBS_ACTOR_ADDR: Address = Address::new_id(BLOBS_ACTOR_ID);
 
 #[derive(FromPrimitive)]
@@ -27,13 +27,16 @@ pub enum Method {
     GetStats = frc42_dispatch::method_hash!("GetStats"),
     BuyCredit = frc42_dispatch::method_hash!("BuyCredit"),
     ApproveCredit = frc42_dispatch::method_hash!("ApproveCredit"),
+    GetCreditApproval = frc42_dispatch::method_hash!("GetCreditApproval"),
     RevokeCredit = frc42_dispatch::method_hash!("RevokeCredit"),
     GetAccount = frc42_dispatch::method_hash!("GetAccount"),
     DebitAccounts = frc42_dispatch::method_hash!("DebitAccounts"),
     AddBlob = frc42_dispatch::method_hash!("AddBlob"),
     GetBlob = frc42_dispatch::method_hash!("GetBlob"),
     GetBlobStatus = frc42_dispatch::method_hash!("GetBlobStatus"),
+    GetAddedBlobs = frc42_dispatch::method_hash!("GetAddedBlobs"),
     GetPendingBlobs = frc42_dispatch::method_hash!("GetPendingBlobs"),
+    SetPending = frc42_dispatch::method_hash!("SetPending"),
     FinalizeBlob = frc42_dispatch::method_hash!("FinalizeBlob"),
     DeleteBlob = frc42_dispatch::method_hash!("DeleteBlob"),
 }
