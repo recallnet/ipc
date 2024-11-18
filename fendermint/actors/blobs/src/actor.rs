@@ -899,7 +899,7 @@ mod tests {
     }
 
     #[test]
-    fn test_add_blob_inline_buy_sponsor() {
+    fn test_add_blob_sponsor() {
         let rt = construct_and_verify(1024 * 1024, 1);
 
         // Credit sponsor
@@ -994,6 +994,27 @@ mod tests {
             IpldBlock::serialize_cbor(&add_params).unwrap(),
         );
         assert!(response.is_ok());
+        rt.verify();
+
+        // Try sending non-zero -> can not buy for a sponsor
+        rt.set_origin(spender_id_addr);
+        rt.set_caller(*ETHACCOUNT_ACTOR_CODE_ID, spender_id_addr);
+        rt.expect_validate_caller_any();
+        rt.set_received(TokenAmount::from_whole(1));
+        let hash = new_hash(1024);
+        let add_params = AddBlobParams {
+            sponsor: Some(sponsor_id_addr),
+            source: new_pk(),
+            hash: hash.0,
+            size: hash.1,
+            metadata_hash: new_hash(1024).0,
+            ttl: Some(3600),
+        };
+        let response = rt.call::<BlobsActor>(
+            Method::AddBlob as u64,
+            IpldBlock::serialize_cbor(&add_params).unwrap(),
+        );
+        assert!(response.is_err());
         rt.verify();
     }
 }

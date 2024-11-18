@@ -948,6 +948,7 @@ impl State {
     }
 }
 
+/// Check if `subscriber` has enough credits, including delegated credits.
 fn ensure_credit(
     subscriber: &Address,
     current_epoch: ChainEpoch,
@@ -955,13 +956,24 @@ fn ensure_credit(
     required_credit: &BigInt,
     delegation: &Option<CreditDelegation>,
 ) -> anyhow::Result<(), ActorError> {
-    if credit_free < required_credit {
-        return Err(ActorError::insufficient_funds(format!(
+    ensure_enough_credits(subscriber, credit_free, required_credit)?;
+    ensure_delegated_credit(subscriber, current_epoch, required_credit, delegation)
+}
+
+/// Check if `subscriber` owns enough free credits.
+fn ensure_enough_credits(
+    subscriber: &Address,
+    credit_free: &BigInt,
+    required_credit: &BigInt,
+) -> anyhow::Result<(), ActorError> {
+    if credit_free >= required_credit {
+        Ok(())
+    } else {
+        Err(ActorError::insufficient_funds(format!(
             "account {} has insufficient credit (available: {}; required: {})",
             subscriber, credit_free, required_credit
-        )));
+        )))
     }
-    ensure_delegated_credit(subscriber, current_epoch, required_credit, delegation)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -975,26 +987,55 @@ fn ensure_credit_or_buy(
     current_epoch: ChainEpoch,
     delegate: &Option<CreditDelegation>,
 ) -> anyhow::Result<TokenAmount, ActorError> {
-    let not_enough_credits = *account_credit_free < *credit_required;
-    if not_enough_credits {
-        let credits_needed = credit_required - &*account_credit_free;
-        let tokens_needed_atto = &credits_needed / debit_credit_rate;
-        let tokens_needed = TokenAmount::from_atto(tokens_needed_atto);
-        if tokens_needed <= *tokens_received {
-            let tokens_to_rebate = tokens_received - tokens_needed;
-            *state_credit_sold += &credits_needed;
-            *account_credit_free += &credits_needed;
-            ensure_delegated_credit(subscriber, current_epoch, credit_required, delegate)?;
-            Ok(tokens_to_rebate)
-        } else {
-            Err(ActorError::insufficient_funds(format!(
-                "account {} sent insufficient tokens (received: {}; required: {})",
-                subscriber, tokens_received, tokens_needed
-            )))
+    let tokens_received_non_zero = !tokens_received.is_zero();
+    let has_delegation = delegate.is_some();
+    match (tokens_received_non_zero, has_delegation) {
+        (true, true) => Err(ActorError::illegal_argument(format!(
+            "can not buy credits inline for {}",
+            subscriber,
+        ))),
+        (true, false) => {
+            // Try buying credits for self
+            let not_enough_credits = *account_credit_free < *credit_required;
+            if not_enough_credits {
+                let credits_needed = credit_required - &*account_credit_free;
+                let tokens_needed_atto = &credits_needed / debit_credit_rate;
+                let tokens_needed = TokenAmount::from_atto(tokens_needed_atto);
+                if tokens_needed <= *tokens_received {
+                    let tokens_to_rebate = tokens_received - tokens_needed;
+                    *state_credit_sold += &credits_needed;
+                    *account_credit_free += &credits_needed;
+                    Ok(tokens_to_rebate)
+                } else {
+                    Err(ActorError::insufficient_funds(format!(
+                        "account {} sent insufficient tokens (received: {}; required: {})",
+                        subscriber, tokens_received, tokens_needed
+                    )))
+                }
+            } else {
+                Ok(TokenAmount::zero())
+            }
         }
-    } else {
-        ensure_delegated_credit(subscriber, current_epoch, credit_required, delegate)?;
-        Ok(TokenAmount::zero())
+        (false, true) => {
+            ensure_credit(
+                subscriber,
+                current_epoch,
+                account_credit_free,
+                credit_required,
+                delegate,
+            )?;
+            Ok(TokenAmount::zero())
+        }
+        (false, false) => {
+            ensure_credit(
+                subscriber,
+                current_epoch,
+                account_credit_free,
+                credit_required,
+                delegate,
+            )?;
+            Ok(TokenAmount::zero())
+        }
     }
 }
 
