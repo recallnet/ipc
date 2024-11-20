@@ -81,9 +81,9 @@ dircpy = "0.3.19"
 either = "1.10"
 env_logger = "0.10"
 erased-serde = "0.3"
-ethers = { version = "2.0.14", features = ["abigen", "ws"] }
-ethers-core = { version = "2.0.14" }
-ethers-contract = "2.0.14"
+ethers = { version = "=2.0.13", features = ["abigen", "ws"] }
+ethers-core = { version = "=2.0.13" }
+ethers-contract = { version = "=2.0.13" }
 fnv = "1.0"
 frc42_dispatch = "6.0.0"
 futures = "0.3"
