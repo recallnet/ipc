@@ -295,6 +295,7 @@ impl State {
             account.last_debit_epoch = current_epoch;
             debug!("debited {} credits from {}", debit, address);
         }
+
         Ok(delete_from_disc)
     }
 

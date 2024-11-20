@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::collections::HashSet;
+use std::ops::Mul;
 
 use fendermint_actor_blobs_shared::params::{
     AddBlobParams, ApproveCreditParams, BuyCreditParams, DeleteBlobParams, FinalizeBlobParams,
@@ -18,7 +19,8 @@ use fil_actors_runtime::runtime::builtins::Type;
 use fil_actors_runtime::{
     actor_dispatch, actor_error, deserialize_block, extract_send_result,
     runtime::{ActorCode, Runtime},
-    ActorError, AsActorError, FIRST_EXPORTED_METHOD_NUMBER, SYSTEM_ACTOR_ADDR,
+    ActorError, AsActorError, BURNT_FUNDS_ACTOR_ADDR, FIRST_EXPORTED_METHOD_NUMBER,
+    SYSTEM_ACTOR_ADDR,
 };
 use fvm_ipld_encoding::ipld_block::IpldBlock;
 use fvm_shared::address::Address;
@@ -34,6 +36,9 @@ fil_actors_runtime::wasm_trampoline!(BlobsActor);
 pub struct BlobsActor;
 
 type BlobTuple = (Hash, HashSet<(Address, PublicKey)>);
+
+/// Proportion of tokens to be burned, in bps.
+const BURNED_PROPORTION_BPS: u16 = 5000;
 
 impl BlobsActor {
     fn constructor(rt: &impl Runtime, params: ConstructorParams) -> Result<(), ActorError> {
@@ -51,9 +56,21 @@ impl BlobsActor {
     fn buy_credit(rt: &impl Runtime, params: BuyCreditParams) -> Result<Account, ActorError> {
         rt.validate_immediate_caller_accept_any()?;
         let recipient = resolve_external_non_machine(rt, params.0)?;
-        rt.transaction(|st: &mut State, rt| {
-            st.buy_credit(recipient, rt.message().value_received(), rt.curr_epoch())
-        })
+
+        let token_amount_received = rt.message().value_received(); // in TokenAmount
+        let token_amount_to_burn = token_amount_received.div_floor(10000).mul(BURNED_PROPORTION_BPS);
+        let account = rt.transaction(|st: &mut State, rt| {
+            st.buy_credit(recipient, token_amount_received, rt.curr_epoch())
+        });
+
+        // TODO When virtual gas is in place, the gas actor should be set as a destination
+        extract_send_result(rt.send_simple(
+            &BURNT_FUNDS_ACTOR_ADDR,
+            METHOD_SEND,
+            None,
+            token_amount_to_burn,
+        ))?;
+        account
     }
 
     fn approve_credit(
@@ -510,8 +527,18 @@ mod tests {
         rt.set_origin(id_addr);
 
         let mut expected_credits = BigInt::from(1000000000000000000u64);
-        rt.set_received(TokenAmount::from_whole(1));
+        let received_0 = TokenAmount::from_whole(1);
+        rt.set_received(received_0.clone());
         rt.expect_validate_caller_any();
+        rt.set_balance(received_0.clone());
+        rt.expect_send_simple(
+            BURNT_FUNDS_ACTOR_ADDR,
+            METHOD_SEND,
+            None,
+            TokenAmount::from_whole(1).div_floor(2), // 0.5 gets burned
+            None,
+            ExitCode::OK,
+        );
         let fund_params = BuyCreditParams(f4_eth_addr);
         let result = rt
             .call::<BlobsActor>(
@@ -528,6 +555,15 @@ mod tests {
         expected_credits += BigInt::from(1000000000u64);
         rt.set_received(TokenAmount::from_nano(1));
         rt.expect_validate_caller_any();
+        rt.set_balance(TokenAmount::from_nano(1) + TokenAmount::from_whole(42));
+        rt.expect_send_simple(
+            BURNT_FUNDS_ACTOR_ADDR,
+            METHOD_SEND,
+            None,
+            TokenAmount::from_nano(1).div_floor(2), // 0.5 gets burned
+            None,
+            ExitCode::OK,
+        );
         let fund_params = BuyCreditParams(f4_eth_addr);
         let result = rt
             .call::<BlobsActor>(
@@ -545,6 +581,15 @@ mod tests {
         rt.set_received(TokenAmount::from_atto(1));
         rt.expect_validate_caller_any();
         let fund_params = BuyCreditParams(f4_eth_addr);
+        rt.set_balance(TokenAmount::from_atto(1) + TokenAmount::from_whole(42));
+        rt.expect_send_simple(
+            BURNT_FUNDS_ACTOR_ADDR,
+            METHOD_SEND,
+            None,
+            TokenAmount::from_atto(1).div_floor(2),
+            None,
+            ExitCode::OK,
+        );
         let result = rt
             .call::<BlobsActor>(
                 Method::BuyCredit as u64,
@@ -783,7 +828,16 @@ mod tests {
 
         // Fund an account
         rt.set_received(TokenAmount::from_whole(1));
+        rt.set_balance(TokenAmount::from_whole(1));
         rt.expect_validate_caller_any();
+        rt.expect_send_simple(
+            BURNT_FUNDS_ACTOR_ADDR,
+            METHOD_SEND,
+            None,
+            TokenAmount::from_whole(1).div_ceil(2), // 0.5 gets burned
+            None,
+            ExitCode::OK,
+        );
         let fund_params = BuyCreditParams(f4_eth_addr);
         let result = rt.call::<BlobsActor>(
             Method::BuyCredit as u64,
