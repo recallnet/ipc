@@ -522,7 +522,7 @@ impl State {
                 } else {
                     (new_group_expiry - current_epoch) as u64 * &size
                 };
-                credit_required = byte_blocks_required * self.atto_credits_per_byte_block;;
+                credit_required = byte_blocks_required * self.atto_credits_per_byte_block;
                 tokens_unspent = ensure_credit_or_buy(
                     &mut account.credit_free,
                     &mut self.credit_sold,
@@ -818,7 +818,7 @@ impl State {
         let new_group_expiry = new_group_expiry.unwrap();
         let byte_blocks_required =
             (new_group_expiry - group_expiry.max(account.last_debit_epoch)) as u64 * &size;
-        let credit_required  = byte_blocks_required * self.atto_credits_per_byte_block;
+        let credit_required = byte_blocks_required * self.atto_credits_per_byte_block;
         ensure_credit(
             &subscriber,
             current_epoch,
@@ -1172,7 +1172,7 @@ impl State {
         if account.last_debit_epoch < debit_epoch {
             let debit_blocks = debit_epoch - account.last_debit_epoch;
             let debit_byte_blocks = debit_blocks as u64 * &account.capacity_used;
-            let debit= debit_byte_blocks * self.atto_credits_per_byte_block;
+            let debit = debit_byte_blocks * self.atto_credits_per_byte_block;
             self.credit_debited += &debit;
             self.credit_committed -= &debit;
             account.credit_committed -= &debit;
