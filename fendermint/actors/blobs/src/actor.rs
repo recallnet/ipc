@@ -56,6 +56,7 @@ impl BlobsActor {
         })
     }
 
+    /// Called by the system, not by the users
     fn update_credit(rt: &impl Runtime, params: UpdateCreditParams) -> Result<(), ActorError> {
         rt.validate_immediate_caller_is(std::iter::once(&SYSTEM_ACTOR_ADDR))?;
         let to = resolve_external_non_machine(rt, params.to)?;
@@ -166,14 +167,14 @@ impl BlobsActor {
     fn get_credit_allowance(
         rt: &impl Runtime,
         params: GetCreditAllowanceParams,
-    ) -> Result<TokenAmount, ActorError> {
+    ) -> Result<(TokenAmount, TokenAmount), ActorError> {
         rt.validate_immediate_caller_is(std::iter::once(&SYSTEM_ACTOR_ADDR))?;
         let to = match resolve_external_non_machine(rt, params.to) {
             Ok(to) => to,
             Err(e) => {
                 return if e.exit_code() == ExitCode::USR_FORBIDDEN {
                     // Disallowed actor type (this is called by all txns so we can't error)
-                    Ok(TokenAmount::zero())
+                    Ok((TokenAmount::zero(), TokenAmount::zero()))
                 } else {
                     Err(e)
                 };

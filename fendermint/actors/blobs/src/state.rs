@@ -38,7 +38,7 @@ pub struct State {
     /// The total number of credits debited in the subnet.
     pub credit_debited: BigInt,
     /// The byte-blocks per atto token rate set at genesis.
-    pub credit_debit_rate: u64,
+    pub credits_per_atto_token: u64,
     /// Map containing all accounts by robust (non-ID) actor address.
     pub accounts: HashMap<Address, Account>,
     /// Map containing all blobs.
@@ -101,14 +101,14 @@ impl<'a> CreditDelegation<'a> {
 }
 
 impl State {
-    pub fn new(capacity: u64, credit_debit_rate: u64) -> Self {
+    pub fn new(capacity: u64, credits_per_atto_token: u64) -> Self {
         Self {
             capacity_total: BigInt::from(capacity),
             capacity_used: BigInt::zero(),
             credit_sold: BigInt::zero(),
             credit_committed: BigInt::zero(),
             credit_debited: BigInt::zero(),
-            credit_debit_rate,
+            credits_per_atto_token,
             accounts: HashMap::new(),
             blobs: HashMap::new(),
             expiries: BTreeMap::new(),
@@ -126,7 +126,7 @@ impl State {
             credit_sold: self.credit_sold.clone(),
             credit_committed: self.credit_committed.clone(),
             credit_debited: self.credit_debited.clone(),
-            credit_debit_rate: self.credit_debit_rate,
+            credit_debit_rate: self.credits_per_atto_token,
             num_accounts: self.accounts.len() as u64,
             num_blobs: self.blobs.len() as u64,
             num_resolving: self.pending.len() as u64,
@@ -147,7 +147,7 @@ impl State {
                 "token amount must be positive".into(),
             ));
         }
-        let credits = self.credit_debit_rate * amount.atto();
+        let credits = self.credits_per_atto_token * amount.atto();
         // Don't sell credits if we're at storage capacity
         if self.capacity_available().is_zero() {
             return Err(ActorError::forbidden(
@@ -164,11 +164,12 @@ impl State {
         Ok(account.clone())
     }
 
+    /// Called by the system, not by the users
     pub fn update_credit(
         &mut self,
         to: Address,
         sponsor: Option<Address>,
-        add_amount: TokenAmount,
+        add_amount_tokens: TokenAmount,
         current_epoch: ChainEpoch,
     ) -> anyhow::Result<(), ActorError> {
         let addr = sponsor.unwrap_or(to);
@@ -189,7 +190,7 @@ impl State {
             None
         };
         // Check credit balance and debit
-        let add_credit = self.credit_debit_rate * add_amount.atto();
+        let add_credit = self.credits_per_atto_token * add_amount_tokens.atto();
         if add_credit.is_negative() {
             let credit_required = -add_credit.clone();
             ensure_credit(
@@ -330,14 +331,16 @@ impl State {
         to: Address,
         sponsor: Option<Address>,
         current_epoch: ChainEpoch,
-    ) -> anyhow::Result<TokenAmount, ActorError> {
+    ) -> anyhow::Result<(TokenAmount, TokenAmount), ActorError> {
         let addr = sponsor.unwrap_or(to);
         let account = match self.accounts.get(&addr) {
-            None => return Ok(TokenAmount::zero()),
+            None => return Ok((TokenAmount::zero(), TokenAmount::zero())),
             Some(account) => account,
         };
         if sponsor.is_none() {
-            return Ok(TokenAmount::from_atto(account.credit_free.clone()));
+            let credits = account.credit_free.clone();
+            let tokens = credits.clone() / self.credits_per_atto_token;
+            return Ok((TokenAmount::from_atto(credits), TokenAmount::from_atto(tokens)));
         }
         let allowance = account
             .approvals
@@ -355,10 +358,12 @@ impl State {
                     .limit
                     .clone()
                     .map_or(credit_free.clone(), |limit| (limit - used).min(credit_free));
-                Some(TokenAmount::from_atto(amount))
+                Some(amount)
             })
-            .unwrap_or(TokenAmount::zero());
-        Ok(allowance)
+            .unwrap_or(BigInt::zero());
+        let credits = allowance;
+        let tokens = credits.clone() / self.credits_per_atto_token;
+        Ok((TokenAmount::from_atto(credits), TokenAmount::from_atto(tokens)))
     }
 
     #[allow(clippy::type_complexity)]
@@ -525,7 +530,7 @@ impl State {
                     &mut self.credit_sold,
                     &credit_required,
                     &tokens_received,
-                    self.credit_debit_rate,
+                    self.credits_per_atto_token,
                     &subscriber,
                     current_epoch,
                     &delegation,
@@ -590,7 +595,7 @@ impl State {
                     &mut self.credit_sold,
                     &credit_required,
                     &tokens_received,
-                    self.credit_debit_rate,
+                    self.credits_per_atto_token,
                     &subscriber,
                     current_epoch,
                     &delegation,
@@ -655,7 +660,7 @@ impl State {
                 &mut self.credit_sold,
                 &credit_required,
                 &tokens_received,
-                self.credit_debit_rate,
+                self.credits_per_atto_token,
                 &subscriber,
                 current_epoch,
                 &delegation,
@@ -1508,7 +1513,7 @@ mod tests {
         let res = state.buy_credit(recipient, amount.clone(), 1);
         assert!(res.is_ok());
         let account = res.unwrap();
-        let credit_sold = amount.atto() * state.credit_debit_rate;
+        let credit_sold = amount.atto() * state.credits_per_atto_token;
         assert_eq!(account.credit_free, credit_sold);
         assert_eq!(state.credit_sold, credit_sold);
         assert_eq!(state.accounts.len(), 1);
@@ -1791,7 +1796,7 @@ mod tests {
         current_epoch: ChainEpoch,
         token_amount: TokenAmount,
     ) {
-        let mut credit_amount = token_amount.atto() * state.credit_debit_rate;
+        let mut credit_amount = token_amount.atto() * state.credits_per_atto_token;
 
         // Add blob with default a subscription ID
         let (hash, size) = new_hash(1024);
@@ -1978,7 +1983,7 @@ mod tests {
         current_epoch: ChainEpoch,
         token_amount: TokenAmount,
     ) {
-        let mut credit_amount = token_amount.atto() * state.credit_debit_rate;
+        let mut credit_amount = token_amount.atto() * state.credits_per_atto_token;
 
         // Add blob with default a subscription ID
         let (hash1, size1) = new_hash(1024);
@@ -2192,7 +2197,7 @@ mod tests {
         current_epoch: ChainEpoch,
         token_amount: TokenAmount,
     ) {
-        let mut credit_amount = token_amount.atto() * state.credit_debit_rate;
+        let mut credit_amount = token_amount.atto() * state.credits_per_atto_token;
 
         // Add blob with default a subscription ID
         let (hash, size) = new_hash(1024);
@@ -2470,7 +2475,7 @@ mod tests {
         state
             .buy_credit(subscriber, amount.clone(), current_epoch)
             .unwrap();
-        let mut credit_amount = amount.atto() * state.credit_debit_rate;
+        let mut credit_amount = amount.atto() * state.credits_per_atto_token;
 
         // Add blob with default a subscription ID
         let (hash, size) = new_hash(1024);
@@ -2558,7 +2563,7 @@ mod tests {
         state
             .buy_credit(subscriber, amount.clone(), current_epoch)
             .unwrap();
-        let mut credit_amount = amount.atto() * state.credit_debit_rate;
+        let mut credit_amount = amount.atto() * state.credits_per_atto_token;
 
         // Add blob with default a subscription ID
         let (hash1, size1) = new_hash(1024);
@@ -2785,7 +2790,7 @@ mod tests {
         state
             .buy_credit(subscriber, amount.clone(), current_epoch)
             .unwrap();
-        let credit_amount = amount.atto() * state.credit_debit_rate;
+        let credit_amount = amount.atto() * state.credits_per_atto_token;
 
         // Add a blob
         let add_epoch = current_epoch;
@@ -2856,7 +2861,7 @@ mod tests {
         state
             .buy_credit(subscriber, amount.clone(), current_epoch)
             .unwrap();
-        let mut credit_amount = amount.atto() * state.credit_debit_rate;
+        let mut credit_amount = amount.atto() * state.credits_per_atto_token;
 
         // Add a blob
         let add_epoch = current_epoch;
@@ -2941,7 +2946,7 @@ mod tests {
         let account = state.get_account(subscriber).unwrap();
         assert_eq!(account.last_debit_epoch, debit_epoch);
         assert_eq!(account.credit_committed, BigInt::from(0)); // credit was released
-        assert_eq!(account.credit_free, amount.atto() * state.credit_debit_rate); // credit was refunded
+        assert_eq!(account.credit_free, amount.atto() * state.credits_per_atto_token); // credit was refunded
         assert_eq!(account.capacity_used, BigInt::from(0)); // capacity was released
 
         // Check state
@@ -3002,7 +3007,7 @@ mod tests {
         current_epoch: ChainEpoch,
         token_amount: TokenAmount,
     ) {
-        let mut credit_amount = token_amount.atto() * state.credit_debit_rate;
+        let mut credit_amount = token_amount.atto() * state.credits_per_atto_token;
 
         // Add a blob
         let add1_epoch = current_epoch;

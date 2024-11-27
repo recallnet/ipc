@@ -741,8 +741,9 @@ where
             );
         }
 
-        fvm_ipld_encoding::from_slice::<TokenAmount>(&apply_ret.msg_receipt.return_data)
-            .context("failed to parse credit allowance")
+        let response = fvm_ipld_encoding::from_slice::<(TokenAmount, TokenAmount)>(&apply_ret.msg_receipt.return_data)
+            .context("failed to parse credit allowance")?;
+        Ok(response.1)
     }
 
     /// Updates credit allowance from the sender.
