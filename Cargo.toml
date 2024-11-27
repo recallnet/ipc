@@ -269,7 +269,6 @@ gcra = { git = "https://github.com/consensus-shipyard/gcra-rs.git", branch = "ma
 # fvm_ipld_hamt = { path = "../ref-fvm/ipld/hamt" }
 # fvm_ipld_amt = { path = "../ref-fvm/ipld/amt" }
 
-
 # Use below when working locally on entanglement and this repo simultaneously.
 # Assumes the entanglement checkout is in a sibling directory with the same name.
 # [patch."ssh://git@github.com/hokunet/entanglement.git"]
