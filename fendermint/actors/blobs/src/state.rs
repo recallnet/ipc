@@ -340,7 +340,10 @@ impl State {
         if sponsor.is_none() {
             let credits = account.credit_free.clone();
             let tokens = credits.clone() / self.credits_per_atto_token;
-            return Ok((TokenAmount::from_atto(credits), TokenAmount::from_atto(tokens)));
+            return Ok((
+                TokenAmount::from_atto(credits),
+                TokenAmount::from_atto(tokens),
+            ));
         }
         let allowance = account
             .approvals
@@ -363,7 +366,10 @@ impl State {
             .unwrap_or(BigInt::zero());
         let credits = allowance;
         let tokens = credits.clone() / self.credits_per_atto_token;
-        Ok((TokenAmount::from_atto(credits), TokenAmount::from_atto(tokens)))
+        Ok((
+            TokenAmount::from_atto(credits),
+            TokenAmount::from_atto(tokens),
+        ))
     }
 
     #[allow(clippy::type_complexity)]
@@ -2946,7 +2952,10 @@ mod tests {
         let account = state.get_account(subscriber).unwrap();
         assert_eq!(account.last_debit_epoch, debit_epoch);
         assert_eq!(account.credit_committed, BigInt::from(0)); // credit was released
-        assert_eq!(account.credit_free, amount.atto() * state.credits_per_atto_token); // credit was refunded
+        assert_eq!(
+            account.credit_free,
+            amount.atto() * state.credits_per_atto_token
+        ); // credit was refunded
         assert_eq!(account.capacity_used, BigInt::from(0)); // capacity was released
 
         // Check state
