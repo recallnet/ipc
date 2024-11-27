@@ -425,12 +425,13 @@ impl State {
         // Debit for existing usage
         for (address, account) in self.accounts.iter_mut() {
             let debit_blocks = current_epoch - account.last_debit_epoch;
-            let debit = debit_blocks as u64 * &account.capacity_used;
-            self.credit_debited += &debit;
-            self.credit_committed -= &debit;
-            account.credit_committed -= &debit;
+            let debit_byte_block = debit_blocks as u64 * &account.capacity_used;
+            let debit_credits = self.atto_credits_per_byte_block * debit_byte_block;
+            self.credit_debited += &debit_credits;
+            self.credit_committed -= &debit_credits;
+            account.credit_committed -= &debit_credits;
             account.last_debit_epoch = current_epoch;
-            debug!("debited {} credits from {}", debit, address);
+            debug!("debited {} credits from {}", debit_credits, address);
         }
         Ok(delete_from_disc)
     }
@@ -502,12 +503,13 @@ impl State {
                         // The refund extends up to the current epoch because we need to
                         // account for the charge that will happen below at the current epoch.
                         let refund_blocks = current_epoch - group_expiry;
-                        let refund = refund_blocks as u64 * &size;
+                        let refund_byte_blocks = refund_blocks as u64 * &size;
+                        let refund_credits = self.atto_credits_per_byte_block * refund_byte_blocks;
                         // Re-mint spent credit
-                        self.credit_debited -= &refund;
-                        self.credit_committed += &refund;
-                        account.credit_committed += &refund;
-                        debug!("refunded {} credits to {}", refund, subscriber);
+                        self.credit_debited -= &refund_credits;
+                        self.credit_committed += &refund_credits;
+                        account.credit_committed += &refund_credits;
+                        debug!("refunded {} credits to {}", refund_credits, subscriber);
                     }
                 }
                 // Ensure subscriber has enough credits, considering the subscription group may
@@ -515,11 +517,12 @@ impl State {
                 // Required credit can be negative if subscriber is reducing expiry.
                 // When adding, the new group expiry will always contain a value.
                 let new_group_expiry = new_group_expiry.unwrap();
-                credit_required = if let Some(group_expiry) = group_expiry {
+                let byte_blocks_required = if let Some(group_expiry) = group_expiry {
                     (new_group_expiry - group_expiry.max(current_epoch)) as u64 * &size
                 } else {
                     (new_group_expiry - current_epoch) as u64 * &size
                 };
+                credit_required = byte_blocks_required * self.atto_credits_per_byte_block;;
                 tokens_unspent = ensure_credit_or_buy(
                     &mut account.credit_free,
                     &mut self.credit_sold,
@@ -583,7 +586,8 @@ impl State {
                 // One or more accounts have already committed credit.
                 // However, we still need to reserve the full required credit from the new
                 // subscriber, as the existing account(s) may decide to change the expiry or cancel.
-                credit_required = ttl as u64 * &size;
+                let byte_blocks_required = ttl as u64 * &size;
+                credit_required = byte_blocks_required * self.atto_credits_per_byte_block;
                 tokens_unspent = ensure_credit_or_buy(
                     &mut account.credit_free,
                     &mut self.credit_sold,
@@ -647,7 +651,8 @@ impl State {
                 )));
             }
             new_capacity = size.clone();
-            credit_required = ttl as u64 * &size;
+            let byte_blocks_required = ttl as u64 * &size;
+            credit_required = byte_blocks_required * self.atto_credits_per_byte_block;
             tokens_unspent = ensure_credit_or_buy(
                 &mut account.credit_free,
                 &mut self.credit_sold,
@@ -699,7 +704,8 @@ impl State {
         };
         // Account capacity is changing, debit for existing usage
         let debit_blocks = current_epoch - account.last_debit_epoch;
-        let debit = debit_blocks as u64 * &account.capacity_used;
+        let debit_byte_blocks = debit_blocks as u64 * &account.capacity_used;
+        let debit = debit_byte_blocks * self.atto_credits_per_byte_block;
         self.credit_debited += &debit;
         self.credit_committed -= &debit;
         account.credit_committed -= &debit;
@@ -795,12 +801,13 @@ impl State {
         if account.last_debit_epoch > group_expiry {
             // The refund extends up to the last debit epoch
             let refund_blocks = account.last_debit_epoch - group_expiry;
-            let refund = refund_blocks as u64 * &size;
+            let refund_byte_blocks = refund_blocks as u64 * &size;
+            let refund_credits = refund_byte_blocks * self.atto_credits_per_byte_block;
             // Re-mint spent credit
-            self.credit_debited -= &refund;
-            self.credit_committed += &refund;
-            account.credit_committed += &refund;
-            debug!("refunded {} credits to {}", refund, subscriber);
+            self.credit_debited -= &refund_credits;
+            self.credit_committed += &refund_credits;
+            account.credit_committed += &refund_credits;
+            debug!("refunded {} credits to {}", refund_credits, subscriber);
         }
         // Ensure subscriber has enough credits, considering the subscription group may
         // have expiries that cover a portion of the renewal.
@@ -809,8 +816,9 @@ impl State {
         // There may be a gap between the existing expiry and the last debit that will make
         // the renewal discontinuous.
         let new_group_expiry = new_group_expiry.unwrap();
-        let credit_required =
+        let byte_blocks_required =
             (new_group_expiry - group_expiry.max(account.last_debit_epoch)) as u64 * &size;
+        let credit_required  = byte_blocks_required * self.atto_credits_per_byte_block;
         ensure_credit(
             &subscriber,
             current_epoch,
@@ -1012,11 +1020,12 @@ impl State {
                     .unwrap_or(account.last_debit_epoch)
                     .min(account.last_debit_epoch);
                 let refund_blocks = refund_cutoff - sub.added;
-                let refund = refund_blocks as u64 * &size;
+                let refund_byte_blocks = refund_blocks as u64 * &size;
+                let refund_credits = refund_byte_blocks * self.atto_credits_per_byte_block;
                 // Re-mint spent credit
-                self.credit_debited -= &refund;
-                account.credit_free += &refund; // move directly to free
-                debug!("refunded {} credits to {}", refund, subscriber);
+                self.credit_debited -= &refund_credits;
+                account.credit_free += &refund_credits; // move directly to free
+                debug!("refunded {} credits to {}", refund_credits, subscriber);
             }
             // If there's no new group expiry, all subscriptions have failed.
             if new_group_expiry.is_none() {
@@ -1030,19 +1039,20 @@ impl State {
             // When failing, the existing group expiry will always contain a value.
             let group_expiry = group_expiry.unwrap();
             if account.last_debit_epoch < group_expiry {
-                let reclaim = if let Some(new_group_expiry) = new_group_expiry {
+                let reclaim_byte_blocks = if let Some(new_group_expiry) = new_group_expiry {
                     (group_expiry - new_group_expiry.max(account.last_debit_epoch)) * &size
                 } else {
                     (group_expiry - account.last_debit_epoch) * &size
                 };
-                self.credit_committed -= &reclaim;
-                account.credit_committed -= &reclaim;
-                account.credit_free += &reclaim;
+                let reclaim_credits = reclaim_byte_blocks * self.atto_credits_per_byte_block;
+                self.credit_committed -= &reclaim_credits;
+                account.credit_committed -= &reclaim_credits;
+                account.credit_free += &reclaim_credits;
                 // Update credit approval
                 if let Some(delegation) = delegation {
-                    delegation.approval.used -= &reclaim;
+                    delegation.approval.used -= &reclaim_credits;
                 }
-                debug!("released {} credits to {}", reclaim, subscriber);
+                debug!("released {} credits to {}", reclaim_credits, subscriber);
             }
             sub.failed = true;
         }
@@ -1161,7 +1171,8 @@ impl State {
         // in which case we need to refund for that duration.
         if account.last_debit_epoch < debit_epoch {
             let debit_blocks = debit_epoch - account.last_debit_epoch;
-            let debit = debit_blocks as u64 * &account.capacity_used;
+            let debit_byte_blocks = debit_blocks as u64 * &account.capacity_used;
+            let debit= debit_byte_blocks * self.atto_credits_per_byte_block;
             self.credit_debited += &debit;
             self.credit_committed -= &debit;
             account.credit_committed -= &debit;
@@ -1170,12 +1181,13 @@ impl State {
         } else {
             // The account was debited after this blob's expiry
             let refund_blocks = account.last_debit_epoch - group_expiry;
-            let refund = refund_blocks as u64 * &BigInt::from(blob.size);
+            let refund_byte_blocks = refund_blocks as u64 * &BigInt::from(blob.size);
+            let refund_credits = refund_byte_blocks * self.atto_credits_per_byte_block;
             // Re-mint spent credit
-            self.credit_debited -= &refund;
-            self.credit_committed += &refund;
-            account.credit_committed += &refund;
-            debug!("refunded {} credits to {}", refund, subscriber);
+            self.credit_debited -= &refund_credits;
+            self.credit_committed += &refund_credits;
+            account.credit_committed += &refund_credits;
+            debug!("refunded {} credits to {}", refund_credits, subscriber);
         }
         // Account for reclaimed size and move committed credit to free credit
         // If blob failed, capacity and committed credits have already been returned
@@ -1193,19 +1205,20 @@ impl State {
             // We can release credits if the new group expiry is in the future,
             // considering other subscriptions may still be active.
             if account.last_debit_epoch < group_expiry {
-                let reclaim = if let Some(new_group_expiry) = new_group_expiry {
+                let reclaim_byte_blocks = if let Some(new_group_expiry) = new_group_expiry {
                     (group_expiry - new_group_expiry.max(account.last_debit_epoch)) * &size
                 } else {
                     (group_expiry - account.last_debit_epoch) * &size
                 };
-                self.credit_committed -= &reclaim;
-                account.credit_committed -= &reclaim;
-                account.credit_free += &reclaim;
+                let reclaim_credits = reclaim_byte_blocks * self.atto_credits_per_byte_block;
+                self.credit_committed -= &reclaim_credits;
+                account.credit_committed -= &reclaim_credits;
+                account.credit_free += &reclaim_credits;
                 // Update credit approval
                 if let Some(delegation) = delegation {
-                    delegation.approval.used -= &reclaim;
+                    delegation.approval.used -= &reclaim_credits;
                 }
-                debug!("released {} credits to {}", reclaim, subscriber);
+                debug!("released {} credits to {}", reclaim_credits, subscriber);
             }
         }
         // Update expiry index
@@ -1310,8 +1323,7 @@ fn ensure_credit_or_buy(
             let not_enough_credits = *account_credit_free < *credit_required;
             if not_enough_credits {
                 let credits_needed = credit_required - &*account_credit_free;
-                let tokens_needed_atto = &credits_needed;
-                let tokens_needed = TokenAmount::from_atto(tokens_needed_atto);
+                let tokens_needed = TokenAmount::from_atto(credits_needed.clone());
                 if tokens_needed <= *tokens_received {
                     let tokens_to_rebate = tokens_received - tokens_needed;
                     *state_credit_sold += &credits_needed;
