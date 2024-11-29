@@ -38,7 +38,7 @@ pub struct State {
     /// The total number of credits debited in the subnet.
     pub credit_debited: BigInt,
     /// The byte-blocks per atto token rate set at genesis.
-    pub atto_credits_per_byte_block: u64,
+    pub credits_per_byte_block: u64,
     /// Map containing all accounts by robust (non-ID) actor address.
     pub accounts: HashMap<Address, Account>,
     /// Map containing all blobs.
@@ -101,14 +101,14 @@ impl<'a> CreditDelegation<'a> {
 }
 
 impl State {
-    pub fn new(capacity: u64, atto_credits_per_byte_block: u64) -> Self {
+    pub fn new(capacity: u64, credits_per_byte_block: u64) -> Self {
         Self {
             capacity_total: BigInt::from(capacity),
             capacity_used: BigInt::zero(),
             credit_sold: BigInt::zero(),
             credit_committed: BigInt::zero(),
             credit_debited: BigInt::zero(),
-            atto_credits_per_byte_block,
+            credits_per_byte_block,
             accounts: HashMap::new(),
             blobs: HashMap::new(),
             expiries: BTreeMap::new(),
@@ -126,7 +126,7 @@ impl State {
             credit_sold: self.credit_sold.clone(),
             credit_committed: self.credit_committed.clone(),
             credit_debited: self.credit_debited.clone(),
-            credit_debit_rate: self.atto_credits_per_byte_block,
+            credit_debit_rate: self.credits_per_byte_block,
             num_accounts: self.accounts.len() as u64,
             num_blobs: self.blobs.len() as u64,
             num_resolving: self.pending.len() as u64,
@@ -426,7 +426,7 @@ impl State {
         for (address, account) in self.accounts.iter_mut() {
             let debit_blocks = current_epoch - account.last_debit_epoch;
             let debit_byte_block = debit_blocks as u64 * &account.capacity_used;
-            let debit_credits = self.atto_credits_per_byte_block * debit_byte_block;
+            let debit_credits = self.credits_per_byte_block * debit_byte_block;
             self.credit_debited += &debit_credits;
             self.credit_committed -= &debit_credits;
             account.credit_committed -= &debit_credits;
@@ -504,7 +504,7 @@ impl State {
                         // account for the charge that will happen below at the current epoch.
                         let refund_blocks = current_epoch - group_expiry;
                         let refund_byte_blocks = refund_blocks as u64 * &size;
-                        let refund_credits = self.atto_credits_per_byte_block * refund_byte_blocks;
+                        let refund_credits = self.credits_per_byte_block * refund_byte_blocks;
                         // Re-mint spent credit
                         self.credit_debited -= &refund_credits;
                         self.credit_committed += &refund_credits;
@@ -522,7 +522,7 @@ impl State {
                 } else {
                     (new_group_expiry - current_epoch) as u64 * &size
                 };
-                credit_required = byte_blocks_required * self.atto_credits_per_byte_block;
+                credit_required = byte_blocks_required * self.credits_per_byte_block;
                 tokens_unspent = ensure_credit_or_buy(
                     &mut account.credit_free,
                     &mut self.credit_sold,
@@ -587,7 +587,7 @@ impl State {
                 // However, we still need to reserve the full required credit from the new
                 // subscriber, as the existing account(s) may decide to change the expiry or cancel.
                 let byte_blocks_required = ttl as u64 * &size;
-                credit_required = byte_blocks_required * self.atto_credits_per_byte_block;
+                credit_required = byte_blocks_required * self.credits_per_byte_block;
                 tokens_unspent = ensure_credit_or_buy(
                     &mut account.credit_free,
                     &mut self.credit_sold,
@@ -652,7 +652,7 @@ impl State {
             }
             new_capacity = size.clone();
             let byte_blocks_required = ttl as u64 * &size;
-            credit_required = byte_blocks_required * self.atto_credits_per_byte_block;
+            credit_required = byte_blocks_required * self.credits_per_byte_block;
             tokens_unspent = ensure_credit_or_buy(
                 &mut account.credit_free,
                 &mut self.credit_sold,
@@ -705,7 +705,7 @@ impl State {
         // Account capacity is changing, debit for existing usage
         let debit_blocks = current_epoch - account.last_debit_epoch;
         let debit_byte_blocks = debit_blocks as u64 * &account.capacity_used;
-        let debit = debit_byte_blocks * self.atto_credits_per_byte_block;
+        let debit = debit_byte_blocks * self.credits_per_byte_block;
         self.credit_debited += &debit;
         self.credit_committed -= &debit;
         account.credit_committed -= &debit;
@@ -802,7 +802,7 @@ impl State {
             // The refund extends up to the last debit epoch
             let refund_blocks = account.last_debit_epoch - group_expiry;
             let refund_byte_blocks = refund_blocks as u64 * &size;
-            let refund_credits = refund_byte_blocks * self.atto_credits_per_byte_block;
+            let refund_credits = refund_byte_blocks * self.credits_per_byte_block;
             // Re-mint spent credit
             self.credit_debited -= &refund_credits;
             self.credit_committed += &refund_credits;
@@ -818,7 +818,7 @@ impl State {
         let new_group_expiry = new_group_expiry.unwrap();
         let byte_blocks_required =
             (new_group_expiry - group_expiry.max(account.last_debit_epoch)) as u64 * &size;
-        let credit_required = byte_blocks_required * self.atto_credits_per_byte_block;
+        let credit_required = byte_blocks_required * self.credits_per_byte_block;
         ensure_credit(
             &subscriber,
             current_epoch,
@@ -1021,7 +1021,7 @@ impl State {
                     .min(account.last_debit_epoch);
                 let refund_blocks = refund_cutoff - sub.added;
                 let refund_byte_blocks = refund_blocks as u64 * &size;
-                let refund_credits = refund_byte_blocks * self.atto_credits_per_byte_block;
+                let refund_credits = refund_byte_blocks * self.credits_per_byte_block;
                 // Re-mint spent credit
                 self.credit_debited -= &refund_credits;
                 account.credit_free += &refund_credits; // move directly to free
@@ -1044,7 +1044,7 @@ impl State {
                 } else {
                     (group_expiry - account.last_debit_epoch) * &size
                 };
-                let reclaim_credits = reclaim_byte_blocks * self.atto_credits_per_byte_block;
+                let reclaim_credits = reclaim_byte_blocks * self.credits_per_byte_block;
                 self.credit_committed -= &reclaim_credits;
                 account.credit_committed -= &reclaim_credits;
                 account.credit_free += &reclaim_credits;
@@ -1172,7 +1172,7 @@ impl State {
         if account.last_debit_epoch < debit_epoch {
             let debit_blocks = debit_epoch - account.last_debit_epoch;
             let debit_byte_blocks = debit_blocks as u64 * &account.capacity_used;
-            let debit = debit_byte_blocks * self.atto_credits_per_byte_block;
+            let debit = debit_byte_blocks * self.credits_per_byte_block;
             self.credit_debited += &debit;
             self.credit_committed -= &debit;
             account.credit_committed -= &debit;
@@ -1182,7 +1182,7 @@ impl State {
             // The account was debited after this blob's expiry
             let refund_blocks = account.last_debit_epoch - group_expiry;
             let refund_byte_blocks = refund_blocks as u64 * &BigInt::from(blob.size);
-            let refund_credits = refund_byte_blocks * self.atto_credits_per_byte_block;
+            let refund_credits = refund_byte_blocks * self.credits_per_byte_block;
             // Re-mint spent credit
             self.credit_debited -= &refund_credits;
             self.credit_committed += &refund_credits;
@@ -1210,7 +1210,7 @@ impl State {
                 } else {
                     (group_expiry - account.last_debit_epoch) * &size
                 };
-                let reclaim_credits = reclaim_byte_blocks * self.atto_credits_per_byte_block;
+                let reclaim_credits = reclaim_byte_blocks * self.credits_per_byte_block;
                 self.credit_committed -= &reclaim_credits;
                 account.credit_committed -= &reclaim_credits;
                 account.credit_free += &reclaim_credits;
