@@ -75,6 +75,7 @@ fendermint_vm_iroh_resolver = { path = "../vm/iroh_resolver" }
 fendermint_vm_snapshot = { path = "../vm/snapshot" }
 fendermint_vm_topdown = { path = "../vm/topdown" }
 fendermint_actor_bucket = { path = "../actors/bucket" }
+fendermint_actor_registry = { path = "../actors/registry" }
 fendermint_actor_machine = { path = "../actors/machine" }
 fendermint_actor_timehub = { path = "../actors/timehub" }
 fendermint_actor_blobs_shared = { path = "../actors/blobs/shared" }
