@@ -447,6 +447,38 @@ mod tests {
         );
     }
 
+    fn add_blob(
+        rt: &MockRuntime,
+        hash: (Hash, u64),
+        ttl: Option<ChainEpoch>,
+    ) -> Result<Option<IpldBlock>, ActorError> {
+        // Try without first funding
+        rt.expect_validate_caller_any();
+        let add_params = AddBlobParams {
+            sponsor: None,
+            source: new_pk(),
+            hash: hash.0,
+            metadata_hash: new_hash(1024).0,
+            id: SubscriptionId::Default,
+            size: hash.1,
+            ttl,
+        };
+        let result = rt.call::<BlobsActor>(Method::AddBlob as u64, to_ipld(&add_params));
+        result
+    }
+
+    fn add_blob_unwrap(
+        rt: &MockRuntime,
+        hash: (Hash, u64),
+        ttl: Option<ChainEpoch>,
+    ) -> Subscription {
+        add_blob(rt, hash, ttl)
+            .unwrap()
+            .unwrap()
+            .deserialize::<Subscription>()
+            .unwrap()
+    }
+
     #[test]
     fn test_buy_credit() {
         let rt = construct_and_verify(1024 * 1024, 1);
@@ -668,19 +700,8 @@ mod tests {
 
         let f4_eth_addr = set_default_address(&rt);
 
-        // Try without first funding
-        rt.expect_validate_caller_any();
-        let hash = new_hash(1024);
-        let add_params = AddBlobParams {
-            sponsor: None,
-            source: new_pk(),
-            hash: hash.0,
-            metadata_hash: new_hash(1024).0,
-            id: SubscriptionId::Default,
-            size: hash.1,
-            ttl: None,
-        };
-        let result = rt.call::<BlobsActor>(Method::AddBlob as u64, to_ipld(&add_params));
+        let result = add_blob(&rt, new_hash(1024), None);
+
         assert!(result.is_err());
         rt.verify();
 
@@ -695,12 +716,7 @@ mod tests {
         // Try with sufficient balance
         rt.set_epoch(ChainEpoch::from(5));
         rt.expect_validate_caller_any();
-        let subscription = rt
-            .call::<BlobsActor>(Method::AddBlob as u64, to_ipld(&add_params))
-            .unwrap()
-            .unwrap()
-            .deserialize::<Subscription>()
-            .unwrap();
+        let subscription = add_blob_unwrap(&rt, new_hash(1024), None);
         assert_eq!(subscription.added, 5);
         assert_eq!(subscription.expiry, 3605);
         assert_eq!(subscription.delegate, None);
@@ -726,24 +742,8 @@ mod tests {
 
         stub_get_ttl(&rt, f4_eth_addr, account_ttl);
 
-        let add_params = AddBlobParams {
-            sponsor: None,
-            source: new_pk(),
-            hash: hash.0,
-            metadata_hash: new_hash(1024).0,
-            id: SubscriptionId::Default,
-            size: hash.1,
-            ttl: Some(blob_ttl),
-        };
-
         rt.set_epoch(ChainEpoch::from(5));
-        rt.expect_validate_caller_any();
-        let subscription = rt
-            .call::<BlobsActor>(Method::AddBlob as u64, to_ipld(&add_params))
-            .unwrap()
-            .unwrap()
-            .deserialize::<Subscription>()
-            .unwrap();
+        let subscription = add_blob_unwrap(&rt, hash, Some(blob_ttl));
 
         assert_eq!(subscription.added, 5);
         assert_eq!(subscription.expiry, 3605);
@@ -767,18 +767,7 @@ mod tests {
             None,
         );
 
-        let exceeding_params = AddBlobParams {
-            sponsor: None,
-            source: new_pk(),
-            hash: new_hash(1024).0,
-            metadata_hash: new_hash(1024).0,
-            id: SubscriptionId::Default,
-            size: hash.1,
-            ttl: Some(7200), // More than registry TTL (3600)
-        };
-
-        let result = rt.call::<BlobsActor>(Method::AddBlob as u64, to_ipld(&exceeding_params));
-
+        let result = add_blob(&rt, hash, Some(7200));
         assert!(result.is_err_and(|e| e.msg().contains("exceeds account max ttl")));
         rt.verify();
     }
@@ -802,22 +791,14 @@ mod tests {
 
         stub_get_ttl(&rt, f4_eth_addr, account_ttl);
 
-        let add_params = AddBlobParams {
-            sponsor: None,
-            source: new_pk(),
-            hash: hash.0,
-            metadata_hash: new_hash(1024).0,
-            id: SubscriptionId::Default,
-            size: hash.1,
-            ttl: Some(blob_ttl),
-        };
-
         rt.set_epoch(ChainEpoch::from(5));
-        rt.expect_validate_caller_any();
-        let res = rt.call::<BlobsActor>(Method::AddBlob as u64, to_ipld(&add_params));
 
-        assert!(res.is_err());
-        assert!(res.unwrap_err().msg().contains("exceeds account max ttl"));
+        let result = add_blob(&rt, hash, Some(blob_ttl));
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .msg()
+            .contains("exceeds account max ttl"));
     }
 
     #[test]
@@ -860,20 +841,10 @@ mod tests {
         stub_get_ttl(&rt, f4_eth_addr, 3600);
 
         // Try sending zero
-        rt.expect_validate_caller_any();
         rt.set_received(TokenAmount::zero());
-        let hash = new_hash(1024);
-        let add_params = AddBlobParams {
-            sponsor: None,
-            hash: hash.0,
-            metadata_hash: new_hash(1024).0,
-            source: new_pk(),
-            id: SubscriptionId::Default,
-            size: hash.1,
-            ttl: Some(3600),
-        };
-        let response = rt.call::<BlobsActor>(Method::AddBlob as u64, to_ipld(&add_params));
-        assert!(response.is_err());
+
+        let result = add_blob(&rt, new_hash(1024), Some(3600));
+        assert!(result.is_err());
         rt.verify();
 
         stub_get_ttl(&rt, f4_eth_addr, 3600);
@@ -882,19 +853,8 @@ mod tests {
         let tokens_required_atto = add_params.size * add_params.ttl.unwrap() as u64;
         let tokens_sent = TokenAmount::from_atto(tokens_required_atto);
         rt.set_received(tokens_sent.clone());
-        rt.expect_validate_caller_any();
-        let hash = new_hash(1024);
-        let add_params = AddBlobParams {
-            sponsor: None,
-            hash: hash.0,
-            metadata_hash: new_hash(1024).0,
-            source: new_pk(),
-            id: SubscriptionId::Default,
-            size: hash.1,
-            //ttl: None,
-            ttl: Some(3600),
-        };
-        let result = rt.call::<BlobsActor>(Method::AddBlob as u64, to_ipld(&add_params));
+
+        let result = add_blob(&rt, new_hash(1024), Some(3600));
         assert!(result.is_ok());
         rt.verify();
     }
