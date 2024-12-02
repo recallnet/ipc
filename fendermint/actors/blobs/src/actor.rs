@@ -416,6 +416,7 @@ mod tests {
         rt
     }
 
+    // Set the default address for the test runtime
     fn set_default_address(rt: &MockRuntime) -> Address {
         let id_addr = Address::new_id(110);
         let eth_addr = EthAddress(hex_literal::hex!(
@@ -430,6 +431,7 @@ mod tests {
         f4_eth_addr
     }
 
+    // Stub the registry actor's GetTTL method to return the given TTL
     fn stub_get_ttl(rt: &MockRuntime, f4_eth_addr: Address, return_ttl: i64) {
         rt.expect_validate_caller_any();
         rt.expect_send(
@@ -447,6 +449,7 @@ mod tests {
         );
     }
 
+    // Add a blob to the blobs actor with the given hash and size.
     fn add_blob(
         rt: &MockRuntime,
         hash: (Hash, u64),
@@ -467,6 +470,7 @@ mod tests {
         result
     }
 
+    // Add a blob to the blobs actor with the given hash and size, unwrapping the result.
     fn add_blob_unwrap(
         rt: &MockRuntime,
         hash: (Hash, u64),
