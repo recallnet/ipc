@@ -10,10 +10,11 @@ use fil_actors_runtime::{
 use fvm_shared::clock::ChainEpoch;
 
 use crate::shared::{
-    ConstructorParams, GetTTLParams, GetTTLReturn, Method, SetCustomTTLParams, SetDefaultTTLParams,
-    SetExtendedTTLParams, SetNoTTLParams, REGISTRY_ACTOR_NAME,
+    ConstructorParams, SetCustomTTLParams, SetDefaultTTLParams, SetExtendedTTLParams,
+    SetNoTTLParams, REGISTRY_ACTOR_NAME,
 };
 use crate::state::State;
+use fendermint_actor_registry_shared::{GetTTLParams, GetTTLReturn, Method};
 use fil_actors_runtime::SYSTEM_ACTOR_ADDR;
 
 #[cfg(feature = "fil-actor")]

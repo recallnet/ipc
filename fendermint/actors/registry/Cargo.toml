@@ -26,8 +26,8 @@ fvm_ipld_encoding = { workspace = true }
 fvm_ipld_hamt = { workspace = true }
 fvm_shared = { workspace = true }
 
-fendermint_actor_blobs_shared = { path = "../blobs/shared" }
 fendermint_actor_machine = { path = "../machine" }
+fendermint_actor_registry_shared = { path = "../registry/shared" }
 
 [dev-dependencies]
 fendermint_testing = { path = "../../testing", features = ["arb"] }

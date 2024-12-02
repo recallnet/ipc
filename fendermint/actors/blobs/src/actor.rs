@@ -13,12 +13,16 @@ use fendermint_actor_blobs_shared::params::{
 use fendermint_actor_blobs_shared::state::{
     Account, Blob, BlobStatus, CreditApproval, Hash, PublicKey, Subscription, SubscriptionId,
 };
+use fvm_shared::econ::TokenAmount;
+use fvm_shared::sys::SendFlags;
+use num_traits::Zero;
 
 use crate::{ConstructorParams, State, BLOBS_ACTOR_NAME};
 use fendermint_actor_blobs_shared::Method;
 use fendermint_actor_machine::{resolve_external, resolve_external_non_machine};
+use fendermint_actor_registry_shared::{self as registry, REGISTRY_ACTOR_ADDR};
 use fil_actors_runtime::{
-    actor_dispatch, actor_error, extract_send_result,
+    actor_dispatch, actor_error, deserialize_block, extract_send_result,
     runtime::{ActorCode, Runtime},
     ActorError, FIRST_EXPORTED_METHOD_NUMBER, SYSTEM_ACTOR_ADDR,
 };
@@ -164,6 +168,25 @@ impl BlobsActor {
         } else {
             origin
         };
+
+        if let Some(ttl) = params.ttl {
+            let ret: registry::GetTTLReturn = deserialize_block(extract_send_result(rt.send(
+                &REGISTRY_ACTOR_ADDR,
+                registry::Method::GetTTL as u64,
+                IpldBlock::serialize_cbor(&caller)?,
+                TokenAmount::zero(),
+                None,
+                SendFlags::READ_ONLY,
+            ))?)?;
+
+            if ttl > ret.ttl {
+                return Err(ActorError::illegal_argument(format!(
+                    "blob ttl {} exceeds account max ttl {}",
+                    ttl, ret.ttl
+                )));
+            }
+        }
+
         let tokens_received = rt.message().value_received();
         let (subscription, unspent_tokens) = rt.transaction(|st: &mut State, rt| {
             st.add_blob(
@@ -367,6 +390,10 @@ mod tests {
         PublicKey(data)
     }
 
+    fn to_ipld<T: serde::Serialize + ?Sized>(obj: &T) -> Option<IpldBlock> {
+        IpldBlock::serialize_cbor(&obj).unwrap()
+    }
+
     pub fn construct_and_verify(capacity: u64, debit_rate: u64) -> MockRuntime {
         let rt = MockRuntime {
             receiver: Address::new_id(10),
@@ -377,11 +404,10 @@ mod tests {
         let result = rt
             .call::<BlobsActor>(
                 Method::Constructor as u64,
-                IpldBlock::serialize_cbor(&ConstructorParams {
+                to_ipld(&ConstructorParams {
                     capacity,
                     debit_rate,
-                })
-                .unwrap(),
+                }),
             )
             .unwrap();
         expect_empty(result);
@@ -390,10 +416,7 @@ mod tests {
         rt
     }
 
-    #[test]
-    fn test_buy_credit() {
-        let rt = construct_and_verify(1024 * 1024, 1);
-
+    fn set_default_address(rt: &MockRuntime) -> Address {
         let id_addr = Address::new_id(110);
         let eth_addr = EthAddress(hex_literal::hex!(
             "CAFEB0BA00000000000000000000000000000000"
@@ -403,16 +426,39 @@ mod tests {
         rt.set_delegated_address(id_addr.id().unwrap(), f4_eth_addr);
         rt.set_caller(*ETHACCOUNT_ACTOR_CODE_ID, id_addr);
         rt.set_origin(id_addr);
+        rt.set_epoch(ChainEpoch::from(0));
+        f4_eth_addr
+    }
+
+    fn stub_get_ttl(rt: &MockRuntime, f4_eth_addr: Address, return_ttl: i64) {
+        rt.expect_validate_caller_any();
+        rt.expect_send(
+            REGISTRY_ACTOR_ADDR,
+            registry::Method::GetTTL as u64,
+            to_ipld(&registry::GetTTLParams {
+                target: f4_eth_addr,
+            }),
+            TokenAmount::zero(),
+            None,
+            SendFlags::READ_ONLY,
+            to_ipld(&registry::GetTTLReturn { ttl: return_ttl }),
+            ExitCode::OK,
+            None,
+        );
+    }
+
+    #[test]
+    fn test_buy_credit() {
+        let rt = construct_and_verify(1024 * 1024, 1);
+
+        let f4_eth_addr = set_default_address(&rt);
 
         let mut expected_credits = BigInt::from(1000000000000000000u64);
         rt.set_received(TokenAmount::from_whole(1));
         rt.expect_validate_caller_any();
         let fund_params = BuyCreditParams(f4_eth_addr);
         let result = rt
-            .call::<BlobsActor>(
-                Method::BuyCredit as u64,
-                IpldBlock::serialize_cbor(&fund_params).unwrap(),
-            )
+            .call::<BlobsActor>(Method::BuyCredit as u64, to_ipld(&fund_params))
             .unwrap()
             .unwrap()
             .deserialize::<Account>()
@@ -425,10 +471,7 @@ mod tests {
         rt.expect_validate_caller_any();
         let fund_params = BuyCreditParams(f4_eth_addr);
         let result = rt
-            .call::<BlobsActor>(
-                Method::BuyCredit as u64,
-                IpldBlock::serialize_cbor(&fund_params).unwrap(),
-            )
+            .call::<BlobsActor>(Method::BuyCredit as u64, to_ipld(&fund_params))
             .unwrap()
             .unwrap()
             .deserialize::<Account>()
@@ -441,10 +484,7 @@ mod tests {
         rt.expect_validate_caller_any();
         let fund_params = BuyCreditParams(f4_eth_addr);
         let result = rt
-            .call::<BlobsActor>(
-                Method::BuyCredit as u64,
-                IpldBlock::serialize_cbor(&fund_params).unwrap(),
-            )
+            .call::<BlobsActor>(Method::BuyCredit as u64, to_ipld(&fund_params))
             .unwrap()
             .unwrap()
             .deserialize::<Account>()
@@ -494,10 +534,7 @@ mod tests {
             limit: None,
             ttl: None,
         };
-        let result = rt.call::<BlobsActor>(
-            Method::ApproveCredit as u64,
-            IpldBlock::serialize_cbor(&approve_params).unwrap(),
-        );
+        let result = rt.call::<BlobsActor>(Method::ApproveCredit as u64, to_ipld(&approve_params));
         assert!(result.is_ok());
         rt.verify();
 
@@ -512,10 +549,7 @@ mod tests {
             limit: None,
             ttl: None,
         };
-        let result = rt.call::<BlobsActor>(
-            Method::ApproveCredit as u64,
-            IpldBlock::serialize_cbor(&approve_params).unwrap(),
-        );
+        let result = rt.call::<BlobsActor>(Method::ApproveCredit as u64, to_ipld(&approve_params));
         assert!(result.is_ok());
         rt.verify();
 
@@ -530,10 +564,7 @@ mod tests {
             limit: None,
             ttl: None,
         };
-        let result = rt.call::<BlobsActor>(
-            Method::ApproveCredit as u64,
-            IpldBlock::serialize_cbor(&approve_params).unwrap(),
-        );
+        let result = rt.call::<BlobsActor>(Method::ApproveCredit as u64, to_ipld(&approve_params));
         let expected_return = Err(ActorError::illegal_argument(format!(
             "from {} does not match origin or caller",
             receiver_f4_eth_addr
@@ -583,10 +614,7 @@ mod tests {
             limit: None,
             ttl: None,
         };
-        let result = rt.call::<BlobsActor>(
-            Method::ApproveCredit as u64,
-            IpldBlock::serialize_cbor(&approve_params).unwrap(),
-        );
+        let result = rt.call::<BlobsActor>(Method::ApproveCredit as u64, to_ipld(&approve_params));
         assert!(result.is_ok());
         rt.verify();
 
@@ -599,10 +627,7 @@ mod tests {
             receiver: receiver_id_addr,
             required_caller: None,
         };
-        let result = rt.call::<BlobsActor>(
-            Method::RevokeCredit as u64,
-            IpldBlock::serialize_cbor(&revoke_params).unwrap(),
-        );
+        let result = rt.call::<BlobsActor>(Method::RevokeCredit as u64, to_ipld(&revoke_params));
         assert!(result.is_ok());
         rt.verify();
 
@@ -615,10 +640,7 @@ mod tests {
             receiver: receiver_id_addr,
             required_caller: None,
         };
-        let result = rt.call::<BlobsActor>(
-            Method::RevokeCredit as u64,
-            IpldBlock::serialize_cbor(&revoke_params).unwrap(),
-        );
+        let result = rt.call::<BlobsActor>(Method::RevokeCredit as u64, to_ipld(&revoke_params));
         assert!(result.is_ok());
         rt.verify();
 
@@ -631,10 +653,7 @@ mod tests {
             receiver: receiver_id_addr,
             required_caller: None,
         };
-        let result = rt.call::<BlobsActor>(
-            Method::RevokeCredit as u64,
-            IpldBlock::serialize_cbor(&revoke_params).unwrap(),
-        );
+        let result = rt.call::<BlobsActor>(Method::RevokeCredit as u64, to_ipld(&revoke_params));
         let expected_return = Err(ActorError::illegal_argument(format!(
             "from {} does not match origin or caller",
             receiver_f4_eth_addr
@@ -644,19 +663,10 @@ mod tests {
     }
 
     #[test]
-    fn test_add_blob() {
+    fn test_add_blob_with_no_ttl() {
         let rt = construct_and_verify(1024 * 1024, 1);
 
-        let id_addr = Address::new_id(110);
-        let eth_addr = EthAddress(hex_literal::hex!(
-            "CAFEB0BA00000000000000000000000000000000"
-        ));
-        let f4_eth_addr = Address::new_delegated(10, &eth_addr.0).unwrap();
-
-        rt.set_delegated_address(id_addr.id().unwrap(), f4_eth_addr);
-        rt.set_caller(*ETHACCOUNT_ACTOR_CODE_ID, id_addr);
-        rt.set_origin(id_addr);
-        rt.set_epoch(ChainEpoch::from(0));
+        let f4_eth_addr = set_default_address(&rt);
 
         // Try without first funding
         rt.expect_validate_caller_any();
@@ -668,12 +678,9 @@ mod tests {
             metadata_hash: new_hash(1024).0,
             id: SubscriptionId::Default,
             size: hash.1,
-            ttl: Some(3600),
+            ttl: None,
         };
-        let result = rt.call::<BlobsActor>(
-            Method::AddBlob as u64,
-            IpldBlock::serialize_cbor(&add_params).unwrap(),
-        );
+        let result = rt.call::<BlobsActor>(Method::AddBlob as u64, to_ipld(&add_params));
         assert!(result.is_err());
         rt.verify();
 
@@ -681,10 +688,7 @@ mod tests {
         rt.set_received(TokenAmount::from_whole(1));
         rt.expect_validate_caller_any();
         let fund_params = BuyCreditParams(f4_eth_addr);
-        let result = rt.call::<BlobsActor>(
-            Method::BuyCredit as u64,
-            IpldBlock::serialize_cbor(&fund_params).unwrap(),
-        );
+        let result = rt.call::<BlobsActor>(Method::BuyCredit as u64, to_ipld(&fund_params));
         assert!(result.is_ok());
         rt.verify();
 
@@ -692,35 +696,137 @@ mod tests {
         rt.set_epoch(ChainEpoch::from(5));
         rt.expect_validate_caller_any();
         let subscription = rt
-            .call::<BlobsActor>(
-                Method::AddBlob as u64,
-                IpldBlock::serialize_cbor(&add_params).unwrap(),
-            )
+            .call::<BlobsActor>(Method::AddBlob as u64, to_ipld(&add_params))
             .unwrap()
             .unwrap()
             .deserialize::<Subscription>()
             .unwrap();
         assert_eq!(subscription.added, 5);
         assert_eq!(subscription.expiry, 3605);
+        assert_eq!(subscription.delegate, None);
+        rt.verify();
+    }
+
+    #[test]
+    fn test_add_blob_with_ttl() {
+        let rt = construct_and_verify(1024 * 1024, 1);
+        let f4_eth_addr = set_default_address(&rt);
+        let hash = new_hash(1024);
+
+        let blob_ttl = 3600;
+        let account_ttl = 7200;
+
+        // Fund an account with enough tokens
+        rt.set_received(TokenAmount::from_whole(1));
+        rt.expect_validate_caller_any();
+        let fund_params = BuyCreditParams(f4_eth_addr);
+        let result = rt.call::<BlobsActor>(Method::BuyCredit as u64, to_ipld(&fund_params));
+        assert!(result.is_ok());
+        rt.verify();
+
+        stub_get_ttl(&rt, f4_eth_addr, account_ttl);
+
+        let add_params = AddBlobParams {
+            sponsor: None,
+            source: new_pk(),
+            hash: hash.0,
+            metadata_hash: new_hash(1024).0,
+            id: SubscriptionId::Default,
+            size: hash.1,
+            ttl: Some(blob_ttl),
+        };
+
+        rt.set_epoch(ChainEpoch::from(5));
+        rt.expect_validate_caller_any();
+        let subscription = rt
+            .call::<BlobsActor>(Method::AddBlob as u64, to_ipld(&add_params))
+            .unwrap()
+            .unwrap()
+            .deserialize::<Subscription>()
+            .unwrap();
+
+        assert_eq!(subscription.added, 5);
+        assert_eq!(subscription.expiry, 3605);
         assert!(!subscription.auto_renew);
         assert_eq!(subscription.delegate, None);
         rt.verify();
+
+        // Try with TTL exceeding registry limit
+        rt.expect_validate_caller_any();
+        rt.expect_send(
+            REGISTRY_ACTOR_ADDR,
+            registry::Method::GetTTL as u64,
+            to_ipld(&registry::GetTTLParams {
+                target: f4_eth_addr,
+            }),
+            TokenAmount::zero(),
+            None,
+            SendFlags::READ_ONLY,
+            to_ipld(&registry::GetTTLReturn { ttl: 3600 }),
+            ExitCode::OK,
+            None,
+        );
+
+        let exceeding_params = AddBlobParams {
+            sponsor: None,
+            source: new_pk(),
+            hash: new_hash(1024).0,
+            metadata_hash: new_hash(1024).0,
+            id: SubscriptionId::Default,
+            size: hash.1,
+            ttl: Some(7200), // More than registry TTL (3600)
+        };
+
+        let result = rt.call::<BlobsActor>(Method::AddBlob as u64, to_ipld(&exceeding_params));
+
+        assert!(result.is_err_and(|e| e.msg().contains("exceeds account max ttl")));
+        rt.verify();
+    }
+
+    #[test]
+    fn test_add_blob_with_ttl_that_exceeds_allowed() {
+        let rt = construct_and_verify(1024 * 1024, 1);
+        let f4_eth_addr = set_default_address(&rt);
+        let hash = new_hash(1024);
+
+        let blob_ttl = 8000;
+        let account_ttl = 7200;
+
+        // Fund an account with enough tokens
+        rt.set_received(TokenAmount::from_whole(1));
+        rt.expect_validate_caller_any();
+        let fund_params = BuyCreditParams(f4_eth_addr);
+        let result = rt.call::<BlobsActor>(Method::BuyCredit as u64, to_ipld(&fund_params));
+        assert!(result.is_ok());
+        rt.verify();
+
+        stub_get_ttl(&rt, f4_eth_addr, account_ttl);
+
+        let add_params = AddBlobParams {
+            sponsor: None,
+            source: new_pk(),
+            hash: hash.0,
+            metadata_hash: new_hash(1024).0,
+            id: SubscriptionId::Default,
+            size: hash.1,
+            ttl: Some(blob_ttl),
+        };
+
+        rt.set_epoch(ChainEpoch::from(5));
+        rt.expect_validate_caller_any();
+        let res = rt.call::<BlobsActor>(Method::AddBlob as u64, to_ipld(&add_params));
+
+        assert!(res.is_err());
+        assert!(res.unwrap_err().msg().contains("exceeds account max ttl"));
     }
 
     #[test]
     fn test_add_blob_inline_buy() {
         let rt = construct_and_verify(1024 * 1024, 1);
 
-        let id_addr = Address::new_id(110);
-        let eth_addr = EthAddress(hex_literal::hex!(
-            "CAFEB0BA00000000000000000000000000000000"
-        ));
-        let f4_eth_addr = Address::new_delegated(10, &eth_addr.0).unwrap();
+        let f4_eth_addr = set_default_address(&rt);
 
-        rt.set_delegated_address(id_addr.id().unwrap(), f4_eth_addr);
-        rt.set_caller(*ETHACCOUNT_ACTOR_CODE_ID, id_addr);
-        rt.set_origin(id_addr);
-        rt.set_epoch(ChainEpoch::from(0));
+        stub_get_ttl(&rt, f4_eth_addr, 3600);
 
         // Try sending a lot
         rt.expect_validate_caller_any();
@@ -747,12 +853,11 @@ mod tests {
             None,
             ExitCode::OK,
         );
-        let result = rt.call::<BlobsActor>(
-            Method::AddBlob as u64,
-            IpldBlock::serialize_cbor(&add_params).unwrap(),
-        );
+        let result = rt.call::<BlobsActor>(Method::AddBlob as u64, to_ipld(&add_params));
         assert!(result.is_ok());
         rt.verify();
+
+        stub_get_ttl(&rt, f4_eth_addr, 3600);
 
         // Try sending zero
         rt.expect_validate_caller_any();
@@ -767,12 +872,11 @@ mod tests {
             size: hash.1,
             ttl: Some(3600),
         };
-        let response = rt.call::<BlobsActor>(
-            Method::AddBlob as u64,
-            IpldBlock::serialize_cbor(&add_params).unwrap(),
-        );
+        let response = rt.call::<BlobsActor>(Method::AddBlob as u64, to_ipld(&add_params));
         assert!(response.is_err());
         rt.verify();
+
+        stub_get_ttl(&rt, f4_eth_addr, 3600);
 
         // Try sending exact amount
         let tokens_required_atto = add_params.size * add_params.ttl.unwrap() as u64;
@@ -787,12 +891,10 @@ mod tests {
             source: new_pk(),
             id: SubscriptionId::Default,
             size: hash.1,
+            //ttl: None,
             ttl: Some(3600),
         };
-        let result = rt.call::<BlobsActor>(
-            Method::AddBlob as u64,
-            IpldBlock::serialize_cbor(&add_params).unwrap(),
-        );
+        let result = rt.call::<BlobsActor>(Method::AddBlob as u64, to_ipld(&add_params));
         assert!(result.is_ok());
         rt.verify();
     }
@@ -832,10 +934,8 @@ mod tests {
         rt.set_received(TokenAmount::from_whole(1));
         rt.expect_validate_caller_any();
         let fund_params = BuyCreditParams(sponsor_id_addr);
-        let buy_credit_result = rt.call::<BlobsActor>(
-            Method::BuyCredit as u64,
-            IpldBlock::serialize_cbor(&fund_params).unwrap(),
-        );
+        let buy_credit_result =
+            rt.call::<BlobsActor>(Method::BuyCredit as u64, to_ipld(&fund_params));
         assert!(buy_credit_result.is_ok());
         rt.verify();
 
@@ -850,10 +950,7 @@ mod tests {
             limit: None,
             ttl: None,
         };
-        let result = rt.call::<BlobsActor>(
-            Method::ApproveCredit as u64,
-            IpldBlock::serialize_cbor(&approve_params).unwrap(),
-        );
+        let result = rt.call::<BlobsActor>(Method::ApproveCredit as u64, to_ipld(&approve_params));
         assert!(result.is_ok());
         rt.verify();
 
@@ -867,12 +964,12 @@ mod tests {
             limit: None,
             ttl: None,
         };
-        let approve_result = rt.call::<BlobsActor>(
-            Method::ApproveCredit as u64,
-            IpldBlock::serialize_cbor(&approve_params).unwrap(),
-        );
+        let approve_result =
+            rt.call::<BlobsActor>(Method::ApproveCredit as u64, to_ipld(&approve_params));
         assert!(approve_result.is_ok());
         rt.verify();
+
+        stub_get_ttl(&rt, spender_f4_eth_addr, 3600);
 
         // Try sending zero
         rt.set_origin(spender_id_addr);
@@ -889,12 +986,11 @@ mod tests {
             size: hash.1,
             ttl: Some(3600),
         };
-        let response = rt.call::<BlobsActor>(
-            Method::AddBlob as u64,
-            IpldBlock::serialize_cbor(&add_params).unwrap(),
-        );
+        let response = rt.call::<BlobsActor>(Method::AddBlob as u64, to_ipld(&add_params));
         assert!(response.is_ok());
         rt.verify();
+
+        stub_get_ttl(&rt, spender_f4_eth_addr, 3600);
 
         // Try sending non-zero -> cannot buy for a sponsor
         rt.set_origin(spender_id_addr);
@@ -911,10 +1007,7 @@ mod tests {
             size: hash.1,
             ttl: Some(3600),
         };
-        let response = rt.call::<BlobsActor>(
-            Method::AddBlob as u64,
-            IpldBlock::serialize_cbor(&add_params).unwrap(),
-        );
+        let response = rt.call::<BlobsActor>(Method::AddBlob as u64, to_ipld(&add_params));
         assert!(response.is_err());
         rt.verify();
     }

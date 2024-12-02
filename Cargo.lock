@@ -3132,6 +3132,7 @@ dependencies = [
  "blobs_actor_sdk",
  "fendermint_actor_blobs_shared",
  "fendermint_actor_machine",
+ "fendermint_actor_registry_shared",
  "fendermint_testing",
  "fil_actors_evm_shared",
  "fil_actors_runtime",
@@ -3278,8 +3279,8 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "cid",
- "fendermint_actor_blobs_shared",
  "fendermint_actor_machine",
+ "fendermint_actor_registry_shared",
  "fendermint_testing",
  "fil_actors_evm_shared",
  "fil_actors_runtime",
@@ -3296,6 +3297,24 @@ dependencies = [
  "quickcheck",
  "quickcheck_macros",
  "rand",
+ "serde",
+ "serde_tuple",
+]
+
+[[package]]
+name = "fendermint_actor_registry_shared"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "blake3",
+ "data-encoding",
+ "fendermint_actor_machine",
+ "fil_actors_runtime",
+ "frc42_dispatch",
+ "fvm_ipld_encoding",
+ "fvm_shared",
+ "num-derive 0.3.3",
+ "num-traits",
  "serde",
  "serde_tuple",
 ]
