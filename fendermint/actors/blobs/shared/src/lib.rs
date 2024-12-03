@@ -39,6 +39,7 @@ pub enum Method {
     SetBlobPending = frc42_dispatch::method_hash!("SetBlobPending"),
     FinalizeBlob = frc42_dispatch::method_hash!("FinalizeBlob"),
     DeleteBlob = frc42_dispatch::method_hash!("DeleteBlob"),
+    SetTtlStatus = frc42_dispatch::method_hash!("SetTtlStatus"),
 }
 
 pub fn buy_credit(rt: &impl Runtime, recipient: Address) -> Result<Account, ActorError> {
@@ -162,6 +163,20 @@ pub fn delete_blob(
         &BLOBS_ACTOR_ADDR,
         Method::DeleteBlob as MethodNum,
         IpldBlock::serialize_cbor(&params::DeleteBlobParams { sponsor, hash, id })?,
+        rt.message().value_received(),
+    ))?;
+    Ok(())
+}
+
+pub fn set_ttl_status(
+    rt: &impl Runtime,
+    account: Address,
+    status: state::TtlStatus,
+) -> Result<(), ActorError> {
+    extract_send_result(rt.send_simple(
+        &BLOBS_ACTOR_ADDR,
+        Method::SetTtlStatus as MethodNum,
+        IpldBlock::serialize_cbor(&params::SetTtlStatusParams { account, status })?,
         rt.message().value_received(),
     ))?;
     Ok(())

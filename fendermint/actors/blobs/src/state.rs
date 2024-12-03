@@ -8,7 +8,7 @@ use std::ops::Bound::{Included, Unbounded};
 use fendermint_actor_blobs_shared::params::GetStatsReturn;
 use fendermint_actor_blobs_shared::state::{
     Account, Blob, BlobStatus, CreditApproval, Hash, PublicKey, Subscription, SubscriptionGroup,
-    SubscriptionId,
+    SubscriptionId, TtlStatus,
 };
 use fil_actors_runtime::ActorError;
 use fvm_ipld_encoding::tuple::*;
@@ -368,6 +368,12 @@ impl State {
             .accounts
             .entry(subscriber)
             .or_insert(Account::new(BigInt::zero(), current_epoch));
+        if ChainEpoch::from(account.ttl_status) < ttl {
+            return Err(ActorError::forbidden(format!(
+                "account's TTL status ({}) doesn't allow adding blobs with TTL {}",
+                account.ttl_status, ttl
+            )));
+        }
         let delegation = if origin != subscriber {
             // First look for an approval for origin keyed by origin, which denotes it's valid for
             // any caller.
@@ -390,7 +396,7 @@ impl State {
             None
         };
         // Capacity updates and required credit depend on whether the subscriber is already
-        // subcribing to this blob
+        // subscribing to this blob
         let size = BigInt::from(size);
         let expiry = current_epoch + ttl;
         let mut new_capacity = BigInt::zero();
@@ -1191,6 +1197,29 @@ impl State {
     fn capacity_available(&self) -> BigInt {
         &self.capacity_total - &self.capacity_used
     }
+
+    pub fn set_ttl_status(
+        &mut self,
+        account: Address,
+        status: TtlStatus,
+    ) -> anyhow::Result<(), ActorError> {
+        match status {
+            // we don't want to create an account for default TTL
+            TtlStatus::Default => {
+                if let Some(account) = self.accounts.get_mut(&account) {
+                    account.ttl_status = TtlStatus::Default;
+                }
+            }
+            _ => {
+                let account = self
+                    .accounts
+                    .entry(account)
+                    .or_insert(Account::new(BigInt::zero(), 0));
+                account.ttl_status = status;
+            }
+        }
+        Ok(())
+    }
 }
 
 /// Check if `subscriber` has enough credits, including delegated credits.
@@ -1904,213 +1933,6 @@ mod tests {
         let mut credit_amount = token_amount.atto() * state.credit_debit_rate;
 
         // Add blob with default a subscription ID
-        let (hash1, size1) = new_hash(1024);
-        let add1_epoch = current_epoch;
-        let id1 = SubscriptionId::Default;
-        let source = new_pk();
-        let res = state.add_blob(
-            origin,
-            caller,
-            subscriber,
-            add1_epoch,
-            hash1,
-            new_metadata_hash(),
-            id1.clone(),
-            size1,
-            Some(MIN_TTL),
-            source,
-            TokenAmount::zero(),
-        );
-        assert!(res.is_ok());
-
-        // Check the account balance
-        let account = state.get_account(subscriber).unwrap();
-        assert_eq!(account.last_debit_epoch, add1_epoch);
-        assert_eq!(
-            account.credit_committed,
-            BigInt::from(MIN_TTL as u64 * size1),
-        );
-        credit_amount -= &account.credit_committed;
-        assert_eq!(account.credit_free, credit_amount);
-        assert_eq!(account.capacity_used, BigInt::from(size1));
-
-        // Add another blob past the first blob's expiry
-        let (hash2, size2) = new_hash(2048);
-        let add2_epoch = ChainEpoch::from(MIN_TTL + 11);
-        let id2 = SubscriptionId::Key(b"foo".to_vec());
-        let source = new_pk();
-        let res = state.add_blob(
-            origin,
-            caller,
-            subscriber,
-            add2_epoch,
-            hash2,
-            new_metadata_hash(),
-            id2.clone(),
-            size2,
-            None,
-            source,
-            TokenAmount::zero(),
-        );
-        assert!(res.is_ok());
-
-        // Check the account balance
-        let account = state.get_account(subscriber).unwrap();
-        assert_eq!(account.last_debit_epoch, add2_epoch);
-        let blob1_expiry = ChainEpoch::from(MIN_TTL + add1_epoch);
-        let overcharge = BigInt::from((add2_epoch - blob1_expiry) as u64 * size1);
-        assert_eq!(
-            account.credit_committed, // this includes an overcharge that needs to be refunded
-            AUTO_TTL as u64 * size2 - overcharge,
-        );
-        credit_amount -= BigInt::from(AUTO_TTL as u64 * size2);
-        assert_eq!(account.credit_free, credit_amount);
-        assert_eq!(account.capacity_used, BigInt::from(size1 + size2));
-
-        // Check state
-        assert_eq!(state.credit_committed, account.credit_committed);
-        assert_eq!(
-            state.credit_debited,
-            token_amount.atto() - (&account.credit_free + &account.credit_committed)
-        );
-        assert_eq!(state.capacity_used, account.capacity_used);
-
-        // Check indexes
-        assert_eq!(state.expiries.len(), 2);
-        assert_eq!(state.added.len(), 2);
-        assert_eq!(state.pending.len(), 0);
-
-        // Add the first (now expired) blob again
-        let add3_epoch = ChainEpoch::from(MIN_TTL + 21);
-        let id1 = SubscriptionId::Default;
-        let source = new_pk();
-        let res = state.add_blob(
-            origin,
-            caller,
-            subscriber,
-            add3_epoch,
-            hash1,
-            new_metadata_hash(),
-            id1.clone(),
-            size1,
-            None,
-            source,
-            TokenAmount::zero(),
-        );
-        assert!(res.is_ok());
-
-        // Check the account balance
-        let account = state.get_account(subscriber).unwrap();
-        assert_eq!(account.last_debit_epoch, add3_epoch);
-        assert_eq!(
-            account.credit_committed, // should not include overcharge due to refund
-            BigInt::from(
-                (AUTO_TTL - (add3_epoch - add2_epoch)) as u64 * size2 + AUTO_TTL as u64 * size1
-            ),
-        );
-        credit_amount -= BigInt::from(AUTO_TTL as u64 * size1);
-        assert_eq!(account.credit_free, credit_amount);
-        assert_eq!(account.capacity_used, BigInt::from(size1 + size2));
-
-        // Check state
-        assert_eq!(state.credit_committed, account.credit_committed);
-        assert_eq!(
-            state.credit_debited,
-            token_amount.atto() - (&account.credit_free + &account.credit_committed)
-        );
-        assert_eq!(state.capacity_used, account.capacity_used);
-
-        // Check indexes
-        assert_eq!(state.expiries.len(), 2);
-        assert_eq!(state.added.len(), 2);
-        assert_eq!(state.pending.len(), 0);
-
-        // Check approval
-        let account_committed = account.credit_committed.clone();
-        check_approval(
-            account,
-            origin,
-            caller,
-            state.credit_debited + account_committed,
-        );
-    }
-
-    #[test]
-    fn test_add_blob_same_hash_same_account() {
-        setup_logs();
-        let capacity = 1024 * 1024;
-        let mut state = State::new(capacity, 1);
-        let origin = new_address();
-        let current_epoch = ChainEpoch::from(1);
-        let token_amount = TokenAmount::from_whole(10);
-        state
-            .buy_credit(origin, token_amount.clone(), current_epoch)
-            .unwrap();
-        add_blob_same_hash_same_account(state, origin, origin, origin, current_epoch, token_amount);
-    }
-
-    #[test]
-    fn test_add_blob_same_hash_same_account_with_approval() {
-        setup_logs();
-        let capacity = 1024 * 1024;
-        let mut state = State::new(capacity, 1);
-        let origin = new_address();
-        let subscriber = new_address();
-        let current_epoch = ChainEpoch::from(1);
-        let token_amount = TokenAmount::from_whole(10);
-        state
-            .buy_credit(subscriber, token_amount.clone(), current_epoch)
-            .unwrap();
-        state
-            .approve_credit(subscriber, origin, None, current_epoch, None, None)
-            .unwrap();
-        add_blob_same_hash_same_account(
-            state,
-            origin,
-            origin,
-            subscriber,
-            current_epoch,
-            token_amount,
-        );
-    }
-
-    #[test]
-    fn test_add_blob_same_hash_same_account_with_scoped_approval() {
-        setup_logs();
-        let capacity = 1024 * 1024;
-        let mut state = State::new(capacity, 1);
-        let origin = new_address();
-        let caller = new_address();
-        let subscriber = new_address();
-        let current_epoch = ChainEpoch::from(1);
-        let token_amount = TokenAmount::from_whole(10);
-        state
-            .buy_credit(subscriber, token_amount.clone(), current_epoch)
-            .unwrap();
-        state
-            .approve_credit(subscriber, origin, Some(caller), current_epoch, None, None)
-            .unwrap();
-        add_blob_same_hash_same_account(
-            state,
-            origin,
-            caller,
-            subscriber,
-            current_epoch,
-            token_amount,
-        );
-    }
-
-    fn add_blob_same_hash_same_account(
-        mut state: State,
-        origin: Address,
-        caller: Address,
-        subscriber: Address,
-        current_epoch: ChainEpoch,
-        token_amount: TokenAmount,
-    ) {
-        let mut credit_amount = token_amount.atto() * state.credit_debit_rate;
-
-        // Add blob with default a subscription ID
         let (hash, size) = new_hash(1024);
         let add1_epoch = current_epoch;
         let id1 = SubscriptionId::Default;
@@ -2542,16 +2364,31 @@ mod tests {
 
         // Check state
         assert_eq!(state.credit_committed, account.credit_committed);
+        assert_eq!(state.credit_debited, BigInt::from(0));
+        assert_eq!(state.capacity_used, account.capacity_used); // capacity was released
+
+        // Debit accounts to trigger a refund when we fail below
+        let debit_epoch = ChainEpoch::from(11);
+        let deletes_from_disc = state.debit_accounts(debit_epoch).unwrap();
+        assert!(deletes_from_disc.is_empty());
+
+        // Check the account balance
+        let account = state.get_account(subscriber).unwrap();
+        assert_eq!(account.last_debit_epoch, debit_epoch);
+        assert_eq!(
+            account.credit_committed,
+            BigInt::from((AUTO_TTL - (debit_epoch - add1_epoch)) as u64 * size1),
+        );
+        assert_eq!(account.credit_free, credit_amount); // not changed
+        assert_eq!(account.capacity_used, BigInt::from(size1));
+
+        // Check state
+        assert_eq!(state.credit_committed, account.credit_committed);
         assert_eq!(
             state.credit_debited,
-            amount.atto() - (&account.credit_free + &account.credit_committed)
+            BigInt::from((debit_epoch - add1_epoch) as u64 * size1)
         );
         assert_eq!(state.capacity_used, account.capacity_used);
-
-        // Check indexes
-        assert_eq!(state.expiries.len(), 2);
-        assert_eq!(state.added.len(), 2);
-        assert_eq!(state.pending.len(), 0);
 
         // Renew the first blob
         let renew_epoch = ChainEpoch::from(AUTO_TTL + 31);
@@ -2908,6 +2745,114 @@ mod tests {
             current_epoch,
             token_amount,
         );
+    }
+
+    #[test]
+    fn test_if_blobs_ttl_exceeds_accounts_ttl_should_error() {
+        setup_logs();
+
+        // Test cases structure
+        struct TestCase {
+            name: &'static str,
+            account_ttl_status: TtlStatus,
+            blob_ttl: ChainEpoch,
+            should_succeed: bool,
+        }
+
+        // Define test cases
+        let test_cases = vec![
+            TestCase {
+                name: "Reduced status rejects even minimum TTL",
+                account_ttl_status: TtlStatus::Reduced,
+                blob_ttl: MIN_TTL,
+                should_succeed: false,
+            },
+            TestCase {
+                name: "Default status allows default TTL",
+                account_ttl_status: TtlStatus::Default,
+                blob_ttl: TtlStatus::DEFAULT_TTL,
+                should_succeed: true,
+            },
+            TestCase {
+                name: "Default status rejects higher TTL",
+                account_ttl_status: TtlStatus::Default,
+                blob_ttl: TtlStatus::DEFAULT_TTL + 1,
+                should_succeed: false,
+            },
+            TestCase {
+                name: "Custom status allows matching TTL",
+                account_ttl_status: TtlStatus::Custom(7200),
+                blob_ttl: 7200,
+                should_succeed: true,
+            },
+            TestCase {
+                name: "Custom status rejects higher TTL",
+                account_ttl_status: TtlStatus::Custom(7200),
+                blob_ttl: 7201,
+                should_succeed: false,
+            },
+            TestCase {
+                name: "Extended status allows any TTL",
+                account_ttl_status: TtlStatus::Extended,
+                blob_ttl: 365 * 24 * 60 * 60, // 1 year
+                should_succeed: true,
+            },
+        ];
+
+        // Run all test cases
+        for tc in test_cases {
+            let capacity = 1024 * 1024;
+            let mut state = State::new(capacity, 1);
+            let subscriber = new_address();
+            let current_epoch = ChainEpoch::from(1);
+            let amount = TokenAmount::from_whole(10);
+
+            state
+                .buy_credit(subscriber, amount.clone(), current_epoch)
+                .unwrap();
+            state
+                .set_ttl_status(subscriber, tc.account_ttl_status)
+                .unwrap();
+
+            let (hash, size) = new_hash(1024);
+            let res = state.add_blob(
+                subscriber,
+                subscriber,
+                subscriber,
+                current_epoch,
+                hash,
+                new_metadata_hash(),
+                SubscriptionId::Default,
+                size,
+                Some(tc.blob_ttl),
+                new_pk(),
+                TokenAmount::zero(),
+            );
+
+            if tc.should_succeed {
+                assert!(
+                    res.is_ok(),
+                    "Test case '{}' should succeed but failed: {:?}",
+                    tc.name,
+                    res.err()
+                );
+            } else {
+                assert!(
+                    res.is_err(),
+                    "Test case '{}' should fail but succeeded",
+                    tc.name
+                );
+                assert_eq!(
+                    res.err().unwrap().msg(),
+                    format!(
+                        "account's TTL status ({}) doesn't allow adding blobs with TTL {}",
+                        tc.account_ttl_status, tc.blob_ttl
+                    ),
+                    "Test case '{}' failed with unexpected error message",
+                    tc.name
+                );
+            }
+        }
     }
 
     fn delete_blob_refund(
