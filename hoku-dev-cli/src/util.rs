@@ -6,8 +6,13 @@ use std::io::{BufRead, BufReader};
 use std::process::{Command, Stdio};
 use std::thread;
 use std::thread::JoinHandle;
+use std::path::Path;
+use std::time;
 
-use crate::LogLevel;
+use crate::{LogLevel, NETWORK_NAME};
+
+pub const THIRTY_SECONDS: time::Duration = time::Duration::from_secs(30);
+pub const NODE_PREFIX: &str = "validator-";
 
 #[rustfmt::skip]
 pub fn print_logo(label: &ColoredString, log_level: &LogLevel) {
@@ -140,6 +145,149 @@ pub fn pipe_sub_command(args: PipeSubCommandArgs) -> (JoinHandle<()>, JoinHandle
     });
 
     (stdout_thread, stderr_thread)
+}
+
+// TODO: this should take the log_level. if debug, print the paths all these commands use
+pub fn init_node_dir(ipc_config_dir: &Path, repo_root_dir: &Path, node_count: u8) {
+    Command::new("rm")
+        .args(["-rf", ipc_config_dir.to_str().unwrap()])
+        .output()
+        .expect("failed to rm .ipc");
+    Command::new("mkdir")
+        .args([ipc_config_dir.to_str().unwrap()])
+        .output()
+        .expect("failed to mkdir .ipc");
+
+    for i in 0..node_count {
+        let validator_dir = ipc_config_dir.join(NETWORK_NAME).join(format!("validator-{:?}", i)).join(format!("validator-{:?}", i));
+        Command::new("mkdir")
+            .args(["-p", validator_dir.join("cometbft").join("config").to_str().unwrap()])
+            .output()
+            .expect("failed to create cometbft dir");
+        Command::new("mkdir")
+            .args(["-p", validator_dir.join("cometbft").join("data").to_str().unwrap()])
+            .output()
+            .expect("failed to create cometbft dir");
+
+        Command::new("mkdir")
+            .args([
+                "-p",
+                validator_dir
+                    .join("fendermint")
+                    .join("data")
+                    .to_str()
+                    .unwrap()
+            ])
+            .output()
+            .expect("failed to create fendermint data dir");
+        let fm_config_dir = validator_dir
+            .join("fendermint")
+            .join("config");
+        Command::new("mkdir")
+            .args([
+                "-p",
+                fm_config_dir
+                    .to_str()
+                    .unwrap()
+            ])
+            .output()
+            .expect("failed to create fendermint config dir");
+        let fm_keys_dir = validator_dir
+            .join("fendermint")
+            .join("keys");
+        Command::new("mkdir")
+            .args([
+                "-p",
+                fm_keys_dir
+                    .to_str()
+                    .unwrap()
+            ])
+            .output()
+            .expect("failed to create fendermint keys dir");
+
+        // copy config and keys
+        Command::new("cp")
+            .args([
+                repo_root_dir.join("hoku-dev-cli")
+                    .join("config")
+                    .join("fendermint")
+                    .join("default.toml")
+                    .to_str()
+                    .unwrap(),
+                fm_config_dir
+                    .join("default.toml")
+                    .to_str()
+                    .unwrap()
+            ])
+            .output()
+            .expect("failed to create fendermint config dir");
+
+        Command::new("mkdir")
+            .args(["-p", validator_dir.join("iroh").to_str().unwrap()])
+            .output()
+            .expect("failed to create iroh dir");
+        Command::new("mkdir")
+            .args([
+                "-p",
+                validator_dir.join("iroh").join("blobs").to_str().unwrap()
+            ])
+            .output()
+            .expect("failed to create iroh blobs dir");
+
+        let iroh_config_dir = validator_dir
+            .join("iroh")
+            .join("config");
+        Command::new("mkdir")
+            .args([
+                "-p",
+                iroh_config_dir.to_str().unwrap()
+            ])
+            .output()
+            .expect("failed to create iroh blobs dir");
+
+        // copy iroh config into this nodes directory
+        Command::new("cp")
+            .args([
+                repo_root_dir.join("hoku-dev-cli")
+                    .join("config")
+                    .join("iroh")
+                    .join("iroh.config.toml")
+                    .to_str()
+                    .unwrap(),
+                iroh_config_dir
+                    .join("iroh.config.toml")
+                    .to_str()
+                    .unwrap()
+            ])
+            .output()
+            .expect("failed to copy iroh config");
+
+        let default_keys_dir = repo_root_dir
+            .join("hoku-dev-cli")
+            .join("config")
+            .join("keys");
+        // TODO: convert the default anvil accounts to this format
+        Command::new("cp")
+            .args([
+                default_keys_dir.join(format!("validator_key_{:?}.sk", i)).to_str().unwrap(),
+                fm_keys_dir
+                    .join("validator_key.sk")
+                    .to_str()
+                    .unwrap()
+            ])
+            .output()
+            .expect("failed to copy key file");
+        Command::new("cp")
+            .args([
+                default_keys_dir.join(format!("network_key_{:?}.sk", i)).to_str().unwrap(),
+                fm_keys_dir
+                    .join("network.sk")
+                    .to_str()
+                    .unwrap()
+            ])
+            .output()
+            .expect("failed to copy key file");
+    }
 }
 
 pub fn get_rust_log_level(log_level: &LogLevel) -> &str {

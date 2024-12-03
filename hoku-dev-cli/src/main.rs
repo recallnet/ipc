@@ -1,6 +1,9 @@
-// Copyright 2022-2024 Protocol Labs
+// Copyright 2022-2024 Textile, Inc.
 // SPDX-License-Identifier: Apache-2.0, MIT
 mod util;
+mod cometbft;
+mod iroh;
+mod fendermint;
 
 use toml_edit::{DocumentMut, value};
 use clap::{Parser, Subcommand, ValueEnum};
@@ -8,15 +11,17 @@ use colored::Colorize;
 use regex::Regex;
 use serde::Serialize;
 use std::fs::{write, File, read_to_string};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 use std::thread;
 use std::thread::sleep;
 use std::thread::JoinHandle;
 use std::time;
 use util::pipe_sub_command;
-
-use crate::util::{log_level_print, print_logo, get_rust_log_level, PipeSubCommandArgs};
+use crate::cometbft::{init_cometbft, start_cometbft, get_cmt_rpc};
+use crate::iroh::{setup_iroh_config, start_iroh};
+use crate::fendermint::{start_fendermint, init_fendermint};
+use crate::util::{init_node_dir, log_level_print, print_logo, get_rust_log_level, THIRTY_SECONDS, PipeSubCommandArgs};
 
 #[derive(Serialize)]
 struct Keystore {
@@ -42,7 +47,6 @@ struct NodeConfig<'a> {
     ipc_config_dir: &'a Path,
     contracts:&'a  ContractMap<'a>,
     node_number: u8,
-    is_bootstrap: bool,
     log_level: &'a LogLevel,
 }
 
@@ -251,13 +255,12 @@ fn localnet(log_level: &LogLevel, node_count: u8) {
         gateway: "0x9A676e781A523b5d0C0e43731313A708CB607508",
         registry: "0x4ed7c70F96B99c776995fB64377f0d4aB3B0e1C1",
         supply_source_address: "0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f",
-        gater: "0x851356ae760d987E095750cCeb3bC6014560891C"
+        gater: "0xf5059a5D33d5853360D16C683c16e67980206f36"
     };
 
-    let home = std::env::var("HOME").unwrap();
+    let ipc_config_dir = get_ipc_dir();
     let current_dir = std::env::current_dir().unwrap();
     let repo_root_dir = Path::new(current_dir.to_str().unwrap()); // "/Users/jwagner/Workspaces/textile/github/ipc"
-    let ipc_config_dir = Path::new(&home).join(".ipc");
 
     let rust_log = get_rust_log_level(log_level);
     let start_label = String::from("STARTUP").white().bold();
@@ -280,15 +283,7 @@ fn localnet(log_level: &LogLevel, node_count: u8) {
 
     print("starting with clean .ipc dir", &LogLevel::Debug);
 
-    Command::new("rm")
-        .args(["-rf", &format!("{home}/.ipc")])
-        .output()
-        .expect("failed to rm .ipc");
-    Command::new("mkdir")
-        .args([&format!("{home}/.ipc")])
-        .output()
-        .expect("failed to mkdir .ipc");
-
+    init_node_dir(&ipc_config_dir, repo_root_dir, node_count);
     // need to run clean or we hit upgradeable saftey validation errors resulting
     // from contracts with the same name
     let (clean_out, clean_err) = pipe_sub_command(PipeSubCommandArgs {
@@ -462,7 +457,7 @@ fn localnet(log_level: &LogLevel, node_count: u8) {
     supply_out.join().unwrap();
     supply_err.join().unwrap();
     // fund each anvil wallet with supply token
-    for i in 0..(ANVIL_PUBLIC_KEYS.len() - 1) {
+    for i in 0..(ANVIL_PUBLIC_KEYS.len()) {
         let public_key = ANVIL_PUBLIC_KEYS[i];
         print(
             &format!("funding address {} with supply token in parent", public_key),
@@ -523,6 +518,8 @@ fn localnet(log_level: &LogLevel, node_count: u8) {
 
     deploy_gater(repo_root_dir, contracts.gater, node_count, log_level);
 
+    init_cometbft(node_count, &ipc_config_dir.join(NETWORK_NAME), log_level);
+
     let mut node_outs = vec!();
     print(&format!("starting {:?} validatore nodes", node_count), &LogLevel::Info);
     for i in 0..node_count {
@@ -532,8 +529,7 @@ fn localnet(log_level: &LogLevel, node_count: u8) {
             repo_root_dir,
             ipc_config_dir: &ipc_config_dir,
             contracts: &contracts,
-            node_number: i,
-            is_bootstrap: matches!(i, 0),
+            node_number: i
         };
         let out = create_node(node_config);
         node_outs.push(out);
@@ -545,8 +541,7 @@ fn localnet(log_level: &LogLevel, node_count: u8) {
 
     // give the network time to finish setting up
     print("wait 30 seconds", &LogLevel::Info);
-    let thirty_seconds = time::Duration::from_secs(30);
-    thread::sleep(thirty_seconds);
+    thread::sleep(THIRTY_SECONDS);
     print("", &LogLevel::Info);
 
     start_relayer(&ipc_config_dir, log_level);
@@ -561,7 +556,148 @@ fn localnet(log_level: &LogLevel, node_count: u8) {
     //  it is convenient and it will never finish.
     anvil_stdout.join().unwrap();
     anvil_stderr.join().unwrap();
+//    TODO: cannot index into &NodeHandles
+//    for out in node_outs.iter() {
+//        out[0].join().unwrap();
+//        out[1].join().unwrap();
+//    }
+
     println!("network died");
+}
+
+struct NodeHandles {
+    iroh: (JoinHandle<()>, JoinHandle<()>),
+    cometbft: (JoinHandle<()>, JoinHandle<()>),
+    fendermint: (JoinHandle<()>, JoinHandle<()>),
+    evm: (JoinHandle<()>, JoinHandle<()>),
+    objects: (JoinHandle<()>, JoinHandle<()>),
+}
+fn create_node(config: NodeConfig) -> NodeHandles {
+    let NodeConfig {
+        log_level,
+        node_name,
+        repo_root_dir,
+        ipc_config_dir,
+        contracts,
+        node_number,
+    } = config;
+
+    let rust_log = get_rust_log_level(log_level);
+    let start_label = String::from("STARTUP").white().bold();
+    let print = |message: &str, message_level: &LogLevel| {
+        log_level_print(&start_label, message, log_level, message_level, &vec![]);
+    };
+
+    let node_root_path = ipc_config_dir.join(NETWORK_NAME).join(node_name);
+
+    let node_path = node_root_path.join(node_name);
+    print(
+        &format!("node path: {}", node_path.to_str().unwrap()),
+        &LogLevel::Debug,
+    );
+
+    let iroh_dir = node_path.join("iroh");
+    setup_iroh_config(&iroh_dir);
+    let iroh_port = IROH_RPC_PORTS[node_number as usize];
+    let iroh_rpc_addr = format!("127.0.0.1:{iroh_port}");
+    let iroh_out = start_iroh(&iroh_dir, &iroh_rpc_addr, &format!("IROH {:?}", node_number).magenta().bold(), log_level);
+
+    // create config and start this nodes cometbft
+    let cmt_dir = node_path.join("cometbft");
+    let cmt_rpc_url = get_cmt_rpc(node_number);
+    let cometbft_out = start_cometbft(
+        &cmt_dir,
+        &format!("COMETBFT {:?}", node_number).cyan().bold(),
+        log_level
+    );
+
+    // TODO: do we need a bootstrap?
+//    let bootstrap_peer_id = "16Uiu2HAmH5dzPoWL2wtQQGaPnwJZZn988xDAxbpsYu8nBhfyCrfH";
+
+    // Bootstrap node started. Node id 20ee1f8f1c39602c5f7bf8e161c85a6eaf194c86, peer id 16Uiu2HAmH5dzPoWL2wtQQGaPnwJZZn988xDAxbpsYu8nBhfyCrfH
+    // Bootstrap node endpoint: 20ee1f8f1c39602c5f7bf8e161c85a6eaf194c86@validator-0-cometbft:26656
+    // Bootstrap resolver endpoint: /dns/validator-0-fendermint/tcp/26655/p2p/16Uiu2HAmH5dzPoWL2wtQQGaPnwJZZn988xDAxbpsYu8nBhfyCrfH
+
+    let fm_dir = node_path.join("fendermint");
+    let label = format!("FENDERMINT {:?}", node_number).yellow().bold();
+    let fm_resolver_port = format!("{:?}", FM_RESOLVER_PORTS[node_number as usize]);
+    init_fendermint(&fm_dir, node_number);
+    let fendermint_out = start_fendermint(
+        &fm_dir,
+        &label,
+        &format!("http://{}", &iroh_rpc_addr),
+    &format!("http://{}", cmt_rpc_url),
+        &fm_resolver_port,
+        log_level
+    );
+
+    // TODO: I don't know why we have to wait, maybe remove this and see?
+    print("wait 30 seconds", &LogLevel::Debug);
+    thread::sleep(THIRTY_SECONDS);
+    print("", &LogLevel::Debug);
+
+    // "start the etherium json-rpc facade",
+    let evm_out = pipe_sub_command(PipeSubCommandArgs {
+        title: &format!("EVM_RPC {:?}", node_number).blue().on_yellow().bold(),
+        cmd: "./target/debug/fendermint",
+        envs: Some([
+            ["RUST_LOG", rust_log].to_vec(),
+        ].to_vec()),
+        args: [
+            "--home-dir",
+            fm_dir.to_str().unwrap(),
+            "eth",
+            "run",
+            // The URL of the Tendermint node's RPC endpoint
+            "--http-url",
+            &format!("http://127.0.0.1:{:?}", CMT_RPC_PORTS[node_number as usize]),
+            // how to set the listen port?
+        ].to_vec(),
+        current_dir: None,
+        out_filters: vec![],
+        err_filters: vec![],
+        log_level,
+    });
+
+    thread::sleep(THIRTY_SECONDS);
+
+    // "objects-start",
+    let objects_out = pipe_sub_command(PipeSubCommandArgs {
+        title: &format!("OBJECTS {:?}", node_number).green().bold(),
+        cmd: "./target/debug/fendermint",
+        args: [
+            "--home-dir",
+            fm_dir.to_str().unwrap(),
+            "objects",
+            "run"
+            // TODO: need to pass in port number for this objects node
+        ].to_vec(),
+        envs: Some([
+            ["RUST_LOG", rust_log].to_vec(),
+            ["FM_NETWORK", "test"].to_vec()
+        ].to_vec()),
+        current_dir: None,
+        out_filters: vec![],
+        err_filters: vec![],
+        log_level,
+    });
+
+    thread::sleep(THIRTY_SECONDS);
+
+    print("", &LogLevel::Quiet);
+    print(
+        &format!("created subnet node {}", node_name),
+        &LogLevel::Quiet,
+    );
+    print("", &LogLevel::Quiet);
+
+    NodeHandles {
+        iroh: iroh_out,
+        cometbft: cometbft_out,
+        fendermint: fendermint_out,
+        evm: evm_out,
+        objects: objects_out,
+    }
 }
 
 fn deploy_gater(repo_root_dir: &Path, gater_contract: &str, node_count: u8, log_level: &LogLevel) {
@@ -693,370 +829,9 @@ fn join_subnet(supply_source_address: &str, node_number: u8, log_level: &LogLeve
     join_subnet_err.join().unwrap();
 }
 
-struct NodeHandles {
-    iroh: (JoinHandle<()>, JoinHandle<()>),
-    cometbft: (JoinHandle<()>, JoinHandle<()>),
-    fendermint: (JoinHandle<()>, JoinHandle<()>),
-    evm: (JoinHandle<()>, JoinHandle<()>),
-    objects: (JoinHandle<()>, JoinHandle<()>),
-}
-fn create_node(config: NodeConfig) -> NodeHandles {
-    let NodeConfig {
-        log_level,
-        node_name,
-        repo_root_dir,
-        ipc_config_dir,
-        contracts,
-        node_number,
-        is_bootstrap,
-    } = config;
-
-    let rust_log = get_rust_log_level(log_level);
-    let start_label = String::from("STARTUP").white().bold();
-    let print = |message: &str, message_level: &LogLevel| {
-        log_level_print(&start_label, message, log_level, message_level, &vec![]);
-    };
-
-    let node_root_path = ipc_config_dir.join(NETWORK_NAME).join(node_name);
-
-    print(
-        &format!("init node dir {:?}", node_root_path.to_str().unwrap()),
-        &LogLevel::Debug,
-    );
-    init_node_dir(&node_root_path, &repo_root_dir, &node_number);
-
-    let node_path = node_root_path.join(node_name);
-    let cmt_dir = node_path.join("cometbft");
-    // let env_file = node_root_path.join(".env");
-
-    // TODO: this isn't needed anymore
-//    let cmt_config_file = if is_bootstrap {
-//        "bootstrap_config.toml"
-//    } else {
-//        "config.toml"
-//    };
-    let fm_dir = node_path.join("fendermint");
-    let iroh_config_dir = node_path.join("iroh").join("config");
-
-    setup_iroh_config(&iroh_config_dir, node_number);
-
-    //TODO: iroh metrics enabled by adding `metrics_addr = "0.0.0.0:{what ever IROH_METRICS_PORT is for this node}"` to config
-    // "iroh-start",
-    let iroh_port = IROH_RPC_PORTS[node_number as usize];
-    let iroh_rpc_addr = format!("127.0.0.1:{iroh_port}");
-    // TODO: iroh recommends starting nodes using the rust SDK. It might be a lot of work, but look into doing this here
-    let iroh_out = pipe_sub_command(PipeSubCommandArgs {
-        title: &format!("IROH {:?}", node_number).magenta().bold(),
-        cmd: "iroh",
-        args: [
-            "--rpc-addr",
-            &iroh_rpc_addr,
-            "start",
-        ]
-        .to_vec(),
-        envs: Some([
-            // TODO: not sure how iroh cli configures logging
-            ["RUST_LOG", rust_log].to_vec(),
-            [
-                "IROH_DATA_DIR",
-                node_path.join("iroh").join("data").to_str().unwrap(),
-            ].to_vec(),
-            [
-                "IROH_CONFIG_DIR",
-                node_path.join("iroh").join("config").to_str().unwrap(),
-            ].to_vec()
-        ].to_vec()),
-        current_dir: None,
-        out_filters: vec![],
-        err_filters: vec![],
-        log_level,
-    });
-
-    // "iroh-wait"
-    // TODO: not sure we need these 30 second waits.
-    print("wait 30 seconds", &LogLevel::Info);
-    let thirty_seconds = time::Duration::from_secs(30);
-    thread::sleep(thirty_seconds);
-    print("", &LogLevel::Info);
-
-    let cmt_rpc_port = CMT_RPC_PORTS[node_number as usize];
-    let cmt_rpc_url = format!("http://127.0.0.1:{:?}", cmt_rpc_port);
-    let cmt_tcp_url = format!("tcp://127.0.0.1:{:?}", cmt_rpc_port);
-    // create config and start this nodes cometbft
-    let cometbft_out = start_cometbft(
-        &cmt_dir,
-        &repo_root_dir.join("hoku-dev-cli").join("config").join("cometbft").join("config.toml"),
-        &cmt_tcp_url,
-        node_number,
-        log_level
-    );
-
-    // "cometbft-wait"
-    print("wait 30 seconds", &LogLevel::Info);
-    thread::sleep(thirty_seconds);
-    print("", &LogLevel::Info);
-
-    // TODO: do we need a bootstrap?
-//    let bootstrap_peer_id = "16Uiu2HAmH5dzPoWL2wtQQGaPnwJZZn988xDAxbpsYu8nBhfyCrfH";
-
-    // Bootstrap node started. Node id 20ee1f8f1c39602c5f7bf8e161c85a6eaf194c86, peer id 16Uiu2HAmH5dzPoWL2wtQQGaPnwJZZn988xDAxbpsYu8nBhfyCrfH
-    // Bootstrap node endpoint: 20ee1f8f1c39602c5f7bf8e161c85a6eaf194c86@validator-0-cometbft:26656
-    // Bootstrap resolver endpoint: /dns/validator-0-fendermint/tcp/26655/p2p/16Uiu2HAmH5dzPoWL2wtQQGaPnwJZZn988xDAxbpsYu8nBhfyCrfH
-    print(
-        &format!("node path: {}", node_path.to_str().unwrap()),
-        &LogLevel::Debug,
-    );
-
-    let fendermint_out = start_fendermint(&fm_dir, node_number, &format!("http://{}", iroh_rpc_addr), &cmt_rpc_url, log_level);
-
-    // TODO: I don't know why we have to wait, maybe remove this and see?
-    print("wait 30 seconds", &LogLevel::Debug);
-    thread::sleep(thirty_seconds);
-    print("", &LogLevel::Debug);
-
-    // "start the etherium json-rpc facade",
-    let evm_out = pipe_sub_command(PipeSubCommandArgs {
-        title: &format!("EVM_RPC {:?}", node_number).blue().on_yellow().bold(),
-        cmd: "./target/debug/fendermint",
-        envs: Some([
-            ["RUST_LOG", rust_log].to_vec(),
-        ].to_vec()),
-        args: [
-            "--home-dir",
-            fm_dir.to_str().unwrap(),
-            "eth",
-            "run",
-            // The URL of the Tendermint node's RPC endpoint
-            "--http-url",
-            &cmt_rpc_url,
-            // how to set the listen port?
-        ].to_vec(),
-        current_dir: None,
-        out_filters: vec![],
-        err_filters: vec![],
-        log_level,
-    });
-
-    thread::sleep(thirty_seconds);
-
-    // "objects-start",
-    let objects_out = pipe_sub_command(PipeSubCommandArgs {
-        title: &format!("OBJECTS {:?}", node_number).green().bold(),
-        cmd: "./target/debug/fendermint",
-        args: [
-            "--home-dir",
-            fm_dir.to_str().unwrap(),
-            "objects",
-            "run"
-            // TODO: need to pass in port number for this objects node
-        ].to_vec(),
-        envs: Some([
-            ["RUST_LOG", rust_log].to_vec(),
-            ["FM_NETWORK", "test"].to_vec()
-        ].to_vec()),
-        current_dir: None,
-        out_filters: vec![],
-        err_filters: vec![],
-        log_level,
-    });
-
-    thread::sleep(thirty_seconds);
-
-    print("", &LogLevel::Quiet);
-    print(
-        &format!("created subnet node {}", node_name),
-        &LogLevel::Quiet,
-    );
-    print("", &LogLevel::Quiet);
-
-    NodeHandles {
-        iroh: iroh_out,
-        cometbft: cometbft_out,
-        fendermint: fendermint_out,
-        evm: evm_out,
-        objects: objects_out,
-    }
-}
-
-fn start_cometbft(cmt_dir: &Path, default_config_path: &Path, cmt_tcp_url: &str, node_number: u8, log_level: &LogLevel) -> (JoinHandle<()>, JoinHandle<()>) {
-    // "cometbft-init",
-    let cmt_home = String::from(cmt_dir.to_str().unwrap());
-    let rust_log = get_rust_log_level(log_level);
-
-    // TODO: we need to use the `cometbft testnet` command to start a network, maybe?
-    let (cometbft_stdout, cometbft_stderr) = pipe_sub_command(PipeSubCommandArgs {
-        title: &format!("COMETBFT INIT {:?}", node_number).bright_green().bold(),
-        cmd: "cometbft",
-        envs: Some([
-            ["RUST_LOG", rust_log].to_vec(),
-            ["CMT_PROXY_APP", "kvstore"].to_vec(),
-            ["CMT_RPC_MAX_SUBSCRIPTION_CLIENTS", "10"].to_vec(),
-            ["CMT_RPC_MAX_SUBSCRIPTIONS_PER_CLIENT", "1000"].to_vec()
-        ].to_vec()),
-        args: [
-            "init",
-            "--home",
-            &cmt_home
-        ].to_vec(),
-        out_filters: vec!(),
-        err_filters: vec!(),
-        current_dir: None,
-        log_level
-    });
-
-    cometbft_stdout.join().unwrap();
-    cometbft_stderr.join().unwrap();
-
-    // Note: the config that results from the `cometbft init` command above is overwritten by this function
-    setup_cmt_config(cmt_dir, cmt_tcp_url, node_number, default_config_path, log_level);
-
-    // "cometbft-start",
-    pipe_sub_command(PipeSubCommandArgs {
-        title: &format!("COMETBFT {:?}", node_number).cyan().bold(),
-        cmd: "cometbft",
-        args: [
-            "start",
-            "--proxy_app",
-            "kvstore",
-            "--home",
-            &cmt_home,
-            "--consensus.create_empty_blocks_interval",
-            "15s"
-        ]
-        .to_vec(),
-        envs: Some([["RUST_LOG", rust_log].to_vec()].to_vec()),
-        current_dir: None,
-        out_filters: vec![
-            Regex::new("received proposal"),
-            Regex::new("received complete proposal block"),
-            Regex::new("finalizing commit of block"),
-            Regex::new("executed block"),
-            Regex::new("committed state"),
-            Regex::new("indexed block exents"),
-            Regex::new("Timed out"),
-        ],
-        err_filters: vec![],
-        log_level,
-    })
-}
-
-fn start_fendermint(fm_dir: &Path, node_number: u8, iroh_rpc_url: &str, cmt_rpc_url: &str, log_level: &LogLevel) -> (JoinHandle<()>, JoinHandle<()>) {
-    let rust_log = get_rust_log_level(log_level);
-    let validator_key_path = fm_dir
-        .join("keys")
-        .join("validator_key.sk");
-    // "fendermint-start-validator",
-    setup_fm_config(fm_dir, node_number);
-    let fm_resolver_port = FM_RESOLVER_PORTS[node_number as usize];
-    pipe_sub_command(PipeSubCommandArgs {
-        title: &format!("FENDERMINT {:?}", node_number).yellow().bold(),
-        cmd: "./target/debug/fendermint",
-        args: [
-            "--home-dir",
-            fm_dir.to_str().unwrap(),
-            "run",
-            "--iroh-addr",
-            iroh_rpc_url
-        ].to_vec(),
-        envs: Some(
-            [
-                ["RUST_LOG", rust_log].to_vec(),
-                ["TENDERMINT_RPC_URL", cmt_rpc_url].to_vec(),
-                ["FM_NETWORK", "test"].to_vec(),
-                ["FM_TRACING_CONSOLE_LEVEL", rust_log].to_vec(),
-                [
-                    "FM_VALIDATOR_KEY__PATH",
-                    validator_key_path.to_str().unwrap(),
-                ]
-                .to_vec(),
-                ["FM_VALIDATOR_KEY__KIND", "regular"].to_vec(),
-                [
-                    "FM_RESOLVER__CONNECTION__LISTEN_ADDR",
-                    &format!("/ip4/127.0.0.1/tcp/{fm_resolver_port}"),
-                ]
-                .to_vec(),
-            ]
-            .to_vec(),
-        ),
-        current_dir: None,
-        out_filters: vec![],
-        err_filters: vec![],
-        log_level
-    })
-}
-
-fn setup_fm_config(fm_dir: &Path, node_number: u8) {
-    // we use our default cometbft config.toml file, but we need to update to use the config for this network
-    let fm_config_filepath = fm_dir.join("config").join("default.toml");
-    let config_file = read_to_string(&fm_config_filepath).expect("could not modify cometbft config");
-    let mut conf_doc = config_file.parse::<DocumentMut>().expect("invalid document");
-
-    conf_doc["abci"]["listen"]["port"] = value(ABCI_PORTS[node_number as usize] as i64);
-    conf_doc["eth"]["listen"]["port"] = value(ETHAPI_PORTS[node_number as usize] as i64);
-    conf_doc["objects"]["listen"]["port"] = value(OBJECTS_PORTS[node_number as usize] as i64);
-
-    // TODO: setup separte ports for each node's metrics
-    conf_doc["metrics"]["enabled"] = value(false);
-    conf_doc["eth"]["metrics"]["enabled"] = value(false);
-    conf_doc["objects"]["metrics"]["enabled"] = value(false);
-
-    // TODO: we need to get snapshots working... there's a ticket for this
-    //conf_doc["snapshots"]["enabled"] = value(true);
-
-    write(&fm_config_filepath, conf_doc.to_string()).expect("could not write to cometbft config file");
-}
-
-fn setup_cmt_config(cmt_dir: &Path, cmt_rpc_url: &str, node_number: u8, default_config_path: &Path, log_level: &LogLevel) {
-    // we have a default cometbft config.toml file, and we need to update to use the config for this node
-    let cmt_config_filepath = cmt_dir.join("config").join("config.toml");
-    let cp_conf_out = Command::new("cp")
-        .args([
-            default_config_path.to_str().unwrap(),
-            cmt_config_filepath.to_str().unwrap()
-        ])
-        .output()
-        .expect("failed to copy cometbft config");
-    log_level_print(&format!("COMETBFT CONF {:?}", node_number).yellow().on_blue().bold(), &format!("{:?}", cp_conf_out), log_level, &LogLevel::Debug, &vec!());
-
-    let config_file = read_to_string(&cmt_config_filepath).expect("could not modify cometbft config");
-    let mut conf_doc = config_file.parse::<DocumentMut>().expect("invalid document");
-
-    conf_doc["moniker"] = value(format!("cometbft_node_{:?}", node_number));
-    // TODO: does doing this make sense? cmtbft is really noisy with debug logging
-    conf_doc["log_level"] = value(match log_level {
-        LogLevel::Debug => "debug",
-        LogLevel::Info => "info",
-        LogLevel::Quiet => "error",
-        LogLevel::Silent => "none"
-    });
-    // TCP or UNIX socket address for the RPC server to listen on
-    conf_doc["rpc"]["laddr"] = value(cmt_rpc_url);
-
-    conf_doc["p2p"]["laddr"] = value(format!("tcp://0.0.0.0:{:?}", CMT_P2P_PORTS[node_number as usize]));
-    // If this is not the first cometbft node, add the first cometbft node as a seed node
-    if node_number > 0 {
-        conf_doc["p2p"]["seeds"] = value(format!("tcp://127.0.0.1:{:?}", CMT_RPC_PORTS[0]));
-    }
-
-    write(&cmt_config_filepath, conf_doc.to_string()).expect("could not write to cometbft config file");
-}
-
-fn setup_iroh_config(iroh_config_dir: &Path, node_number: u8) {
-    // we have a default cometbft config.toml file, and we need to update to use the config for this node
-    let iroh_config_filepath = iroh_config_dir.join("iroh.config.toml");
-
-    let config_file = read_to_string(&iroh_config_filepath).expect("could not modify iroh config");
-    let mut conf_doc = config_file.parse::<DocumentMut>().expect("invalid document");
-
-    // TODO: not sure if iroh config files let us control anything useful, i.e. listening ports
-//    conf_doc["metrics_addr"] = value(format!("127.0.0.1:{:?}", node_iroh_metrics_port));
-//
-//    // If this is NOT the first iroh node, update the conf differently
-//    if node_number > 0 {
-//        conf_doc["p2p"]["seeds"] = value(format!("tcp://127.0.0.1:{:?}", CMT_RPC_PORTS[0]));
-//    }
-
-    write(&iroh_config_filepath, conf_doc.to_string()).expect("could not write to iroh config file");
+fn get_ipc_dir() -> PathBuf {
+    let home = std::env::var("HOME").unwrap();
+    Path::new(&home).join(".ipc")
 }
 
 fn create_keystore(filepath: &Path) {
@@ -1150,7 +925,7 @@ fn start_relayer(ipc_config_dir: &Path, log_level: &LogLevel) -> (JoinHandle<()>
 
 fn buy_credits(log_level: &LogLevel) {
     let token_amount = "10000000000000000000000";
-
+    let three_seconds = time::Duration::from_secs(3);
     let rust_log = get_rust_log_level(log_level);
     for i in 0..ANVIL_PUBLIC_KEYS.len() {
         let addr = ANVIL_PUBLIC_KEYS[i];
@@ -1179,6 +954,9 @@ fn buy_credits(log_level: &LogLevel) {
 
         stdout.join().unwrap();
         stderr.join().unwrap();
+
+        // let the transactions process
+        thread::sleep(three_seconds);
     }
 
     let label = String::from("CHECK TOKEN").purple().bold();
@@ -1267,158 +1045,6 @@ fn fund_wallet_token(
         ])
         .output()
         .expect("failed to fund wallet with source token")
-}
-
-// TODO: this should take the log_level. if debug, print the paths all these commands use
-fn init_node_dir(dir: &Path, repo_root_dir: &Path, node_number: &u8) {
-    Command::new("rm")
-        .args(["-rf", dir.to_str().unwrap()])
-        .output()
-        .unwrap_or_else(|err| panic!("failed to remove dir {:?}: Error: {:?}", dir, err));
-    Command::new("mkdir")
-        .args(["-p", dir.to_str().unwrap()])
-        .output()
-        .unwrap_or_else(|err| panic!("failed to create {:?}: Error: {:?}", dir, err));
-
-    Command::new("touch")
-        .args([dir.join(".env").to_str().unwrap()])
-        .output()
-        .expect("failed to create .env file");
-
-    let validator_dir = dir.join(format!("validator-{:?}", node_number));
-    Command::new("mkdir")
-        .args([validator_dir.to_str().unwrap()])
-        .output()
-        .expect("failed to make validator dir");
-
-    Command::new("mkdir")
-        .args(["-p", validator_dir.join("cometbft").to_str().unwrap()])
-        .output()
-        .expect("failed to create cometbft dir");
-
-    Command::new("mkdir")
-        .args(["-p", validator_dir.join("fendermint").to_str().unwrap()])
-        .output()
-        .expect("failed to create fendermint dir");
-    Command::new("mkdir")
-        .args([
-            "-p",
-            validator_dir
-                .join("fendermint")
-                .join("data")
-                .to_str()
-                .unwrap(),
-        ])
-        .output()
-        .expect("failed to create fendermint data dir");
-    let fm_config_dir = validator_dir
-        .join("fendermint")
-        .join("config");
-    Command::new("mkdir")
-        .args([
-            "-p",
-            fm_config_dir
-                .to_str()
-                .unwrap(),
-        ])
-        .output()
-        .expect("failed to create fendermint config dir");
-    let fm_keys_dir = validator_dir
-        .join("fendermint")
-        .join("keys");
-    Command::new("mkdir")
-        .args([
-            "-p",
-            fm_keys_dir
-                .to_str()
-                .unwrap(),
-        ])
-        .output()
-        .expect("failed to create fendermint keys dir");
-
-    // copy config and keys
-    Command::new("cp")
-        .args([
-            repo_root_dir.join("hoku-dev-cli")
-                .join("config")
-                .join("fendermint")
-                .join("default.toml")
-                .to_str()
-                .unwrap(),
-            fm_config_dir
-                .join("default.toml")
-                .to_str()
-                .unwrap(),
-        ])
-        .output()
-        .expect("failed to create fendermint config dir");
-
-    Command::new("mkdir")
-        .args(["-p", validator_dir.join("iroh").to_str().unwrap()])
-        .output()
-        .expect("failed to create iroh dir");
-    Command::new("mkdir")
-        .args([
-            "-p",
-            validator_dir.join("iroh").join("blobs").to_str().unwrap(),
-        ])
-        .output()
-        .expect("failed to create iroh blobs dir");
-
-    let iroh_config_dir = validator_dir
-        .join("iroh")
-        .join("config");
-    Command::new("mkdir")
-        .args([
-            "-p",
-            iroh_config_dir.to_str().unwrap(),
-        ])
-        .output()
-        .expect("failed to create iroh blobs dir");
-
-    // copy iroh config into this nodes directory
-    Command::new("cp")
-        .args([
-            repo_root_dir.join("hoku-dev-cli")
-                .join("config")
-                .join("iroh")
-                .join("iroh.config.toml")
-                .to_str()
-                .unwrap(),
-            iroh_config_dir
-                .join("iroh.config.toml")
-                .to_str()
-                .unwrap(),
-        ])
-        .output()
-        .expect("failed to copy iroh config");
-
-    let default_keys_dir = repo_root_dir
-        .join("hoku-dev-cli")
-        .join("config")
-        .join("keys");
-    // TODO: convert the default anvil accounts to this format
-    Command::new("cp")
-        .args([
-            default_keys_dir.join(format!("validator_key_{:?}.sk", &node_number)).to_str().unwrap(),
-            fm_keys_dir
-                .join("validator_key.sk")
-                .to_str()
-                .unwrap(),
-        ])
-        .output()
-        .expect("failed to copy key file");
-    Command::new("cp")
-        .args([
-            default_keys_dir.join(format!("network_key_{:?}.sk", &node_number)).to_str().unwrap(),
-            fm_keys_dir
-                .join("network.sk")
-                .to_str()
-                .unwrap(),
-        ])
-        .output()
-        .expect("failed to copy key file");
-
 }
 
 // copy subnet config files
