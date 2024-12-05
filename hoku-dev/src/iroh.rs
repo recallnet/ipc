@@ -1,20 +1,13 @@
 // Copyright 2022-2024 Textile, Inc.
 // SPDX-License-Identifier: Apache-2.0, MIT
 use toml_edit::{DocumentMut, value};
-use clap::{Parser, Subcommand, ValueEnum};
-use colored::{ColoredString, Colorize};
-use regex::Regex;
-use serde::Serialize;
-use std::fs::{write, File, read_to_string};
+use colored::ColoredString;
+use std::fs::{write, read_to_string};
 use std::path::{Path, PathBuf};
-use std::process::{Command, Output};
-use std::thread;
-use std::thread::sleep;
 use std::thread::JoinHandle;
-use std::time;
 
-use crate::util::{log_level_print, pipe_sub_command, get_rust_log_level, THIRTY_SECONDS, PipeSubCommandArgs};
-use crate::{LogLevel, IROH_RPC_PORTS};
+use crate::util::{pipe_sub_command, get_rust_log_level, sleep_thirty, PipeSubCommandArgs};
+use crate::LogLevel;
 
 pub fn setup_iroh_config(iroh_dir: &Path) {
     // we have a default cometbft config.toml file, and we need to update to use the config for this node
@@ -24,6 +17,7 @@ pub fn setup_iroh_config(iroh_dir: &Path) {
     let mut conf_doc = config_file.parse::<DocumentMut>().expect("invalid document");
 
     // TODO: not sure if iroh config files let us control anything useful, i.e. listening ports
+    conf_doc["gc_policy"]["enabled"] = value(false);
 //    conf_doc["metrics_addr"] = value(format!("127.0.0.1:{:?}", node_iroh_metrics_port));
 //
 //    // If this is NOT the first iroh node, update the conf differently
@@ -36,10 +30,7 @@ pub fn setup_iroh_config(iroh_dir: &Path) {
 
 pub fn start_iroh(iroh_dir: &PathBuf, rpc_address: &str, label: &ColoredString, log_level: &LogLevel) -> (JoinHandle<()>, JoinHandle<()>) {
     let rust_log = get_rust_log_level(log_level);
-    let print = |message: &str, message_level: &LogLevel| {
-        log_level_print(label, message, log_level, message_level, &vec![]);
-    };
-    //TODO: iroh metrics enabled by adding `metrics_addr = "0.0.0.0:{what ever IROH_METRICS_PORT is for this node}"` to config
+
     // "iroh-start",
     // TODO: iroh recommends starting nodes using the rust SDK. It might be a lot of work, but look into doing this here
     let iroh_out = pipe_sub_command(PipeSubCommandArgs {
@@ -71,9 +62,7 @@ pub fn start_iroh(iroh_dir: &PathBuf, rpc_address: &str, label: &ColoredString, 
 
     // "iroh-wait"
     // TODO: not sure we need all these 30 second waits.
-    print("wait 30 seconds", &LogLevel::Info);
-    thread::sleep(THIRTY_SECONDS);
-    print("", &LogLevel::Info);
+    sleep_thirty(log_level);
 
     iroh_out
 }

@@ -1,24 +1,19 @@
 // Copyright 2022-2024 Textile, Inc.
 // SPDX-License-Identifier: Apache-2.0, MIT
 use toml_edit::{DocumentMut, value};
-use clap::{Parser, Subcommand, ValueEnum};
 use colored::{ColoredString, Colorize};
 use regex::Regex;
-use serde::Serialize;
-use std::fs::{write, File, read_to_string};
+use std::fs::{write, read_to_string};
 use std::path::{Path, PathBuf};
-use std::process::{Command, Output};
-use std::thread;
-use std::thread::sleep;
+use std::process::Command;
 use std::thread::JoinHandle;
-use std::time;
 
-use crate::util::{log_level_print, pipe_sub_command, get_rust_log_level, THIRTY_SECONDS, NODE_PREFIX, PipeSubCommandArgs};
+use crate::util::{log_level_print, pipe_sub_command, get_rust_log_level, sleep_thirty, NODE_PREFIX, PipeSubCommandArgs};
 use crate::{LogLevel, CMT_RPC_PORTS, CMT_P2P_PORTS};
 
 // for localnet this will generate the required genesis and config files for the given number of nodes
 // parent_dir is the root of the localnet directory, e.g. ~/.ipc/NETWORK_NAME
-pub fn init_cometbft(node_count: u8, parent_dir: &PathBuf, log_level: &LogLevel) {
+pub fn init_cometbft(nodes: Vec<u8>, parent_dir: &PathBuf, log_level: &LogLevel) {
     // start by cleaning any existing tmp dir
     remove_tmp_dir();
     let tmp_dir = create_tmp_dir();
@@ -35,7 +30,7 @@ pub fn init_cometbft(node_count: u8, parent_dir: &PathBuf, log_level: &LogLevel)
             "--o",
             tmp_dir.to_str().unwrap(),
             "--v",
-            &node_count.to_string(),
+            &nodes.len().to_string(),
             "--hostname-prefix",
             NODE_PREFIX,
             "--node-dir-prefix",
@@ -49,23 +44,23 @@ pub fn init_cometbft(node_count: u8, parent_dir: &PathBuf, log_level: &LogLevel)
 
     cometbft_stdout.join().unwrap();
     cometbft_stderr.join().unwrap();
-
     // copy the genesis, config, data, etc... resulting from above from the tmp dir to ~/.ipc/NETWORK_NAME/validator-*/validator-*/cometbft/
-    for i in 0..node_count {
+    for i in nodes.clone().into_iter() {
         move_config(
             i,
-            node_count,
             &tmp_dir.join(format!("{NODE_PREFIX}{:?}", i)),
-            &parent_dir,
+            parent_dir,
             log_level
         );
     }
+
+    let persistent_peers = get_persistent_peers(nodes.clone(), parent_dir);
     // customize config to fit this network
-    for i in 0..node_count {
+    for i in nodes.into_iter() {
         set_config(
             i,
-            node_count,
-            &parent_dir,
+            &persistent_peers,
+            parent_dir,
             log_level
         );
     }
@@ -77,10 +72,6 @@ pub fn start_cometbft(cmt_dir: &Path, label: &ColoredString, log_level: &LogLeve
     // "cometbft-init",
     let cmt_home = String::from(cmt_dir.to_str().unwrap());
     let rust_log = get_rust_log_level(log_level);
-
-    let print = |message: &str, message_level: &LogLevel| {
-        log_level_print(label, message, log_level, message_level, &vec![]);
-    };
 
     // "cometbft-start",
     let out = pipe_sub_command(PipeSubCommandArgs {
@@ -112,9 +103,7 @@ pub fn start_cometbft(cmt_dir: &Path, label: &ColoredString, log_level: &LogLeve
     });
 
     // "cometbft-wait"
-    print("wait 30 seconds", &LogLevel::Info);
-    thread::sleep(THIRTY_SECONDS);
-    print("", &LogLevel::Info);
+    sleep_thirty(log_level);
 
     out
 }
@@ -138,13 +127,13 @@ fn remove_tmp_dir() {
     Command::new("rm")
         .args([
             "-rf",
-            &Path::new(&home).join(".cometbft-tmp").to_str().unwrap()
+            Path::new(&home).join(".cometbft-tmp").to_str().unwrap()
         ])
         .output()
         .expect("could not remove cometbft temp directory");
 }
 
-fn move_config(node_number: u8, node_count: u8, from_dir: &PathBuf, root_dir: & PathBuf, log_level: &LogLevel) {
+fn move_config(node_number: u8, from_dir: &PathBuf, root_dir: & PathBuf, log_level: &LogLevel) {
     let to_dir = root_dir.join(format!("{NODE_PREFIX}{:?}", node_number)).join(format!("{NODE_PREFIX}{:?}", node_number)).join("cometbft");
     // we have a default cometbft config.toml file, and we need to update to use the config for this node
     let cp_conf_out = Command::new("cp")
@@ -169,7 +158,7 @@ fn move_config(node_number: u8, node_count: u8, from_dir: &PathBuf, root_dir: & 
 }
 
 // after all of the directories are setup and populated with default files, this updates cmt config files to fit the local network
-fn set_config(node_number: u8, node_count: u8, root_dir: & PathBuf, log_level: &LogLevel) {
+fn set_config(node_number: u8, persistent_peers: &str, root_dir: & PathBuf, log_level: &LogLevel) {
     let cmt_dir = root_dir
         .join(format!("{NODE_PREFIX}{:?}", node_number))
         .join(format!("{NODE_PREFIX}{:?}", node_number))
@@ -192,8 +181,8 @@ fn set_config(node_number: u8, node_count: u8, root_dir: & PathBuf, log_level: &
     conf_doc["max_subscriptions_per_client"] = value(1000);
     // TCP or UNIX socket address for the RPC server to listen on
     conf_doc["rpc"]["laddr"] = value(format!("tcp://{}", get_cmt_rpc(node_number)));
-    conf_doc["p2p"]["laddr"] = value(format!("tcp://0.0.0.0:{:?}", CMT_P2P_PORTS[node_number as usize]));
-    conf_doc["p2p"]["persistent_peers"] = value(&get_persistent_peers(node_count, root_dir));
+    conf_doc["p2p"]["laddr"] = value(format!("tcp://127.0.0.1:{:?}", CMT_P2P_PORTS[node_number as usize]));
+    conf_doc["p2p"]["persistent_peers"] = value(persistent_peers);
 
     write(&cmt_config_filepath, conf_doc.to_string()).expect("could not write to cometbft config file");
 }
@@ -202,24 +191,25 @@ pub fn get_cmt_rpc(node_number: u8) -> String {
     format!("127.0.0.1:{:?}", CMT_RPC_PORTS[node_number as usize])
 }
 
-fn get_persistent_peers(node_count: u8, root_dir: &PathBuf) -> String {
+fn get_persistent_peers(nodes: Vec<u8>, root_dir: &PathBuf) -> String {
     let mut peer_str = String::from("");
     // note: the multi node cometbft start up is a little weird since  
-    for i in 0..node_count {
+    for i in 0..nodes.len() {
+        let node_num = nodes[i];
         let home_dir = root_dir
-            .join(format!("{NODE_PREFIX}{:?}", i))
-            .join(format!("{NODE_PREFIX}{:?}", i))
+            .join(format!("{NODE_PREFIX}{:?}", node_num))
+            .join(format!("{NODE_PREFIX}{:?}", node_num))
             .join("cometbft");
         let node_id = get_cmt_node_id(&home_dir);
         if i == 0 {
-            peer_str = format!("{node_id}@127.0.0.1:{:?}", CMT_P2P_PORTS[i as usize]);
+            peer_str = format!("{node_id}@127.0.0.1:{:?}", CMT_P2P_PORTS[node_num as usize]);
         } else {
-            peer_str = format!("{peer_str},{node_id}@127.0.0.1:{:?}", CMT_P2P_PORTS[i as usize]);
+            peer_str = format!("{peer_str},{node_id}@127.0.0.1:{:?}", CMT_P2P_PORTS[node_num as usize]);
         }
     }
 
     // return immutable String
-    String::from(peer_str)
+    peer_str
 }
 
 fn get_cmt_node_id(home_dir: &PathBuf) -> String {

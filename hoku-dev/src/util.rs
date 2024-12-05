@@ -1,18 +1,47 @@
 // Copyright 2022-2024 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
-use colored::ColoredString;
+use colored::{ColoredString, Colorize};
 use regex::Regex;
+use toml_edit::{DocumentMut, value};
 use std::io::{BufRead, BufReader};
 use std::process::{Command, Stdio};
 use std::thread;
 use std::thread::JoinHandle;
-use std::path::Path;
-use std::time;
+use std::path::{Path, PathBuf};
+use std::time::Duration;
+use std::fs::{read_to_string, write, File};
+use serde::Serialize;
+use chrono::{DateTime, Local};
 
-use crate::{LogLevel, NETWORK_NAME};
+use crate::contracts::ContractMap;
+use crate::LogLevel;
+use crate::anvil::{ANVIL_PRIVATE_KEYS, ANVIL_PUBLIC_KEYS};
 
-pub const THIRTY_SECONDS: time::Duration = time::Duration::from_secs(30);
+pub const THIRTY_SECONDS: Duration = Duration::from_secs(30);
+pub const THREE_SECONDS: Duration = Duration::from_secs(3);
 pub const NODE_PREFIX: &str = "validator-";
+
+#[derive(Serialize)]
+struct Keystore {
+    address: String,
+    private_key: String,
+}
+
+pub fn sleep_thirty(log_level: &LogLevel) {
+    let time_now: DateTime<Local> = Local::now();
+    log_level_print(
+        &String::from("STARTUP").white().bold(),
+        &format!("[{:?}] - wait 30 seconds", time_now),
+        log_level,&LogLevel::Info,
+        &vec![]
+    );
+    thread::sleep(THIRTY_SECONDS);
+}
+pub fn sleep_three(log_level: &LogLevel) {
+    let time_now: DateTime<Local> = Local::now();
+    log_level_print(&String::from("STARTUP").white().bold(),&format!("[{:?}] - wait 3 seconds", time_now), log_level,&LogLevel::Info, &vec![]);
+    thread::sleep(THREE_SECONDS);
+}
 
 #[rustfmt::skip]
 pub fn print_logo(label: &ColoredString, log_level: &LogLevel) {
@@ -148,7 +177,7 @@ pub fn pipe_sub_command(args: PipeSubCommandArgs) -> (JoinHandle<()>, JoinHandle
 }
 
 // TODO: this should take the log_level. if debug, print the paths all these commands use
-pub fn init_node_dir(ipc_config_dir: &Path, repo_root_dir: &Path, node_count: u8) {
+pub fn init_node_dir(ipc_config_dir: &Path, network_dir: &Path, repo_root_dir: &Path, nodes: Vec<u8>) {
     Command::new("rm")
         .args(["-rf", ipc_config_dir.to_str().unwrap()])
         .output()
@@ -158,8 +187,8 @@ pub fn init_node_dir(ipc_config_dir: &Path, repo_root_dir: &Path, node_count: u8
         .output()
         .expect("failed to mkdir .ipc");
 
-    for i in 0..node_count {
-        let validator_dir = ipc_config_dir.join(NETWORK_NAME).join(format!("validator-{:?}", i)).join(format!("validator-{:?}", i));
+    for i in nodes.into_iter() {
+        let validator_dir = network_dir.join(format!("validator-{:?}", i)).join(format!("validator-{:?}", i));
         Command::new("mkdir")
             .args(["-p", validator_dir.join("cometbft").join("config").to_str().unwrap()])
             .output()
@@ -208,7 +237,7 @@ pub fn init_node_dir(ipc_config_dir: &Path, repo_root_dir: &Path, node_count: u8
         // copy config and keys
         Command::new("cp")
             .args([
-                repo_root_dir.join("hoku-dev-cli")
+                repo_root_dir.join("hoku-dev")
                     .join("config")
                     .join("fendermint")
                     .join("default.toml")
@@ -248,7 +277,7 @@ pub fn init_node_dir(ipc_config_dir: &Path, repo_root_dir: &Path, node_count: u8
         // copy iroh config into this nodes directory
         Command::new("cp")
             .args([
-                repo_root_dir.join("hoku-dev-cli")
+                repo_root_dir.join("hoku-dev")
                     .join("config")
                     .join("iroh")
                     .join("iroh.config.toml")
@@ -263,7 +292,7 @@ pub fn init_node_dir(ipc_config_dir: &Path, repo_root_dir: &Path, node_count: u8
             .expect("failed to copy iroh config");
 
         let default_keys_dir = repo_root_dir
-            .join("hoku-dev-cli")
+            .join("hoku-dev")
             .join("config")
             .join("keys");
         // TODO: convert the default anvil accounts to this format
@@ -297,4 +326,107 @@ pub fn get_rust_log_level(log_level: &LogLevel) -> &str {
         LogLevel::Quiet => "error",
         LogLevel::Silent => ""
     }
+}
+
+pub fn get_ipc_dir() -> PathBuf {
+    let home = std::env::var("HOME").unwrap();
+    Path::new(&home).join(".ipc")
+}
+
+pub fn create_keystore(filepath: &Path) {
+    let file = File::create(filepath).unwrap();
+    let mut keys: Vec<Keystore> = Vec::new();
+
+    for i in 0..(ANVIL_PUBLIC_KEYS.len()) {
+        let key = Keystore {
+            address: ANVIL_PUBLIC_KEYS[i].to_string(),
+            private_key: ANVIL_PRIVATE_KEYS[i].to_string(),
+        };
+        keys.push(key);
+    }
+
+    serde_json::to_writer_pretty(&file, &keys).unwrap();
+}
+
+// copy subnet config files
+pub fn setup_subnet_config(
+    repo_root_dir: &Path,
+    config_folder: &Path,
+    contracts: &ContractMap,
+    parent_rpc_url: &str,
+    child_rpc_url: &str,
+    parent_chain_id: &str,
+    subnet_id: &str,
+    log_level: &LogLevel
+) {
+    // put ipc config in ~/.ipc/
+    Command::new("cp")
+        .args([
+            repo_root_dir.join("hoku-dev").join("config").join("config.toml").to_str().unwrap(),
+            config_folder.to_str().unwrap(),
+        ])
+        .output()
+        .expect("failed to copy ipc config");
+
+    setup_ipc_config_file(&config_folder.join("config.toml"), contracts, parent_rpc_url, child_rpc_url, parent_chain_id, subnet_id);
+
+    // put relayer config in ~/.ipc/
+    Command::new("cp")
+        .args([
+            repo_root_dir.join("hoku-dev").join("config").join("relayer.config.toml").to_str().unwrap(),
+            config_folder.to_str().unwrap(),
+        ])
+        .output()
+        .expect("failed to copy relayer config");
+
+    setup_ipc_config_file(&config_folder.join("relayer.config.toml"), contracts, parent_rpc_url, child_rpc_url, parent_chain_id, subnet_id);
+    create_keystore(&config_folder.join("evm_keystore.json"));
+
+    log_level_print(
+        &String::from("STARTUP").white().bold(),
+        "subnet and relayer config files setup",
+        log_level,
+        &LogLevel::Info,
+        &vec!()
+    );
+}
+
+fn setup_ipc_config_file(
+    config_filepath: &Path,
+    contracts: &ContractMap,
+    parent_rpc_url: &str,
+    child_rpc_url: &str,
+    parent_chain_id: &str,
+    subnet_id: &str
+) {
+
+    // we use our default cometbft config.toml file, but we need to update to use the config for this network
+    let config_file = read_to_string(config_filepath).expect("could not modify ipc config");
+    let mut conf_doc = config_file.parse::<DocumentMut>().expect("invalid ipc config document");
+
+    // TODO: setup separte ports for each node's metrics
+    conf_doc["subnets"][0]["id"] = value(format!("/r{parent_chain_id}"));
+    conf_doc["subnets"][0]["config"]["provider_http"] = value(parent_rpc_url);
+    conf_doc["subnets"][0]["config"]["registry_addr"] = value(&contracts.registry);
+    conf_doc["subnets"][0]["config"]["gateway_addr"] = value(&contracts.gateway);
+    conf_doc["subnets"][1]["id"] = value(subnet_id);
+    conf_doc["subnets"][1]["config"]["provider_http"] = value(child_rpc_url);
+
+    write(config_filepath, conf_doc.to_string()).expect("could not write to ipc config file");
+}
+
+pub fn get_forge_deployed_address(deploy_json_file: &Path) -> String {
+    let data = read_to_string(deploy_json_file).expect("Unable to read file");
+    let json: serde_json::Value = serde_json::from_str(&data).expect("JSON was not well-formatted");
+
+    let address = String::from(json["returns"]["0"]["value"].as_str().unwrap());
+    address
+}
+
+pub fn get_hardhat_deployed_address(deploy_json_file: &Path) -> String {
+    let data = read_to_string(deploy_json_file).expect("Unable to read file");
+    let json: serde_json::Value = serde_json::from_str(&data).expect("JSON was not well-formatted");
+
+    let address = String::from(json["address"].as_str().unwrap());
+    address
 }

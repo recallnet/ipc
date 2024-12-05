@@ -33,6 +33,12 @@ halt_height = 0
 # Number of pending blobs to process in parallel
 blob_concurrency = 1024
 
+# Number of pending read requests to process in parallel
+read_request_concurrency = 10
+
+# Interval in blocks at which to emit blob metrics
+blob_metrics_interval = 10
+
 [abci]
 # Number of concurrent requests allowed to be _submitted_ to the application.
 # Because message handling is asynhronous, this doesn't make any difference
@@ -48,7 +54,7 @@ block_max_msgs = 1000
 # Only accept connections from Tendermint, assumed to be running locally.
 host = "127.0.0.1"
 # The default port where Tendermint is going to connect to the application.
-port = 26658
+port = 26950
 
 [db]
 # Keep unlimited history by default.
@@ -58,7 +64,7 @@ compaction_style = "level"
 
 [metrics]
 # Enable the export of metrics over HTTP.
-enabled = true
+enabled = false
 
 [metrics.listen]
 # Only accept connections from a Prometheus scraper, assumed to be running locally.
@@ -147,11 +153,11 @@ max_fee_hist_size = 1024
 host = "127.0.0.1"
 # The default port where the Ethereum API will listen to
 # JSON-RPC (POST) and WebSockets (GET) requests.
-port = 8545
+port = 8645
 
 [eth.metrics]
 # Enable the export of metrics over HTTP.
-enabled = true
+enabled = false
 
 [eth.metrics.listen]
 # Only accept connections from a Prometheus scraper, assumed to be running locally.
@@ -181,6 +187,7 @@ enabled = false
 
 # Object API facade
 [objects]
+max_object_size = 5000000000
 
 [objects.listen]
 # Only accept local connections by default.
@@ -197,7 +204,7 @@ enabled = false
 
 [objects.metrics]
 # Enable the export of metrics over HTTP.
-enabled = true
+enabled = false
 
 [objects.metrics.listen]
 # Only accept connections from a Prometheus scraper, assumed to be running locally.
@@ -218,7 +225,7 @@ local_key = "keys/network.sk"
 # Network name is used to differentiate the IPLD Resolver peer group.
 # The entire hierarchy should be in one peer group connected by GossipSub,
 # so we can derive a name using the rootnet ID and use this as an override.
-network_name = ""
+network_name = "r31337-t410fkzrz3mlkyufisiuae3scumllgalzuu3wxlxa2ly"
 
 # Peer Discovery
 [resolver.discovery]
@@ -269,10 +276,10 @@ external_addresses = []
 max_incoming = 30
 
 # Expected number of peers, for sizing the Bloom filter.
-expected_peer_count = 10000
+expected_peer_count = 0
 
 # Maximum number of peers to send Bitswap requests to in a single attempt.
-max_peers_per_query = 5
+max_peers_per_query = 10
 
 # Maximum number of events in the push-based broadcast channel before a slow
 # consumer gets an error because it's falling behind.
@@ -288,12 +295,12 @@ rate_limit_period = 0
 # IPC related configuration parameters
 [ipc]
 # Default subnet ID, which basically means IPC is disabled.
-subnet_id = "/r0"
+subnet_id = "/r31337/t410fkzrz3mlkyufisiuae3scumllgalzuu3wxlxa2ly"
 # Voting interval about things such as the top-down finality, in seconds.
 # It's limited to avoid GossipSub throttling or banning the node for over production.
 # The minimum is 1 seconds which is about the minimum target block time as well;
 # ideally one round of gossip per block should be as frequent as we would go.
-vote_interval = 1
+vote_interval = 5
 # Voting timeout about top-down finality, in seconds. After this time, if there is
 # no new height to vote on, the previous vote is re-published. This is to avoid
 # potential stalling because peers missed an important vote and the cache is full,
