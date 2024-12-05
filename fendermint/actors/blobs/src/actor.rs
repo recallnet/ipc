@@ -8,7 +8,7 @@ use fendermint_actor_blobs_shared::params::{
     AddBlobParams, ApproveCreditParams, BuyCreditParams, DeleteBlobParams, FinalizeBlobParams,
     GetAccountParams, GetAddedBlobsParams, GetBlobParams, GetBlobStatusParams,
     GetCreditApprovalParams, GetPendingBlobsParams, GetStatsReturn, RevokeCreditParams,
-    SetBlobPendingParams, SetTtlStatusParams,
+    SetAccountBlobTtlStatusParams, SetBlobPendingParams,
 };
 use fendermint_actor_blobs_shared::state::{
     Account, Blob, BlobStatus, CreditApproval, Hash, PublicKey, Subscription, SubscriptionId,
@@ -272,11 +272,14 @@ impl BlobsActor {
         Ok(())
     }
 
-    fn set_ttl_status(rt: &impl Runtime, params: SetTtlStatusParams) -> Result<(), ActorError> {
-        rt.validate_immediate_caller_accept_any()?;
+    fn set_account_blob_ttl_status(
+        rt: &impl Runtime,
+        params: SetAccountBlobTtlStatusParams,
+    ) -> Result<(), ActorError> {
+        rt.validate_immediate_caller_is(std::iter::once(&SYSTEM_ACTOR_ADDR))?;
         
         rt.transaction(|st: &mut State, _| {
-            st.set_ttl_status(params.account, params.status)
+            st.set_ttl_status(params.account, params.status, rt.curr_epoch())
         })?;
         Ok(())
     }
@@ -336,7 +339,7 @@ impl ActorCode for BlobsActor {
         SetBlobPending => set_blob_pending,
         FinalizeBlob => finalize_blob,
         DeleteBlob => delete_blob,
-        SetTtlStatus => set_ttl_status,
+        SetAccountBlobTtlStatus => set_account_blob_ttl_status,
         _ => fallback,
     }
 }

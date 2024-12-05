@@ -31,8 +31,8 @@ pub struct Account {
     /// An approval for Bob might be valid from only one contract caller, so long as
     /// the origin is Bob.
     pub approvals: HashMap<Address, HashMap<Address, CreditApproval>>,
-    /// The TTL status of the account.
-    pub ttl_status: TtlStatus,
+    /// The maximum allowed TTL for actor's blobs.
+    pub max_ttl_epochs: ChainEpoch,
 }
 
 impl Account {
@@ -43,7 +43,7 @@ impl Account {
             credit_committed: Default::default(),
             last_debit_epoch: current_epoch,
             approvals: Default::default(),
-            ttl_status: Default::default(),
+            max_ttl_epochs: TtlStatus::DEFAULT_MAX_TTL,
         }
     }
 }
@@ -259,7 +259,7 @@ impl fmt::Display for BlobStatus {
     }
 }
 
-/// The TTL status of an account.
+/// The TTL status of an account. This controls the max TTL that the user is allowed to set on their blobs.  
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 pub enum TtlStatus {
     // Default TTL.
@@ -269,12 +269,12 @@ pub enum TtlStatus {
     Reduced,
     /// Extended TTL.
     Extended,
-    /// Blob resolution failed.
+    /// Custom TTL.
     Custom(ChainEpoch),
 }
 
 impl TtlStatus {
-    pub const DEFAULT_TTL: ChainEpoch = 60 * 60 * 24; // 1 day
+    pub const DEFAULT_MAX_TTL: ChainEpoch = 60 * 60 * 24; // 1 day
 }
 
 impl fmt::Display for TtlStatus {
@@ -291,7 +291,7 @@ impl fmt::Display for TtlStatus {
 impl From<TtlStatus> for ChainEpoch {
     fn from(status: TtlStatus) -> Self {
         match status {
-            TtlStatus::Default => TtlStatus::DEFAULT_TTL,
+            TtlStatus::Default => TtlStatus::DEFAULT_MAX_TTL,
             TtlStatus::Reduced => 0,
             TtlStatus::Extended => ChainEpoch::MAX,
             TtlStatus::Custom(ttl) => ttl,

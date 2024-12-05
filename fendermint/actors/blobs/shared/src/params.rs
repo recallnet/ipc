@@ -157,7 +157,7 @@ pub struct DeleteBlobParams {
 
 /// Params for setting a TTL status for an account.
 #[derive(Clone, Debug, Serialize_tuple, Deserialize_tuple)]
-pub struct SetTtlStatusParams {
+pub struct SetAccountBlobTtlStatusParams {
     /// Account address to set the TTL status for.
     pub account: Address,
     /// TTL status to set.
