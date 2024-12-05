@@ -178,6 +178,31 @@ pub struct DeleteBlobParams {
     pub id: SubscriptionId,
 }
 
+/// Params for overwriting a blob, i.e. deleting one and adding another.
+#[derive(Clone, Debug, Serialize_tuple, Deserialize_tuple)]
+pub struct OverwriteBlobParams {
+    /// Optional sponsor address.
+    /// Origin or caller must still have a delegation from sponsor.
+    /// Must be used if the caller is the delegate who added the blob.
+    pub sponsor: Option<Address>,
+    /// Identifier used to differentiate blob additions for the same subscriber.
+    pub id: SubscriptionId,
+    /// Blake3 hash of the blob to be deleted.
+    pub old_hash: Hash,
+    /// Source Iroh node ID used for ingestion.
+    pub source: PublicKey,
+    /// Blake3 hash of the blob to be added.
+    pub hash: Hash,
+    /// Blake3 hash of the metadata to use for blob recovery.
+    pub metadata_hash: Hash,
+    /// Blob size.
+    pub size: u64,
+    /// Blob time-to-live epochs.
+    /// If not specified, the auto-debitor maintains about one hour of credits as an
+    /// ongoing commitment.
+    pub ttl: Option<ChainEpoch>,
+}
+
 /// Params for setting a TTL status for an account.
 #[derive(Clone, Debug, Serialize_tuple, Deserialize_tuple)]
 pub struct SetAccountBlobTtlStatusParams {

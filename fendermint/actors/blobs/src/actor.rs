@@ -8,7 +8,7 @@ use fendermint_actor_blobs_shared::params::{
     AddBlobParams, ApproveCreditParams, BuyCreditParams, DeleteBlobParams, FinalizeBlobParams,
     GetAccountParams, GetAddedBlobsParams, GetBlobParams, GetBlobStatusParams,
     GetCreditAllowanceParams, GetCreditApprovalParams, GetPendingBlobsParams, GetStatsReturn,
-    RevokeCreditParams, SetAccountBlobTtlStatusParams, SetBlobPendingParams,
+    OverwriteBlobParams, RevokeCreditParams, SetAccountBlobTtlStatusParams, SetBlobPendingParams,
     SetCreditSponsorParams, UpdateCreditParams,
 };
 use fendermint_actor_blobs_shared::state::{
@@ -298,6 +298,52 @@ impl BlobsActor {
         Ok(())
     }
 
+    /// Delete a blob, and add another in a single call
+    fn overwrite_blob(
+        rt: &impl Runtime,
+        params: OverwriteBlobParams,
+    ) -> Result<Subscription, ActorError> {
+        rt.validate_immediate_caller_accept_any()?;
+        let (origin, _) = resolve_external(rt, rt.message().origin())?;
+        let (caller, _) = resolve_external(rt, rt.message().caller())?;
+        // The blob subscriber will be the sponsor if specified and approved
+        let subscriber = if let Some(sponsor) = params.sponsor {
+            resolve_external_non_machine(rt, sponsor)?
+        } else {
+            origin
+        };
+
+        // The call should be atomic, hence we wrap two independent calls in a transaction.
+        let (delete, subscription) = rt.transaction(|st: &mut State, _| {
+            let delete = st.delete_blob(
+                origin,
+                caller,
+                subscriber,
+                rt.curr_epoch(),
+                params.old_hash,
+                params.id.clone(),
+            )?;
+            let (subscription, _) = st.add_blob(
+                origin,
+                caller,
+                subscriber,
+                rt.curr_epoch(),
+                params.hash,
+                params.metadata_hash,
+                params.id,
+                params.size,
+                params.ttl,
+                params.source,
+                TokenAmount::zero(),
+            )?;
+            Ok((delete, subscription))
+        })?;
+        if delete {
+            delete_from_disc(params.hash)?;
+        }
+        Ok(subscription)
+    }
+
     fn set_account_blob_ttl_status(
         rt: &impl Runtime,
         params: SetAccountBlobTtlStatusParams,
@@ -368,6 +414,7 @@ impl ActorCode for BlobsActor {
         FinalizeBlob => finalize_blob,
         DeleteBlob => delete_blob,
         SetAccountBlobTtlStatus => set_account_blob_ttl_status,
+        OverwriteBlob => overwrite_blob,
         _ => fallback,
     }
 }
