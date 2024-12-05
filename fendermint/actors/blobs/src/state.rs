@@ -101,9 +101,9 @@ impl<'a> CreditDelegation<'a> {
 }
 
 impl State {
-    pub fn new(capacity: u64, credit_debit_rate: u64) -> Self {
+    pub fn new(storage_capacity: u64, credit_debit_rate: u64) -> Self {
         Self {
-            capacity_total: BigInt::from(capacity),
+            capacity_total: BigInt::from(storage_capacity),
             capacity_used: BigInt::zero(),
             credit_sold: BigInt::zero(),
             credit_committed: BigInt::zero(),
@@ -1393,7 +1393,7 @@ fn accept_ttl(
             ttl, account.max_ttl_epochs,
         )));
     }
-        Ok((ttl, auto_renew))
+    Ok((ttl, auto_renew))
 }
 
 #[cfg(test)]
@@ -3042,7 +3042,7 @@ mod tests {
                     res.err().unwrap().msg(),
                     format!(
                         "attempt to add a blob with TTL ({}) that exceeds account's max allowed TTL ({})",
-                        tc.blob_ttl, i64::from(tc.account_ttl_status), 
+                        tc.blob_ttl, i64::from(tc.account_ttl_status),
                     ),
                     "Test case '{}' failed with unexpected error message",
                     tc.name

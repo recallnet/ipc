@@ -68,10 +68,6 @@ pub struct FvmStateParams {
     pub app_version: u64,
     /// Block interval at which to debit all credit accounts.
     pub credit_debit_interval: ChainEpoch,
-    /// Subnet capacity
-    pub blob_storage_capacity: u64,
-    /// Subnet debit rate
-    pub blob_debit_rate: u64,
 }
 
 /// Parts of the state which can be updated by message execution, apart from the actor state.
@@ -95,10 +91,6 @@ pub struct FvmUpdatableParams {
     pub power_scale: PowerScale,
     /// Block interval at which to debit all credit accounts.
     pub credit_debit_interval: ChainEpoch,
-    /// Subnet capacity
-    pub blob_storage_capacity: u64,
-    /// Subnet debit rate
-    pub blob_debit_rate: u64,
 }
 
 pub type MachineBlockstore<DB> = <DefaultMachine<DB, FendermintExterns<DB>> as Machine>::Blockstore;
@@ -176,8 +168,6 @@ where
                 circ_supply: params.circ_supply,
                 power_scale: params.power_scale,
                 credit_debit_interval: params.credit_debit_interval,
-                blob_storage_capacity: params.blob_storage_capacity,
-                blob_debit_rate: params.blob_debit_rate,
             },
             params_dirty: false,
         })
@@ -302,14 +292,6 @@ where
         self.params.credit_debit_interval
     }
 
-    pub fn blob_storage_capacity(&self) -> u64 {
-        self.params.blob_storage_capacity
-    }
-
-    pub fn blob_debit_rate(&self) -> u64 {
-        self.params.blob_debit_rate
-    }
-
     /// Get a mutable reference to the underlying [StateTree].
     pub fn state_tree_mut(&mut self) -> &mut StateTree<MachineBlockstore<DB>> {
         self.executor.state_tree_mut()
@@ -391,20 +373,6 @@ where
         F: FnOnce(&mut ChainEpoch),
     {
         self.update_params(|p| f(&mut p.credit_debit_interval))
-    }
-
-    pub fn update_blob_storage_capacity<F>(&mut self, f: F)
-    where
-        F: FnOnce(&mut u64),
-    {
-        self.update_params(|p| f(&mut p.blob_storage_capacity))
-    }
-
-    pub fn update_blob_debit_rate<F>(&mut self, f: F)
-    where
-        F: FnOnce(&mut u64),
-    {
-        self.update_params(|p| f(&mut p.blob_debit_rate))
     }
 
     /// Update the parameters and mark them as dirty.
