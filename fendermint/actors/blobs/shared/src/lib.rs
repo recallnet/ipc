@@ -13,7 +13,7 @@ use fvm_shared::clock::ChainEpoch;
 use fvm_shared::sys::SendFlags;
 use fvm_shared::{ActorID, MethodNum, METHOD_CONSTRUCTOR};
 use num_derive::FromPrimitive;
-
+use crate::params::AddBlobParams;
 use crate::state::{Account, CreditApproval, Subscription};
 
 pub mod params;
@@ -189,14 +189,16 @@ pub fn overwrite_blob(
         &BLOBS_ACTOR_ADDR,
         Method::OverwriteBlob as MethodNum,
         IpldBlock::serialize_cbor(&params::OverwriteBlobParams {
-            sponsor,
             old_hash,
-            id: sub_id,
-            source,
-            hash,
-            metadata_hash,
-            size,
-            ttl,
+            add: AddBlobParams {
+                sponsor,
+                id: sub_id,
+                source,
+                hash,
+                metadata_hash,
+                size,
+                ttl,
+            },
         })?,
         rt.message().value_received(),
     ))?)

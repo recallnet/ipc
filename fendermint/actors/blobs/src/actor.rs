@@ -307,7 +307,7 @@ impl BlobsActor {
         let (origin, _) = resolve_external(rt, rt.message().origin())?;
         let (caller, _) = resolve_external(rt, rt.message().caller())?;
         // The blob subscriber will be the sponsor if specified and approved
-        let subscriber = if let Some(sponsor) = params.sponsor {
+        let subscriber = if let Some(sponsor) = params.add.sponsor {
             resolve_external_non_machine(rt, sponsor)?
         } else {
             origin
@@ -315,31 +315,32 @@ impl BlobsActor {
 
         // The call should be atomic, hence we wrap two independent calls in a transaction.
         let (delete, subscription) = rt.transaction(|st: &mut State, _| {
+            let add_params = params.add;
             let delete = st.delete_blob(
                 origin,
                 caller,
                 subscriber,
                 rt.curr_epoch(),
                 params.old_hash,
-                params.id.clone(),
+                add_params.id.clone(),
             )?;
             let (subscription, _) = st.add_blob(
                 origin,
                 caller,
                 subscriber,
                 rt.curr_epoch(),
-                params.hash,
-                params.metadata_hash,
-                params.id,
-                params.size,
-                params.ttl,
-                params.source,
+                add_params.hash,
+                add_params.metadata_hash,
+                add_params.id,
+                add_params.size,
+                add_params.ttl,
+                add_params.source,
                 TokenAmount::zero(),
             )?;
             Ok((delete, subscription))
         })?;
         if delete {
-            delete_from_disc(params.hash)?;
+            delete_from_disc(params.old_hash)?;
         }
         Ok(subscription)
     }
