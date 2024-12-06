@@ -37,11 +37,11 @@ impl Actor {
                 // Overwrite if the flag is passed
                 overwrite_blob(
                     rt,
-                    sub_id,
                     object.hash,
+                    sub_id,
+                    params.hash,
                     Some(state.owner),
                     params.source,
-                    params.hash,
                     params.recovery_hash,
                     params.size,
                     params.ttl,
@@ -57,9 +57,9 @@ impl Actor {
             add_blob(
                 rt,
                 sub_id,
+                params.hash,
                 Some(state.owner),
                 params.source,
-                params.hash,
                 params.recovery_hash,
                 params.size,
                 params.ttl,
@@ -95,7 +95,7 @@ impl Actor {
             .ok_or(ActorError::illegal_state("object not found".into()))?;
         // Delete blob for object
         let sub_id = get_blob_id(&state, params.0)?;
-        delete_blob(rt, sub_id, Some(state.owner), object.hash)?;
+        delete_blob(rt, sub_id, object.hash, Some(state.owner))?;
         // Update state
         rt.transaction(|st: &mut State, rt| st.delete(rt.store(), &key))?;
         Ok(())
@@ -444,14 +444,16 @@ mod tests {
             BLOBS_ACTOR_ADDR,
             BlobMethod::OverwriteBlob as MethodNum,
             IpldBlock::serialize_cbor(&OverwriteBlobParams {
-                sponsor: Some(f4_eth_addr),
-                source: add_params2.source,
                 old_hash: add_params.hash,
-                hash: add_params2.hash,
-                metadata_hash: add_params2.recovery_hash,
-                id: sub_id,
-                size: add_params2.size,
-                ttl: add_params2.ttl,
+                add: AddBlobParams {
+                    id: sub_id,
+                    hash: add_params2.hash,
+                    sponsor: Some(f4_eth_addr),
+                    source: add_params2.source,
+                    metadata_hash: add_params2.recovery_hash,
+                    size: add_params2.size,
+                    ttl: add_params2.ttl,
+                },
             })
             .unwrap(),
             TokenAmount::from_whole(0),

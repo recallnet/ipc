@@ -13,7 +13,7 @@ use fvm_shared::clock::ChainEpoch;
 use fvm_shared::sys::SendFlags;
 use fvm_shared::{ActorID, MethodNum, METHOD_CONSTRUCTOR};
 use num_derive::FromPrimitive;
-use crate::params::AddBlobParams;
+
 use crate::state::{Account, CreditApproval, Subscription};
 
 pub mod params;
@@ -119,9 +119,9 @@ pub fn revoke_credit(
 pub fn add_blob(
     rt: &impl Runtime,
     sub_id: state::SubscriptionId,
+    hash: state::Hash,
     sponsor: Option<Address>,
     source: state::PublicKey,
-    hash: state::Hash,
     metadata_hash: state::Hash,
     size: u64,
     ttl: Option<ChainEpoch>,
@@ -157,8 +157,8 @@ pub fn get_blob(rt: &impl Runtime, hash: state::Hash) -> Result<Option<state::Bl
 pub fn delete_blob(
     rt: &impl Runtime,
     sub_id: state::SubscriptionId,
-    sponsor: Option<Address>,
     hash: state::Hash,
+    sponsor: Option<Address>,
 ) -> Result<(), ActorError> {
     extract_send_result(rt.send_simple(
         &BLOBS_ACTOR_ADDR,
@@ -174,13 +174,14 @@ pub fn delete_blob(
 }
 
 /// Overwrite a blob, i.e. delete one, and add another in a single call.
+#[allow(clippy::too_many_arguments)]
 pub fn overwrite_blob(
     rt: &impl Runtime,
-    sub_id: state::SubscriptionId,
     old_hash: state::Hash,
+    sub_id: state::SubscriptionId,
+    hash: state::Hash,
     sponsor: Option<Address>,
     source: state::PublicKey,
-    hash: state::Hash,
     metadata_hash: state::Hash,
     size: u64,
     ttl: Option<ChainEpoch>,
@@ -190,7 +191,7 @@ pub fn overwrite_blob(
         Method::OverwriteBlob as MethodNum,
         IpldBlock::serialize_cbor(&params::OverwriteBlobParams {
             old_hash,
-            add: AddBlobParams {
+            add: params::AddBlobParams {
                 sponsor,
                 id: sub_id,
                 source,
