@@ -172,7 +172,7 @@ impl TryFrom<&str> for Hash {
 pub struct PublicKey(pub [u8; 32]);
 
 /// The stored representation of a blob.
-#[derive(Clone, Debug, Default, Serialize_tuple, Deserialize_tuple)]
+#[derive(Clone, PartialEq, Debug, Default, Serialize_tuple, Deserialize_tuple)]
 pub struct Blob {
     /// The size of the content.
     pub size: u64,
