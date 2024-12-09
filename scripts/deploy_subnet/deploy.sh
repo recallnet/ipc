@@ -8,6 +8,7 @@ if (($# != 1)); then
   echo "Arguments: <Specify GitHub remote branch name to use to deploy. Or use 'local' (without quote) to indicate using local repo instead. If not provided, will default to main branch"
   head_ref=main
   local_deploy=false
+  hoku_branch="main"
 else
   if [[ "$1" = "local" || "$1" = "localnet" ]]; then
     echo "$DASHES deploying to localnet $DASHES"
@@ -16,11 +17,23 @@ else
     local_deploy=false
     head_ref=$1
   fi
+
+  # Set hoku-contracts branch if provided
+  if (($# == 2)); then
+    hoku_branch="$2"
+  else
+    hoku_branch="main"
+  fi
 fi
 
 if ! $local_deploy ; then
   if [[ -z "${SUPPLY_SOURCE_ADDRESS:-}" ]]; then
     echo "SUPPLY_SOURCE_ADDRESS is not set"
+    exit 1
+  fi
+
+  if [[ -z "${VALIDATOR_REWARDER_ADDRESS:-}" ]]; then
+    echo "VALIDATOR_REWARDER_ADDRESS is not set"
     exit 1
   fi
 
@@ -32,6 +45,7 @@ if ! $local_deploy ; then
 else
   # For local deployment, we'll set these variables later
   SUPPLY_SOURCE_ADDRESS=""
+  VALIDATOR_REWARDER_ADDRESS=""
   PARENT_HTTP_AUTH_TOKEN=""
   PARENT_AUTH_FLAG=""
 fi
@@ -344,6 +358,7 @@ if [[ $local_deploy = true ]]; then
   # note: the subnet hasn't been created yet, but it's always the same value and we need it for the docker network name
   subnet_id="/r31337/t410f6gbdxrbehnaeeo4mrq7wc5hgq6smnefys4qanwi"
   cd "$IPC_FOLDER"
+
   cargo make --makefile infra/fendermint/Makefile.toml \
       -e NODE_NAME=anvil \
       anvil-destroy
@@ -418,6 +433,10 @@ fi
 
 # Setup Hoku contracts
 cd "${IPC_FOLDER}/hoku-contracts"
+echo "$DASHES Checking out hoku-contracts branch: $hoku_branch $DASHES"
+git fetch
+git checkout "$hoku_branch"
+git pull origin "$hoku_branch"
 # need to run clean or we hit upgradeable safety validation errors resulting
 # from contracts with the same name
 forge clean
@@ -460,11 +479,25 @@ if [[ -z "${PARENT_GATEWAY_ADDRESS+x}" || -z "${PARENT_REGISTRY_ADDRESS+x}" ]]; 
     # 0x4A679253410272dd5232B3Ff7cF5dbB88f295319 for localnet
     SUPPLY_SOURCE_ADDRESS=$(echo "$deploy_supply_source_token_out" | sed -n 's/.*contract Hoku *\([^ ]*\).*/\1/p')
 
+    # use the same account validator 0th account to deploy validator rewarder
+    forge clean
+    deploy_validator_rewarder_token_out="$(forge script script/ValidatorRewarder.s.sol:DeployScript --private-key "${pk}" --rpc-url "${rpc_url}" --sig "runWithParams(string,address)" "local" "${SUPPLY_SOURCE_ADDRESS}" --broadcast --timeout 120 -vv)"
+    echo "$DASHES deploy validator rewarder token output $DASHES"
+    echo ""
+
+    echo "$deploy_validator_rewarder_token_out"
+    echo ""
+    VALIDATOR_REWARDER_ADDRESS=$(echo "$deploy_validator_rewarder_token_out" | sed -n 's/.*contract ValidatorRewarder *\([^ ]*\).*/\1/p')
+
     # fund the all anvil accounts with 10100 HOKU (note the extra 100 HOKU)
-    # note: the `ipc-cli` uses 10**18 HOKU to map to 1 subnet HOKU. the `hoku` CLI does something a 
-    # bit similarly—but it converts the amount internally. for example, these are the same:
-    # `hoku account deposit 10000` vs `ipc-cli cross-msg ... 10000000000000000000000`
     token_amount="10100000000000000000000"
+    # Get the role hashes
+    MINTER_ROLE=$(cast keccak "MINTER_ROLE")
+    # Grant minter role to the ValidatorRewarder contract
+    cast send --private-key "${pk}" --rpc-url "${rpc_url}" --timeout 120 "${SUPPLY_SOURCE_ADDRESS}" \
+      "grantRole(bytes32,address)" "${MINTER_ROLE}" "${VALIDATOR_REWARDER_ADDRESS}"
+    echo "Granted minter role to ValidatorRewarder at ${VALIDATOR_REWARDER_ADDRESS}"
+
     for i in {0..9}
     do
       addr=$(jq .["$i"].address < "${IPC_CONFIG_FOLDER}"/evm_keystore.json | tr -d '"')
@@ -477,6 +510,7 @@ fi
 echo "Parent gateway address: $PARENT_GATEWAY_ADDRESS"
 echo "Parent registry address: $PARENT_REGISTRY_ADDRESS"
 echo "Parent supply source address: $SUPPLY_SOURCE_ADDRESS"
+echo "Parent validator rewarder address: $VALIDATOR_REWARDER_ADDRESS"
 
 # use the same account validator 0th account to deploy validator gater
 cd "${IPC_FOLDER}/hoku-contracts"
@@ -525,6 +559,7 @@ create_subnet_output=$(ipc-cli subnet create \
     --permission-mode collateral \
     --supply-source-kind erc20 \
     --supply-source-address "$SUPPLY_SOURCE_ADDRESS" \
+    --validator-rewarder "$VALIDATOR_REWARDER_ADDRESS" \
     --validator-gater "$VALIDATOR_GATER_ADDRESS" \
     --collateral-source-kind erc20 \
     --collateral-source-address "$SUPPLY_SOURCE_ADDRESS" \
@@ -544,6 +579,12 @@ echo "Created new subnet id: $subnet_id ($subnet_eth_addr)"
 subnet_struct="($subnet_root, [$subnet_eth_addr])"
 cast send --private-key "$pk" --rpc-url "$rpc_url" --timeout 120 "$VALIDATOR_GATER_ADDRESS" "setSubnet((uint64,address[]))" "$subnet_struct"
 echo "Set validator gater subnet ID"
+
+cast send --private-key "$pk" --rpc-url "$rpc_url" --timeout 120 "$VALIDATOR_REWARDER_ADDRESS" "setSubnet((uint64,address[]), uint256)" "$subnet_struct" "$bottomup_check_period"
+echo "Set validator rewarder subnet ID"
+
+# set inflation rate
+cast send --private-key "$pk" --rpc-url "$rpc_url" --timeout 120 "$VALIDATOR_REWARDER_ADDRESS" "setInflationRate(uint256)" 15471259606
 
 # Use the new subnet ID to update IPC config file
 toml set "${IPC_CONFIG_FOLDER}"/config.toml 'subnets[1].id' "$subnet_id" > /tmp/config.toml.3
@@ -578,6 +619,7 @@ fi
 # Start the bootstrap validator node
 echo "$DASHES Start the first validator node as bootstrap"
 cd "${IPC_FOLDER}"
+
 bootstrap_output=$(cargo make --makefile infra/fendermint/Makefile.toml \
     -e NODE_NAME=validator-0 \
     -e PRIVATE_KEY_PATH="${IPC_CONFIG_FOLDER}"/validator_0.sk \
@@ -840,12 +882,13 @@ Grafana API:
 http://localhost:${GRAFANA_HOST_PORT}
 
 Contracts:
-Parent gateway:         ${PARENT_GATEWAY_ADDRESS}
-Parent registry:        ${PARENT_REGISTRY_ADDRESS}
-Parent supply source:   ${SUPPLY_SOURCE_ADDRESS}
-Parent validator gater: ${VALIDATOR_GATER_ADDRESS}
-Subnet gateway:         0x77aa40b105843728088c0132e43fc44348881da8
-Subnet registry:        0x74539671a1d2f1c8f200826baba665179f53a1b7
+Parent gateway:            ${PARENT_GATEWAY_ADDRESS}
+Parent registry:           ${PARENT_REGISTRY_ADDRESS}
+Parent supply source:      ${SUPPLY_SOURCE_ADDRESS}
+Parent validator gater:    ${VALIDATOR_GATER_ADDRESS}
+Parent validator rewarder: ${VALIDATOR_REWARDER_ADDRESS}
+Subnet gateway:            0x77aa40b105843728088c0132e43fc44348881da8
+Subnet registry:           0x74539671a1d2f1c8f200826baba665179f53a1b7
 EOF
 
 if [[ $local_deploy = true ]]; then

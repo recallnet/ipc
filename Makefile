@@ -59,7 +59,7 @@ run-devnet-evm:
 	./target/release/fendermint eth run
 
 run-localnet:
-	./scripts/deploy_subnet/deploy.sh localnet
+	./scripts/deploy_subnet/deploy.sh local $(BRANCH)
 
 stop-localnet:
 	./scripts/deploy_subnet/stop_local.sh
