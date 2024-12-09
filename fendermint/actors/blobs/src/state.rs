@@ -1391,7 +1391,7 @@ impl State {
             // We don't want to create an account for default TTL
             TtlStatus::Default => {
                 if let Some(mut account) = accounts.get(&subscriber)? {
-                    account.max_ttl_epochs = status.into();
+                    account.max_ttl = status.into();
                     self.accounts
                         .save_tracked(accounts.set_and_flush_tracked(&subscriber, account)?);
                 }
@@ -1400,7 +1400,7 @@ impl State {
                 // Get or create a new account
                 let mut account =
                     accounts.get_or_create(&subscriber, || Account::new(current_epoch))?;
-                account.max_ttl_epochs = status.into();
+                account.max_ttl = status.into();
                 self.accounts
                     .save_tracked(accounts.set_and_flush_tracked(&subscriber, account)?);
             }
@@ -1411,6 +1411,29 @@ impl State {
     /// Return available capacity as a difference between `capacity_total` and `capacity_used`.
     fn capacity_available(&self) -> BigInt {
         &self.capacity_total - &self.capacity_used
+    }
+    
+    fn drop_blob_ttls_for_account(
+        &mut self,
+        account: Address,
+    ) -> anyhow::Result<(), ActorError> {
+        let new_ttl = self.get_account_max_ttl(account);
+        for (_, blob) in self.blobs.iter_mut() {
+            if let Some(group) = blob.subscribers.get_mut(&account) {
+                for (_, sub) in group.subscriptions.iter_mut() {
+                    if sub.expiry - sub.added > new_ttl {
+                        sub.expiry = sub.added + new_ttl;
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+    
+    fn get_account_max_ttl(&self, account: Address) -> ChainEpoch {
+        self.accounts
+            .get(&account)
+            .map_or(TtlStatus::DEFAULT_MAX_TTL, |account| account.max_ttl)
     }
 }
 
@@ -1581,10 +1604,11 @@ fn accept_ttl(
             MIN_TTL
         )));
     }
-    if ChainEpoch::from(account.max_ttl_epochs) < ttl {
+
+    if ChainEpoch::from(account.max_ttl) < ttl {
         return Err(ActorError::forbidden(format!(
             "attempt to add a blob with TTL ({}) that exceeds account's max allowed TTL ({})",
-            ttl, account.max_ttl_epochs,
+            ttl, account.max_ttl,
         )));
     }
     Ok((ttl, auto_renew))
@@ -3594,5 +3618,103 @@ mod tests {
             caller,
             state.credit_debited + account_committed,
         );
+    }
+
+    #[test]
+    fn test_set_ttl_status_adjusts_existing_subscriptions() {
+        setup_logs();
+
+        // Test case structure
+        struct TestCase {
+            name: &'static str,
+            initial_ttl_status: TtlStatus,
+            new_ttl_status: TtlStatus,
+            blob_ttls: Vec<ChainEpoch>,
+            expected_new_ttls: Vec<ChainEpoch>,
+        }
+
+        let test_cases = vec![
+            TestCase {
+                name: "Reducing from Default to OneHour drops higher TTLs",
+                initial_ttl_status: TtlStatus::Default,
+                new_ttl_status: TtlStatus::Reduced,
+                blob_ttls: vec![7200, 3600, 86400], // 2h, 1h, 24h
+                expected_new_ttls: vec![0, 0, 0], // all reduced to 0
+            },
+            TestCase {
+                name: "Reducing from OneWeek to OneDay drops higher TTLs",
+                initial_ttl_status: TtlStatus::Extended,
+                new_ttl_status: TtlStatus::Default,
+                blob_ttls: vec![43200, 86400, 172800], // 12h, 24h, 48h
+                expected_new_ttls: vec![43200, 86400, 86400], // 48h reduced to 24h
+            },
+            TestCase {
+                name: "Increasing TTL status keeps existing TTLs",
+                initial_ttl_status: TtlStatus::Extended,
+                new_ttl_status: TtlStatus::Reduced,
+                blob_ttls: vec![3600, 7200, 172800], // 1h, 2h, 48h
+                expected_new_ttls: vec![0, 0, 0], // all reduced to 0
+            },
+            TestCase {
+                name: "Setting same TTL status preserves TTLs",
+                initial_ttl_status: TtlStatus::Default,
+                new_ttl_status: TtlStatus::Extended,
+                blob_ttls: vec![43200, 86400], // 12h, 24h
+                expected_new_ttls: vec![43200, 86400], // unchanged
+            },
+        ];
+
+        for tc in test_cases {
+            let capacity = 1024 * 1024;
+            let mut state = State::new(capacity, 1);
+            let subscriber = new_address();
+            let current_epoch = ChainEpoch::from(1);
+            let amount = TokenAmount::from_whole(10);
+
+            // Initial setup
+            state.buy_credit(subscriber, amount.clone(), current_epoch).unwrap();
+            state.set_ttl_status(subscriber, tc.initial_ttl_status, current_epoch).unwrap();
+
+            // Add blobs with different TTLs
+            let mut blob_hashes = Vec::new();
+            for ttl in tc.blob_ttls.iter() {
+                let (hash, size) = new_hash(1024);
+                blob_hashes.push(hash);
+                
+                let res = state.add_blob(
+                    subscriber,
+                    subscriber,
+                    subscriber,
+                    current_epoch,
+                    hash,
+                    new_metadata_hash(),
+                    SubscriptionId::Default,
+                    size,
+                    Some(*ttl),
+                    new_pk(),
+                    TokenAmount::zero(),
+                );
+                assert!(res.is_ok(), "Test case '{}' failed to add blob with TTL {}", tc.name, ttl);
+            }
+
+            // Change TTL status
+            state.set_ttl_status(subscriber, tc.new_ttl_status, current_epoch).unwrap();
+
+            // Verify each blob's TTL was adjusted correctly
+            for (i, hash) in blob_hashes.iter().enumerate() {
+                let blob = state.blobs.get(hash).unwrap();
+                let group = blob.subscribers.get(&subscriber).unwrap();
+                let sub = group.subscriptions.get(&SubscriptionId::Default).unwrap();
+                assert_eq!(
+                    sub.expiry - sub.added, 
+                    tc.expected_new_ttls[i],
+                    "Test case '{}' failed: blob {} TTL not adjusted correctly. Expected {}, got {}",
+                    tc.name,
+                    i,
+                    tc.expected_new_ttls[i],
+                    sub.expiry - sub.added
+                );
+            }
+        }
     }
 }
