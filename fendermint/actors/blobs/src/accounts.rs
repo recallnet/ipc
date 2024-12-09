@@ -1,5 +1,6 @@
 // Copyright 2024 Hoku Contributors
 
+use std::ops::{Deref, DerefMut};
 use cid::Cid;
 use fendermint_actor_blobs_shared::state::Account;
 use fil_actors_runtime::ActorError;
@@ -7,6 +8,55 @@ use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::address::Address;
 use fvm_shared::clock::ChainEpoch;
 use hoku_ipld::map::{Map, DEFAULT_HAMT_CONFIG};
+
+
+/// A simple wrapper type around an Account that takes care of flushing the Accounts HAMT when
+/// it goes out of scope.
+pub struct AccountHolder<'a, BS: Blockstore> {
+    /// The wrapped Account
+    pub account: Account,
+
+    /// The address of the account
+    address: Address,
+
+    /// The HAMT that's responsible for storing the Account.
+    accounts: Accounts<BS>,
+
+    /// A reference to the root of the Accounts HAMT that needs to be updated when this
+    /// AccountHolder goes out of scope and flushes the underlying HAMT.
+    accounts_root: &'a mut Cid,
+}
+
+impl<'a, BS> Deref for AccountHolder<'a, BS>
+where
+    BS: Blockstore,
+{
+    type Target = Account;
+
+    fn deref(&self) -> &Self::Target {
+        &self.account
+    }
+}
+
+impl<'a, BS> DerefMut for AccountHolder<'a, BS>
+where
+    BS: Blockstore,
+{
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.account
+    }
+}
+
+impl<'a, BS> Drop for AccountHolder<'a, BS>
+where
+    BS: Blockstore,
+{
+    fn drop(&mut self) {
+        // TODO: no unwrap
+        let root = self.accounts.set_and_flush(&self.address, self.account.clone()).unwrap();
+        *self.accounts_root = root;
+    }
+}
 
 pub type AccountMap<BS> = Map<BS, Address, Account>;
 
