@@ -3319,7 +3319,6 @@ mod tests {
     fn test_set_ttl_status_adjusts_existing_subscriptions() {
         setup_logs();
 
-        // Test case structure
         struct TestCase {
             name: &'static str,
             initial_ttl_status: TtlStatus,
@@ -3330,32 +3329,39 @@ mod tests {
 
         let test_cases = vec![
             TestCase {
-                name: "Reducing from Default to OneHour drops higher TTLs",
+                name: "Reducing from Default to Reduced drops TTLs to 0",
                 initial_ttl_status: TtlStatus::Default,
                 new_ttl_status: TtlStatus::Reduced,
                 blob_ttls: vec![7200, 3600, 86400], // 2h, 1h, 24h
                 expected_new_ttls: vec![0, 0, 0], // all reduced to 0
             },
             TestCase {
-                name: "Reducing from OneWeek to OneDay drops higher TTLs",
+                name: "Reducing from Extended to Default drops all TTLs above 24h",
                 initial_ttl_status: TtlStatus::Extended,
                 new_ttl_status: TtlStatus::Default,
                 blob_ttls: vec![43200, 86400, 172800], // 12h, 24h, 48h
                 expected_new_ttls: vec![43200, 86400, 86400], // 48h reduced to 24h
             },
             TestCase {
-                name: "Increasing TTL status keeps existing TTLs",
+                name: "Reducing from Extended to Reduced drops TTLs to 0",
                 initial_ttl_status: TtlStatus::Extended,
                 new_ttl_status: TtlStatus::Reduced,
                 blob_ttls: vec![3600, 7200, 172800], // 1h, 2h, 48h
                 expected_new_ttls: vec![0, 0, 0], // all reduced to 0
             },
             TestCase {
-                name: "Setting same TTL status preserves TTLs",
+                name: "Increasing from Default to Extended  TTL status preserves TTLs",
                 initial_ttl_status: TtlStatus::Default,
                 new_ttl_status: TtlStatus::Extended,
                 blob_ttls: vec![43200, 86400], // 12h, 24h
                 expected_new_ttls: vec![43200, 86400], // unchanged
+            },
+            TestCase {
+                name: "Setting same TTL status preserves TTLs",
+                initial_ttl_status: TtlStatus::Extended,
+                new_ttl_status: TtlStatus::Extended,
+                blob_ttls: vec![43200, 172800], // 12h, 48h
+                expected_new_ttls: vec![43200, 172800], // unchanged
             },
         ];
 
