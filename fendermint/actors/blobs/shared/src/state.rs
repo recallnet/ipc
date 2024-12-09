@@ -235,7 +235,7 @@ impl fmt::Display for SubscriptionId {
 }
 
 /// A group of subscriptions for the same subscriber.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct SubscriptionGroup {
     /// Subscription group keys.

@@ -22,7 +22,7 @@ use log::{debug, warn};
 use num_traits::{Signed, ToPrimitive, Zero};
 
 use crate::accounts::Accounts;
-use crate::hamt_blobs::{HamtBlobs, HamtBlobsRoot};
+use crate::hamt_blobs::HamtBlobsRoot;
 
 /// The minimum epoch duration a blob can be stored.
 const MIN_TTL: ChainEpoch = 3600; // one hour
@@ -581,9 +581,9 @@ impl State {
         let tokens_unspent: TokenAmount;
 
 
-        let mut blobs = &self.blobs_root.load(store)?;
+        let blobs = &mut self.blobs_root.load(store)?;
 
-        let (sub, blob) = if let Some(blob) = blobs.get(&hash)? {
+        let (sub, blob) = if let Some(mut blob) = blobs.get(&hash)? {
             let sub = if let Some(group) = blob.subscribers.get_mut(&subscriber) {
                 let (group_expiry, new_group_expiry) = group.max_expiries(&id, Some(expiry));
                 // If the subscriber has been debited after the group's max expiry, we need to
@@ -1071,8 +1071,8 @@ impl State {
         let mut accounts = Accounts::load(store, &self.accounts_root)?;
         let mut account = accounts.get_or_create(&subscriber, current_epoch)?;
         // Get the blob
-        let blobs = self.blobs_root.load(store)?;
-        let blob = if let Some(blob) = blobs.get(&hash)? {
+        let mut blobs = self.blobs_root.load(store)?;
+        let mut blob = if let Some(blob) = blobs.get(&hash)? {
             blob
         } else {
             // The blob may have been deleted before it was finalized
@@ -1177,6 +1177,7 @@ impl State {
         }
         // Save account
         self.accounts_root = accounts.set_and_flush(&subscriber, account)?;
+        self.blobs_root = blobs.set_and_flush(&hash, blob)?;
         Ok(())
     }
 
@@ -1196,7 +1197,8 @@ impl State {
         let mut account = accounts.get_or_create(&subscriber, current_epoch)?;
         // Get the blob
         let mut blobs = self.blobs_root.load(store)?;
-        let blob = if let Some(blob) = blobs.get(&hash)? {
+
+        let mut blob = if let Some(blob) = blobs.get(&hash)? {
             blob
         } else {
             // We could error here, but since this method is called from other actors,
