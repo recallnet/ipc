@@ -35,7 +35,7 @@ pub struct Account {
     /// the origin is Bob.
     pub approvals: HashMap<Address, CreditApproval>,
     /// The maximum allowed TTL for actor's blobs.
-    pub max_ttl_epochs: ChainEpoch,
+    pub max_ttl: ChainEpoch,
 }
 
 impl Account {
@@ -47,7 +47,7 @@ impl Account {
             credit_sponsor: None,
             last_debit_epoch: current_epoch,
             approvals: Default::default(),
-            max_ttl_epochs: TtlStatus::DEFAULT_MAX_TTL,
+            max_ttl: TtlStatus::DEFAULT_MAX_TTL,
         }
     }
 }
@@ -155,7 +155,7 @@ pub struct PublicKey(pub [u8; 32]);
 pub struct Blob {
     /// The size of the content.
     pub size: u64,
-    /// Blob metadata that contains information for block recovery.
+    /// Blob metadata that contains information for blob recovery.
     pub metadata_hash: Hash,
     /// Active subscribers (accounts) that are paying for the blob.
     pub subscribers: HashMap<Address, SubscriptionGroup>,
@@ -180,7 +180,7 @@ pub struct Subscription {
     pub source: PublicKey,
     /// The delegate origin and caller that may have created the subscription via a credit approval.
     pub delegate: Option<(Address, Address)>,
-    /// Whether the subsciption failed due to an issue resolving the target blob.
+    /// Whether the subscription failed due to an issue resolving the target blob.
     pub failed: bool,
 }
 
