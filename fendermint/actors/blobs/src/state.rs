@@ -171,13 +171,11 @@ impl State {
         self.credit_sold += &credits;
         // Get or create a new account
         let mut accounts = Accounts::load(store, &self.accounts_root)?;
-        let mut account = accounts.get_or_create(&to, current_epoch)?;
+        let mut account = accounts.get_or_create(&to, current_epoch, &mut self.accounts_root)?;
         account.credit_free += &credits;
-        // Save account
-        self.accounts_root = accounts.set_and_flush(&to, account.clone())?;
 
         debug!("sold {} credits to {}", credits, to);
-        Ok(account)
+        Ok(*account.clone())
     }
 
     pub fn update_credit<BS: Blockstore>(
@@ -257,7 +255,7 @@ impl State {
         let expiry = ttl.map(|t| t + current_epoch);
         // Get or create a new account
         let mut accounts = Accounts::load(store, &self.accounts_root)?;
-        let mut account = accounts.get_or_create(&from, current_epoch)?;
+        let mut account = accounts.get_or_create(&from, current_epoch, &mut self.accounts_root)?;
         // Get or add a new approval
         let approval = account
             .approvals
@@ -281,8 +279,6 @@ impl State {
         approval.expiry = expiry;
         approval.caller_allowlist = caller_allowlist.clone();
         let approval = approval.clone();
-        // Save account
-        self.accounts_root = accounts.set_and_flush(&from, account)?;
 
         debug!(
             "approved credits from {} to {} (limit: {:?}; expiry: {:?}, caller_allowlist: {:?})",
@@ -424,10 +420,8 @@ impl State {
     ) -> anyhow::Result<(), ActorError> {
         // Get or create a new account
         let mut accounts = Accounts::load(store, &self.accounts_root)?;
-        let mut account = accounts.get_or_create(&from, current_epoch)?;
+        let mut account = accounts.get_or_create(&from, current_epoch, &mut self.accounts_root)?;
         account.credit_sponsor = sponsor;
-        // Save account
-        self.accounts_root = accounts.set_and_flush(&from, account)?;
 
         debug!("set credit sponsor for {} to {:?}", from, sponsor);
         Ok(())
@@ -549,7 +543,7 @@ impl State {
     ) -> anyhow::Result<(Subscription, TokenAmount), ActorError> {
         // Get or create a new account
         let mut accounts = Accounts::load(store, &self.accounts_root)?;
-        let mut account = accounts.get_or_create(&subscriber, current_epoch)?;
+        let mut account = accounts.get_or_create(&subscriber, current_epoch, &mut self.accounts_root)?;
         // Validate the TTL
         let (ttl, auto_renew) = accept_ttl(ttl, &account)?;
         // Get the credit delgation if needed
@@ -809,8 +803,6 @@ impl State {
         if let Some(delegation) = delegation {
             delegation.approval.used += &credit_required;
         }
-        // Save account
-        self.accounts_root = accounts.set_and_flush(&subscriber, account)?;
 
         if credit_required.is_positive() {
             debug!("committed {} credits from {}", credit_required, subscriber);
@@ -834,7 +826,7 @@ impl State {
     ) -> anyhow::Result<Account, ActorError> {
         // Get or create a new account
         let mut accounts = Accounts::load(store, &self.accounts_root)?;
-        let mut account = accounts.get_or_create(&subscriber, current_epoch)?;
+        let mut account = accounts.get_or_create(&subscriber, current_epoch, &mut self.accounts_root)?;
         // Get the blob
         let blob = self
             .blobs
@@ -940,11 +932,9 @@ impl State {
         if let Some(delegation) = delegation {
             delegation.approval.used += &credit_required;
         }
-        // Save account
-        self.accounts_root = accounts.set_and_flush(&subscriber, account.clone())?;
 
         debug!("committed {} credits from {}", credit_required, subscriber);
-        Ok(account)
+        Ok(*account.clone())
     }
 
     pub fn get_blob(&self, hash: Hash) -> Option<Blob> {
@@ -1053,7 +1043,7 @@ impl State {
         }
         // Get or create a new account
         let mut accounts = Accounts::load(store, &self.accounts_root)?;
-        let mut account = accounts.get_or_create(&subscriber, current_epoch)?;
+        let mut account = accounts.get_or_create(&subscriber, current_epoch, &mut self.accounts_root)?;
         // Get the blob
         let blob = if let Some(blob) = self.blobs.get_mut(&hash) {
             blob
@@ -1158,8 +1148,6 @@ impl State {
                 self.pending.remove(&hash);
             }
         }
-        // Save account
-        self.accounts_root = accounts.set_and_flush(&subscriber, account)?;
         Ok(())
     }
 
@@ -1176,7 +1164,7 @@ impl State {
     ) -> anyhow::Result<bool, ActorError> {
         // Get or create a new account
         let mut accounts = Accounts::load(store, &self.accounts_root)?;
-        let mut account = accounts.get_or_create(&subscriber, current_epoch)?;
+        let mut account = accounts.get_or_create(&subscriber, current_epoch, &mut self.accounts_root)?;
         // Get the blob
         let blob = if let Some(blob) = self.blobs.get_mut(&hash) {
             blob
@@ -1363,8 +1351,6 @@ impl State {
         } else {
             false
         };
-        // Save account
-        self.accounts_root = accounts.set_and_flush(&subscriber, account)?;
         Ok(delete_blob)
     }
 
@@ -1386,9 +1372,8 @@ impl State {
             }
             _ => {
                 // Get or create a new account
-                let mut account = accounts.get_or_create(&subscriber, current_epoch)?;
+                let mut account = accounts.get_or_create(&subscriber, current_epoch, &mut self.accounts_root)?;
                 account.max_ttl_epochs = status.into();
-                self.accounts_root = accounts.set_and_flush(&subscriber, account)?;
             }
         }
         Ok(())

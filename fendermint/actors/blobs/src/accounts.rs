@@ -96,15 +96,18 @@ where
     }
 
     pub fn get_or_create(
-        &self,
-        addr: &Address,
+        self,
+        addr: &Address, // todo take by value
         current_epoch: ChainEpoch,
-    ) -> Result<Account, ActorError> {
-        if let Some(a) = self.map.get(addr)? {
+        accounts_root: &mut Cid,
+    ) -> Result<AccountHolder<'a, BS>, ActorError> {
+        let account: Account = if let Some(a) = self.map.get(addr)? {
             Ok(a.clone())
         } else {
             Ok(Account::new(current_epoch))
-        }
+        }?;
+
+        Ok(AccountHolder::new(account, addr.clone(), self, accounts_root))
     }
 
     pub fn set_and_flush(&mut self, addr: &Address, account: Account) -> Result<Cid, ActorError> {
