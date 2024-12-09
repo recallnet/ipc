@@ -133,7 +133,7 @@ impl State {
         })
     }
 
-    // TODO: Don't calculate stats on the fly, use running counters: num_accounts, num_blobs
+    // TODO: Don't calculate stats on the fly, use running counters: num_accounts, num_blobs, bytes_resolving, bytes_added
     pub fn get_stats(&self, balance: TokenAmount) -> GetStatsReturn {
         GetStatsReturn {
             balance,
