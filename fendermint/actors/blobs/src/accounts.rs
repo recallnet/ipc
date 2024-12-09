@@ -27,6 +27,15 @@ pub struct AccountHolder<'a, BS: Blockstore> {
     accounts_root: &'a mut Cid,
 }
 
+impl<'a, BS> AccountHolder<'a, BS>
+where
+    BS: Blockstore,
+{
+    pub fn new(account: Account, address: Address, accounts: Accounts<BS>, accounts_root: &'a mut Cid) -> Self {
+        Self { account, address, accounts, accounts_root }
+    }
+}
+
 impl<'a, BS> Deref for AccountHolder<'a, BS>
 where
     BS: Blockstore,
