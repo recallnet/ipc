@@ -52,4 +52,9 @@ where
         self.map.set(addr, account)?;
         self.map.flush()
     }
+
+    /// Consumes the underlying map's HAMT and returns the Blockstore it owns.
+    pub fn into_store(self) -> BS {
+        self.map.into_store()
+    }
 }
