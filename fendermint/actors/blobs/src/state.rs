@@ -844,7 +844,7 @@ impl State {
         let mut accounts = Accounts::load(store, &self.accounts_root)?;
         let mut account = accounts.get_or_create(&subscriber, current_epoch)?;
         // Get the blob
-        let blobs = &self.blobs_root.load(store)?;
+        let blobs = &mut self.blobs_root.load(store)?;
         let mut blob = blobs
             .get_or_err(&hash)?;
         if matches!(blob.status, BlobStatus::Failed) {
@@ -949,6 +949,8 @@ impl State {
         }
         // Save account
         self.accounts_root = accounts.set_and_flush(&subscriber, account.clone())?;
+        // Seve blobs
+        self.blobs_root = blobs.set_and_flush(&hash, blob)?;
 
         debug!("committed {} credits from {}", credit_required, subscriber);
         Ok(account)
