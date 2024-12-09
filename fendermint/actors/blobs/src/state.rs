@@ -1300,23 +1300,21 @@ impl State {
         current_epoch: ChainEpoch,
     ) -> anyhow::Result<(), ActorError> {
         let mut old_ttl = None;
-        match status {
-            // We don't want to create an account for default TTL
-            TtlStatus::Default => {
-                if let Some(account) = self.accounts.get_mut(&account) {
-                    old_ttl = Some(account.max_ttl);
-                    account.max_ttl = status.into();
-                }
-            }
-            _ => {
-                let account = self
-                    .accounts
-                    .entry(account)
-                    .or_insert(Account::new(BigInt::zero(), current_epoch));
-                    old_ttl = Some(account.max_ttl);
-                account.max_ttl = status.into();
-            }
+
+        if let Some(account) = self.accounts.get_mut(&account) {
+            old_ttl = Some(account.max_ttl);
+            account.max_ttl = status.into();
+            // we don't want to create an account for default TTL
+        } else if status != TtlStatus::Default {
+            let account = self
+                .accounts
+                .entry(account)
+                .or_insert(Account::new(BigInt::zero(), current_epoch));
+            old_ttl = Some(account.max_ttl);
+            account.max_ttl = status.into();
         }
+
+        // old TTL can be None only if account did not exist before, so there is no need to update TTLs
         if let Some(old_ttl) = old_ttl {
             let new_ttl: ChainEpoch = status.into();
             if new_ttl != old_ttl {
