@@ -4084,4 +4084,112 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn test_adjust_blob_ttls_for_multiple_accounts() {
+        setup_logs();
+
+        let store = MemoryBlockstore::default();
+        let mut state = State::new(&store, 1024 * 1024, 1).unwrap();
+        let account1 = new_address();
+        let account2 = new_address();
+        let current_epoch = ChainEpoch::from(1);
+
+        // Setup accounts with credits and Extended TTL status to allow adding all blobs
+        state
+            .buy_credit(
+                &store,
+                account1,
+                TokenAmount::from_whole(1000),
+                current_epoch,
+            )
+            .unwrap();
+        state
+            .buy_credit(
+                &store,
+                account2,
+                TokenAmount::from_whole(1000),
+                current_epoch,
+            )
+            .unwrap();
+        state
+            .set_ttl_status(&store, account1, TtlStatus::Extended, current_epoch)
+            .unwrap();
+        state
+            .set_ttl_status(&store, account2, TtlStatus::Extended, current_epoch)
+            .unwrap();
+
+        // Add blobs for both accounts
+        let mut blob_hashes_account1 = Vec::new();
+        let mut blob_hashes_account2 = Vec::new();
+        for i in 0..3 {
+            let (hash, size) = new_hash((i + 1) * 1024);
+            blob_hashes_account1.push(hash);
+            state
+                .add_blob(
+                    &store,
+                    account1,
+                    account1,
+                    account1,
+                    current_epoch,
+                    hash,
+                    new_metadata_hash(),
+                    SubscriptionId::Key(format!("blob-1-{}", i)),
+                    size,
+                    Some(7200), // 2 hours
+                    new_pk(),
+                    TokenAmount::zero(),
+                )
+                .unwrap();
+        }
+        for i in 0..3 {
+            let (hash, size) = new_hash((i + 1) * 1024);
+            blob_hashes_account2.push(hash);
+            state
+                .add_blob(
+                    &store,
+                    account2,
+                    account2,
+                    account2,
+                    current_epoch,
+                    hash,
+                    new_metadata_hash(),
+                    SubscriptionId::Key(format!("blob-2-{}", i)),
+                    size,
+                    Some(7200), // 2 hours
+                    new_pk(),
+                    TokenAmount::zero(),
+                )
+                .unwrap();
+        }
+
+        // Change TTL status for account1 and adjust blobs
+        state
+            .set_ttl_status(&store, account1, TtlStatus::Reduced, current_epoch)
+            .unwrap();
+        let res = state.adjust_blob_ttls_for_account(&store, account1, current_epoch, None, None);
+        assert!(
+            res.is_ok(),
+            "Failed to adjust TTLs for account1: {}",
+            res.err().unwrap()
+        );
+
+        // Verify account1's blobs were adjusted
+        for hash in &blob_hashes_account1 {
+            assert!(
+                state.get_blob(&store, *hash).unwrap().is_none(),
+                "Blob {} for account1 was not deleted",
+                hash,
+            );
+        }
+
+        // Verify account2's blobs were not adjusted
+        for hash in &blob_hashes_account2 {
+            assert!(
+                state.get_blob(&store, *hash).unwrap().is_some(),
+                "Blob {} for account2 was incorrectly deleted",
+                hash,
+            );
+        }
+    }
 }
