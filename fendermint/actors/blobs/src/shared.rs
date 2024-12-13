@@ -14,6 +14,6 @@ pub const BLOBS_ACTOR_NAME: &str = "blobs";
 pub struct ConstructorParams {
     /// The total storage capacity of the subnet.
     pub blob_capacity: u64,
-    /// The byte-blocks per atto token rate.
-    pub blob_credits_per_byte_block: u64,
+    /// The token to credit rate. The amount of credits that 1 atto buys.
+    pub token_credit_rate: u64,
 }

@@ -4,10 +4,11 @@
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::ops::Bound::{Included, Unbounded};
+use std::ops::Div;
 
 use fendermint_actor_blobs_shared::params::GetStatsReturn;
 use fendermint_actor_blobs_shared::state::{
-    Account, Blob, BlobStatus, CreditAllowance, CreditApproval, Hash, PublicKey, Subscription,
+    Account, Blob, BlobStatus, CreditApproval, GasAllowance, Hash, PublicKey, Subscription,
     SubscriptionGroup, SubscriptionId, TtlStatus,
 };
 use fil_actors_runtime::ActorError;
@@ -41,9 +42,9 @@ pub struct State {
     pub credit_committed: BigInt,
     /// The total number of credits debited in the subnet.
     pub credit_debited: BigInt,
-    /// The byte-blocks per atto token rate set at genesis.
+    /// The token to credit rate. The amount of credits that 1 atto buys.
     /// TODO: Remove this in favor of the value in the hoku config actor
-    pub blob_credits_per_byte_block: u64,
+    pub token_credit_rate: u64,
     /// Map of expiries to blob hashes.
     pub expiries: BTreeMap<ChainEpoch, HashMap<Address, HashMap<ExpiryKey, bool>>>,
     /// Map of currently added blob hashes to account and source Iroh node IDs.
@@ -109,7 +110,7 @@ impl State {
     pub fn new<BS: Blockstore>(
         store: &BS,
         blob_capacity: u64,
-        blob_credits_per_byte_block: u64,
+        token_credit_rate: u64,
     ) -> anyhow::Result<Self, ActorError> {
         Ok(Self {
             capacity_total: BigInt::from(blob_capacity),
@@ -117,7 +118,7 @@ impl State {
             credit_sold: BigInt::zero(),
             credit_committed: BigInt::zero(),
             credit_debited: BigInt::zero(),
-            blob_credits_per_byte_block,
+            token_credit_rate,
             expiries: BTreeMap::new(),
             added: BlobsProgressCollection::new(),
             pending: BlobsProgressCollection::new(),
@@ -135,13 +136,13 @@ impl State {
             credit_sold: self.credit_sold.clone(),
             credit_committed: self.credit_committed.clone(),
             credit_debited: self.credit_debited.clone(),
-            blob_credits_per_byte_block: self.blob_credits_per_byte_block,
             num_accounts: self.accounts.len(),
             num_blobs: self.blobs.len(),
             num_resolving: self.pending.len(),
             bytes_resolving: self.pending.bytes_size(),
             num_added: self.added.len(),
             bytes_added: self.added.bytes_size(),
+            token_credit_rate: self.token_credit_rate,
         }
     }
 
@@ -157,7 +158,7 @@ impl State {
                 "token amount must be positive".into(),
             ));
         }
-        let credits = amount.atto().clone();
+        let credits = amount.atto().clone() * self.token_credit_rate;
         // Don't sell credits if we're at storage capacity
         if self.capacity_available().is_zero() {
             return Err(ActorError::forbidden(
@@ -169,6 +170,7 @@ impl State {
         let mut accounts = self.accounts.hamt(store)?;
         let mut account = accounts.get_or_create(&to, || Account::new(current_epoch))?;
         account.credit_free += &credits;
+        account.gas_allowance += amount;
         // Save account
         self.accounts
             .save_tracked(accounts.set_and_flush_tracked(&to, account.clone())?);
@@ -177,7 +179,7 @@ impl State {
         Ok(account)
     }
 
-    pub fn update_credit<BS: Blockstore>(
+    pub fn update_gas_allowance<BS: Blockstore>(
         &mut self,
         store: &BS,
         from: Address,
@@ -202,32 +204,25 @@ impl State {
         } else {
             None
         };
-        // Check credit balance and debit
-        let add_credit = add_amount.atto().clone();
-        if add_credit.is_negative() {
-            let credit_required = -add_credit.clone();
-            ensure_credit(
-                &addr,
-                current_epoch,
-                &account.credit_free,
-                &credit_required,
-                &delegation,
-            )?;
+        // Check gas balance and debit
+        if add_amount.is_negative() {
+            let gas_required = -add_amount.clone();
+            ensure_gas_limit(&addr, current_epoch, &gas_required, &delegation)?;
         }
-        self.credit_debited -= &add_credit;
-        account.credit_free += &add_credit;
+
+        account.gas_allowance += &add_amount.clone();
         // Update credit approval
         if let Some(delegation) = delegation {
-            delegation.approval.used -= &add_credit;
+            delegation.approval.gas_fee_used -= add_amount.clone();
         }
         // Save account
         self.accounts
             .save_tracked(accounts.set_and_flush_tracked(&addr, account)?);
 
-        if add_credit.is_positive() {
-            debug!("refunded {} credits to {}", add_credit, addr);
+        if add_amount.is_positive() {
+            debug!("refunded {} atto to {}", add_amount.atto(), addr);
         } else {
-            debug!("debited {} credits from {}", add_credit.magnitude(), addr);
+            debug!("debited {} atto from {}", add_amount.atto(), addr);
         }
         Ok(())
     }
@@ -240,10 +235,12 @@ impl State {
         to: Address,
         caller_allowlist: Option<HashSet<Address>>,
         current_epoch: ChainEpoch,
-        limit: Option<BigUint>,
+        credit_limit: Option<BigUint>,
+        gas_fee_limit: Option<TokenAmount>,
         ttl: Option<ChainEpoch>,
     ) -> anyhow::Result<CreditApproval, ActorError> {
-        let limit = limit.map(BigInt::from);
+        let credit_limit = credit_limit.map(BigInt::from);
+        let gas_fee_limit = gas_fee_limit.map(TokenAmount::from);
         if let Some(ttl) = ttl {
             if ttl < MIN_TTL {
                 return Err(ActorError::illegal_argument(format!(
@@ -261,21 +258,34 @@ impl State {
             .approvals
             .entry(to.to_string())
             .or_insert(CreditApproval {
-                limit: limit.clone(),
+                credit_limit: credit_limit.clone(),
+                gas_fee_limit: gas_fee_limit.clone(),
                 expiry,
-                used: BigInt::zero(),
+                credit_used: BigInt::zero(),
+                gas_fee_used: TokenAmount::zero(),
                 caller_allowlist: caller_allowlist.clone(),
             });
+
         // Validate approval changes
-        if let Some(limit) = limit.clone() {
-            if approval.used > limit {
+        if let Some(limit) = credit_limit.clone() {
+            if approval.credit_used > limit {
                 return Err(ActorError::illegal_argument(format!(
                     "limit cannot be less than amount of already used credits ({})",
-                    approval.used
+                    approval.credit_used
                 )));
             }
         }
-        approval.limit = limit;
+
+        if let Some(limit) = gas_fee_limit.clone() {
+            if approval.gas_fee_used > limit {
+                return Err(ActorError::illegal_argument(format!(
+                    "limit cannot be less than amount of already used gas fees ({})",
+                    approval.credit_used
+                )));
+            }
+        }
+        approval.credit_limit = credit_limit;
+        approval.gas_fee_limit = gas_fee_limit;
         approval.expiry = expiry;
         approval.caller_allowlist = caller_allowlist.clone();
         let approval = approval.clone();
@@ -284,8 +294,8 @@ impl State {
             .save_tracked(accounts.set_and_flush_tracked(&from, account)?);
 
         debug!(
-            "approved credits from {} to {} (limit: {:?}; expiry: {:?}, caller_allowlist: {:?})",
-            from, to, approval.limit, approval.expiry, caller_allowlist
+            "approved credits from {} to {} (credit limit: {:?}; gas fee limit: {:?}, expiry: {:?}, caller_allowlist: {:?})",
+            from, to, approval.credit_limit, approval.gas_fee_limit, approval.expiry, caller_allowlist
         );
         Ok(approval)
     }
@@ -365,22 +375,22 @@ impl State {
             .and_then(|a| a))
     }
 
-    /// Returns the free credit for the given address, including an amount from a default sponsor.
+    /// Returns the gas allowance for the given address, including an amount from a default sponsor.
     /// Note: An error returned from this method would be fatal, as it's called from the FVM executor.
-    pub fn get_credit_allowance<BS: Blockstore>(
+    pub fn get_gas_allowance<BS: Blockstore>(
         &self,
         store: &BS,
         from: Address,
         current_epoch: ChainEpoch,
-    ) -> anyhow::Result<CreditAllowance, ActorError> {
+    ) -> anyhow::Result<GasAllowance, ActorError> {
         // Get the account or return default allowance
         let accounts = self.accounts.hamt(store)?;
         let account = match accounts.get(&from)? {
-            None => return Ok(CreditAllowance::default()),
+            None => return Ok(GasAllowance::default()),
             Some(account) => account,
         };
-        let mut allowance = CreditAllowance {
-            amount: TokenAmount::from_atto(account.credit_free.clone()),
+        let mut allowance = GasAllowance {
+            amount: account.gas_allowance.clone(),
             ..Default::default()
         };
         if let Some(credit_sponsor) = account.credit_sponsor {
@@ -398,13 +408,15 @@ impl State {
                     if !expiry_valid {
                         return None;
                     }
-                    let credit_free = sponsor.credit_free.clone();
-                    let used = approval.used.clone();
+                    let gas_allowance = sponsor.gas_allowance.clone();
+                    let used = approval.gas_fee_used.clone();
                     let amount = approval
-                        .limit
+                        .gas_fee_limit
                         .clone()
-                        .map_or(credit_free.clone(), |limit| (limit - used).min(credit_free));
-                    Some(TokenAmount::from_atto(amount))
+                        .map_or(gas_allowance.clone(), |limit| {
+                            (limit - used).min(gas_allowance)
+                        });
+                    Some(amount)
                 })
                 .unwrap_or(TokenAmount::zero());
             allowance.sponsor = Some(credit_sponsor);
@@ -508,7 +520,7 @@ impl State {
             let mut account = account.clone();
             let debit_blocks = current_epoch - account.last_debit_epoch;
             let debit_byte_block = debit_blocks as u64 * &account.capacity_used;
-            let debit_credits = self.blob_credits_per_byte_block * debit_byte_block;
+            let debit_credits = debit_byte_block;
             self.credit_debited += &debit_credits;
             self.credit_committed -= &debit_credits;
             account.credit_committed -= &debit_credits;
@@ -593,7 +605,7 @@ impl State {
                         // account for the charge that will happen below at the current epoch.
                         let refund_blocks = current_epoch - group_expiry;
                         let refund_byte_blocks = refund_blocks as u64 * &size;
-                        let refund_credits = self.blob_credits_per_byte_block * refund_byte_blocks;
+                        let refund_credits = refund_byte_blocks;
                         // Re-mint spent credit
                         self.credit_debited -= &refund_credits;
                         self.credit_committed += &refund_credits;
@@ -611,11 +623,12 @@ impl State {
                 } else {
                     (new_group_expiry - current_epoch) as u64 * &size
                 };
-                credit_required = byte_blocks_required * self.blob_credits_per_byte_block;
+                credit_required = byte_blocks_required;
                 tokens_unspent = ensure_credit_or_buy(
                     &mut account.credit_free,
                     &mut self.credit_sold,
                     &credit_required,
+                    &self.token_credit_rate,
                     &tokens_received,
                     &subscriber,
                     current_epoch,
@@ -678,11 +691,12 @@ impl State {
                 // However, we still need to reserve the full required credit from the new
                 // subscriber, as the existing account(s) may decide to change the expiry or cancel.
                 let byte_blocks_required = ttl as u64 * &size;
-                credit_required = byte_blocks_required * self.blob_credits_per_byte_block;
+                credit_required = byte_blocks_required;
                 tokens_unspent = ensure_credit_or_buy(
                     &mut account.credit_free,
                     &mut self.credit_sold,
                     &credit_required,
+                    &self.token_credit_rate,
                     &tokens_received,
                     &subscriber,
                     current_epoch,
@@ -738,11 +752,12 @@ impl State {
             }
             new_capacity = size.clone();
             let byte_blocks_required = ttl as u64 * &size;
-            credit_required = byte_blocks_required * self.blob_credits_per_byte_block;
+            credit_required = byte_blocks_required;
             tokens_unspent = ensure_credit_or_buy(
                 &mut account.credit_free,
                 &mut self.credit_sold,
                 &credit_required,
+                &self.token_credit_rate,
                 &tokens_received,
                 &subscriber,
                 current_epoch,
@@ -790,7 +805,7 @@ impl State {
         // Account capacity is changing, debit for existing usage
         let debit_blocks = current_epoch - account.last_debit_epoch;
         let debit_byte_blocks = debit_blocks as u64 * &account.capacity_used;
-        let debit = debit_byte_blocks * self.blob_credits_per_byte_block;
+        let debit = debit_byte_blocks;
         self.credit_debited += &debit;
         self.credit_committed -= &debit;
         account.credit_committed -= &debit;
@@ -806,7 +821,7 @@ impl State {
         account.credit_free -= &credit_required;
         // Update credit approval
         if let Some(delegation) = delegation {
-            delegation.approval.used += &credit_required;
+            delegation.approval.credit_used += &credit_required;
         }
         // Save account
         self.accounts
@@ -893,7 +908,7 @@ impl State {
             // The refund extends up to the last debit epoch
             let refund_blocks = account.last_debit_epoch - group_expiry;
             let refund_byte_blocks = refund_blocks as u64 * &size;
-            let refund_credits = refund_byte_blocks * self.blob_credits_per_byte_block;
+            let refund_credits = refund_byte_blocks;
             // Re-mint spent credit
             self.credit_debited -= &refund_credits;
             self.credit_committed += &refund_credits;
@@ -909,7 +924,7 @@ impl State {
         let new_group_expiry = new_group_expiry.unwrap();
         let byte_blocks_required =
             (new_group_expiry - group_expiry.max(account.last_debit_epoch)) as u64 * &size;
-        let credit_required = byte_blocks_required * self.blob_credits_per_byte_block;
+        let credit_required = byte_blocks_required;
         ensure_credit(
             &subscriber,
             current_epoch,
@@ -939,7 +954,7 @@ impl State {
         account.credit_free -= &credit_required;
         // Update credit approval
         if let Some(delegation) = delegation {
-            delegation.approval.used += &credit_required;
+            delegation.approval.credit_used += &credit_required;
         }
         // Save account
         self.accounts
@@ -1130,7 +1145,7 @@ impl State {
                     .min(account.last_debit_epoch);
                 let refund_blocks = refund_cutoff - sub.added;
                 let refund_byte_blocks = refund_blocks as u64 * &size;
-                let refund_credits = refund_byte_blocks * self.blob_credits_per_byte_block;
+                let refund_credits = refund_byte_blocks;
                 // Re-mint spent credit
                 self.credit_debited -= &refund_credits;
                 account.credit_free += &refund_credits; // move directly to free
@@ -1153,13 +1168,13 @@ impl State {
                 } else {
                     (group_expiry - account.last_debit_epoch) * &size
                 };
-                let reclaim_credits = reclaim_byte_blocks * self.blob_credits_per_byte_block;
+                let reclaim_credits = reclaim_byte_blocks;
                 self.credit_committed -= &reclaim_credits;
                 account.credit_committed -= &reclaim_credits;
                 account.credit_free += &reclaim_credits;
                 // Update credit approval
                 if let Some(delegation) = delegation {
-                    delegation.approval.used -= &reclaim_credits;
+                    delegation.approval.credit_used -= &reclaim_credits;
                 }
                 debug!("released {} credits to {}", reclaim_credits, subscriber);
             }
@@ -1286,7 +1301,7 @@ impl State {
         if account.last_debit_epoch < debit_epoch {
             let debit_blocks = debit_epoch - account.last_debit_epoch;
             let debit_byte_blocks = debit_blocks as u64 * &account.capacity_used;
-            let debit = debit_byte_blocks * self.blob_credits_per_byte_block;
+            let debit = debit_byte_blocks;
             self.credit_debited += &debit;
             self.credit_committed -= &debit;
             account.credit_committed -= &debit;
@@ -1296,7 +1311,7 @@ impl State {
             // The account was debited after this blob's expiry
             let refund_blocks = account.last_debit_epoch - group_expiry;
             let refund_byte_blocks = refund_blocks as u64 * &BigInt::from(blob.size);
-            let refund_credits = refund_byte_blocks * self.blob_credits_per_byte_block;
+            let refund_credits = refund_byte_blocks;
             // Re-mint spent credit
             self.credit_debited -= &refund_credits;
             self.credit_committed += &refund_credits;
@@ -1324,13 +1339,13 @@ impl State {
                 } else {
                     (group_expiry - account.last_debit_epoch) * &size
                 };
-                let reclaim_credits = reclaim_byte_blocks * self.blob_credits_per_byte_block;
+                let reclaim_credits = reclaim_byte_blocks;
                 self.credit_committed -= &reclaim_credits;
                 account.credit_committed -= &reclaim_credits;
                 account.credit_free += &reclaim_credits;
                 // Update credit approval
                 if let Some(delegation) = delegation {
-                    delegation.approval.used -= &reclaim_credits;
+                    delegation.approval.credit_used -= &reclaim_credits;
                 }
                 debug!("released {} credits to {}", reclaim_credits, subscriber);
             }
@@ -1447,6 +1462,7 @@ fn ensure_credit_or_buy(
     account_credit_free: &mut BigInt,
     state_credit_sold: &mut BigInt,
     credit_required: &BigInt,
+    token_credit_rate: &u64,
     tokens_received: &TokenAmount,
     subscriber: &Address,
     current_epoch: ChainEpoch,
@@ -1464,7 +1480,8 @@ fn ensure_credit_or_buy(
             let not_enough_credits = *account_credit_free < *credit_required;
             if not_enough_credits {
                 let credits_needed = credit_required - &*account_credit_free;
-                let tokens_needed = TokenAmount::from_atto(credits_needed.clone());
+                let tokens_needed =
+                    TokenAmount::from_atto(credits_needed.clone().div(token_credit_rate));
                 if tokens_needed <= *tokens_received {
                     let tokens_to_rebate = tokens_received - tokens_needed;
                     *state_credit_sold += &credits_needed;
@@ -1510,12 +1527,40 @@ fn ensure_delegated_credit(
     delegation: &Option<CreditDelegation>,
 ) -> anyhow::Result<(), ActorError> {
     if let Some(delegation) = delegation {
-        if let Some(limit) = &delegation.approval.limit {
-            let unused = &(limit - &delegation.approval.used);
+        if let Some(limit) = &delegation.approval.credit_limit {
+            let unused = &(limit - &delegation.approval.credit_used);
             if unused < credit_required {
                 return Err(ActorError::insufficient_funds(format!(
                     "approval from {} to {} via caller {} has insufficient credit (available: {}; required: {})",
                     subscriber, delegation.origin, delegation.caller, unused, credit_required
+                )));
+            }
+        }
+        if let Some(expiry) = delegation.approval.expiry {
+            if expiry <= current_epoch {
+                return Err(ActorError::forbidden(format!(
+                    "approval from {} to {} via caller {} expired",
+                    subscriber, delegation.origin, delegation.caller
+                )));
+            }
+        }
+    }
+    Ok(())
+}
+
+fn ensure_gas_limit(
+    subscriber: &Address,
+    current_epoch: ChainEpoch,
+    gas_required: &TokenAmount,
+    delegation: &Option<CreditDelegation>,
+) -> anyhow::Result<(), ActorError> {
+    if let Some(delegation) = delegation {
+        if let Some(limit) = &delegation.approval.gas_fee_limit {
+            let unused = &(limit - &delegation.approval.gas_fee_used);
+            if unused < gas_required {
+                return Err(ActorError::insufficient_funds(format!(
+                    "approval from {} to {} via caller {} has insufficient credit (available: {}; required: {})",
+                    subscriber, delegation.origin, delegation.caller, unused, gas_required
                 )));
             }
         }
@@ -1652,7 +1697,7 @@ mod tests {
             if origin != caller {
                 assert!(approval.has_allowlist() && approval.is_caller_allowed(&caller));
             }
-            assert_eq!(approval.used, expect_used);
+            assert_eq!(approval.credit_used, expect_used);
         }
     }
 
@@ -1670,6 +1715,7 @@ mod tests {
         let account = res.unwrap();
         let credit_sold = amount.atto().clone();
         assert_eq!(account.credit_free, credit_sold);
+        assert_eq!(account.gas_allowance, amount);
         assert_eq!(state.credit_sold, credit_sold);
         let account_back = state.get_account(&store, to).unwrap().unwrap();
         assert_eq!(account, account_back);
@@ -1718,13 +1764,14 @@ mod tests {
         let current_epoch = 1;
 
         // No limit or expiry
-        let res = state.approve_credit(&store, from, to, None, current_epoch, None, None);
+        let res = state.approve_credit(&store, from, to, None, current_epoch, None, None, None);
         assert!(res.is_ok());
         let approval = res.unwrap();
-        assert_eq!(approval.limit, None);
+        assert_eq!(approval.credit_limit, None);
+        assert_eq!(approval.gas_fee_limit, None);
         assert_eq!(approval.expiry, None);
 
-        // Add limit
+        // Add credit limit
         let limit = 1_000_000_000_000_000_000u64;
         let res = state.approve_credit(
             &store,
@@ -1734,10 +1781,30 @@ mod tests {
             current_epoch,
             Some(BigUint::from(limit)),
             None,
+            None,
         );
         assert!(res.is_ok());
         let approval = res.unwrap();
-        assert_eq!(approval.limit, Some(BigInt::from(limit)));
+        assert_eq!(approval.credit_limit, Some(BigInt::from(limit)));
+        assert_eq!(approval.gas_fee_limit, None);
+        assert_eq!(approval.expiry, None);
+
+        // Add gas fee limit
+        let limit = 1_000_000_000_000_000_000u64;
+        let res = state.approve_credit(
+            &store,
+            from,
+            to,
+            None,
+            current_epoch,
+            None,
+            Some(TokenAmount::from_atto(limit)),
+            None,
+        );
+        assert!(res.is_ok());
+        let approval = res.unwrap();
+        assert_eq!(approval.credit_limit, None);
+        assert_eq!(approval.gas_fee_limit, Some(TokenAmount::from_atto(limit)));
         assert_eq!(approval.expiry, None);
 
         // Add ttl
@@ -1749,11 +1816,13 @@ mod tests {
             None,
             current_epoch,
             Some(BigUint::from(limit)),
+            None,
             Some(ttl),
         );
         assert!(res.is_ok());
         let approval = res.unwrap();
-        assert_eq!(approval.limit, Some(BigInt::from(limit)));
+        assert_eq!(approval.credit_limit, Some(BigInt::from(limit)));
+        assert_eq!(approval.gas_fee_limit, None);
         assert_eq!(approval.expiry, Some(ttl + current_epoch));
 
         // Require caller
@@ -1764,6 +1833,7 @@ mod tests {
             to,
             Some(HashSet::from([require_caller])),
             current_epoch,
+            None,
             None,
             None,
         );
@@ -1787,7 +1857,8 @@ mod tests {
         let current_epoch = 1;
 
         let ttl = ChainEpoch::from(MIN_TTL - 1);
-        let res = state.approve_credit(&store, from, to, None, current_epoch, None, Some(ttl));
+        let res =
+            state.approve_credit(&store, from, to, None, current_epoch, None, None, Some(ttl));
         assert!(res.is_err());
         assert_eq!(
             res.err().unwrap().msg(),
@@ -1809,7 +1880,7 @@ mod tests {
         state
             .buy_credit(&store, from, amount.clone(), current_epoch)
             .unwrap();
-        let res = state.approve_credit(&store, from, to, None, current_epoch, None, None);
+        let res = state.approve_credit(&store, from, to, None, current_epoch, None, None, None);
         assert!(res.is_ok());
 
         // Add a blob
@@ -1833,7 +1904,7 @@ mod tests {
         // Check approval
         let account = state.get_account(&store, from).unwrap().unwrap();
         let approval = account.approvals.get(&to.to_string()).unwrap();
-        assert_eq!(account.credit_committed, approval.used);
+        assert_eq!(account.credit_committed, approval.credit_used);
 
         // Try to update approval with a limit below what's already been committed
         let limit = 1_000u64;
@@ -1845,13 +1916,14 @@ mod tests {
             current_epoch,
             Some(BigUint::from(limit)),
             None,
+            None,
         );
         assert!(res.is_err());
         assert_eq!(
             res.err().unwrap().msg(),
             format!(
                 "limit cannot be less than amount of already used credits ({})",
-                approval.used
+                approval.credit_used
             )
         );
     }
@@ -1866,7 +1938,7 @@ mod tests {
         let to = new_address();
         let current_epoch = 1;
 
-        let res = state.approve_credit(&store, from, to, None, current_epoch, None, None);
+        let res = state.approve_credit(&store, from, to, None, current_epoch, None, None, None);
         assert!(res.is_ok());
 
         // Check the account approval
@@ -1883,6 +1955,7 @@ mod tests {
             to,
             Some(HashSet::from([require_caller])),
             current_epoch,
+            None,
             None,
             None,
         );
@@ -1955,7 +2028,16 @@ mod tests {
             .buy_credit(&store, subscriber, token_amount.clone(), current_epoch)
             .unwrap();
         state
-            .approve_credit(&store, subscriber, origin, None, current_epoch, None, None)
+            .approve_credit(
+                &store,
+                subscriber,
+                origin,
+                None,
+                current_epoch,
+                None,
+                None,
+                None,
+            )
             .unwrap();
         debit_accounts_delete_from_disc(
             &store,
@@ -2184,7 +2266,16 @@ mod tests {
             .buy_credit(&store, subscriber, token_amount.clone(), current_epoch)
             .unwrap();
         state
-            .approve_credit(&store, subscriber, origin, None, current_epoch, None, None)
+            .approve_credit(
+                &store,
+                subscriber,
+                origin,
+                None,
+                current_epoch,
+                None,
+                None,
+                None,
+            )
             .unwrap();
         add_blob_refund(
             &store,
@@ -2404,7 +2495,16 @@ mod tests {
             .buy_credit(&store, subscriber, token_amount.clone(), current_epoch)
             .unwrap();
         state
-            .approve_credit(&store, subscriber, origin, None, current_epoch, None, None)
+            .approve_credit(
+                &store,
+                subscriber,
+                origin,
+                None,
+                current_epoch,
+                None,
+                None,
+                None,
+            )
             .unwrap();
         add_blob_same_hash_same_account(
             &store,
@@ -2438,6 +2538,7 @@ mod tests {
                 origin,
                 Some(HashSet::from([caller])),
                 current_epoch,
+                None,
                 None,
                 None,
             )
@@ -3330,7 +3431,16 @@ mod tests {
             .buy_credit(&store, subscriber, token_amount.clone(), current_epoch)
             .unwrap();
         state
-            .approve_credit(&store, subscriber, origin, None, current_epoch, None, None)
+            .approve_credit(
+                &store,
+                subscriber,
+                origin,
+                None,
+                current_epoch,
+                None,
+                None,
+                None,
+            )
             .unwrap();
         delete_blob_refund(
             &store,

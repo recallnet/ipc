@@ -446,7 +446,7 @@ impl GenesisBuilder {
         let blobs_state = fendermint_actor_blobs::State::new(
             &state.store(),
             hoku_config_state.config.blob_capacity,
-            hoku_config_state.config.blob_credits_per_byte_block,
+            hoku_config_state.config.token_credit_rate,
         )?;
         state
             .create_custom_actor(
