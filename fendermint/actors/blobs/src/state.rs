@@ -507,8 +507,7 @@ impl State {
         reader.for_each(|address, account| {
             let mut account = account.clone();
             let debit_blocks = current_epoch - account.last_debit_epoch;
-            let debit_byte_block = debit_blocks as u64 * &account.capacity_used;
-            let debit_credits = self.blob_credits_per_byte_block * debit_byte_block;
+            let debit_credits = self.get_storage_cost(debit_blocks, &account.capacity_used);
             self.credit_debited += &debit_credits;
             self.credit_committed -= &debit_credits;
             account.credit_committed -= &debit_credits;
@@ -592,8 +591,7 @@ impl State {
                         // The refund extends up to the current epoch because we need to
                         // account for the charge that will happen below at the current epoch.
                         let refund_blocks = current_epoch - group_expiry;
-                        let refund_byte_blocks = refund_blocks as u64 * &size;
-                        let refund_credits = self.blob_credits_per_byte_block * refund_byte_blocks;
+                        let refund_credits = self.get_storage_cost(refund_blocks, &size);
                         // Re-mint spent credit
                         self.credit_debited -= &refund_credits;
                         self.credit_committed += &refund_credits;
@@ -606,12 +604,8 @@ impl State {
                 // Required credit can be negative if subscriber is reducing expiry.
                 // When adding, the new group expiry will always contain a value.
                 let new_group_expiry = new_group_expiry.unwrap();
-                let byte_blocks_required = if let Some(group_expiry) = group_expiry {
-                    (new_group_expiry - group_expiry.max(current_epoch)) as u64 * &size
-                } else {
-                    (new_group_expiry - current_epoch) as u64 * &size
-                };
-                credit_required = byte_blocks_required * self.blob_credits_per_byte_block;
+                let group_expiry = group_expiry.map_or(current_epoch, |e| e.max(current_epoch));
+                credit_required = self.get_storage_cost(new_group_expiry - group_expiry, &size);
                 tokens_unspent = ensure_credit_or_buy(
                     &mut account.credit_free,
                     &mut self.credit_sold,
@@ -677,8 +671,7 @@ impl State {
                 // One or more accounts have already committed credit.
                 // However, we still need to reserve the full required credit from the new
                 // subscriber, as the existing account(s) may decide to change the expiry or cancel.
-                let byte_blocks_required = ttl as u64 * &size;
-                credit_required = byte_blocks_required * self.blob_credits_per_byte_block;
+                credit_required = self.get_storage_cost(ttl, &size);
                 tokens_unspent = ensure_credit_or_buy(
                     &mut account.credit_free,
                     &mut self.credit_sold,
@@ -737,8 +730,7 @@ impl State {
                 )));
             }
             new_capacity = size.clone();
-            let byte_blocks_required = ttl as u64 * &size;
-            credit_required = byte_blocks_required * self.blob_credits_per_byte_block;
+            credit_required = self.get_storage_cost(ttl, &size);
             tokens_unspent = ensure_credit_or_buy(
                 &mut account.credit_free,
                 &mut self.credit_sold,
@@ -788,9 +780,10 @@ impl State {
             (sub, blob)
         };
         // Account capacity is changing, debit for existing usage
-        let debit_blocks = current_epoch - account.last_debit_epoch;
-        let debit_byte_blocks = debit_blocks as u64 * &account.capacity_used;
-        let debit = debit_byte_blocks * self.blob_credits_per_byte_block;
+        let debit = self.get_storage_cost(
+            current_epoch - account.last_debit_epoch,
+            &account.capacity_used,
+        );
         self.credit_debited += &debit;
         self.credit_committed -= &debit;
         account.credit_committed -= &debit;
@@ -825,6 +818,11 @@ impl State {
             );
         }
         Ok((sub, tokens_unspent))
+    }
+
+    fn get_storage_cost(&self, ttl: i64, size: &BigInt) -> BigInt {
+        let byte_blocks_required = ttl * size;
+        byte_blocks_required * self.blob_credits_per_byte_block
     }
 
     fn renew_blob<BS: Blockstore>(
@@ -891,9 +889,8 @@ impl State {
         let size = BigInt::from(blob.size);
         if account.last_debit_epoch > group_expiry {
             // The refund extends up to the last debit epoch
-            let refund_blocks = account.last_debit_epoch - group_expiry;
-            let refund_byte_blocks = refund_blocks as u64 * &size;
-            let refund_credits = refund_byte_blocks * self.blob_credits_per_byte_block;
+            let refund_credits =
+                self.get_storage_cost(account.last_debit_epoch - group_expiry, &size);
             // Re-mint spent credit
             self.credit_debited -= &refund_credits;
             self.credit_committed += &refund_credits;
@@ -907,9 +904,10 @@ impl State {
         // There may be a gap between the existing expiry and the last debit that will make
         // the renewal discontinuous.
         let new_group_expiry = new_group_expiry.unwrap();
-        let byte_blocks_required =
-            (new_group_expiry - group_expiry.max(account.last_debit_epoch)) as u64 * &size;
-        let credit_required = byte_blocks_required * self.blob_credits_per_byte_block;
+        let credit_required = self.get_storage_cost(
+            new_group_expiry - group_expiry.max(account.last_debit_epoch),
+            &size,
+        );
         ensure_credit(
             &subscriber,
             current_epoch,
@@ -1128,9 +1126,7 @@ impl State {
                 let refund_cutoff = next_min_added
                     .unwrap_or(account.last_debit_epoch)
                     .min(account.last_debit_epoch);
-                let refund_blocks = refund_cutoff - sub.added;
-                let refund_byte_blocks = refund_blocks as u64 * &size;
-                let refund_credits = refund_byte_blocks * self.blob_credits_per_byte_block;
+                let refund_credits = self.get_storage_cost(refund_cutoff - sub.added, &size);
                 // Re-mint spent credit
                 self.credit_debited -= &refund_credits;
                 account.credit_free += &refund_credits; // move directly to free
@@ -1148,12 +1144,13 @@ impl State {
             // When failing, the existing group expiry will always contain a value.
             let group_expiry = group_expiry.unwrap();
             if account.last_debit_epoch < group_expiry {
-                let reclaim_byte_blocks = if let Some(new_group_expiry) = new_group_expiry {
-                    (group_expiry - new_group_expiry.max(account.last_debit_epoch)) * &size
-                } else {
-                    (group_expiry - account.last_debit_epoch) * &size
-                };
-                let reclaim_credits = reclaim_byte_blocks * self.blob_credits_per_byte_block;
+                let reclaim_credits = self.get_storage_cost(
+                    group_expiry
+                        - new_group_expiry.map_or(account.last_debit_epoch, |e| {
+                            e.max(account.last_debit_epoch)
+                        }),
+                    &size,
+                );
                 self.credit_committed -= &reclaim_credits;
                 account.credit_committed -= &reclaim_credits;
                 account.credit_free += &reclaim_credits;
@@ -1284,19 +1281,21 @@ impl State {
         // It could be possible that debit epoch is less than the last debit,
         // in which case we need to refund for that duration.
         if account.last_debit_epoch < debit_epoch {
-            let debit_blocks = debit_epoch - account.last_debit_epoch;
-            let debit_byte_blocks = debit_blocks as u64 * &account.capacity_used;
-            let debit = debit_byte_blocks * self.blob_credits_per_byte_block;
+            let debit = self.get_storage_cost(
+                debit_epoch - account.last_debit_epoch,
+                &account.capacity_used,
+            );
             self.credit_debited += &debit;
             self.credit_committed -= &debit;
             account.credit_committed -= &debit;
             account.last_debit_epoch = debit_epoch;
             debug!("debited {} credits from {}", debit, subscriber);
-        } else {
+        } else if account.last_debit_epoch != debit_epoch {
             // The account was debited after this blob's expiry
-            let refund_blocks = account.last_debit_epoch - group_expiry;
-            let refund_byte_blocks = refund_blocks as u64 * &BigInt::from(blob.size);
-            let refund_credits = refund_byte_blocks * self.blob_credits_per_byte_block;
+            let refund_credits = self.get_storage_cost(
+                account.last_debit_epoch - group_expiry,
+                &BigInt::from(blob.size),
+            );
             // Re-mint spent credit
             self.credit_debited -= &refund_credits;
             self.credit_committed += &refund_credits;
@@ -1319,12 +1318,13 @@ impl State {
             // We can release credits if the new group expiry is in the future,
             // considering other subscriptions may still be active.
             if account.last_debit_epoch < group_expiry {
-                let reclaim_byte_blocks = if let Some(new_group_expiry) = new_group_expiry {
-                    (group_expiry - new_group_expiry.max(account.last_debit_epoch)) * &size
-                } else {
-                    (group_expiry - account.last_debit_epoch) * &size
-                };
-                let reclaim_credits = reclaim_byte_blocks * self.blob_credits_per_byte_block;
+                let reclaim_credits = self.get_storage_cost(
+                    group_expiry
+                        - new_group_expiry.map_or(account.last_debit_epoch, |e| {
+                            e.max(account.last_debit_epoch)
+                        }),
+                    &BigInt::from(blob.size),
+                );
                 self.credit_committed -= &reclaim_credits;
                 account.credit_committed -= &reclaim_credits;
                 account.credit_free += &reclaim_credits;
@@ -3825,36 +3825,35 @@ mod tests {
         for tc in test_cases {
             let store = MemoryBlockstore::default();
             let mut state = State::new(&store, 1024 * 1024, 1).unwrap();
-            let account = new_address();
+            let addr = new_address();
             let current_epoch = ChainEpoch::from(1);
 
             // Setup account with credits and TTL status
+            let token = TokenAmount::from_whole(1000);
+
             state
-                .buy_credit(
-                    &store,
-                    account,
-                    TokenAmount::from_whole(1000),
-                    current_epoch,
-                )
+                .buy_credit(&store, addr, token, current_epoch)
                 .unwrap();
             // Set extended TTL status to allow adding all blobs
             state
-                .set_ttl_status(&store, account, TtlStatus::Extended, current_epoch)
+                .set_ttl_status(&store, addr, TtlStatus::Extended, current_epoch)
                 .unwrap();
 
             // Add blobs
             let mut blob_hashes = Vec::new();
+            let mut total_cost = BigInt::zero();
+            let mut expected_credits = BigInt::zero();
             for (i, ttl) in blobs_ttls.iter().enumerate() {
-                let size = i;
+                let size = (i + 1) * 1024;
                 let (hash, _) = new_hash(size);
                 blob_hashes.push(hash);
 
                 state
                     .add_blob(
                         &store,
-                        account,
-                        account,
-                        account,
+                        addr,
+                        addr,
+                        addr,
                         current_epoch,
                         hash,
                         new_metadata_hash(),
@@ -3865,14 +3864,25 @@ mod tests {
                         TokenAmount::zero(),
                     )
                     .unwrap();
+
+                total_cost += state.get_storage_cost(ttl.unwrap_or(AUTO_TTL), &BigInt::from(size));
+                expected_credits +=
+                    state.get_storage_cost(tc.expected_ttls[i], &BigInt::from(size));
             }
 
+            let account = state.get_account(&store, addr).unwrap().unwrap();
+            assert_eq!(
+                account.credit_committed, total_cost,
+                "Test case '{}' failed: committed credits don't match",
+                tc.name
+            );
+
             state
-                .set_ttl_status(&store, account, tc.account_ttl, current_epoch)
+                .set_ttl_status(&store, addr, tc.account_ttl, current_epoch)
                 .unwrap();
 
             let res =
-                state.adjust_blob_ttls_for_account(&store, account, current_epoch, None, tc.limit);
+                state.adjust_blob_ttls_for_account(&store, addr, current_epoch, None, tc.limit);
             assert!(
                 res.is_ok(),
                 "Test case '{}' failed to adjust TTLs: {}",
@@ -3892,7 +3902,7 @@ mod tests {
                     );
                 } else {
                     let blob = state.get_blob(&store, *hash).unwrap().unwrap();
-                    let group = blob.subscribers.get(&account.to_string()).unwrap();
+                    let group = blob.subscribers.get(&addr.to_string()).unwrap();
                     let sub = group.subscriptions.get(&format!("blob-{}", i)).unwrap();
 
                     assert_eq!(
@@ -3915,6 +3925,19 @@ mod tests {
                     );
                 }
             }
+
+            let account = state.get_account(&store, addr).unwrap().unwrap();
+            assert_eq!(
+                account.credit_committed, expected_credits,
+                "Test case '{}' failed: account's committed credits after blob adjustment don't match",
+                tc.name
+            );
+
+            assert_eq!(
+                state.credit_committed, expected_credits,
+                "Test case '{}' failed: state's committed credits after blob adjustment don't match",
+                tc.name
+            );
         }
     }
 }
