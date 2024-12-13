@@ -548,45 +548,11 @@ impl State {
         source: PublicKey,
         tokens_received: TokenAmount,
     ) -> anyhow::Result<(Subscription, TokenAmount), ActorError> {
-        self.do_add_blob(
-            store,
-            origin,
-            caller,
-            subscriber,
-            current_epoch,
-            hash,
-            metadata_hash,
-            id,
-            size,
-            ttl,
-            source,
-            tokens_received,
-            false,
-        )
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    fn do_add_blob<BS: Blockstore>(
-        &mut self,
-        store: &BS,
-        origin: Address,
-        caller: Address,
-        subscriber: Address,
-        current_epoch: ChainEpoch,
-        hash: Hash,
-        metadata_hash: Hash,
-        id: SubscriptionId,
-        size: u64,
-        ttl: Option<ChainEpoch>,
-        source: PublicKey,
-        tokens_received: TokenAmount,
-        ignore_min_ttl: bool,
-    ) -> anyhow::Result<(Subscription, TokenAmount), ActorError> {
         // Get or create a new account
         let mut accounts = self.accounts.hamt(store)?;
         let mut account = accounts.get_or_create(&subscriber, || Account::new(current_epoch))?;
         // Validate the TTL
-        let (ttl, auto_renew) = accept_ttl(ttl, &account, ignore_min_ttl)?;
+        let (ttl, auto_renew) = accept_ttl(ttl, &account)?;
         // Get the credit delegation if needed
         let delegation = if origin != subscriber {
             // Look for an approval for origin from subscriber and validate the caller is allowed.
@@ -1485,7 +1451,7 @@ impl State {
                                     SubscriptionId::Key(id.clone()),
                                 )?;
                             } else {
-                                let res = self.do_add_blob(
+                                self.add_blob(
                                     store,
                                     account,
                                     account,
@@ -1498,10 +1464,7 @@ impl State {
                                     Some(new_ttl),
                                     sub.source,
                                     TokenAmount::zero(),
-                                    true,
-                                );
-                                println!("do_add_blob failed: {:?}", res);
-                                res?;
+                                )?;
                             }
 
                             processed += 1;
@@ -1509,7 +1472,7 @@ impl State {
                             && sub.auto_renew
                             && new_ttl != ChainEpoch::MAX
                         {
-                            let res = self.do_add_blob(
+                            self.add_blob(
                                 store,
                                 account,
                                 account,
@@ -1522,10 +1485,7 @@ impl State {
                                 Some(TtlStatus::DEFAULT_MAX_TTL),
                                 sub.source,
                                 TokenAmount::zero(),
-                                true,
-                            );
-                            println!("do_add_blob failed: {:?}", res);
-                            res?;
+                            )?;
                             processed += 1;
                         }
                     }
@@ -1708,10 +1668,9 @@ fn update_expiry_index(
 fn accept_ttl(
     ttl: Option<ChainEpoch>,
     account: &Account,
-    ignore_min_ttl: bool,
 ) -> anyhow::Result<(ChainEpoch, bool), ActorError> {
     let (ttl, auto_renew) = ttl.map(|ttl| (ttl, false)).unwrap_or((AUTO_TTL, true));
-    if ttl < MIN_TTL && !ignore_min_ttl {
+    if ttl < MIN_TTL {
         return Err(ActorError::illegal_argument(format!(
             "minimum blob TTL is {}",
             MIN_TTL
@@ -3914,9 +3873,16 @@ mod tests {
 
             let res =
                 state.adjust_blob_ttls_for_account(&store, account, current_epoch, None, tc.limit);
+            assert!(
+                res.is_ok(),
+                "Test case '{}' failed to adjust TTLs: {}",
+                tc.name,
+                res.err().unwrap()
+            );
 
             // Verify TTLs were adjusted correctly
             for (i, hash) in blob_hashes.iter().enumerate() {
+                // If the TTL is zero, the blob should be deleted
                 if tc.expected_ttls[i] == 0 {
                     assert!(
                         state.get_blob(&store, *hash).unwrap().is_none(),
