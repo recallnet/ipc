@@ -1426,12 +1426,13 @@ impl State {
         starting_hash: Option<Hash>,
         limit: Option<usize>,
     ) -> anyhow::Result<(u32, Option<Hash>), ActorError> {
+        use hoku_ipld::hamt::fvm_ipld_hamt::BytesKey;
+
         let new_ttl = self.get_account_max_ttl(store, account)?;
 
         let mut processed = 0;
-        let blobs = self.blobs_root.hamt(store)?;
-        let starting_key =
-            starting_hash.map(|h| hamt::fvm_ipld_hamt::BytesKey::from(h.0.as_slice()));
+        let blobs = self.blobs.hamt(store)?;
+        let starting_key = starting_hash.map(|h| BytesKey::from(h.0.as_slice()));
         let (_, next_key) = blobs.for_each_ranged(
             starting_key.as_ref(),
             limit,
@@ -1502,7 +1503,7 @@ impl State {
         store: &BS,
         account: Address,
     ) -> Result<ChainEpoch, ActorError> {
-        let accounts = self.accounts_root.hamt(store)?;
+        let accounts = self.accounts.hamt(store)?;
         Ok(accounts
             .get(&account)?
             .map_or(TtlStatus::DEFAULT_MAX_TTL, |account| account.max_ttl))
