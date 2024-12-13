@@ -7,4 +7,5 @@ mod core;
 pub mod map;
 
 pub use core::MapKey;
+pub use fvm_ipld_hamt;
 pub use map::Root;

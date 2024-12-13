@@ -1413,27 +1413,67 @@ impl State {
         &self.capacity_total - &self.capacity_used
     }
     
-    fn drop_blob_ttls_for_account(
+    /// Adjusts all subscriptions for `account` according to its max TTL.
+    /// Returns the number of subscriptions processed and the next key to continue iteration.
+    /// If `starting_hash` is `None`, iteration starts from the beginning.
+    /// If `limit` is `None`, all subscriptions are processed.
+    /// If `limit` is not `None`, iteration stops after examining `limit` blobs.
+    pub fn adjust_blob_ttls_for_account<BS: Blockstore>(
         &mut self,
+        store: &BS,
         account: Address,
-    ) -> anyhow::Result<(), ActorError> {
-        let new_ttl = self.get_account_max_ttl(account);
-        for (_, blob) in self.blobs.iter_mut() {
-            if let Some(group) = blob.subscribers.get_mut(&account) {
-                for (_, sub) in group.subscriptions.iter_mut() {
+        current_epoch: ChainEpoch,
+        starting_hash: Option<Hash>,
+        limit: Option<usize>,
+    ) -> anyhow::Result<(u32, Option<Hash>), ActorError> {
+        let new_ttl = self.get_account_max_ttl(store, account)?;
+
+        let mut processed = 0;
+        let blobs = self.blobs_root.hamt(store)?;
+        let starting_key =
+            starting_hash.map(|h| hamt::fvm_ipld_hamt::BytesKey::from(h.0.as_slice()));
+        let (_, next_key) = blobs.for_each_ranged(
+            starting_key.as_ref(),
+            limit,
+            |hash, blob| -> Result<(), ActorError> {
+            if let Some(group) = blob.subscribers.get(&account.to_string()) {
+                for (id, sub) in &group.subscriptions {
                     if sub.expiry - sub.added > new_ttl {
-                        sub.expiry = sub.added + new_ttl;
+                        self.add_blob(
+                            store,
+                            account,
+                            account,
+                            account,
+                            current_epoch,
+                            hash,
+                            blob.metadata_hash.clone(),
+                            SubscriptionId::Key(id.clone()),
+                            blob.size,
+                            Some(new_ttl),
+                            sub.source,
+                            TokenAmount::zero(),
+                        )?;
+                        
+                        processed += 1;
                     }
                 }
             }
-        }
-        Ok(())
+            Ok(())
+            },
+        )?;
+
+        Ok((processed, next_key))
     }
     
-    fn get_account_max_ttl(&self, account: Address) -> ChainEpoch {
-        self.accounts
-            .get(&account)
-            .map_or(TtlStatus::DEFAULT_MAX_TTL, |account| account.max_ttl)
+    pub fn get_account_max_ttl<BS: Blockstore>(
+        &self,
+        store: &BS,
+        account: Address,
+    ) -> Result<ChainEpoch, ActorError> {
+        let accounts = self.accounts_root.hamt(store)?;
+        Ok(accounts
+            .get(&account)?
+            .map_or(TtlStatus::DEFAULT_MAX_TTL, |account| account.max_ttl))
     }
 }
 
@@ -3621,65 +3661,91 @@ mod tests {
     }
 
     #[test]
-    fn test_set_ttl_status_adjusts_existing_subscriptions() {
+    fn test_set_ttl_status() {
         setup_logs();
 
         struct TestCase {
             name: &'static str,
-            initial_ttl_status: TtlStatus,
+            initial_ttl_status: Option<TtlStatus>, // None means don't set initial status
             new_ttl_status: TtlStatus,
-            blob_ttls: Vec<ChainEpoch>,
-            expected_new_ttls: Vec<ChainEpoch>,
+            expected_ttl: ChainEpoch,
         }
 
         let test_cases = vec![
             TestCase {
-                name: "Reducing from Default to Reduced drops TTLs to 0",
-                initial_ttl_status: TtlStatus::Default,
+                name: "Setting Reduced on new account",
+                initial_ttl_status: None,
                 new_ttl_status: TtlStatus::Reduced,
-                blob_ttls: vec![7200, 3600, 86400], // 2h, 1h, 24h
-                expected_new_ttls: vec![0, 0, 0], // all reduced to 0
+                expected_ttl: 0,
             },
             TestCase {
-                name: "Reducing from Extended to Default drops all TTLs above 24h",
-                initial_ttl_status: TtlStatus::Extended,
+                name: "Setting Default on new account",
+                initial_ttl_status: None,
                 new_ttl_status: TtlStatus::Default,
-                blob_ttls: vec![43200, 86400, 172800], // 12h, 24h, 48h
-                expected_new_ttls: vec![43200, 86400, 86400], // 48h reduced to 24h
+                expected_ttl: TtlStatus::DEFAULT_MAX_TTL,
             },
             TestCase {
-                name: "Reducing from Extended to Reduced drops TTLs to 0",
-                initial_ttl_status: TtlStatus::Extended,
+                name: "Changing from Default to Reduced",
+                initial_ttl_status: Some(TtlStatus::Default),
                 new_ttl_status: TtlStatus::Reduced,
-                blob_ttls: vec![3600, 7200, 172800], // 1h, 2h, 48h
-                expected_new_ttls: vec![0, 0, 0], // all reduced to 0
+                expected_ttl: 0,
             },
             TestCase {
-                name: "Increasing from Default to Extended  TTL status preserves TTLs",
-                initial_ttl_status: TtlStatus::Default,
-                new_ttl_status: TtlStatus::Extended,
-                blob_ttls: vec![43200, 86400], // 12h, 24h
-                expected_new_ttls: vec![43200, 86400], // unchanged
+                name: "Changing from Extended to Reduced",
+                initial_ttl_status: Some(TtlStatus::Extended),
+                new_ttl_status: TtlStatus::Reduced,
+                expected_ttl: 0,
             },
             TestCase {
-                name: "Setting same TTL status preserves TTLs",
-                initial_ttl_status: TtlStatus::Extended,
+                name: "Changing from Reduced to Extended",
+                initial_ttl_status: Some(TtlStatus::Reduced),
                 new_ttl_status: TtlStatus::Extended,
-                blob_ttls: vec![43200, 172800], // 12h, 48h
-                expected_new_ttls: vec![43200, 172800], // unchanged
+                expected_ttl: ChainEpoch::MAX,
+            },
+            TestCase {
+                name: "Setting Custom TTL",
+                initial_ttl_status: Some(TtlStatus::Default),
+                new_ttl_status: TtlStatus::Custom(7200),
+                expected_ttl: 7200,
             },
         ];
 
         for tc in test_cases {
-            let capacity = 1024 * 1024;
-            let mut state = State::new(capacity, 1);
-            let subscriber = new_address();
+            let store = MemoryBlockstore::default();
+            let mut state = State::new(&store, 1024 * 1024, 1).unwrap();
+            let account = new_address();
             let current_epoch = ChainEpoch::from(1);
-            let amount = TokenAmount::from_whole(10);
 
-            // Initial setup
-            state.buy_credit(subscriber, amount.clone(), current_epoch).unwrap();
-            state.set_ttl_status(subscriber, tc.initial_ttl_status, current_epoch).unwrap();
+            // Initialize account if needed
+            if tc.initial_ttl_status.is_some() {
+                state
+                    .set_ttl_status(
+                        &store,
+                        account,
+                        tc.initial_ttl_status.unwrap(),
+                        current_epoch,
+                    )
+                    .unwrap();
+            }
+
+            // Change TTL status
+            let res = state.set_ttl_status(&store, account, tc.new_ttl_status, current_epoch);
+            assert!(
+                res.is_ok(),
+                "Test case '{}' failed to set TTL status",
+                tc.name
+            );
+
+            // Verify max TTL
+            let max_ttl = state.get_account_max_ttl(&store, account).unwrap();
+            assert_eq!(
+                max_ttl, tc.expected_ttl,
+                "Test case '{}' failed: expected max TTL {}, got {}",
+                tc.name, tc.expected_ttl, max_ttl
+            );
+        }
+    }
+
 
             // Add blobs with different TTLs
             let mut blob_hashes = Vec::new();
@@ -3688,6 +3754,7 @@ mod tests {
                 blob_hashes.push(hash);
                 
                 let res = state.add_blob(
+                    &store,
                     subscriber,
                     subscriber,
                     subscriber,
@@ -3704,22 +3771,24 @@ mod tests {
             }
 
             // Change TTL status
-            state.set_ttl_status(subscriber, tc.new_ttl_status, current_epoch).unwrap();
+            state.set_ttl_status(&store, subscriber, tc.new_ttl_status, current_epoch).unwrap();
 
             // Verify each blob's TTL was adjusted correctly
             for (i, hash) in blob_hashes.iter().enumerate() {
-                let blob = state.blobs.get(hash).unwrap();
-                let group = blob.subscribers.get(&subscriber).unwrap();
-                let sub = group.subscriptions.get(&SubscriptionId::Default).unwrap();
-                assert_eq!(
-                    sub.expiry - sub.added, 
-                    tc.expected_new_ttls[i],
-                    "Test case '{}' failed: blob {} TTL not adjusted correctly. Expected {}, got {}",
-                    tc.name,
-                    i,
-                    tc.expected_new_ttls[i],
-                    sub.expiry - sub.added
-                );
+                let blob = state.get_blob(&store, *hash).unwrap().unwrap();
+                let group = blob.subscribers.get(&subscriber.to_string()).unwrap();
+                assert_eq!(group.subscriptions.len(), 1, "Test case '{}' failed: blob {} has unexpected number of subscriptions", tc.name, i);
+                for sub in group.subscriptions.values() {
+                    assert_eq!(
+                        sub.expiry - sub.added, 
+                        tc.expected_new_ttls[i],
+                        "Test case '{}' failed: blob {} TTL not adjusted correctly. Expected {}, got {}",
+                        tc.name,
+                        i,
+                        tc.expected_new_ttls[i],
+                        sub.expiry - sub.added
+                    );
+                }
             }
         }
     }
