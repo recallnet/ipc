@@ -1684,7 +1684,18 @@ fn accept_ttl(
             ttl, account.max_ttl,
         )));
     }
-    Ok((ttl, auto_renew))
+    if account.max_ttl == TtlStatus::DEFAULT_MAX_TTL {
+        Ok((
+            if auto_renew {
+                TtlStatus::DEFAULT_MAX_TTL
+            } else {
+                ttl
+            },
+            false,
+        ))
+    } else {
+        Ok((ttl, auto_renew))
+    }
 }
 
 #[cfg(test)]
@@ -2345,6 +2356,10 @@ mod tests {
         assert_eq!(account.credit_free, credit_amount);
         assert_eq!(account.capacity_used, BigInt::from(size1));
 
+        assert!(state
+            .set_ttl_status(&store, subscriber, TtlStatus::Extended, current_epoch)
+            .is_ok());
+
         // Add another blob past the first blob's expiry
         let (hash2, size2) = new_hash(2048);
         let add2_epoch = ChainEpoch::from(MIN_TTL + 11);
@@ -2560,6 +2575,10 @@ mod tests {
         token_amount: TokenAmount,
     ) {
         let mut credit_amount = token_amount.atto().clone();
+
+        assert!(state
+            .set_ttl_status(&store, subscriber, TtlStatus::Extended, current_epoch)
+            .is_ok());
 
         // Add blob with default a subscription ID
         let (hash, size) = new_hash(1024);
@@ -2884,6 +2903,10 @@ mod tests {
             .unwrap();
         let mut credit_amount = amount.atto().clone();
 
+        assert!(state
+            .set_ttl_status(&store, subscriber, TtlStatus::Extended, current_epoch)
+            .is_ok());
+
         // Add blob with default a subscription ID
         let (hash, size) = new_hash(1024);
         let add_epoch = current_epoch;
@@ -2980,6 +3003,10 @@ mod tests {
             .buy_credit(&store, subscriber, amount.clone(), current_epoch)
             .unwrap();
         let mut credit_amount = amount.atto().clone();
+
+        assert!(state
+            .set_ttl_status(&store, subscriber, TtlStatus::Extended, current_epoch)
+            .is_ok());
 
         // Add blob with default a subscription ID
         let (hash1, size1) = new_hash(1024);
@@ -3291,6 +3318,10 @@ mod tests {
             .unwrap();
         let mut credit_amount = amount.atto().clone();
 
+        assert!(state
+            .set_ttl_status(&store, subscriber, TtlStatus::Extended, current_epoch)
+            .is_ok());
+
         // Add a blob
         let add_epoch = current_epoch;
         let (hash, size) = new_hash(1024);
@@ -3444,12 +3475,17 @@ mod tests {
     fn test_if_blobs_ttl_exceeds_accounts_ttl_should_error() {
         setup_logs();
 
+        const YEAR: ChainEpoch = 365 * 24 * 60 * 60;
+
         // Test cases structure
         struct TestCase {
             name: &'static str,
             account_ttl_status: TtlStatus,
-            blob_ttl: ChainEpoch,
+            blob_ttl: Option<ChainEpoch>,
             should_succeed: bool,
+            should_auto_renew: bool,
+            expected_account_ttl: ChainEpoch,
+            expected_blob_ttl: ChainEpoch,
         }
 
         // Define test cases
@@ -3457,38 +3493,74 @@ mod tests {
             TestCase {
                 name: "Reduced status rejects even minimum TTL",
                 account_ttl_status: TtlStatus::Reduced,
-                blob_ttl: MIN_TTL,
+                blob_ttl: Some(MIN_TTL),
                 should_succeed: false,
+                should_auto_renew: false,
+                expected_account_ttl: 0,
+                expected_blob_ttl: 0,
+            },
+            TestCase {
+                name: "Reduced status rejects no TTL",
+                account_ttl_status: TtlStatus::Reduced,
+                blob_ttl: Some(MIN_TTL),
+                should_succeed: false,
+                should_auto_renew: false,
+                expected_account_ttl: 0,
+                expected_blob_ttl: 0,
             },
             TestCase {
                 name: "Default status allows default TTL",
                 account_ttl_status: TtlStatus::Default,
-                blob_ttl: TtlStatus::DEFAULT_MAX_TTL,
+                blob_ttl: Some(TtlStatus::DEFAULT_MAX_TTL),
                 should_succeed: true,
+                should_auto_renew: false,
+                expected_account_ttl: TtlStatus::DEFAULT_MAX_TTL,
+                expected_blob_ttl: TtlStatus::DEFAULT_MAX_TTL,
             },
             TestCase {
-                name: "Default status rejects higher TTL",
+                name: "Default status sets no TTL to default without auto renew",
                 account_ttl_status: TtlStatus::Default,
-                blob_ttl: TtlStatus::DEFAULT_MAX_TTL + 1,
-                should_succeed: false,
-            },
-            TestCase {
-                name: "Custom status allows matching TTL",
-                account_ttl_status: TtlStatus::Custom(7200),
-                blob_ttl: 7200,
+                blob_ttl: None,
                 should_succeed: true,
+                should_auto_renew: false,
+                expected_account_ttl: TtlStatus::DEFAULT_MAX_TTL,
+                expected_blob_ttl: TtlStatus::DEFAULT_MAX_TTL,
             },
             TestCase {
-                name: "Custom status rejects higher TTL",
-                account_ttl_status: TtlStatus::Custom(7200),
-                blob_ttl: 7201,
+                name: "Default status preserves given TTL if it's less than default",
+                account_ttl_status: TtlStatus::Default,
+                blob_ttl: Some(TtlStatus::DEFAULT_MAX_TTL - 1),
+                should_succeed: true,
+                should_auto_renew: false,
+                expected_account_ttl: TtlStatus::DEFAULT_MAX_TTL,
+                expected_blob_ttl: TtlStatus::DEFAULT_MAX_TTL - 1,
+            },
+            TestCase {
+                name: "Default status rejects TTLs higher than default",
+                account_ttl_status: TtlStatus::Default,
+                blob_ttl: Some(TtlStatus::DEFAULT_MAX_TTL + 1),
                 should_succeed: false,
+                should_auto_renew: false,
+                expected_account_ttl: TtlStatus::DEFAULT_MAX_TTL,
+                expected_blob_ttl: 0,
             },
             TestCase {
                 name: "Extended status allows any TTL",
                 account_ttl_status: TtlStatus::Extended,
-                blob_ttl: 365 * 24 * 60 * 60, // 1 year
+                blob_ttl: Some(YEAR),
                 should_succeed: true,
+                should_auto_renew: false,
+                expected_account_ttl: ChainEpoch::MAX,
+                expected_blob_ttl: YEAR,
+            },
+            TestCase {
+                name: "Extended status allows auto renew",
+                account_ttl_status: TtlStatus::Extended,
+                blob_ttl: None,
+                should_succeed: true,
+                should_auto_renew: true,
+                expected_account_ttl: ChainEpoch::MAX,
+                expected_blob_ttl: AUTO_TTL,
             },
         ];
 
@@ -3519,9 +3591,16 @@ mod tests {
                 new_metadata_hash(),
                 SubscriptionId::Default,
                 size,
-                Some(tc.blob_ttl),
+                tc.blob_ttl,
                 new_pk(),
                 TokenAmount::zero(),
+            );
+
+            let account_ttl = state.get_account_max_ttl(&store, subscriber).unwrap();
+            assert_eq!(
+                account_ttl, tc.expected_account_ttl,
+                "Test case '{}' has unexpected account TTL",
+                tc.name
             );
 
             if tc.should_succeed {
@@ -3531,6 +3610,25 @@ mod tests {
                     tc.name,
                     res.err()
                 );
+
+                let res = state.get_blob(&store, hash);
+                assert!(res.is_ok(), "Failed to get blob: {:?}", res.err());
+                let blob = res.unwrap().unwrap();
+                for (_, group) in blob.subscribers {
+                    for (_, sub) in group.subscriptions {
+                        assert_eq!(
+                            sub.expiry,
+                            current_epoch + tc.expected_blob_ttl,
+                            "Test case '{}' has unexpected blob expiry",
+                            tc.name
+                        );
+                        assert_eq!(
+                            sub.auto_renew, tc.should_auto_renew,
+                            "Test case '{}' has unexpected auto renew value",
+                            tc.name
+                        );
+                    }
+                }
             } else {
                 assert!(
                     res.is_err(),
@@ -3541,7 +3639,7 @@ mod tests {
                     res.err().unwrap().msg(),
                     format!(
                         "attempt to add a blob with TTL ({}) that exceeds account's max allowed TTL ({})",
-                        tc.blob_ttl, i64::from(tc.account_ttl_status),
+                        tc.blob_ttl.map_or_else(|| "none".to_string(), |ttl| ttl.to_string()), i64::from(tc.account_ttl_status),
                     ),
                     "Test case '{}' failed with unexpected error message",
                     tc.name
@@ -3734,12 +3832,6 @@ mod tests {
                 initial_ttl_status: Some(TtlStatus::Reduced),
                 new_ttl_status: TtlStatus::Extended,
                 expected_ttl: ChainEpoch::MAX,
-            },
-            TestCase {
-                name: "Setting Custom TTL",
-                initial_ttl_status: Some(TtlStatus::Default),
-                new_ttl_status: TtlStatus::Custom(7200),
-                expected_ttl: 7200,
             },
         ];
 

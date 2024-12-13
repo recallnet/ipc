@@ -353,8 +353,6 @@ pub enum TtlStatus {
     Reduced,
     /// Extended TTL.
     Extended,
-    /// Custom TTL.
-    Custom(ChainEpoch),
 }
 
 impl TtlStatus {
@@ -367,7 +365,6 @@ impl fmt::Display for TtlStatus {
             TtlStatus::Default => write!(f, "default"),
             TtlStatus::Reduced => write!(f, "reduced"),
             TtlStatus::Extended => write!(f, "extended"),
-            TtlStatus::Custom(ttl) => write!(f, "custom: {}", ttl),
         }
     }
 }
@@ -378,7 +375,6 @@ impl From<TtlStatus> for ChainEpoch {
             TtlStatus::Default => TtlStatus::DEFAULT_MAX_TTL,
             TtlStatus::Reduced => 0,
             TtlStatus::Extended => ChainEpoch::MAX,
-            TtlStatus::Custom(ttl) => ttl,
         }
     }
 }
