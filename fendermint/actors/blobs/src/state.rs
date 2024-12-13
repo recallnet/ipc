@@ -3941,4 +3941,147 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn test_adjust_blob_ttls_pagination() {
+        setup_logs();
+
+        // Test cases for pagination
+        struct PaginationTest {
+            name: &'static str,
+            limit: Option<usize>,
+            start: Option<usize>,
+            expected_next_key: Option<usize>,
+            expected_processed: usize,
+        }
+
+        let test_cases = vec![
+            PaginationTest {
+                name: "Process all at once",
+                limit: None,
+                start: None,
+                expected_next_key: None,
+                expected_processed: 5,
+            },
+            PaginationTest {
+                name: "Process two at a time from beginning",
+                limit: Some(2),
+                start: None,
+                expected_next_key: Some(2),
+                expected_processed: 2,
+            },
+            PaginationTest {
+                name: "Process one at a time with offset",
+                limit: Some(1),
+                start: Some(1),
+                expected_next_key: Some(2),
+                expected_processed: 1,
+            },
+            PaginationTest {
+                name: "Out of bounds limit",
+                limit: Some(10),
+                start: Some(1),
+                expected_next_key: None,
+                expected_processed: 4,
+            },
+            PaginationTest {
+                name: "With offset ending at last item",
+                limit: Some(2),
+                start: Some(3),
+                expected_next_key: None,
+                expected_processed: 2,
+            },
+        ];
+
+        for tc in test_cases {
+            let store = MemoryBlockstore::default();
+            let mut state = State::new(&store, 1024 * 1024, 1).unwrap();
+            let addr = new_address();
+            let current_epoch = ChainEpoch::from(1);
+
+            // Setup account with credits and Extended TTL status to allow adding all blobs
+            state
+                .buy_credit(&store, addr, TokenAmount::from_whole(1000), current_epoch)
+                .unwrap();
+            state
+                .set_ttl_status(&store, addr, TtlStatus::Extended, current_epoch)
+                .unwrap();
+
+            // Add 5 blobs with different sizes to ensure different hashes
+            for i in 0..5 {
+                let (hash, size) = new_hash((i + 1) * 1024);
+                state
+                    .add_blob(
+                        &store,
+                        addr,
+                        addr,
+                        addr,
+                        current_epoch,
+                        hash,
+                        new_metadata_hash(),
+                        SubscriptionId::Key(format!("blob-{}", i)),
+                        size,
+                        Some(7200), // 2 hours
+                        new_pk(),
+                        TokenAmount::zero(),
+                    )
+                    .unwrap();
+            }
+
+            // range over all blobs and store their hashes
+            let mut blob_hashes = Vec::with_capacity(5);
+            for _ in 0..5 {
+                let res = state.blobs.hamt(&store).unwrap().for_each(
+                    |hash, _| -> Result<(), ActorError> {
+                        blob_hashes.push(hash);
+                        Ok(())
+                    },
+                );
+                assert!(
+                    res.is_ok(),
+                    "Failed to iterate over blobs: {}",
+                    res.err().unwrap()
+                );
+            }
+
+            // Change to Reduced status and process blobs with pagination
+            state
+                .set_ttl_status(&store, addr, TtlStatus::Reduced, current_epoch)
+                .unwrap();
+
+            let res = state.adjust_blob_ttls_for_account(
+                &store,
+                addr,
+                current_epoch,
+                tc.start.map(|ind| blob_hashes[ind]),
+                tc.limit,
+            );
+            assert!(
+                res.is_ok(),
+                "Test case '{}' failed to adjust TTLs: {}",
+                tc.name,
+                res.err().unwrap()
+            );
+
+            let (processed, next) = res.unwrap();
+
+            assert_eq!(
+                processed as usize, tc.expected_processed,
+                "Test case '{}' had unexpected number of items processed",
+                tc.name
+            );
+
+            if let Some(expected_next_key) = tc.expected_next_key {
+                assert!(next.is_some(), "Test case '{}' expected next key", tc.name);
+                assert_eq!(
+                    next.unwrap(),
+                    blob_hashes[expected_next_key],
+                    "Test case '{}' had unexpected next key",
+                    tc.name
+                );
+            } else {
+                assert!(next.is_none(), "Test case '{}' had no next key", tc.name);
+            }
+        }
+    }
 }
