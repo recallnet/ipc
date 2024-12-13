@@ -240,7 +240,7 @@ impl fmt::Display for SubscriptionId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             SubscriptionId::Default => write!(f, "default"),
-            SubscriptionId::Key(key) => write!(f, "{:?}", key),
+            SubscriptionId::Key(key) => write!(f, "{}", key),
         }
     }
 }

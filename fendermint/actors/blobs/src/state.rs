@@ -548,12 +548,46 @@ impl State {
         source: PublicKey,
         tokens_received: TokenAmount,
     ) -> anyhow::Result<(Subscription, TokenAmount), ActorError> {
+        self.do_add_blob(
+            store,
+            origin,
+            caller,
+            subscriber,
+            current_epoch,
+            hash,
+            metadata_hash,
+            id,
+            size,
+            ttl,
+            source,
+            tokens_received,
+            false,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn do_add_blob<BS: Blockstore>(
+        &mut self,
+        store: &BS,
+        origin: Address,
+        caller: Address,
+        subscriber: Address,
+        current_epoch: ChainEpoch,
+        hash: Hash,
+        metadata_hash: Hash,
+        id: SubscriptionId,
+        size: u64,
+        ttl: Option<ChainEpoch>,
+        source: PublicKey,
+        tokens_received: TokenAmount,
+        ignore_min_ttl: bool,
+    ) -> anyhow::Result<(Subscription, TokenAmount), ActorError> {
         // Get or create a new account
         let mut accounts = self.accounts.hamt(store)?;
         let mut account = accounts.get_or_create(&subscriber, || Account::new(current_epoch))?;
         // Validate the TTL
-        let (ttl, auto_renew) = accept_ttl(ttl, &account)?;
-        // Get the credit delgation if needed
+        let (ttl, auto_renew) = accept_ttl(ttl, &account, ignore_min_ttl)?;
+        // Get the credit delegation if needed
         let delegation = if origin != subscriber {
             // Look for an approval for origin from subscriber and validate the caller is allowed.
             let approval = account
@@ -1412,7 +1446,7 @@ impl State {
     fn capacity_available(&self) -> BigInt {
         &self.capacity_total - &self.capacity_used
     }
-    
+
     /// Adjusts all subscriptions for `account` according to its max TTL.
     /// Returns the number of subscriptions processed and the next key to continue iteration.
     /// If `starting_hash` is `None`, iteration starts from the beginning.
@@ -1436,35 +1470,73 @@ impl State {
             starting_key.as_ref(),
             limit,
             |hash, blob| -> Result<(), ActorError> {
-            if let Some(group) = blob.subscribers.get(&account.to_string()) {
-                for (id, sub) in &group.subscriptions {
-                    if sub.expiry - sub.added > new_ttl {
-                        self.add_blob(
-                            store,
-                            account,
-                            account,
-                            account,
-                            current_epoch,
-                            hash,
-                            blob.metadata_hash.clone(),
-                            SubscriptionId::Key(id.clone()),
-                            blob.size,
-                            Some(new_ttl),
-                            sub.source,
-                            TokenAmount::zero(),
-                        )?;
-                        
-                        processed += 1;
+                if let Some(group) = blob.subscribers.get(&account.to_string()) {
+                    for (id, sub) in &group.subscriptions {
+                        if sub.expiry - sub.added > new_ttl {
+                            if new_ttl == 0 {
+                                // Delete subscription
+                                self.delete_blob(
+                                    store,
+                                    account,
+                                    account,
+                                    account,
+                                    current_epoch,
+                                    hash,
+                                    SubscriptionId::Key(id.clone()),
+                                )?;
+                            } else {
+                                let res = self.do_add_blob(
+                                    store,
+                                    account,
+                                    account,
+                                    account,
+                                    current_epoch,
+                                    hash,
+                                    blob.metadata_hash.clone(),
+                                    SubscriptionId::Key(id.clone()),
+                                    blob.size,
+                                    Some(new_ttl),
+                                    sub.source,
+                                    TokenAmount::zero(),
+                                    true,
+                                );
+                                println!("do_add_blob failed: {:?}", res);
+                                res?;
+                            }
+
+                            processed += 1;
+                        } else if sub.expiry - sub.added < TtlStatus::DEFAULT_MAX_TTL
+                            && sub.auto_renew
+                            && new_ttl != ChainEpoch::MAX
+                        {
+                            let res = self.do_add_blob(
+                                store,
+                                account,
+                                account,
+                                account,
+                                current_epoch,
+                                hash,
+                                blob.metadata_hash.clone(),
+                                SubscriptionId::Key(id.clone()),
+                                blob.size,
+                                Some(TtlStatus::DEFAULT_MAX_TTL),
+                                sub.source,
+                                TokenAmount::zero(),
+                                true,
+                            );
+                            println!("do_add_blob failed: {:?}", res);
+                            res?;
+                            processed += 1;
+                        }
                     }
                 }
-            }
-            Ok(())
+                Ok(())
             },
         )?;
 
         Ok((processed, next_key))
     }
-    
+
     pub fn get_account_max_ttl<BS: Blockstore>(
         &self,
         store: &BS,
@@ -1636,9 +1708,10 @@ fn update_expiry_index(
 fn accept_ttl(
     ttl: Option<ChainEpoch>,
     account: &Account,
+    ignore_min_ttl: bool,
 ) -> anyhow::Result<(ChainEpoch, bool), ActorError> {
     let (ttl, auto_renew) = ttl.map(|ttl| (ttl, false)).unwrap_or((AUTO_TTL, true));
-    if ttl < MIN_TTL {
+    if ttl < MIN_TTL && !ignore_min_ttl {
         return Err(ActorError::illegal_argument(format!(
             "minimum blob TTL is {}",
             MIN_TTL
@@ -3746,47 +3819,133 @@ mod tests {
         }
     }
 
+    #[test]
+    fn test_adjust_blob_ttls_for_account() {
+        setup_logs();
 
-            // Add blobs with different TTLs
-            let mut blob_hashes = Vec::new();
-            for ttl in tc.blob_ttls.iter() {
-                let (hash, size) = new_hash(1024);
-                blob_hashes.push(hash);
-                
-                let res = state.add_blob(
+        const HOUR: ChainEpoch = 3600;
+        const TWO_HOURS: ChainEpoch = HOUR * 2;
+        const DAY: ChainEpoch = HOUR * 24;
+        const YEAR: ChainEpoch = DAY * 365;
+
+        let blobs_ttls: Vec<Option<ChainEpoch>> =
+            vec![None, Some(HOUR), Some(TWO_HOURS), Some(DAY), Some(YEAR)];
+
+        struct TestCase {
+            name: &'static str,
+            account_ttl: TtlStatus,
+            expected_ttls: Vec<ChainEpoch>,
+            expected_auto_renewals: Vec<bool>,
+            limit: Option<usize>, // None means process all at once
+        }
+
+        let test_cases = vec![
+            TestCase {
+                name: "Set to zero with Reduced status",
+                account_ttl: TtlStatus::Reduced,
+                expected_ttls: vec![0, 0, 0, 0, 0],
+                expected_auto_renewals: vec![false, false, false, false, false],
+                limit: None,
+            },
+            TestCase {
+                name: "Set to default with Default status",
+                account_ttl: TtlStatus::Default,
+                expected_ttls: vec![DAY, HOUR, TWO_HOURS, DAY, DAY],
+                expected_auto_renewals: vec![false, false, false, false, false],
+                limit: None,
+            },
+            TestCase {
+                name: "Set to extended with Extended status",
+                account_ttl: TtlStatus::Extended,
+                expected_ttls: vec![HOUR, HOUR, TWO_HOURS, DAY, YEAR],
+                expected_auto_renewals: vec![true, false, false, false, false],
+                limit: None,
+            },
+        ];
+
+        for tc in test_cases {
+            let store = MemoryBlockstore::default();
+            let mut state = State::new(&store, 1024 * 1024, 1).unwrap();
+            let account = new_address();
+            let current_epoch = ChainEpoch::from(1);
+
+            // Setup account with credits and TTL status
+            state
+                .buy_credit(
                     &store,
-                    subscriber,
-                    subscriber,
-                    subscriber,
+                    account,
+                    TokenAmount::from_whole(1000),
                     current_epoch,
-                    hash,
-                    new_metadata_hash(),
-                    SubscriptionId::Default,
-                    size,
-                    Some(*ttl),
-                    new_pk(),
-                    TokenAmount::zero(),
-                );
-                assert!(res.is_ok(), "Test case '{}' failed to add blob with TTL {}", tc.name, ttl);
+                )
+                .unwrap();
+            // Set extended TTL status to allow adding all blobs
+            state
+                .set_ttl_status(&store, account, TtlStatus::Extended, current_epoch)
+                .unwrap();
+
+            // Add blobs
+            let mut blob_hashes = Vec::new();
+            for (i, ttl) in blobs_ttls.iter().enumerate() {
+                let size = i;
+                let (hash, _) = new_hash(size);
+                blob_hashes.push(hash);
+
+                state
+                    .add_blob(
+                        &store,
+                        account,
+                        account,
+                        account,
+                        current_epoch,
+                        hash,
+                        new_metadata_hash(),
+                        SubscriptionId::Key(format!("blob-{}", i)),
+                        size as u64,
+                        *ttl,
+                        new_pk(),
+                        TokenAmount::zero(),
+                    )
+                    .unwrap();
             }
 
-            // Change TTL status
-            state.set_ttl_status(&store, subscriber, tc.new_ttl_status, current_epoch).unwrap();
+            state
+                .set_ttl_status(&store, account, tc.account_ttl, current_epoch)
+                .unwrap();
 
-            // Verify each blob's TTL was adjusted correctly
+            let res =
+                state.adjust_blob_ttls_for_account(&store, account, current_epoch, None, tc.limit);
+
+            // Verify TTLs were adjusted correctly
             for (i, hash) in blob_hashes.iter().enumerate() {
-                let blob = state.get_blob(&store, *hash).unwrap().unwrap();
-                let group = blob.subscribers.get(&subscriber.to_string()).unwrap();
-                assert_eq!(group.subscriptions.len(), 1, "Test case '{}' failed: blob {} has unexpected number of subscriptions", tc.name, i);
-                for sub in group.subscriptions.values() {
+                if tc.expected_ttls[i] == 0 {
+                    assert!(
+                        state.get_blob(&store, *hash).unwrap().is_none(),
+                        "Test case '{}' failed: blob {} not deleted",
+                        tc.name,
+                        i
+                    );
+                } else {
+                    let blob = state.get_blob(&store, *hash).unwrap().unwrap();
+                    let group = blob.subscribers.get(&account.to_string()).unwrap();
+                    let sub = group.subscriptions.get(&format!("blob-{}", i)).unwrap();
+
                     assert_eq!(
-                        sub.expiry - sub.added, 
-                        tc.expected_new_ttls[i],
+                        sub.expiry - sub.added,
+                        tc.expected_ttls[i],
                         "Test case '{}' failed: blob {} TTL not adjusted correctly. Expected {}, got {}",
                         tc.name,
                         i,
-                        tc.expected_new_ttls[i],
-                        sub.expiry - sub.added
+                        tc.expected_ttls[i],
+                        sub.expiry - sub.added,
+                    );
+                    assert_eq!(
+                        sub.auto_renew,
+                        tc.expected_auto_renewals[i],
+                        "Test case '{}' failed: blob {} auto-renewal not adjusted correctly. Expected {}, got {}",
+                        tc.name,
+                        i,
+                        tc.expected_auto_renewals[i],
+                        sub.auto_renew
                     );
                 }
             }
