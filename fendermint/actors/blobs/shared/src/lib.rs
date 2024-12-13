@@ -46,6 +46,8 @@ pub enum Method {
     DeleteBlob = frc42_dispatch::method_hash!("DeleteBlob"),
     OverwriteBlob = frc42_dispatch::method_hash!("OverwriteBlob"),
     SetAccountBlobTtlStatus = frc42_dispatch::method_hash!("SetAccountBlobTtlStatus"),
+    GetAccountBlobMaxTtl = frc42_dispatch::method_hash!("GetAccountBlobMaxTtl"),
+    AdjustBlobTtlForAccount = frc42_dispatch::method_hash!("AdjustBlobTtlForAccount"),
 }
 
 pub fn buy_credit(rt: &impl Runtime, to: Address) -> Result<Account, ActorError> {

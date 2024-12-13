@@ -5,11 +5,11 @@
 use std::collections::HashSet;
 
 use fendermint_actor_blobs_shared::params::{
-    AddBlobParams, ApproveCreditParams, BuyCreditParams, DeleteBlobParams, FinalizeBlobParams,
-    GetAccountParams, GetAddedBlobsParams, GetBlobParams, GetBlobStatusParams,
-    GetCreditAllowanceParams, GetCreditApprovalParams, GetPendingBlobsParams, GetStatsReturn,
-    OverwriteBlobParams, RevokeCreditParams, SetAccountBlobTtlStatusParams, SetBlobPendingParams,
-    SetCreditSponsorParams, UpdateCreditParams,
+    AddBlobParams, AdjustBlobTtlForAccountParams, ApproveCreditParams, BuyCreditParams,
+    DeleteBlobParams, FinalizeBlobParams, GetAccountParams, GetAddedBlobsParams, GetBlobParams,
+    GetBlobStatusParams, GetCreditAllowanceParams, GetCreditApprovalParams, GetPendingBlobsParams,
+    GetStatsReturn, OverwriteBlobParams, RevokeCreditParams, SetAccountBlobTtlStatusParams,
+    SetBlobPendingParams, SetCreditSponsorParams, UpdateCreditParams,
 };
 use fendermint_actor_blobs_shared::state::{
     Account, Blob, BlobStatus, CreditAllowance, CreditApproval, Hash, PublicKey, Subscription,
@@ -384,6 +384,7 @@ impl BlobsActor {
         Ok(subscription)
     }
 
+    /// Set the TTL status of an account.
     fn set_account_blob_ttl_status(
         rt: &impl Runtime,
         params: SetAccountBlobTtlStatusParams,
@@ -392,6 +393,33 @@ impl BlobsActor {
         let account = resolve_external_non_machine(rt, params.account)?;
         rt.transaction(|st: &mut State, rt| {
             st.set_ttl_status(rt.store(), account, params.status, rt.curr_epoch())
+        })
+    }
+
+    /// Get the maximum TTL for blobs for an account.
+    fn get_account_blob_max_ttl(rt: &impl Runtime, account: Address) -> Result<i64, ActorError> {
+        rt.validate_immediate_caller_accept_any()?;
+        Ok(rt
+            .state::<State>()?
+            .get_account_max_ttl(rt.store(), account)?)
+    }
+
+    /// Adjusts all subscriptions for `account` according to its max TTL.
+    /// Returns the number of subscriptions processed and the next key to continue iteration.
+    fn adjust_blob_ttls_for_account(
+        rt: &impl Runtime,
+        params: AdjustBlobTtlForAccountParams,
+    ) -> Result<(u32, Option<Hash>), ActorError> {
+        rt.validate_immediate_caller_is(std::iter::once(&SYSTEM_ACTOR_ADDR))?;
+        let account = resolve_external_non_machine(rt, params.account)?;
+        rt.transaction(|st: &mut State, rt| {
+            st.adjust_blob_ttls_for_account(
+                rt.store(),
+                account,
+                rt.curr_epoch(),
+                params.starting_hash,
+                params.limit,
+            )
         })
     }
 
@@ -455,6 +483,8 @@ impl ActorCode for BlobsActor {
         DeleteBlob => delete_blob,
         OverwriteBlob => overwrite_blob,
         SetAccountBlobTtlStatus => set_account_blob_ttl_status,
+        GetAccountBlobMaxTtl => get_account_blob_max_ttl,
+        AdjustBlobTtlForAccount => adjust_blob_ttls_for_account,
         _ => fallback,
     }
 }
