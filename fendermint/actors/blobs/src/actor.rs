@@ -385,7 +385,7 @@ impl BlobsActor {
     }
 
     /// Set the TTL status of an account.
-    fn set_account_blob_ttl_status(
+    fn set_account_type(
         rt: &impl Runtime,
         params: SetAccountBlobTtlStatusParams,
     ) -> Result<(), ActorError> {
@@ -397,22 +397,22 @@ impl BlobsActor {
     }
 
     /// Get the maximum TTL for blobs for an account.
-    fn get_account_blob_max_ttl(rt: &impl Runtime, account: Address) -> Result<i64, ActorError> {
+    fn get_account_type(rt: &impl Runtime, account: Address) -> Result<i64, ActorError> {
         rt.validate_immediate_caller_accept_any()?;
         Ok(rt
             .state::<State>()?
             .get_account_max_ttl(rt.store(), account)?)
     }
 
-    /// Adjusts all subscriptions for `account` according to its max TTL.
+    /// Adjusts all subscriptions for an account according to its max TTL.
     /// Returns the number of subscriptions processed and the next key to continue iteration.
-    fn adjust_blob_ttls_for_account(
+    fn trim_blobs(
         rt: &impl Runtime,
         params: AdjustBlobTtlForAccountParams,
     ) -> Result<(u32, Option<Hash>), ActorError> {
         rt.validate_immediate_caller_is(std::iter::once(&SYSTEM_ACTOR_ADDR))?;
         let account = resolve_external_non_machine(rt, params.account)?;
-        rt.transaction(|st: &mut State, rt| {
+        let (processed, next_key, deleted_blobs) = rt.transaction(|st: &mut State, rt| {
             st.adjust_blob_ttls_for_account(
                 rt.store(),
                 account,
@@ -420,7 +420,11 @@ impl BlobsActor {
                 params.starting_hash,
                 params.limit,
             )
-        })
+        })?;
+        for hash in deleted_blobs {
+            delete_from_disc(hash)?;
+        }
+        Ok((processed, next_key))
     }
 
     /// Fallback method for unimplemented method numbers.
@@ -482,9 +486,9 @@ impl ActorCode for BlobsActor {
         FinalizeBlob => finalize_blob,
         DeleteBlob => delete_blob,
         OverwriteBlob => overwrite_blob,
-        SetAccountBlobTtlStatus => set_account_blob_ttl_status,
-        GetAccountBlobMaxTtl => get_account_blob_max_ttl,
-        AdjustBlobTtlForAccount => adjust_blob_ttls_for_account,
+        SetAccountType => set_account_type,
+        GetAccountType => get_account_type,
+        TrimBlobs => trim_blobs,
         _ => fallback,
     }
 }

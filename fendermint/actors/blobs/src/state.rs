@@ -1421,14 +1421,16 @@ impl State {
     pub fn adjust_blob_ttls_for_account<BS: Blockstore>(
         &mut self,
         store: &BS,
-        account: Address,
+        subscriber: Address,
         current_epoch: ChainEpoch,
         starting_hash: Option<Hash>,
         limit: Option<usize>,
-    ) -> anyhow::Result<(u32, Option<Hash>), ActorError> {
-        use hoku_ipld::hamt::fvm_ipld_hamt::BytesKey;
+    ) -> anyhow::Result<(u32, Option<Hash>, Vec<Hash>), ActorError> {
+        use hoku_ipld::hamt::BytesKey;
 
-        let new_ttl = self.get_account_max_ttl(store, account)?;
+        let new_ttl = self.get_account_max_ttl(store, subscriber)?;
+
+        let mut deleted_blobs = Vec::new();
 
         let mut processed = 0;
         let blobs = self.blobs.hamt(store)?;
@@ -1437,26 +1439,28 @@ impl State {
             starting_key.as_ref(),
             limit,
             |hash, blob| -> Result<(), ActorError> {
-                if let Some(group) = blob.subscribers.get(&account.to_string()) {
+                if let Some(group) = blob.subscribers.get(&subscriber.to_string()) {
                     for (id, sub) in &group.subscriptions {
                         if sub.expiry - sub.added > new_ttl {
                             if new_ttl == 0 {
                                 // Delete subscription
-                                self.delete_blob(
+                                if self.delete_blob(
                                     store,
-                                    account,
-                                    account,
-                                    account,
+                                    subscriber,
+                                    subscriber,
+                                    subscriber,
                                     current_epoch,
                                     hash,
                                     SubscriptionId::Key(id.clone()),
-                                )?;
+                                )? {
+                                    deleted_blobs.push(hash);
+                                };
                             } else {
                                 self.add_blob(
                                     store,
-                                    account,
-                                    account,
-                                    account,
+                                    subscriber,
+                                    subscriber,
+                                    subscriber,
                                     current_epoch,
                                     hash,
                                     blob.metadata_hash.clone(),
@@ -1473,11 +1477,14 @@ impl State {
                             && sub.auto_renew
                             && new_ttl != ChainEpoch::MAX
                         {
+                            // if extended user added a blob with no TTL (i.e. with auto renew) and
+                            // then switched to default account, we need to set the TTL to the default
+                            // max TTL with no auto renew
                             self.add_blob(
                                 store,
-                                account,
-                                account,
-                                account,
+                                subscriber,
+                                subscriber,
+                                subscriber,
                                 current_epoch,
                                 hash,
                                 blob.metadata_hash.clone(),
@@ -1495,7 +1502,7 @@ impl State {
             },
         )?;
 
-        Ok((processed, next_key))
+        Ok((processed, next_key, deleted_blobs))
     }
 
     pub fn get_account_max_ttl<BS: Blockstore>(
@@ -4155,11 +4162,18 @@ mod tests {
                 res.err().unwrap()
             );
 
-            let (processed, next) = res.unwrap();
+            let (processed, next, deleted_blobs) = res.unwrap();
 
             assert_eq!(
                 processed as usize, tc.expected_processed,
                 "Test case '{}' had unexpected number of items processed",
+                tc.name
+            );
+
+            assert_eq!(
+                deleted_blobs.len(),
+                tc.expected_processed,
+                "Test case '{}' had unexpected number of deleted blobs",
                 tc.name
             );
 
