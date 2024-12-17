@@ -1,3 +1,4 @@
+// Copyright 2022-2024 Protocol Labs
 // Copyright 2022-2024 Textile, Inc.
 // SPDX-License-Identifier: Apache-2.0, MIT
 use toml_edit::{DocumentMut, value};
@@ -5,13 +6,14 @@ use colored::{ColoredString, Colorize};
 use regex::Regex;
 use std::fs::{write, read_to_string};
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Child, Command};
 use std::thread::JoinHandle;
 
 use crate::util::{log_level_print, pipe_sub_command, get_rust_log_level, sleep_thirty, NODE_PREFIX, PipeSubCommandArgs};
 use crate::{LogLevel, CMT_RPC_PORTS, CMT_P2P_PORTS};
 
-// for localnet this will generate the required genesis and config files for the given number of nodes
+// For localnet this will generate the required genesis and config files for the given number of nodes
+// inside a temporary directory, then move them to the specific node's directory.
 // parent_dir is the root of the localnet directory, e.g. ~/.ipc/NETWORK_NAME
 pub fn init_cometbft(nodes: Vec<u8>, parent_dir: &PathBuf, log_level: &LogLevel) {
     // start by cleaning any existing tmp dir
@@ -19,13 +21,17 @@ pub fn init_cometbft(nodes: Vec<u8>, parent_dir: &PathBuf, log_level: &LogLevel)
     let tmp_dir = create_tmp_dir();
 
     let rust_log = get_rust_log_level(log_level);
-    let (cometbft_stdout, cometbft_stderr) = pipe_sub_command(PipeSubCommandArgs {
+    // TODO: we don't want the default genesis file, will `cometbft testnet` command still work?
+    // TODO: Looks like we should be able to replace the genesis created in this function with the
+    // TODO: the one customized for our localnet in the genesis_* functions.
+    let (cometbft_stdout, cometbft_stderr, mut child) = pipe_sub_command(PipeSubCommandArgs {
         title: &String::from("COMETBFT INIT").bright_green().bold(),
         cmd: "cometbft",
         envs: Some([
             ["RUST_LOG", rust_log].to_vec(),
         ].to_vec()),
         args: [
+            // NOTE: we don't use the `--populate-persistent-peers` flag since the addresses are non-standard
             "testnet",
             "--o",
             tmp_dir.to_str().unwrap(),
@@ -44,6 +50,8 @@ pub fn init_cometbft(nodes: Vec<u8>, parent_dir: &PathBuf, log_level: &LogLevel)
 
     cometbft_stdout.join().unwrap();
     cometbft_stderr.join().unwrap();
+    child.wait().unwrap();
+
     // copy the genesis, config, data, etc... resulting from above from the tmp dir to ~/.ipc/NETWORK_NAME/validator-*/validator-*/cometbft/
     for i in nodes.clone().into_iter() {
         move_config(
@@ -68,7 +76,7 @@ pub fn init_cometbft(nodes: Vec<u8>, parent_dir: &PathBuf, log_level: &LogLevel)
     remove_tmp_dir();
 }
 
-pub fn start_cometbft(cmt_dir: &Path, label: &ColoredString, log_level: &LogLevel) -> (JoinHandle<()>, JoinHandle<()>) {
+pub fn start_cometbft(cmt_dir: &Path, label: &ColoredString, log_level: &LogLevel) -> (JoinHandle<()>, JoinHandle<()>, Child) {
     // "cometbft-init",
     let cmt_home = String::from(cmt_dir.to_str().unwrap());
     let rust_log = get_rust_log_level(log_level);

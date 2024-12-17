@@ -1,3 +1,4 @@
+// Copyright 2022-2024 Protocol Labs
 // Copyright 2022-2024 Textile, Inc.
 // SPDX-License-Identifier: Apache-2.0, MIT
 mod anvil;
@@ -13,6 +14,7 @@ mod util;
 
 use clap::{Parser, Subcommand, ValueEnum};
 use colored::Colorize;
+use fendermint::init_fendermint;
 use regex::Regex;
 use std::path::Path;
 
@@ -35,6 +37,7 @@ use contracts::{
     fund_wallet_token,
     join_subnet,
     setup_gater,
+    update_ipc_subnet_config,
     ContractMap
 };
 use node::{create_node, NodeConfig, PortMap};
@@ -48,15 +51,11 @@ use util::{
     setup_subnet_config,
     sleep_thirty,
     sleep_three,
+    get_subnet_eth_addr,
     PipeSubCommandArgs
 };
 
 const ANVIL_CHAIN_ID: &str = "31337";
-// note: the subnet id always has the same value so putting it here
-// TODO: we can probably get this from the subnet create command so we can use this on pre-existing nets
-const SUBNET_ADDRESS: &str = "t410fkzrz3mlkyufisiuae3scumllgalzuu3wxlxa2ly";
-// Note: to get subnet eth addr do `./target/debug/ipc-cli util f4-to-eth-addr --addr "t410fkzrz3mlkyufisiuae3scumllgalzuu3wxlxa2ly"`
-const SUBNET_ETH_ADDRESS: &str = "0x56639db16ac50a89228026e42a316b30179a5376";
 
 const IROH_RPC_PORTS: [u16; 10] = [4919, 4920, 4921, 4922, 4923, 4924, 4925, 4926, 4927, 4928];
 const CMT_RPC_PORTS: [u16; 10] = [26657, 26658, 26659, 26660, 26661, 26662, 26663, 26664, 26665, 26666];
@@ -142,7 +141,7 @@ fn devnet(log_level: &LogLevel) {
     // }
     let start_label = String::from("STARTUP").white().bold();
 
-    let (iroh_stdout, iroh_stderr) = pipe_sub_command(PipeSubCommandArgs {
+    let (iroh_stdout, iroh_stderr, _) = pipe_sub_command(PipeSubCommandArgs {
         title: &String::from("IROH").magenta().bold(),
         cmd: "make",
         args: ["run-devnet-iroh"].to_vec(),
@@ -155,7 +154,7 @@ fn devnet(log_level: &LogLevel) {
 
     // TODO: use channels to pass ready messages instead of sleep calls, maybe not worth the effort since waiting works?
     sleep_three(log_level);
-    let (objects_stdout, objects_stderr) = pipe_sub_command(PipeSubCommandArgs {
+    let (objects_stdout, objects_stderr, _) = pipe_sub_command(PipeSubCommandArgs {
         title: &String::from("OBJECTS").green().bold(),
         cmd: "make",
         args: ["run-devnet-objects"].to_vec(),
@@ -171,7 +170,7 @@ fn devnet(log_level: &LogLevel) {
         Regex::new("size: 0, tx_count: 0"),
         Regex::new("BlockCommitted")
     ];
-    let (fendermint_stdout, fendermint_stderr) = pipe_sub_command(PipeSubCommandArgs {
+    let (fendermint_stdout, fendermint_stderr, _) = pipe_sub_command(PipeSubCommandArgs {
         title: &String::from("FENDERMINT").bright_yellow().bold(),
         cmd: "make",
         args: ["run-devnet-fendermint"].to_vec(),
@@ -183,7 +182,7 @@ fn devnet(log_level: &LogLevel) {
     });
 
     sleep_three(log_level);
-    let (cometbft_stdout, cometbft_stderr) = pipe_sub_command(PipeSubCommandArgs {
+    let (cometbft_stdout, cometbft_stderr, _) = pipe_sub_command(PipeSubCommandArgs {
         title: &String::from("COMETBFT").cyan().bold(),
         cmd: "make",
         args: ["run-devnet-cometbft"].to_vec(),
@@ -201,7 +200,7 @@ fn devnet(log_level: &LogLevel) {
         err_filters: vec![],
         log_level,
     });
-    let (evm_stdout, evm_stderr) = pipe_sub_command(PipeSubCommandArgs {
+    let (evm_stdout, evm_stderr, _) = pipe_sub_command(PipeSubCommandArgs {
         title: &String::from("EVM_RPC").bright_yellow().on_blue().bold(),
         cmd: "make",
         args: ["run-devnet-evm"].to_vec(),
@@ -229,8 +228,8 @@ fn devnet(log_level: &LogLevel) {
 
 // TODO: this doesn't build or install anything. we are just starting the network here. we should have the ability to build somehow
 fn localnet(log_level: &LogLevel, nodes: Vec<u8>) {
-    let subnet_id: &str = &format!("/r{ANVIL_CHAIN_ID}/{SUBNET_ADDRESS}");
-    let network_name: &str = &format!("r{ANVIL_CHAIN_ID}-{SUBNET_ADDRESS}");
+    let network_name = "localnet";
+    let chain_id = "2481632128";
 
     let node_count = nodes.len();
 
@@ -260,9 +259,10 @@ fn localnet(log_level: &LogLevel, nodes: Vec<u8>) {
 
     init_node_dir(&ipc_config_dir, &ipc_config_dir.join(network_name), repo_root_dir, nodes.clone());
 
+    // TODO: enable skipping this via command flag
     build_contracts(repo_root_dir, log_level);
 
-    let (anvil_stdout, anvil_stderr) = start_anvil(log_level);
+    let (anvil_stdout, anvil_stderr, _) = start_anvil(log_level);
     setup_anvil_keys(nodes.clone(), &ipc_config_dir, log_level);
 
     let mut contracts = deploy_libraries(repo_root_dir, log_level);
@@ -293,32 +293,43 @@ fn localnet(log_level: &LogLevel, nodes: Vec<u8>) {
         print(&format!("token funding result {:?}", wallet_out), &LogLevel::Debug);
     }
 
-    setup_subnet_config(
-        repo_root_dir,
-        ipc_config_dir.as_path(),
-        &contracts,
-        PARENT_ENDPOINT,
-        &format!("http://127.0.0.1:{:?}", ETHAPI_PORTS[nodes[0] as usize]),
-        ANVIL_CHAIN_ID,
-        subnet_id,
-        log_level
-    );
     let gater_address = deploy_gater(PARENT_ENDPOINT, repo_root_dir, log_level);
     contracts.gater = gater_address;
     println!("gater addresssss:   {:?}", &contracts.gater);
-    create_subnet(&contracts.supply_source_address, &contracts.gater, log_level);
+
+    setup_subnet_config(
+        repo_root_dir,
+        &ipc_config_dir,
+        &contracts,
+        PARENT_ENDPOINT,
+        ANVIL_CHAIN_ID,
+        log_level
+    );
+
+    let subnet_id = create_subnet(
+        &ipc_config_dir.join("config.toml"),
+        &contracts.supply_source_address,
+        &contracts.gater,
+        log_level
+    );
+    let ethapi_rpc_url = &format!("http://127.0.0.1:{:?}", ETHAPI_PORTS[nodes[0] as usize]);
+    update_ipc_subnet_config(&ipc_config_dir.join("config.toml"), ethapi_rpc_url, &subnet_id);
+
+    let subnet_addr = subnet_id.split("/").last().unwrap();
+    let subnet_eth_addr = get_subnet_eth_addr(subnet_addr, log_level);
 
     setup_gater(
         PARENT_ENDPOINT,
         &contracts.gater,
-        SUBNET_ETH_ADDRESS,
+        &subnet_eth_addr,
         nodes.clone(),
         repo_root_dir,
         log_level
     );
 
-    // initialize cometbft config before starting nodes
+    // initialize cometbft and fendermint before starting nodes
     init_cometbft(nodes.clone(), &ipc_config_dir.join(network_name), log_level);
+    init_fendermint(nodes.clone(), &format!("/r{ANVIL_CHAIN_ID}"), chain_id, &ipc_config_dir.join(network_name), repo_root_dir, log_level);
 
     let mut node_outs = vec!();
     print(&format!("starting {:?} validatore nodes", node_count), &LogLevel::Info);
@@ -345,14 +356,14 @@ fn localnet(log_level: &LogLevel, nodes: Vec<u8>) {
         // give the node time to finish setting up
         sleep_three(log_level);
 
-        join_subnet(PARENT_ENDPOINT, SUBNET_ETH_ADDRESS, subnet_id, &contracts.supply_source_address, i, log_level);
+        join_subnet(PARENT_ENDPOINT, &subnet_eth_addr, &subnet_id, &contracts.supply_source_address, i, log_level);
     }
 
     // give the network time to finish setting up
     sleep_thirty(log_level);
 
-    start_relayer(&ipc_config_dir, subnet_id, log_level);
-    buy_credits(&format!("http://localhost:{:?}", ETHAPI_PORTS[0]), subnet_id, log_level);
+    start_relayer(&ipc_config_dir, &subnet_id, log_level);
+    buy_credits(&format!("http://localhost:{:?}", ETHAPI_PORTS[0]), &subnet_id, log_level);
 
     print_logo(&start_label, log_level);
 

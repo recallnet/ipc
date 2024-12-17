@@ -1,8 +1,10 @@
+// Copyright 2022-2024 Protocol Labs
 // Copyright 2022-2024 Textile, Inc.
 // SPDX-License-Identifier: Apache-2.0, MIT
 use colored::Colorize;
 use std::fs::write;
 use std::path::Path;
+use std::process::Child;
 use std::thread::JoinHandle;
 use regex::Regex;
 
@@ -34,7 +36,7 @@ pub const ANVIL_PUBLIC_KEYS: [&str; 10] = [
     "0xa0ee7a142d267c1f36714e4a8f75612f20a79720",
 ];
 
-pub fn start_anvil(log_level: &LogLevel) -> (JoinHandle<()>, JoinHandle<()>) {
+pub fn start_anvil(log_level: &LogLevel) -> (JoinHandle<()>, JoinHandle<()>, Child) {
     let rust_log = get_rust_log_level(log_level);
 
     let anvil_msg_filters = vec![

@@ -1,21 +1,18 @@
+// Copyright 2022-2024 Protocol Labs
 // Copyright 2022-2024 Textile, Inc.
 // SPDX-License-Identifier: Apache-2.0, MIT
 use colored::Colorize;
 use std::path::Path;
 use std::process::{Command, Output};
-
+use std::fs::{read_to_string, write};
+use toml_edit::{DocumentMut, value};
 
 use crate::anvil::{
     ANVIL_PRIVATE_KEYS, ANVIL_PUBLIC_KEYS
 };
 use crate::util::{
-    log_level_print,
-    pipe_sub_command,
-    get_rust_log_level,
-    sleep_three,
-    get_forge_deployed_address,
-    get_hardhat_deployed_address,
-    PipeSubCommandArgs
+    get_command_out,
+    get_forge_deployed_address, get_hardhat_deployed_address, get_rust_log_level, log_level_print, pipe_sub_command, sleep_three, GetCommandOutArgs, PipeSubCommandArgs
 };
 use crate::LogLevel;
 
@@ -35,7 +32,7 @@ pub fn build_contracts(repo_root_dir: &Path, log_level: &LogLevel) {
     let rust_log = get_rust_log_level(log_level);
     // need to run clean or we hit upgradeable saftey validation errors resulting
     // from contracts with the same name
-    let (clean_out, clean_err) = pipe_sub_command(PipeSubCommandArgs {
+    let (clean_out, clean_err, mut child) = pipe_sub_command(PipeSubCommandArgs {
         title: &String::from("FORGE CLEAN").bright_green().bold(),
         cmd: "forge",
         envs: Some([["RUST_LOG", rust_log].to_vec()].to_vec()),
@@ -48,9 +45,10 @@ pub fn build_contracts(repo_root_dir: &Path, log_level: &LogLevel) {
 
     clean_out.join().unwrap();
     clean_err.join().unwrap();
+    child.wait().unwrap();
 
-    let (build_out, build_err) = pipe_sub_command(PipeSubCommandArgs {
-        title: &String::from("FORGE BUILD").bright_yellow().bold(),
+    let (build_out, build_err, mut child) = pipe_sub_command(PipeSubCommandArgs {
+        title: &String::from("FORGE BUILD HOKU").bright_blue().bold(),
         cmd: "forge",
         // TODO: I don't know for sure which subprocesses use this env, but passing it in just in case
         envs: Some([["RUST_LOG", rust_log].to_vec()].to_vec()),
@@ -63,6 +61,62 @@ pub fn build_contracts(repo_root_dir: &Path, log_level: &LogLevel) {
 
     build_out.join().unwrap();
     build_err.join().unwrap();
+    child.wait().unwrap();
+
+    let (build_out, build_err, mut child) = pipe_sub_command(PipeSubCommandArgs {
+        title: &String::from("FORGE BUILD IPC").yellow(),
+        cmd: "forge",
+        // TODO: I don't know for sure which subprocesses use this env, but passing it in just in case
+        envs: Some([["RUST_LOG", rust_log].to_vec()].to_vec()),
+        current_dir: repo_root_dir.join("contracts").to_str(),
+        args: [
+            "build",
+            "-C",
+            "./src/",
+            "--lib-paths",
+            "lib/",
+            "--via-ir",
+            "--sizes",
+            "--skip",
+            "test",
+            "--out",
+            "out"
+        ].to_vec(),
+        log_level,
+        out_filters: vec![],
+        err_filters: vec![]
+    });
+
+    build_out.join().unwrap();
+    build_err.join().unwrap();
+    child.wait().unwrap();
+
+    let (build_out, build_err, mut child) = pipe_sub_command(PipeSubCommandArgs {
+        title: &String::from("FORGE BUILD RUST BINDING").yellow().bold().on_cyan(),
+        cmd: "cargo",
+        args: [
+            "build",
+            "--locked",
+            "--release",
+            "--manifest-path",
+            "./binding/Cargo.toml",
+            "-p",
+            "ipc_actors_abis"
+        ].to_vec(),
+        // TODO: I don't know for sure which subprocesses use this env, but passing it in just in case
+        envs: Some([
+            ["RUST_LOG", rust_log].to_vec(),
+            ["OUTPUT", "out"].to_vec()
+        ].to_vec()),
+        current_dir: repo_root_dir.join("contracts").to_str(),
+        log_level,
+        out_filters: vec![],
+        err_filters: vec![]
+    });
+
+    build_out.join().unwrap();
+    build_err.join().unwrap();
+    child.wait().unwrap();
 
     // remove old deployment artifacts
     Command::new("rm")
@@ -73,7 +127,7 @@ pub fn build_contracts(repo_root_dir: &Path, log_level: &LogLevel) {
 }
 
 pub fn deploy_libraries(repo_root_dir: &Path, log_level: &LogLevel) -> ContractMap {
-    let (lib_out, lib_err) = pipe_sub_command(PipeSubCommandArgs {
+    let (lib_out, lib_err, _) = pipe_sub_command(PipeSubCommandArgs {
         title: &String::from("DEPLOY LIBRARIES").magenta().bold(),
         cmd: "npx",
         envs: Some([
@@ -136,7 +190,7 @@ pub fn deploy_libraries(repo_root_dir: &Path, log_level: &LogLevel) -> ContractM
 }
 
 pub fn deploy_gater(anvil_rpc_url: &str, repo_root_dir: &Path, log_level: &LogLevel) -> String {
-    let (gater_out, gater_err) = pipe_sub_command(PipeSubCommandArgs {
+    let (gater_out, gater_err, mut child) = pipe_sub_command(PipeSubCommandArgs {
         title: &String::from("DEPLOY VALIDATOR GATER").bright_green().bold(),
         cmd: "forge",
         args: [
@@ -166,6 +220,7 @@ pub fn deploy_gater(anvil_rpc_url: &str, repo_root_dir: &Path, log_level: &LogLe
 
     gater_out.join().unwrap();
     gater_err.join().unwrap();
+    child.wait().unwrap();
 
     get_forge_deployed_address(
         &repo_root_dir
@@ -200,8 +255,8 @@ pub fn setup_gater(
         log_level_print(&gater_label, &format!("{:?}", out), log_level, &LogLevel::Info, &vec![]);
     }
 
-    let (subnet_gate_out, subnet_gate_err) = pipe_sub_command(PipeSubCommandArgs {
-        title: &String::from("VALIDATOR GATER SET SUBNET").bright_green().bold(),
+    let (subnet_gate_out, subnet_gate_err, mut child) = pipe_sub_command(PipeSubCommandArgs {
+        title: &String::from("VALIDATOR GATER SET SUBNET").purple().bold(),
         cmd: "cast",
         args: [
             "send",
@@ -224,6 +279,7 @@ pub fn setup_gater(
 
     subnet_gate_out.join().unwrap();
     subnet_gate_err.join().unwrap();
+    child.wait().unwrap();
 
 }
 
@@ -255,7 +311,7 @@ fn approve_validator_gate(
 
 pub fn deploy_gateway(contracts: &ContractMap, repo_root_dir: &Path, log_level: &LogLevel) -> String {
 
-    let (gate_out, gate_err) = pipe_sub_command(PipeSubCommandArgs {
+    let (gate_out, gate_err, mut child) = pipe_sub_command(PipeSubCommandArgs {
         title: &String::from("DEPLOY GATEWAY").blue().on_yellow().bold(),
         cmd: "npx",
         envs: Some([
@@ -280,6 +336,7 @@ pub fn deploy_gateway(contracts: &ContractMap, repo_root_dir: &Path, log_level: 
     //  we could optimise running some of these in parallel?
     gate_out.join().unwrap();
     gate_err.join().unwrap();
+    child.wait().unwrap();
 
     get_hardhat_deployed_address(
         &repo_root_dir
@@ -292,7 +349,7 @@ pub fn deploy_gateway(contracts: &ContractMap, repo_root_dir: &Path, log_level: 
 
 pub fn deploy_registry(contracts: &ContractMap, repo_root_dir: &Path, log_level: &LogLevel) -> String {
 
-    let (reg_out, reg_err) = pipe_sub_command(PipeSubCommandArgs {
+    let (reg_out, reg_err, mut child) = pipe_sub_command(PipeSubCommandArgs {
         title: &String::from("DEPLOY REGISTRY").cyan().bold(),
         cmd: "npx",
         envs: Some([
@@ -317,6 +374,7 @@ pub fn deploy_registry(contracts: &ContractMap, repo_root_dir: &Path, log_level:
     // TODO: calling join ensures that contract deployment happens in series, which is slow
     reg_out.join().unwrap();
     reg_err.join().unwrap();
+    child.wait().unwrap();
 
     get_hardhat_deployed_address(
         &repo_root_dir
@@ -330,7 +388,7 @@ pub fn deploy_registry(contracts: &ContractMap, repo_root_dir: &Path, log_level:
 pub fn deploy_supply_source(anvil_rpc_url: &str, repo_root_dir: &Path, log_level: &LogLevel) -> String {
     let rust_log = get_rust_log_level(log_level);
 
-    let (supply_out, supply_err) = pipe_sub_command(PipeSubCommandArgs {
+    let (supply_out, supply_err, mut child) = pipe_sub_command(PipeSubCommandArgs {
         title: &String::from("DEPLOY SUPPLY SOURCE").purple().bold(),
         cmd: "forge",
         envs: Some([
@@ -364,6 +422,7 @@ pub fn deploy_supply_source(anvil_rpc_url: &str, repo_root_dir: &Path, log_level
 
     supply_out.join().unwrap();
     supply_err.join().unwrap();
+    child.wait().unwrap();
 
     get_forge_deployed_address(
         &repo_root_dir
@@ -375,21 +434,29 @@ pub fn deploy_supply_source(anvil_rpc_url: &str, repo_root_dir: &Path, log_level
     )
 }
 
-pub fn create_subnet(supply_source_address: &str, gater_address: &str, log_level: &LogLevel) {
+pub fn create_subnet(
+    ipc_config_path: &Path,
+    supply_source_address: &str,
+    gater_address: &str,
+    log_level: &LogLevel
+) -> String {
     let rust_log = get_rust_log_level(log_level);
+    let parent_id = "/r31337";
     // note: the config used to run this command comes from `~/.ipc/config.toml`, which is copied from `hoku-dev/config/config.toml` during startup
-    let (subnet_out, subnet_err) = pipe_sub_command(PipeSubCommandArgs {
+    let subnet_id = get_command_out(GetCommandOutArgs {
         title: &String::from("CREATE SUBNET").yellow().bold(),
         cmd: "./target/debug/ipc-cli",
         envs: Some([["RUST_LOG", rust_log].to_vec()].to_vec()),
         current_dir: None,
         args: [
+            "--config-path",
+            ipc_config_path.to_str().unwrap(),
             "subnet",
             "create",
             "--from",
             ANVIL_PUBLIC_KEYS[0],
             "--parent",
-            "/r31337",
+            parent_id,
             "--min-validators",
             "1",
             "--min-validator-stake",
@@ -412,21 +479,40 @@ pub fn create_subnet(supply_source_address: &str, gater_address: &str, log_level
             supply_source_address
         ].to_vec(),
         log_level,
-        out_filters: vec![],
-        err_filters: vec![]
+    }, |line: &str| -> String {
+        if line.contains("created subnet actor with id:") {
+            return String::from(line.split_whitespace().last().unwrap());
+        }
+
+        String::from("")
     });
 
-    subnet_out.join().unwrap();
-    subnet_err.join().unwrap();
+    subnet_id
+}
 
-    
+pub fn update_ipc_subnet_config(
+    config_filepath: &Path,
+    child_rpc_url: &str,
+    subnet_id: &str
+) {
+    // we use our default cometbft config.toml file, but we need to update to use the config for this network
+    let config_file = read_to_string(config_filepath).expect("could not modify ipc config");
+    let mut conf_doc = config_file.parse::<DocumentMut>().expect("invalid ipc config document");
+
+    conf_doc["subnets"][1]["id"] = value(subnet_id);
+    conf_doc["subnets"][1]["config"]["provider_http"] = value(child_rpc_url);
+    conf_doc["subnets"][1]["network_type"] = value("fevm");
+    conf_doc["subnets"][1]["gateway_addr"] = value("0x77aa40b105843728088c0132e43fc44348881da8");
+    conf_doc["subnets"][1]["registry_addr"] = value("0x74539671a1d2f1c8f200826baba665179f53a1b7");
+
+    write(config_filepath, conf_doc.to_string()).expect("could not write to ipc config file");
 }
 
 pub fn join_subnet(anvil_rpc_url: &str, subnet_eth_address: &str, subnet_id: &str, supply_source_address: &str, node_number: u8, log_level: &LogLevel) {
     let rust_log = get_rust_log_level(log_level);
 
   // Approve subnet contract to lock up to 10 HOKU from collateral contract (which is also the supply source contract)
-    let (lock_collateral_out, lock_collateral_err) = pipe_sub_command(PipeSubCommandArgs {
+    let (lock_collateral_out, lock_collateral_err, mut child) = pipe_sub_command(PipeSubCommandArgs {
         title: &format!("APPROVE {:?}", node_number).bright_magenta().bold(),
         cmd: "cast",
         args: [
@@ -451,10 +537,11 @@ pub fn join_subnet(anvil_rpc_url: &str, subnet_eth_address: &str, subnet_id: &st
 
     lock_collateral_out.join().unwrap();
     lock_collateral_err.join().unwrap();
+    child.wait().unwrap();
 
     // Join and stake 10 HOKU
     //ipc-cli subnet join --from "${wallet_addresses[i]}" --subnet "$subnet_id" --collateral 10
-    let (join_subnet_out, join_subnet_err) = pipe_sub_command(PipeSubCommandArgs {
+    let (join_subnet_out, join_subnet_err, mut child) = pipe_sub_command(PipeSubCommandArgs {
         title: &format!("JOIN SUBNET {:?}", node_number).magenta().on_yellow().bold(),
         cmd: "./target/debug/ipc-cli",
         args: [
@@ -476,6 +563,7 @@ pub fn join_subnet(anvil_rpc_url: &str, subnet_eth_address: &str, subnet_id: &st
 
     join_subnet_out.join().unwrap();
     join_subnet_err.join().unwrap();
+    child.wait().unwrap();
 }
 
 pub fn buy_credits(subnet_eth_rpc_url: &str, subnet_id: &str, log_level: &LogLevel) {
@@ -485,7 +573,7 @@ pub fn buy_credits(subnet_eth_rpc_url: &str, subnet_id: &str, log_level: &LogLev
         let addr = ANVIL_PUBLIC_KEYS[i];
 
         // send tokens from the parent erc20 contract to the subnet erc20 token
-        let (stdout, stderr) = pipe_sub_command(PipeSubCommandArgs {
+        let (stdout, stderr, mut child) = pipe_sub_command(PipeSubCommandArgs {
             title: &format!("FUND WITH TOKEN {:?}", i).bright_purple().bold(),
             cmd: "./target/debug/ipc-cli",
             envs: Some([["RUST_LOG", rust_log].to_vec()].to_vec()),
@@ -509,6 +597,7 @@ pub fn buy_credits(subnet_eth_rpc_url: &str, subnet_id: &str, log_level: &LogLev
 
         stdout.join().unwrap();
         stderr.join().unwrap();
+        child.wait().unwrap();
 
         // let the transactions process
         sleep_three(log_level);
@@ -555,7 +644,7 @@ pub fn buy_credits(subnet_eth_rpc_url: &str, subnet_id: &str, log_level: &LogLev
     for i in 0..ANVIL_PRIVATE_KEYS.len() {
         let private_key = ANVIL_PRIVATE_KEYS[i];
 
-        let (stdout, stderr) = pipe_sub_command(PipeSubCommandArgs {
+        let (stdout, stderr, mut child) = pipe_sub_command(PipeSubCommandArgs {
             title: &label,
             cmd: "hoku",
             args: [
@@ -575,6 +664,7 @@ pub fn buy_credits(subnet_eth_rpc_url: &str, subnet_id: &str, log_level: &LogLev
 
         stdout.join().unwrap();
         stderr.join().unwrap();
+        child.wait().unwrap();
     }
 
 }

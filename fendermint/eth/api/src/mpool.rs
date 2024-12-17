@@ -166,7 +166,6 @@ fn collect_txs(block: &Block, chain_id: &ChainID) -> Vec<(et::TxHash, Address, N
 /// Fetch the chain ID from the API; do it in a loop until it succeeds.
 async fn get_chain_id(client: &FendermintClient<HybridClient>) -> ChainID {
     loop {
-
         match client.state_params(FvmQueryHeight::default()).await {
             Ok(sp) => {
                 return ChainID::from(sp.value.chain_id);

@@ -168,7 +168,6 @@ contract GatewayManagerFacet is GatewayActorModifiers, ReentrancyGuard {
     /// @param subnetId The ID of the subnet where the funds will be sent to.
     /// @param to The funded address.
     /// @param amount The amount of ERC20 tokens to be sent.
-
     function fundWithToken(SubnetID calldata subnetId, FvmAddress calldata to, uint256 amount) external nonReentrant {
         if (amount == 0) {
             // prevent spamming if there's no value to fund.

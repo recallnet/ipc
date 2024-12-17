@@ -6,6 +6,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+fendermint_vm_genesis = { path = "../fendermint/vm/genesis" }
 clap = { version = "4.0", features = ["derive"] }
 colored = "2"
 const_format = "0.2.33"
@@ -16,3 +17,4 @@ regex.workspace = true
 time.workspace = true
 toml_edit = "0.22.22"
 chrono = "0.4.38"
+cometbft = "0.1.0-alpha.2"

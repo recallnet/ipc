@@ -178,7 +178,7 @@ pub(crate) fn require_fil_addr_from_str(s: &str) -> anyhow::Result<fvm_shared::a
 pub(crate) fn get_subnet_config(
     config_path: impl AsRef<Path>,
     subnet: &SubnetID,
-) -> Result<Subnet> {
+    ) -> Result<Subnet> {
     let config = Config::from_file(&config_path)?;
 
     Ok(config

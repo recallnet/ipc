@@ -1,8 +1,10 @@
+// Copyright 2022-2024 Protocol Labs
 // Copyright 2022-2024 Textile, Inc.
 // SPDX-License-Identifier: Apache-2.0, MIT
 use toml_edit::{DocumentMut, value};
 use colored::ColoredString;
 use std::path::Path;
+use std::process::Child;
 use std::fs::{write, read_to_string};
 use std::thread::JoinHandle;
 
@@ -17,7 +19,7 @@ pub fn start_ethapi(
     label: &ColoredString,
     cmt_rpc_url: &str,
     log_level: &LogLevel
-) -> (JoinHandle<()>, JoinHandle<()>) {
+) -> (JoinHandle<()>, JoinHandle<()>, Child) {
     let rust_log = get_rust_log_level(log_level);
 
     // "start the etherium json-rpc facade",
@@ -35,7 +37,7 @@ pub fn start_ethapi(
             "testnet",
             "eth",
             "run",
-            // The URL of the Tendermint node's RPC endpoint
+            // The URL of the fendermint ABCI query RPC endpoint
             "--http-url",
             cmt_rpc_url,
             // how to set the listen port?

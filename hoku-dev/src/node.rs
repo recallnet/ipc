@@ -1,12 +1,14 @@
+// Copyright 2022-2024 Protocol Labs
 // Copyright 2022-2024 Textile, Inc.
 // SPDX-License-Identifier: Apache-2.0, MIT
 use colored::Colorize;
 use std::path::Path;
+use std::process::Child;
 use std::thread::JoinHandle;
 
 use crate::cometbft::{start_cometbft, get_cmt_rpc};
 use crate::ethapi::{start_ethapi, init_ethapi};
-use crate::fendermint::{start_fendermint, init_fendermint};
+use crate::fendermint::start_fendermint;
 use crate::iroh::{setup_iroh_config, start_iroh};
 use crate::objects::{start_objects, init_objects};
 use crate::util::{log_level_print, sleep_thirty};
@@ -16,11 +18,11 @@ use crate::{
 };
 
 pub struct NodeHandles {
-    pub iroh: (JoinHandle<()>, JoinHandle<()>),
-    pub cometbft: (JoinHandle<()>, JoinHandle<()>),
-    pub fendermint: (JoinHandle<()>, JoinHandle<()>),
-    pub evm: (JoinHandle<()>, JoinHandle<()>),
-    pub objects: (JoinHandle<()>, JoinHandle<()>),
+    pub iroh: (JoinHandle<()>, JoinHandle<()>, Child),
+    pub cometbft: (JoinHandle<()>, JoinHandle<()>, Child),
+    pub fendermint: (JoinHandle<()>, JoinHandle<()>, Child),
+    pub evm: (JoinHandle<()>, JoinHandle<()>, Child),
+    pub objects: (JoinHandle<()>, JoinHandle<()>, Child),
 }
 
 pub struct NodeConfig<'a> {
@@ -71,6 +73,7 @@ pub fn create_node(config: NodeConfig) -> NodeHandles {
     let cmt_dir = node_path.join("cometbft");
     let cmt_rpc_address = get_cmt_rpc(node_number);
     let cmt_rpc_url = &format!("http://{}", cmt_rpc_address);
+
     let cometbft_out = start_cometbft(
         &cmt_dir,
         &format!("COMETBFT {:?}", node_number).cyan().bold(),
@@ -80,7 +83,7 @@ pub fn create_node(config: NodeConfig) -> NodeHandles {
     let fm_dir = node_path.join("fendermint");
     let label = format!("FENDERMINT {:?}", node_number).yellow().bold();
     let fm_resolver_port = format!("{:?}", ports.fm_resolver);
-    init_fendermint(&fm_dir, node_number, log_level);
+
     init_objects(&fm_dir, node_number, log_level);
     init_ethapi(&fm_dir, node_number, log_level);
 

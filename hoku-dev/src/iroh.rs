@@ -1,9 +1,11 @@
+// Copyright 2022-2024 Protocol Labs
 // Copyright 2022-2024 Textile, Inc.
 // SPDX-License-Identifier: Apache-2.0, MIT
 use toml_edit::{DocumentMut, value};
 use colored::ColoredString;
 use std::fs::{write, read_to_string};
 use std::path::{Path, PathBuf};
+use std::process::Child;
 use std::thread::JoinHandle;
 
 use crate::util::{pipe_sub_command, get_rust_log_level, sleep_thirty, PipeSubCommandArgs};
@@ -28,7 +30,7 @@ pub fn setup_iroh_config(iroh_dir: &Path) {
     write(&iroh_config_filepath, conf_doc.to_string()).expect("could not write to iroh config file");
 }
 
-pub fn start_iroh(iroh_dir: &PathBuf, rpc_address: &str, label: &ColoredString, log_level: &LogLevel) -> (JoinHandle<()>, JoinHandle<()>) {
+pub fn start_iroh(iroh_dir: &PathBuf, rpc_address: &str, label: &ColoredString, log_level: &LogLevel) -> (JoinHandle<()>, JoinHandle<()>, Child) {
     let rust_log = get_rust_log_level(log_level);
 
     // "iroh-start",

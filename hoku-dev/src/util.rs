@@ -1,15 +1,16 @@
 // Copyright 2022-2024 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
-use colored::{ColoredString, Colorize};
-use regex::Regex;
-use toml_edit::{DocumentMut, value};
 use std::io::{BufRead, BufReader};
-use std::process::{Command, Stdio};
+use std::process::{Child, Command, Stdio};
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::thread::JoinHandle;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 use std::fs::{read_to_string, write, File};
+use colored::{ColoredString, Colorize};
+use regex::Regex;
+use toml_edit::{DocumentMut, value};
 use serde::Serialize;
 use chrono::{DateTime, Local};
 
@@ -122,7 +123,7 @@ pub struct PipeSubCommandArgs<'a> {
     pub log_level: &'a LogLevel,
 }
 
-pub fn pipe_sub_command(args: PipeSubCommandArgs) -> (JoinHandle<()>, JoinHandle<()>) {
+pub fn pipe_sub_command(args: PipeSubCommandArgs) -> (JoinHandle<()>, JoinHandle<()>, Child) {
     let lblout = args.title.clone();
     let lblerr = args.title.clone();
 
@@ -173,11 +174,94 @@ pub fn pipe_sub_command(args: PipeSubCommandArgs) -> (JoinHandle<()>, JoinHandle
         }
     });
 
-    (stdout_thread, stderr_thread)
+    (stdout_thread, stderr_thread, command_out)
+}
+
+pub struct GetCommandOutArgs<'a> {
+    pub title: &'a ColoredString,
+    pub cmd: &'a str,
+    pub args: Vec<&'a str>,
+    pub envs: Option<Vec<Vec<&'a str>>>,
+    pub current_dir: Option<&'a str>,
+    pub log_level: &'a LogLevel,
+}
+
+pub fn get_command_out(args: GetCommandOutArgs, capture: fn(&str) -> String) -> String {
+    let lblout = args.title.clone();
+    let lblerr = args.title.clone();
+
+    let mut cmd: &mut Command = &mut Command::new(args.cmd);
+
+    if let Some(envs) = args.envs {
+        for env in &envs {
+            if env.len() == 2 {
+                cmd = cmd.env(env[0], env[1]);
+            }
+        }
+    }
+    if let Some(current_dir) = args.current_dir {
+        cmd.current_dir(current_dir);
+    }
+
+    let mut command_out = cmd
+        .args(args.args)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap_or_else(|err| panic!("could not run command {:?}: Error: {:?}", cmd, err));
+    let stdout = command_out
+        .stdout
+        .take()
+        .unwrap_or_else(|| panic!("could not take {} stdout", lblout));
+    let stderr = command_out
+        .stderr
+        .take()
+        .unwrap_or_else(|| panic!("could not take {} stderr", lblerr));
+
+    // we want to use thread safe reference counting pointers so that the sub-process stdout
+    // can be iterated over in a thread.  This allows us to both, print the sub-process stdout
+    // with a label in the parent stdout, and to run each line of the sub-process through a
+    // funciton that potentially captures a value from the output.
+    let ret_arc_1 = Arc::new(Mutex::new(String::from("")));
+    let ret_arc_2 = ret_arc_1.clone();
+    let out_log = *args.log_level;
+    let stdout_thread = thread::spawn(move || {
+        let mut value = String::from("");
+        let stdout_lines = BufReader::new(stdout).lines();
+        for line in stdout_lines {
+            let line = line.unwrap();
+            log_level_print(&lblout, &line, &out_log, &LogLevel::Info, &vec![]);
+
+            // only keep the first value returned from `capture`
+            if value.is_empty() {
+                value = capture(&line);
+            }
+        }
+
+        let mut val = ret_arc_1.lock().unwrap();
+        *val = value;
+    });
+
+    let err_log = *args.log_level;
+    let stderr_thread = thread::spawn(move || {
+        let stderr_lines = BufReader::new(stderr).lines();
+        for line in stderr_lines {
+            let line = line.unwrap();
+            log_level_print(&lblerr, &line, &err_log, &LogLevel::Info, &vec![]);
+        }
+    });
+
+    stdout_thread.join().unwrap();
+    stderr_thread.join().unwrap();
+    command_out.wait().unwrap();
+
+    let mux_val = ret_arc_2.lock().unwrap();
+
+    mux_val.clone()
 }
 
 // TODO: this should take the log_level. if debug, print the paths all these commands use
-pub fn init_node_dir(ipc_config_dir: &Path, network_dir: &Path, repo_root_dir: &Path, nodes: Vec<u8>) {
+pub fn init_node_dir(ipc_config_dir: &Path, nodes_dir: &Path, repo_root_dir: &Path, nodes: Vec<u8>) {
     Command::new("rm")
         .args(["-rf", ipc_config_dir.to_str().unwrap()])
         .output()
@@ -188,7 +272,7 @@ pub fn init_node_dir(ipc_config_dir: &Path, network_dir: &Path, repo_root_dir: &
         .expect("failed to mkdir .ipc");
 
     for i in nodes.into_iter() {
-        let validator_dir = network_dir.join(format!("validator-{:?}", i)).join(format!("validator-{:?}", i));
+        let validator_dir = nodes_dir.join(format!("validator-{:?}", i)).join(format!("validator-{:?}", i));
         Command::new("mkdir")
             .args(["-p", validator_dir.join("cometbft").join("config").to_str().unwrap()])
             .output()
@@ -209,6 +293,18 @@ pub fn init_node_dir(ipc_config_dir: &Path, network_dir: &Path, repo_root_dir: &
             ])
             .output()
             .expect("failed to create fendermint data dir");
+        Command::new("mkdir")
+            .args([
+                "-p",
+                validator_dir
+                    .join("fendermint")
+                    .join("contracts")
+                    .to_str()
+                    .unwrap()
+            ])
+            .output()
+            .expect("failed to create fendermint contracts dir");
+
         let fm_config_dir = validator_dir
             .join("fendermint")
             .join("config");
@@ -252,10 +348,6 @@ pub fn init_node_dir(ipc_config_dir: &Path, network_dir: &Path, repo_root_dir: &
             .expect("failed to create fendermint config dir");
 
         Command::new("mkdir")
-            .args(["-p", validator_dir.join("iroh").to_str().unwrap()])
-            .output()
-            .expect("failed to create iroh dir");
-        Command::new("mkdir")
             .args([
                 "-p",
                 validator_dir.join("iroh").join("blobs").to_str().unwrap()
@@ -295,7 +387,7 @@ pub fn init_node_dir(ipc_config_dir: &Path, network_dir: &Path, repo_root_dir: &
             .join("hoku-dev")
             .join("config")
             .join("keys");
-        // TODO: convert the default anvil accounts to this format
+
         Command::new("cp")
             .args([
                 default_keys_dir.join(format!("validator_key_{:?}.sk", i)).to_str().unwrap(),
@@ -306,6 +398,8 @@ pub fn init_node_dir(ipc_config_dir: &Path, network_dir: &Path, repo_root_dir: &
             ])
             .output()
             .expect("failed to copy key file");
+
+        // TODO: should we generate the network key, or use the same one everytime?
         Command::new("cp")
             .args([
                 default_keys_dir.join(format!("network_key_{:?}.sk", i)).to_str().unwrap(),
@@ -354,9 +448,9 @@ pub fn setup_subnet_config(
     config_folder: &Path,
     contracts: &ContractMap,
     parent_rpc_url: &str,
-    child_rpc_url: &str,
+//    child_rpc_url: &str,
     parent_chain_id: &str,
-    subnet_id: &str,
+//    subnet_id: &str,
     log_level: &LogLevel
 ) {
     // put ipc config in ~/.ipc/
@@ -368,18 +462,13 @@ pub fn setup_subnet_config(
         .output()
         .expect("failed to copy ipc config");
 
-    setup_ipc_config_file(&config_folder.join("config.toml"), contracts, parent_rpc_url, child_rpc_url, parent_chain_id, subnet_id);
+    setup_ipc_config_file(
+        &config_folder.join("config.toml"),
+        contracts,
+        parent_rpc_url,
+        parent_chain_id
+    );
 
-    // put relayer config in ~/.ipc/
-    Command::new("cp")
-        .args([
-            repo_root_dir.join("hoku-dev").join("config").join("relayer.config.toml").to_str().unwrap(),
-            config_folder.to_str().unwrap(),
-        ])
-        .output()
-        .expect("failed to copy relayer config");
-
-    setup_ipc_config_file(&config_folder.join("relayer.config.toml"), contracts, parent_rpc_url, child_rpc_url, parent_chain_id, subnet_id);
     create_keystore(&config_folder.join("evm_keystore.json"));
 
     log_level_print(
@@ -395,11 +484,8 @@ fn setup_ipc_config_file(
     config_filepath: &Path,
     contracts: &ContractMap,
     parent_rpc_url: &str,
-    child_rpc_url: &str,
-    parent_chain_id: &str,
-    subnet_id: &str
+    parent_chain_id: &str
 ) {
-
     // we use our default cometbft config.toml file, but we need to update to use the config for this network
     let config_file = read_to_string(config_filepath).expect("could not modify ipc config");
     let mut conf_doc = config_file.parse::<DocumentMut>().expect("invalid ipc config document");
@@ -409,10 +495,32 @@ fn setup_ipc_config_file(
     conf_doc["subnets"][0]["config"]["provider_http"] = value(parent_rpc_url);
     conf_doc["subnets"][0]["config"]["registry_addr"] = value(&contracts.registry);
     conf_doc["subnets"][0]["config"]["gateway_addr"] = value(&contracts.gateway);
-    conf_doc["subnets"][1]["id"] = value(subnet_id);
-    conf_doc["subnets"][1]["config"]["provider_http"] = value(child_rpc_url);
 
     write(config_filepath, conf_doc.to_string()).expect("could not write to ipc config file");
+}
+
+pub fn get_subnet_eth_addr(subnet_id: &str, log_level: &LogLevel) -> String {
+    let capture = |line: &str| -> String {
+        if line.contains("eth address:") {
+            return String::from(line.split_whitespace().last().unwrap());
+        }
+
+        String::from("")
+    };
+
+    get_command_out(GetCommandOutArgs {
+        title: &String::from("GET ETH ADDRESS").green().bold(),
+        cmd: "./target/debug/ipc-cli",
+        args: [
+            "util",
+            "f4-to-eth-addr",
+            "--addr",
+            subnet_id
+        ].to_vec(),
+        envs: None,
+        current_dir: None,
+        log_level
+    }, capture)
 }
 
 pub fn get_forge_deployed_address(deploy_json_file: &Path) -> String {

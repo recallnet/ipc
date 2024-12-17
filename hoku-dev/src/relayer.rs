@@ -1,8 +1,9 @@
+// Copyright 2022-2024 Protocol Labs
 // Copyright 2022-2024 Textile, Inc.
 // SPDX-License-Identifier: Apache-2.0, MIT
 use colored::Colorize;
 use std::path::Path;
-use std::process::Command;
+use std::process::{Child, Command};
 use std::thread::JoinHandle;
 
 use crate::anvil::ANVIL_PUBLIC_KEYS;
@@ -13,7 +14,7 @@ use crate::LogLevel;
 // note: this command mutates the order of keys in the evm_keystore.json file. to
 // keep the accounts consistent for usage (e.g., logging accounts, using
 // validator keys, etc.), we temporarily copy the file and then restore it.
-pub fn start_relayer(ipc_config_dir: &Path, subnet_id: &str, log_level: &LogLevel) -> (JoinHandle<()>, JoinHandle<()>) {
+pub fn start_relayer(ipc_config_dir: &Path, subnet_id: &str, log_level: &LogLevel) -> (JoinHandle<()>, JoinHandle<()>, Child) {
 
     Command::new("cp").args([
         ipc_config_dir.join("evm_keystore.json"),
@@ -25,7 +26,7 @@ pub fn start_relayer(ipc_config_dir: &Path, subnet_id: &str, log_level: &LogLeve
         cmd: "./target/debug/ipc-cli",
         args: [
             "--config-path",
-            ipc_config_dir.join("relayer.config.toml").to_str().unwrap(),
+            ipc_config_dir.join("config.toml").to_str().unwrap(),
             "checkpoint",
             "relayer",
             "--submitter",
@@ -41,7 +42,7 @@ pub fn start_relayer(ipc_config_dir: &Path, subnet_id: &str, log_level: &LogLeve
         ].to_vec(),
         envs: Some([
             ["RUST_LOG", get_rust_log_level(log_level)].to_vec(),
-            ["IPC_CLI_CONFIG_PATH", ipc_config_dir.join("relayer.config.toml").to_str().unwrap()].to_vec()
+            ["IPC_CLI_CONFIG_PATH", ipc_config_dir.join("config.toml").to_str().unwrap()].to_vec()
         ].to_vec()),
         current_dir: None,
         out_filters: vec!(),

@@ -1,9 +1,11 @@
+// Copyright 2022-2024 Protocol Labs
 // Copyright 2022-2024 Textile, Inc.
 // SPDX-License-Identifier: Apache-2.0, MIT
 use toml_edit::{DocumentMut, value};
 use colored::ColoredString;
 use std::fs::{write, read_to_string};
 use std::path::Path;
+use std::process::Child;
 use std::thread::JoinHandle;
 
 use crate::util::{pipe_sub_command, get_rust_log_level, PipeSubCommandArgs};
@@ -16,7 +18,7 @@ pub fn start_objects(
     fm_dir: &Path,
     label: &ColoredString,
     log_level: &LogLevel
-) -> (JoinHandle<()>, JoinHandle<()>) {
+) -> (JoinHandle<()>, JoinHandle<()>, Child) {
     let rust_log = get_rust_log_level(log_level);
 
     // "objects-start",
