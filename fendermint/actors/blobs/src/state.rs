@@ -18,13 +18,13 @@ use fvm_shared::bigint::{BigInt, BigUint};
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::econ::TokenAmount;
 use hoku_ipld::hamt;
-use log::{debug, warn};
+use log::{debug, error, warn};
 use num_traits::{Signed, ToPrimitive, Zero};
 
 /// The minimum epoch duration a blob can be stored.
-const MIN_TTL: ChainEpoch = 3600; // one hour
+const MIN_TTL: ChainEpoch = 10; // one hour
 /// The rolling epoch duration used for non-expiring blobs.
-const AUTO_TTL: ChainEpoch = 3600; // one hour
+const AUTO_TTL: ChainEpoch = 20; // one hour
 
 /// The state represents all accounts and stored blobs.
 #[derive(Debug, Serialize_tuple, Deserialize_tuple)]
@@ -787,6 +787,11 @@ impl State {
             (sub, blob)
         };
         // Account capacity is changing, debit for existing usage
+        error!(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
+        warn!("current epoch {}", current_epoch);
+        warn!("account credit free {:#?}", account.credit_free);
+        warn!("account credit committed {:#?}", account.credit_committed);
+        warn!("account last debit {:#?}", account.last_debit_epoch);
         let debit_blocks = current_epoch - account.last_debit_epoch;
         let debit_byte_blocks = debit_blocks as u64 * &account.capacity_used;
         let debit = debit_byte_blocks * self.blob_credits_per_byte_block;
@@ -795,6 +800,9 @@ impl State {
         account.credit_committed -= &debit;
         account.last_debit_epoch = current_epoch;
         debug!("debited {} credits from {}", debit, subscriber);
+        if account.credit_committed.is_negative() {
+            error!("account {} credit is negative", subscriber);
+        }
         // Account for new size and move free credit to committed credit
         self.capacity_used += &new_capacity;
         debug!("used {} bytes from subnet", new_account_capacity);
@@ -807,7 +815,15 @@ impl State {
         if let Some(delegation) = delegation {
             delegation.approval.used += &credit_required;
         }
+        if account.credit_committed.is_negative() {
+            error!("account {} credit is negative", subscriber);
+        }
         // Save account
+        warn!("current epoch {}", current_epoch);
+        warn!("account credit free {:#?}", account.credit_free);
+        warn!("account credit committed {:#?}", account.credit_committed);
+        warn!("account last debit {:#?}", account.last_debit_epoch);
+        error!("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<");
         self.accounts_root = accounts.set_and_flush(&subscriber, account)?;
         // Save blob
         self.blobs_root = blobs.set_and_flush(&hash, blob)?;
@@ -865,6 +881,13 @@ impl State {
                 "subscription id {} not found",
                 id.clone()
             )))?;
+        // if sub.failed {
+        //     // Do not renew failed subscription.
+        //     return Err(ActorError::illegal_state(format!(
+        //         "cannot renew failed blob {}",
+        //         hash
+        //     )));
+        // }
         let delegation = if let Some((origin, caller)) = sub.delegate {
             // Look for an approval for origin from subscriber and validate the caller is allowed.
             let approval = account
@@ -896,6 +919,9 @@ impl State {
             self.credit_committed += &refund_credits;
             account.credit_committed += &refund_credits;
             debug!("refunded {} credits to {}", refund_credits, subscriber);
+            if account.credit_committed.is_negative() {
+                error!("account {} credit is negative", subscriber);
+            }
         }
         // Ensure subscriber has enough credits, considering the subscription group may
         // have expiries that cover a portion of the renewal.
@@ -937,6 +963,9 @@ impl State {
         // Update credit approval
         if let Some(delegation) = delegation {
             delegation.approval.used += &credit_required;
+        }
+        if account.credit_committed.is_negative() {
+            error!("account {} credit is negative", subscriber);
         }
         // Save account
         self.accounts_root = accounts.set_and_flush(&subscriber, account.clone())?;
@@ -1120,6 +1149,7 @@ impl State {
         blob.status = status;
         debug!("finalized blob {} to status {}", hash, blob.status);
         if matches!(blob.status, BlobStatus::Failed) {
+            // if matches!(blob.status, BlobStatus::Failed) && !sub.failed {
             let size = BigInt::from(blob.size);
             // We're not going to make a debit, but we need to refund any spent credits that may
             // have been used on this group in the event the last debit is later than the
@@ -1137,6 +1167,9 @@ impl State {
                 self.credit_debited -= &refund_credits;
                 account.credit_free += &refund_credits; // move directly to free
                 debug!("refunded {} credits to {}", refund_credits, subscriber);
+                if account.credit_committed.is_negative() {
+                    error!("account {} credit is negative", subscriber);
+                }
             }
             // If there's no new group expiry, all subscriptions have failed.
             if new_group_expiry.is_none() {
@@ -1155,6 +1188,11 @@ impl State {
                 } else {
                     (group_expiry - account.last_debit_epoch) * &size
                 };
+                warn!("group_expiry: {}", group_expiry);
+                warn!("new_group_expiry: {:?}", new_group_expiry);
+                warn!("last_debit_epoch: {}", account.last_debit_epoch);
+                warn!("size: {}", size);
+                warn!("reclaim_byte_blocks: {}", reclaim_byte_blocks);
                 let reclaim_credits = reclaim_byte_blocks * self.blob_credits_per_byte_block;
                 self.credit_committed -= &reclaim_credits;
                 account.credit_committed -= &reclaim_credits;
@@ -1164,6 +1202,9 @@ impl State {
                     delegation.approval.used -= &reclaim_credits;
                 }
                 debug!("released {} credits to {}", reclaim_credits, subscriber);
+                if account.credit_committed.is_negative() {
+                    error!("account {} credit is negative", subscriber);
+                }
             }
             sub.failed = true;
         }
@@ -1282,7 +1323,9 @@ impl State {
         // account for capacity up to this blob's expiry if it is less than
         // the current epoch.
         // When deleting, the existing group expiry will always contain a value.
+        ///////////////////////////////////
         let group_expiry = group_expiry.unwrap();
+        // let debit_epoch = group_expiry.unwrap_or(current_epoch).min(current_epoch);
         let debit_epoch = group_expiry.min(current_epoch);
         // Account capacity is changing, debit for existing usage.
         // It could be possible that debit epoch is less than the last debit,
@@ -1296,6 +1339,10 @@ impl State {
             account.credit_committed -= &debit;
             account.last_debit_epoch = debit_epoch;
             debug!("debited {} credits from {}", debit, subscriber);
+            if account.credit_committed.is_negative() {
+                error!("account {} credit is negative", subscriber);
+            }
+        // } else if let Some(group_expiry) = group_expiry {
         } else {
             // The account was debited after this blob's expiry
             let refund_blocks = account.last_debit_epoch - group_expiry;
@@ -1306,10 +1353,13 @@ impl State {
             self.credit_committed += &refund_credits;
             account.credit_committed += &refund_credits;
             debug!("refunded {} credits to {}", refund_credits, subscriber);
+            if account.credit_committed.is_negative() {
+                error!("account {} credit is negative", subscriber);
+            }
         }
         // Account for reclaimed size and move committed credit to free credit
         // If blob failed, capacity and committed credits have already been returned
-        if !matches!(blob.status, BlobStatus::Failed) {
+        if !matches!(blob.status, BlobStatus::Failed) && !sub.failed {
             let size = BigInt::from(blob.size);
             // If there's no new group expiry, we can reclaim capacity.
             if new_group_expiry.is_none() {
@@ -1322,6 +1372,7 @@ impl State {
             }
             // We can release credits if the new group expiry is in the future,
             // considering other subscriptions may still be active.
+            //let group_expiry = group_expiry.unwrap();
             if account.last_debit_epoch < group_expiry {
                 let reclaim_byte_blocks = if let Some(new_group_expiry) = new_group_expiry {
                     (group_expiry - new_group_expiry.max(account.last_debit_epoch)) * &size
@@ -1337,6 +1388,9 @@ impl State {
                     delegation.approval.used -= &reclaim_credits;
                 }
                 debug!("released {} credits to {}", reclaim_credits, subscriber);
+                if account.credit_committed.is_negative() {
+                    error!("account {} credit is negative", subscriber);
+                }
             }
         }
         // Update expiry index
@@ -1603,7 +1657,8 @@ mod tests {
 
     use fvm_ipld_blockstore::MemoryBlockstore;
 
-    use rand::RngCore;
+    use rand::seq::SliceRandom;
+    use rand::{Rng, RngCore};
 
     fn setup_logs() {
         use tracing_subscriber::layer::SubscriberExt;
@@ -1651,6 +1706,13 @@ mod tests {
         let mut data = vec![0u8; 32];
         rng.fill_bytes(&mut data);
         Address::new_actor(&data)
+    }
+
+    fn new_sub_id() -> SubscriptionId {
+        let mut rng = rand::thread_rng();
+        let mut data = vec![0u8; 32];
+        rng.fill_bytes(&mut data);
+        data.into()
     }
 
     fn check_approval(account: Account, origin: Address, caller: Address, expect_used: BigInt) {
@@ -3267,116 +3329,6 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_if_blobs_ttl_exceeds_accounts_ttl_should_error() {
-        setup_logs();
-
-        // Test cases structure
-        struct TestCase {
-            name: &'static str,
-            account_ttl_status: TtlStatus,
-            blob_ttl: ChainEpoch,
-            should_succeed: bool,
-        }
-
-        // Define test cases
-        let test_cases = vec![
-            TestCase {
-                name: "Reduced status rejects even minimum TTL",
-                account_ttl_status: TtlStatus::Reduced,
-                blob_ttl: MIN_TTL,
-                should_succeed: false,
-            },
-            TestCase {
-                name: "Default status allows default TTL",
-                account_ttl_status: TtlStatus::Default,
-                blob_ttl: TtlStatus::DEFAULT_MAX_TTL,
-                should_succeed: true,
-            },
-            TestCase {
-                name: "Default status rejects higher TTL",
-                account_ttl_status: TtlStatus::Default,
-                blob_ttl: TtlStatus::DEFAULT_MAX_TTL + 1,
-                should_succeed: false,
-            },
-            TestCase {
-                name: "Custom status allows matching TTL",
-                account_ttl_status: TtlStatus::Custom(7200),
-                blob_ttl: 7200,
-                should_succeed: true,
-            },
-            TestCase {
-                name: "Custom status rejects higher TTL",
-                account_ttl_status: TtlStatus::Custom(7200),
-                blob_ttl: 7201,
-                should_succeed: false,
-            },
-            TestCase {
-                name: "Extended status allows any TTL",
-                account_ttl_status: TtlStatus::Extended,
-                blob_ttl: 365 * 24 * 60 * 60, // 1 year
-                should_succeed: true,
-            },
-        ];
-
-        // Run all test cases
-        for tc in test_cases {
-            let capacity = 1024 * 1024;
-            let store = MemoryBlockstore::default();
-            let mut state = State::new(&store, capacity, 1).unwrap();
-            let subscriber = new_address();
-            let current_epoch = ChainEpoch::from(1);
-            let amount = TokenAmount::from_whole(10);
-
-            state
-                .buy_credit(&store, subscriber, amount.clone(), current_epoch)
-                .unwrap();
-            state
-                .set_ttl_status(&store, subscriber, tc.account_ttl_status, current_epoch)
-                .unwrap();
-
-            let (hash, size) = new_hash(1024);
-            let res = state.add_blob(
-                &store,
-                subscriber,
-                subscriber,
-                subscriber,
-                current_epoch,
-                hash,
-                new_metadata_hash(),
-                SubscriptionId::Default,
-                size,
-                Some(tc.blob_ttl),
-                new_pk(),
-                TokenAmount::zero(),
-            );
-
-            if tc.should_succeed {
-                assert!(
-                    res.is_ok(),
-                    "Test case '{}' should succeed but failed: {:?}",
-                    tc.name,
-                    res.err()
-                );
-            } else {
-                assert!(
-                    res.is_err(),
-                    "Test case '{}' should fail but succeeded",
-                    tc.name
-                );
-                assert_eq!(
-                    res.err().unwrap().msg(),
-                    format!(
-                        "attempt to add a blob with TTL ({}) that exceeds account's max allowed TTL ({})",
-                        tc.blob_ttl, i64::from(tc.account_ttl_status),
-                    ),
-                    "Test case '{}' failed with unexpected error message",
-                    tc.name
-                );
-            }
-        }
-    }
-
     fn delete_blob_refund<BS: Blockstore>(
         store: &BS,
         mut state: State,
@@ -3494,5 +3446,310 @@ mod tests {
             caller,
             state.credit_debited + account_committed,
         );
+    }
+
+    #[test]
+    fn test_if_blobs_ttl_exceeds_accounts_ttl_should_error() {
+        setup_logs();
+
+        // Test cases structure
+        struct TestCase {
+            name: &'static str,
+            account_ttl_status: TtlStatus,
+            blob_ttl: ChainEpoch,
+            should_succeed: bool,
+        }
+
+        // Define test cases
+        let test_cases = vec![
+            TestCase {
+                name: "Reduced status rejects even minimum TTL",
+                account_ttl_status: TtlStatus::Reduced,
+                blob_ttl: MIN_TTL,
+                should_succeed: false,
+            },
+            TestCase {
+                name: "Default status allows default TTL",
+                account_ttl_status: TtlStatus::Default,
+                blob_ttl: TtlStatus::DEFAULT_MAX_TTL,
+                should_succeed: true,
+            },
+            TestCase {
+                name: "Default status rejects higher TTL",
+                account_ttl_status: TtlStatus::Default,
+                blob_ttl: TtlStatus::DEFAULT_MAX_TTL + 1,
+                should_succeed: false,
+            },
+            TestCase {
+                name: "Custom status allows matching TTL",
+                account_ttl_status: TtlStatus::Custom(7200),
+                blob_ttl: 7200,
+                should_succeed: true,
+            },
+            TestCase {
+                name: "Custom status rejects higher TTL",
+                account_ttl_status: TtlStatus::Custom(7200),
+                blob_ttl: 7201,
+                should_succeed: false,
+            },
+            TestCase {
+                name: "Extended status allows any TTL",
+                account_ttl_status: TtlStatus::Extended,
+                blob_ttl: 365 * 24 * 60 * 60, // 1 year
+                should_succeed: true,
+            },
+        ];
+
+        // Run all test cases
+        for tc in test_cases {
+            let capacity = 1024 * 1024;
+            let store = MemoryBlockstore::default();
+            let mut state = State::new(&store, capacity, 1).unwrap();
+            let subscriber = new_address();
+            let current_epoch = ChainEpoch::from(1);
+            let amount = TokenAmount::from_whole(10);
+
+            state
+                .buy_credit(&store, subscriber, amount.clone(), current_epoch)
+                .unwrap();
+            state
+                .set_ttl_status(&store, subscriber, tc.account_ttl_status, current_epoch)
+                .unwrap();
+
+            let (hash, size) = new_hash(1024);
+            let res = state.add_blob(
+                &store,
+                subscriber,
+                subscriber,
+                subscriber,
+                current_epoch,
+                hash,
+                new_metadata_hash(),
+                SubscriptionId::Default,
+                size,
+                Some(tc.blob_ttl),
+                new_pk(),
+                TokenAmount::zero(),
+            );
+
+            if tc.should_succeed {
+                assert!(
+                    res.is_ok(),
+                    "Test case '{}' should succeed but failed: {:?}",
+                    tc.name,
+                    res.err()
+                );
+            } else {
+                assert!(
+                    res.is_err(),
+                    "Test case '{}' should fail but succeeded",
+                    tc.name
+                );
+                assert_eq!(
+                    res.err().unwrap().msg(),
+                    format!(
+                        "attempt to add a blob with TTL ({}) that exceeds account's max allowed TTL ({})",
+                        tc.blob_ttl, i64::from(tc.account_ttl_status),
+                    ),
+                    "Test case '{}' failed with unexpected error message",
+                    tc.name
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_simulate_one_day() {
+        setup_logs();
+
+        #[derive(Clone, Debug, Hash, PartialEq, Eq)]
+        struct TestBlob {
+            hash: Hash,
+            metadata_hash: Hash,
+            size: u64,
+            added: Option<ChainEpoch>,
+            resolve: Option<ChainEpoch>,
+        }
+
+        fn generate_test_blobs(count: i64, min_size: usize, max_size: usize) -> Vec<TestBlob> {
+            let mut blobs = Vec::new();
+            let mut rng = rand::thread_rng();
+
+            for _ in 0..count {
+                let size = rng.gen_range(min_size..=max_size);
+                let (hash, size) = new_hash(size);
+                blobs.push(TestBlob {
+                    hash,
+                    metadata_hash: new_metadata_hash(),
+                    size,
+                    added: None,
+                    resolve: None,
+                });
+            }
+            blobs
+        }
+
+        fn generate_test_users<BS: Blockstore>(
+            store: &BS,
+            state: &mut State,
+            credit_tokens: TokenAmount,
+            count: i64,
+        ) -> Vec<Address> {
+            let mut users = Vec::new();
+            for _ in 0..count {
+                let user = new_address();
+                state
+                    .buy_credit(&store, user, credit_tokens.clone(), 0)
+                    .unwrap();
+                users.push(user);
+            }
+            users
+        }
+
+        // Test params
+        let capacity = 1024 * 1024 * 1024 * 1024;
+        let epochs: i64 = 360; // num. epochs to run test for
+        let user_pool_size: i64 = 1; // some may not be used, some will be used more than once
+        let blob_pool_size: i64 = epochs; // some may not be used, some will be used more than once
+        let min_ttl = MIN_TTL;
+        let max_ttl = epochs;
+        let min_size = 8;
+        let max_size = 1024;
+        let add_intervals = [1, 2, 4, 8, 10, 12, 15, 20]; // used to add at random intervals
+        let max_resolve_epochs = 30; // max num. epochs in future to resolve
+        let debit_interval: i64 = 60; // interval at which to debit all accounts
+        let percent_auto_renew = 0.0; // controls % of subscriptions that are auto-renewed
+        let percent_fail_resolve = 0.0; // controls % of subscriptions that fail resolve
+
+        // Set up store and state
+        let store = MemoryBlockstore::default();
+        let mut state = State::new(&store, capacity, 1).unwrap();
+        let mut rng = rand::thread_rng();
+
+        // Get some users
+        let credit_tokens = TokenAmount::from_whole(100); // buy a lot
+        let users = generate_test_users(&store, &mut state, credit_tokens, user_pool_size);
+
+        // Get some blobs.
+        let mut blobs = generate_test_blobs(blob_pool_size, min_size, max_size);
+
+        // Map of resolve epochs to set of blob indexes
+        let mut resolves: BTreeMap<
+            ChainEpoch,
+            HashMap<Address, HashMap<usize, (SubscriptionId, PublicKey)>>,
+        > = BTreeMap::new();
+
+        // Walk epochs.
+        // We go for twice the paramaterized epochs to ensure all non-auto-renewing subscriptions
+        // can expire.
+        for epoch in 1..=epochs * 4 {
+            if epoch <= epochs {
+                let add_interval = add_intervals.choose(&mut rng).unwrap().to_owned();
+                if epoch % add_interval == 0 {
+                    // Add a random blob with a random user
+                    let user_index = rng.gen_range(0..users.len());
+                    let user = users[user_index];
+                    let blob_index = rng.gen_range(0..blobs.len());
+                    let blob = unsafe { blobs.get_unchecked_mut(blob_index) };
+                    let sub_id = new_sub_id();
+                    let auto_renew = rng.gen_bool(percent_auto_renew);
+                    let ttl = if !auto_renew {
+                        Some(rng.gen_range(min_ttl..=max_ttl))
+                    } else {
+                        None
+                    };
+                    let source = new_pk();
+                    let res = state.add_blob(
+                        &store,
+                        user,
+                        user,
+                        user,
+                        epoch,
+                        blob.hash,
+                        blob.metadata_hash,
+                        sub_id.clone(),
+                        blob.size,
+                        ttl,
+                        source,
+                        TokenAmount::zero(),
+                    );
+                    assert!(res.is_ok());
+                    if blob.added.is_none() {
+                        warn!("added new blob {} at epoch {}", blob.hash, epoch);
+                    } else {
+                        warn!("added new sub to blob {} at epoch {}", blob.hash, epoch);
+                    }
+                    blob.added = Some(epoch);
+
+                    // Schedule a resolve to happen in the future
+                    let resolve = rng.gen_range(1..=max_resolve_epochs) + epoch;
+                    resolves
+                        .entry(resolve)
+                        .and_modify(|entry| {
+                            entry
+                                .entry(user)
+                                .and_modify(|subs| {
+                                    subs.insert(blob_index, (sub_id.clone(), source));
+                                })
+                                .or_insert(HashMap::from([(blob_index, (sub_id.clone(), source))]));
+                        })
+                        .or_insert(HashMap::from([(
+                            user,
+                            HashMap::from([(blob_index, (sub_id.clone(), source))]),
+                        )]));
+
+                    // Check the account balance
+                    // let account = state.get_account(&store, user).unwrap().unwrap();
+                    // warn!("account {}: {:#?}", i, account);
+
+                    // Check state
+                    // let stats = state.get_stats(TokenAmount::zero());
+                    // warn!("stats: {:#?}", stats);
+                }
+            }
+
+            // Resolve blob(s)
+            if let Some(users) = resolves.get(&epoch) {
+                for (user, index) in users {
+                    for (i, (sub_id, source)) in index {
+                        let blob = unsafe { blobs.get_unchecked(*i) };
+                        let fail = rng.gen_bool(percent_fail_resolve);
+                        let status = if fail {
+                            BlobStatus::Failed
+                        } else {
+                            BlobStatus::Resolved
+                        };
+                        // Simulate the chain putting this blob into pending state, which is
+                        // required before finalization.
+                        state
+                            .set_blob_pending(&store, *user, blob.hash, sub_id.clone(), *source)
+                            .unwrap();
+                        // state
+                        //     .finalize_blob(&store, *user, epoch, blob.hash, sub_id.clone(), status)
+                        //     .unwrap();
+                    }
+                }
+            }
+
+            // Every debit interval epochs we debit all acounts
+            if epoch % debit_interval == 0 {
+                // let deletes_from_disc = state.debit_accounts(&store, epoch).unwrap();
+                // warn!(
+                //     "deleting {} blobs at epoch {}",
+                //     deletes_from_disc.len(),
+                //     epoch
+                // );
+            }
+        }
+
+        // Check the account balances
+        for (i, user) in users.iter().enumerate() {
+            let account = state.get_account(&store, *user).unwrap().unwrap();
+            debug!("account {}: {:#?}", i, account);
+        }
+
+        // Check state
+        let stats = state.get_stats(TokenAmount::zero());
+        debug!("stats: {:#?}", stats);
     }
 }
