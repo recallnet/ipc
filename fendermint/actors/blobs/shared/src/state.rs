@@ -14,15 +14,19 @@ use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::str::FromStr;
 
+/// Credit is counted the same way as tokens.
+/// The smallest indivisible unit is 1 atto, and 1 credit = 1e18 atto credits.
+pub type Credit = TokenAmount;
+
 /// The stored representation of a credit account.
 #[derive(Clone, Debug, Default, PartialEq, Serialize_tuple, Deserialize_tuple)]
 pub struct Account {
     /// Total size of all blobs managed by the account.
     pub capacity_used: BigInt,
     /// Current free credit in byte-blocks that can be used for new commitments.
-    pub credit_free: BigInt,
+    pub credit_free: Credit,
     /// Current committed credit in byte-blocks that will be used for debits.
-    pub credit_committed: BigInt,
+    pub credit_committed: Credit,
     /// Optional default sponsor account address.
     pub credit_sponsor: Option<Address>,
     /// The chain epoch of the last debit.
@@ -55,13 +59,13 @@ impl Account {
 #[derive(Debug, Clone, PartialEq, Serialize_tuple, Deserialize_tuple)]
 pub struct CreditApproval {
     /// Optional credit approval limit.
-    pub credit_limit: Option<BigInt>,
+    pub credit_limit: Option<Credit>,
     /// Used to limit gas fee delegation.
     pub gas_fee_limit: Option<TokenAmount>,
     /// Optional credit approval expiry epoch.
     pub expiry: Option<ChainEpoch>,
     /// Counter for how much credit has been used via this approval.
-    pub credit_used: BigInt,
+    pub credit_used: Credit,
     /// Used to track gas fees paid for by the delegation
     pub gas_fee_used: TokenAmount,
     /// Optional caller allowlist.

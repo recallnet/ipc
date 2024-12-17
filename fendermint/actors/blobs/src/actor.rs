@@ -463,6 +463,7 @@ impl ActorCode for BlobsActor {
 mod tests {
     use super::*;
 
+    use fendermint_actor_blobs_shared::state::Credit;
     use fil_actors_evm_shared::address::EthAddress;
     use fil_actors_runtime::test_utils::{
         expect_empty, MockRuntime, ETHACCOUNT_ACTOR_CODE_ID, EVM_ACTOR_CODE_ID,
@@ -491,7 +492,7 @@ mod tests {
         PublicKey(data)
     }
 
-    pub fn construct_and_verify(blob_capacity: u64, token_credit_rate: u64) -> MockRuntime {
+    pub fn construct_and_verify(blob_capacity: u64, token_credit_rate: &BigInt) -> MockRuntime {
         let rt = MockRuntime {
             receiver: Address::new_id(10),
             ..Default::default()
@@ -503,7 +504,7 @@ mod tests {
                 Method::Constructor as u64,
                 IpldBlock::serialize_cbor(&ConstructorParams {
                     blob_capacity,
-                    token_credit_rate,
+                    token_credit_rate: token_credit_rate.clone(),
                 })
                 .unwrap(),
             )
@@ -516,8 +517,8 @@ mod tests {
 
     #[test]
     fn test_buy_credit() {
-        let token_credit_rate = 2; // 1 atto buys 2 credits
-        let rt = construct_and_verify(1024 * 1024, token_credit_rate);
+        let token_credit_rate = BigInt::from(2_000_000_000_000_000_000u64); // 1 atto buys 2 credits
+        let rt = construct_and_verify(1024 * 1024, &token_credit_rate);
 
         let id_addr = Address::new_id(110);
         let eth_addr = EthAddress(hex_literal::hex!(
@@ -531,7 +532,7 @@ mod tests {
 
         let tokens = 1;
         let mut expected_credits =
-            BigInt::from(1000000000000000000u64 * tokens) * token_credit_rate;
+            Credit::from_atto(1000000000000000000u64 * tokens * &token_credit_rate);
         let mut expected_gas_allowance = TokenAmount::from_whole(tokens);
         rt.set_received(TokenAmount::from_whole(tokens));
         rt.expect_validate_caller_any();
@@ -549,7 +550,7 @@ mod tests {
         assert_eq!(result.gas_allowance, expected_gas_allowance);
         rt.verify();
 
-        expected_credits += BigInt::from(1000000000u64 * tokens) * token_credit_rate;
+        expected_credits += Credit::from_atto(1000000000u64 * tokens * &token_credit_rate);
         expected_gas_allowance += TokenAmount::from_nano(tokens);
         rt.set_received(TokenAmount::from_nano(tokens));
         rt.expect_validate_caller_any();
@@ -567,7 +568,7 @@ mod tests {
         assert_eq!(result.gas_allowance, expected_gas_allowance);
         rt.verify();
 
-        expected_credits += BigInt::from(tokens) * token_credit_rate;
+        expected_credits += Credit::from_atto(tokens * &token_credit_rate);
         expected_gas_allowance += TokenAmount::from_atto(tokens);
         rt.set_received(TokenAmount::from_atto(tokens));
         rt.expect_validate_caller_any();
@@ -588,7 +589,7 @@ mod tests {
 
     #[test]
     fn test_approve_credit() {
-        let rt = construct_and_verify(1024 * 1024, 1);
+        let rt = construct_and_verify(1024 * 1024, &BigInt::from(1_000_000_000_000_000_000u64));
 
         // Credit owner
         let owner_id_addr = Address::new_id(110);
@@ -680,7 +681,7 @@ mod tests {
 
     #[test]
     fn test_revoke_credit() {
-        let rt = construct_and_verify(1024 * 1024, 1);
+        let rt = construct_and_verify(1024 * 1024, &BigInt::from(1_000_000_000_000_000_000u64));
 
         // Credit owner
         let owner_id_addr = Address::new_id(110);
@@ -784,7 +785,7 @@ mod tests {
 
     #[test]
     fn test_add_blob() {
-        let rt = construct_and_verify(1024 * 1024, 1);
+        let rt = construct_and_verify(1024 * 1024, &BigInt::from(1_000_000_000_000_000_000u64));
 
         let id_addr = Address::new_id(110);
         let eth_addr = EthAddress(hex_literal::hex!(
@@ -848,7 +849,7 @@ mod tests {
 
     #[test]
     fn test_add_blob_inline_buy() {
-        let rt = construct_and_verify(1024 * 1024, 1);
+        let rt = construct_and_verify(1024 * 1024, &BigInt::from(1_000_000_000_000_000_000u64));
 
         let id_addr = Address::new_id(110);
         let eth_addr = EthAddress(hex_literal::hex!(
@@ -890,6 +891,7 @@ mod tests {
             Method::AddBlob as u64,
             IpldBlock::serialize_cbor(&add_params).unwrap(),
         );
+        dbg!(result.clone().err());
         assert!(result.is_ok());
         rt.verify();
 
@@ -938,7 +940,7 @@ mod tests {
 
     #[test]
     fn test_add_blob_with_sponsor() {
-        let rt = construct_and_verify(1024 * 1024, 1);
+        let rt = construct_and_verify(1024 * 1024, &BigInt::from(1_000_000_000_000_000_000u64));
 
         // Credit sponsor
         let sponsor_id_addr = Address::new_id(110);
