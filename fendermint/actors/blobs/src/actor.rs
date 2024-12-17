@@ -16,6 +16,7 @@ use fendermint_actor_blobs_shared::state::{
     SubscriptionId,
 };
 use fendermint_actor_blobs_shared::Method;
+use fendermint_actor_hoku_config_shared as hoku_config;
 use fendermint_actor_machine::{
     ensure_addr_is_origin_or_caller, resolve_external, resolve_external_non_machine,
 };
@@ -384,12 +385,23 @@ impl BlobsActor {
         Ok(subscription)
     }
 
+    fn validate_caller_is_admin(rt: &impl Runtime) -> Result<(), ActorError> {
+        let admin = hoku_config::get_admin(rt)?;
+        if admin.is_none() {
+            Err(ActorError::illegal_state(
+                "admin address not set".to_string(),
+            ))
+        } else {
+            Ok(rt.validate_immediate_caller_is(std::iter::once(&admin.unwrap()))?)
+        }
+    }
+
     /// Set the TTL status of an account.
     fn set_account_type(
         rt: &impl Runtime,
         params: SetAccountBlobTtlStatusParams,
     ) -> Result<(), ActorError> {
-        rt.validate_immediate_caller_is(std::iter::once(&SYSTEM_ACTOR_ADDR))?;
+        BlobsActor::validate_caller_is_admin(rt)?;
         let account = resolve_external_non_machine(rt, params.account)?;
         rt.transaction(|st: &mut State, rt| {
             st.set_ttl_status(rt.store(), account, params.status, rt.curr_epoch())
@@ -410,7 +422,7 @@ impl BlobsActor {
         rt: &impl Runtime,
         params: AdjustBlobTtlForAccountParams,
     ) -> Result<(u32, Option<Hash>), ActorError> {
-        rt.validate_immediate_caller_is(std::iter::once(&SYSTEM_ACTOR_ADDR))?;
+        BlobsActor::validate_caller_is_admin(rt)?;
         let account = resolve_external_non_machine(rt, params.account)?;
         let (processed, next_key, deleted_blobs) = rt.transaction(|st: &mut State, rt| {
             st.adjust_blob_ttls_for_account(
