@@ -31,6 +31,8 @@ pub struct ConstructorParams {
     initial_blob_capacity: u64,
     initial_token_credit_rate: BigInt,
     initial_blob_credit_debit_interval: ChainEpoch,
+    initial_blob_min_ttl: ChainEpoch,
+    initial_blob_auto_renew_ttl: ChainEpoch,
 }
 
 pub struct Actor {}
@@ -45,6 +47,8 @@ impl Actor {
                 blob_capacity: params.initial_blob_capacity,
                 token_credit_rate: params.initial_token_credit_rate,
                 blob_credit_debit_interval: params.initial_blob_credit_debit_interval,
+                blob_min_ttl: params.initial_blob_min_ttl,
+                blob_auto_renew_ttl: params.initial_blob_auto_renew_ttl,
             },
         };
         rt.create(&st)
