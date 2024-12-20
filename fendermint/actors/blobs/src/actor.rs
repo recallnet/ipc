@@ -206,8 +206,10 @@ impl BlobsActor {
 
     fn debit_accounts(rt: &impl Runtime) -> Result<(), ActorError> {
         rt.validate_immediate_caller_is(std::iter::once(&SYSTEM_ACTOR_ADDR))?;
-        let deletes =
-            rt.transaction(|st: &mut State, rt| st.debit_accounts(rt.store(), rt.curr_epoch()))?;
+        let hoku_config = hoku_config::get_config(rt)?;
+        let deletes = rt.transaction(|st: &mut State, rt| {
+            st.debit_accounts(&hoku_config, rt.store(), rt.curr_epoch())
+        })?;
         for hash in deletes {
             delete_from_disc(hash)?;
         }

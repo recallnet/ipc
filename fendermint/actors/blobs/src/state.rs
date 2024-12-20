@@ -435,6 +435,7 @@ impl State {
     #[allow(clippy::type_complexity)]
     pub fn debit_accounts<BS: Blockstore>(
         &mut self,
+        hoku_config: &HokuConfig,
         store: &BS,
         current_epoch: ChainEpoch,
     ) -> anyhow::Result<HashSet<Hash>, ActorError> {
@@ -452,6 +453,7 @@ impl State {
                 for (key, auto_renew) in subs {
                     if auto_renew {
                         if let Err(e) = self.renew_blob(
+                            hoku_config,
                             store,
                             subscriber,
                             current_epoch,
@@ -831,6 +833,7 @@ impl State {
 
     fn renew_blob<BS: Blockstore>(
         &mut self,
+        hoku_config: &HokuConfig,
         store: &BS,
         subscriber: Address,
         current_epoch: ChainEpoch,
@@ -1917,6 +1920,7 @@ mod tests {
         // Add gas fee limit
         let limit = 1_000_000_000_000_000_000u64;
         let res = state.approve_credit(
+            &hoku_config,
             &store,
             from,
             to,
@@ -3046,7 +3050,9 @@ mod tests {
 
         // Debit all accounts
         let debit_epoch = ChainEpoch::from(41);
-        let deletes_from_disc = state.debit_accounts(&store, debit_epoch).unwrap();
+        let deletes_from_disc = state
+            .debit_accounts(&hoku_config, &store, debit_epoch)
+            .unwrap();
         assert!(deletes_from_disc.is_empty());
 
         // Check the account balance
@@ -3209,6 +3215,7 @@ mod tests {
         // Renew blob
         let renew_epoch = ChainEpoch::from(21);
         let res = state.renew_blob(
+            &hoku_config,
             &store,
             subscriber,
             renew_epoch,
@@ -3235,7 +3242,7 @@ mod tests {
         assert_eq!(
             state.credit_debited,
             Credit::from_atto(
-                amount.atto() * &hoku_config.token_credit_rate
+                amount.atto() * hoku_config.token_credit_rate
                     - (&account.credit_free + &account.credit_committed).atto()
             )
         );
@@ -3671,7 +3678,9 @@ mod tests {
 
         // Debit accounts to trigger a refund when we fail below
         let debit_epoch = ChainEpoch::from(11);
-        let deletes_from_disc = state.debit_accounts(&store, debit_epoch).unwrap();
+        let deletes_from_disc = state
+            .debit_accounts(&hoku_config, &store, debit_epoch)
+            .unwrap();
         assert!(deletes_from_disc.is_empty());
 
         // Check the account balance
