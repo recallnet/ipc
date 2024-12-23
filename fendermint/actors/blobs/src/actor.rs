@@ -42,9 +42,9 @@ type BlobTuple = (Hash, HashSet<(Address, SubscriptionId, PublicKey)>);
 
 // Experimental Solidity ABI facades
 use alloy_primitives::{
-    hex, Address as AlloyAddress, Bytes as AlloyBytes, FixedBytes, U256 as AlloyU256,
+    Address as AlloyAddress, Bytes as AlloyBytes, FixedBytes, U256 as AlloyU256,
 };
-use alloy_sol_types::{sol, SolCall, SolStruct, SolType, SolValue};
+use alloy_sol_types::{sol, SolCall, SolType};
 use fvm_ipld_encoding::{strict_bytes, tuple::*};
 use ipc_types::EthAddress;
 use std::str::FromStr;
@@ -58,7 +58,7 @@ sol!(
         uint256 creditCommitted;
         address creditSponsor;
         uint64 lastDebitEpoch;
-        bytes approvals; // TODO: use nested struct
+        bytes approvals; // TODO: use nested array / struct
         uint64 maxTtl;
         uint256 gasAllowance;
     }
@@ -79,6 +79,7 @@ sol!(
       ) external returns (GetAccountWrapperReturn memory value);
 );
 
+// Copied from `builtin-actors/actors/evm/src/types.rs`
 #[derive(Default, Serialize_tuple, Deserialize_tuple)]
 #[serde(transparent)]
 pub struct InvokeContractParams {
@@ -86,6 +87,7 @@ pub struct InvokeContractParams {
     pub input_data: Vec<u8>,
 }
 
+// Copied from `builtin-actors/actors/evm/src/types.rs`
 #[derive(Serialize_tuple, Deserialize_tuple)]
 #[serde(transparent)]
 pub struct InvokeContractReturn {
@@ -100,24 +102,26 @@ impl BlobsActor {
         rt.create(&state)
     }
 
-    // Handle `get_account` method
+    // Handle only the `get_account` method (but we'd need to add a method handler)
+    // See `builtin-actors/actors/evm/src/lib.rs` for a more complete implementation
     fn invoke_contract(
         rt: &impl Runtime,
         params: InvokeContractParams,
     ) -> Result<InvokeContractReturn, ActorError> {
-        log::info!("FACADE params: {:?}", params.input_data);
+        // rt.validate_immediate_caller_accept_any()?; // Commented out to avoid error: `Method must validate caller identity exactly once`
 
+        // Get params from EVM contract call, initiated in Solidity via calling `0xFF...<actor_id>`:
+        // 0xFF00000000000000000000000000000000000042.call(abi.encodeWithSelector(bytes4(keccak256("getAccount(address)")), addr))
         let params_decoded =
             getAccountCall::abi_decode(&params.input_data, false).map_err(|e| {
                 ActorError::illegal_argument(format!("Failed to decode facade params: {}", e))
             })?;
-        log::info!("FACADE params_decoded: {:?}", params_decoded);
+        // Convert EVM address to FVM address
         let eth_addr = EthAddress::from_str(&params_decoded.addr.to_string()).unwrap();
-        log::info!("FACADE eth_addr: {:?}", eth_addr);
         let addr = Address::from(eth_addr);
-        log::info!("FACADE addr: {:?}", addr);
+        // Call BlobsActor::get_account
         let data = Self::get_account(rt, GetAccountParams(addr))?.unwrap();
-        log::info!("FACADE data: {:?}", data);
+        // Convert TokenAmount to Alloy U256 type (ignoring sign)
         let token_amount_to_u256 = |token_amount: TokenAmount| {
             AlloyU256::from_be_slice(
                 token_amount
@@ -129,27 +133,28 @@ impl BlobsActor {
                     .unwrap(),
             )
         };
+        // Convert FVM address to Alloy EVM address (this assumes delegated address type)
         let addr_from_call = match data.credit_sponsor {
             Some(addr) => EthAddress(addr.payload_bytes()[1..].try_into().unwrap()),
-            None => EthAddress::null(),
+            None => EthAddress::null(), // Convert options to zero address (similar to how wrappers handle Options)
         };
         let addr_from_call_bytes: [u8; 20] = addr_from_call.as_ref().try_into().unwrap();
         let credit_sponsor = AlloyAddress::from(FixedBytes::from(addr_from_call_bytes));
+        // Convert FVM `get_account` return type to Solidity `getAccount` return type
         let data = GetAccountWrapperReturn {
             capacityUsed: data.capacity_used,
             creditFree: token_amount_to_u256(data.credit_free),
             creditCommitted: token_amount_to_u256(data.credit_committed),
             creditSponsor: credit_sponsor,
             lastDebitEpoch: data.last_debit_epoch as u64,
-            approvals: AlloyBytes::default(), // TODO: data.approvals
+            approvals: AlloyBytes::default(), // TODO: handle `data.approvals` as nested array / struct
             maxTtl: data.max_ttl as u64,
             gasAllowance: token_amount_to_u256(data.gas_allowance),
         };
-        log::info!("FACADE data: {:?}", data);
+        // Encode Solidity `getAccount` return type to bytes
         let encoded = <GetAccountWrapperReturn as SolType>::abi_encode(&data);
-        log::info!("FACADE encoded: {:?}", encoded);
-        let hex = hex::encode(encoded.clone());
-        log::info!("FACADE hex: {:?}", hex);
+        // In Solidity, you decode this return value without needing hand-rolled CBOR decoding:
+        // `abi.decode(data, (GetAccountWrapperReturn))`
         Ok(InvokeContractReturn {
             output_data: encoded,
         })
