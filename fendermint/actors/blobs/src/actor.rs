@@ -41,7 +41,9 @@ pub struct BlobsActor;
 type BlobTuple = (Hash, HashSet<(Address, SubscriptionId, PublicKey)>);
 
 // Experimental Solidity ABI facades
-use alloy_primitives::{hex, Address as AlloyAddress, FixedBytes, U64 as AlloyU64};
+use alloy_primitives::{
+    hex, Address as AlloyAddress, Bytes as AlloyBytes, FixedBytes, U256 as AlloyU256,
+};
 use alloy_sol_types::{sol, SolCall, SolStruct, SolType, SolValue};
 use fvm_ipld_encoding::{strict_bytes, tuple::*};
 use ipc_types::EthAddress;
@@ -49,14 +51,32 @@ use std::str::FromStr;
 
 sol!(
     #[derive(Debug, PartialEq, Eq)]
-    struct GetFacadeReturn {
-        address addr;
-        uint64 data;
+    // Solidity struct for Account
+    struct GetAccountWrapperReturn {
+        uint64 capacityUsed;
+        uint256 creditFree;
+        uint256 creditCommitted;
+        address creditSponsor;
+        uint64 lastDebitEpoch;
+        bytes approvals; // TODO: use nested struct
+        uint64 maxTtl;
+        uint256 gasAllowance;
     }
+    // Rust equivalent
+    // pub struct Account {
+    //     pub capacity_used: u64,
+    //     pub credit_free: Credit,
+    //     pub credit_committed: Credit,
+    //     pub credit_sponsor: Option<Address>,
+    //     pub last_debit_epoch: ChainEpoch,
+    //     pub approvals: HashMap<String, CreditApproval>,
+    //     pub max_ttl: ChainEpoch,
+    //     pub gas_allowance: TokenAmount,
+    // }
     #[derive(Debug, PartialEq, Eq)]
-    function getFacade(
+    function getAccount(
         address addr
-      ) external returns (GetFacadeReturn memory value);
+      ) external returns (GetAccountWrapperReturn memory value);
 );
 
 #[derive(Default, Serialize_tuple, Deserialize_tuple)]
@@ -85,43 +105,54 @@ impl BlobsActor {
         rt: &impl Runtime,
         params: InvokeContractParams,
     ) -> Result<InvokeContractReturn, ActorError> {
-        rt.validate_immediate_caller_accept_any()?;
         log::info!("FACADE params: {:?}", params.input_data);
 
-        let params_decoded = getFacadeCall::abi_decode(&params.input_data, false).map_err(|e| {
-            ActorError::illegal_argument(format!("Failed to decode facade params: {}", e))
-        })?;
+        let params_decoded =
+            getAccountCall::abi_decode(&params.input_data, false).map_err(|e| {
+                ActorError::illegal_argument(format!("Failed to decode facade params: {}", e))
+            })?;
         log::info!("FACADE params_decoded: {:?}", params_decoded);
         let eth_addr = EthAddress::from_str(&params_decoded.addr.to_string()).unwrap();
         log::info!("FACADE eth_addr: {:?}", eth_addr);
         let addr = Address::from(eth_addr);
         log::info!("FACADE addr: {:?}", addr);
-        let data = Self::get_facade(rt, addr)?;
+        let data = Self::get_account(rt, GetAccountParams(addr))?.unwrap();
         log::info!("FACADE data: {:?}", data);
-        let addr_from_call = EthAddress(data.0.payload_bytes()[1..].try_into().unwrap());
-        log::info!("FACADE addr_from_call: {:?}", addr_from_call);
-        // Convert to [u8; 20]
+        let token_amount_to_u256 = |token_amount: TokenAmount| {
+            AlloyU256::from_be_slice(
+                token_amount
+                    .atto()
+                    .to_bytes_be()
+                    .1
+                    .as_slice()
+                    .try_into()
+                    .unwrap(),
+            )
+        };
+        let addr_from_call = match data.credit_sponsor {
+            Some(addr) => EthAddress(addr.payload_bytes()[1..].try_into().unwrap()),
+            None => EthAddress::null(),
+        };
         let addr_from_call_bytes: [u8; 20] = addr_from_call.as_ref().try_into().unwrap();
-        log::info!("FACADE addr_from_call_bytes: {:?}", addr_from_call_bytes);
-        let word = FixedBytes::from(addr_from_call_bytes);
-        log::info!("FACADE word: {:?}", word);
-        let data = GetFacadeReturn {
-            addr: AlloyAddress::from(word),
-            data: data.1,
+        let credit_sponsor = AlloyAddress::from(FixedBytes::from(addr_from_call_bytes));
+        let data = GetAccountWrapperReturn {
+            capacityUsed: data.capacity_used,
+            creditFree: token_amount_to_u256(data.credit_free),
+            creditCommitted: token_amount_to_u256(data.credit_committed),
+            creditSponsor: credit_sponsor,
+            lastDebitEpoch: data.last_debit_epoch as u64,
+            approvals: AlloyBytes::default(), // TODO: data.approvals
+            maxTtl: data.max_ttl as u64,
+            gasAllowance: token_amount_to_u256(data.gas_allowance),
         };
         log::info!("FACADE data: {:?}", data);
-        let encoded = <GetFacadeReturn as SolType>::abi_encode(&data);
+        let encoded = <GetAccountWrapperReturn as SolType>::abi_encode(&data);
         log::info!("FACADE encoded: {:?}", encoded);
         let hex = hex::encode(encoded.clone());
         log::info!("FACADE hex: {:?}", hex);
         Ok(InvokeContractReturn {
             output_data: encoded,
         })
-    }
-
-    fn get_facade(rt: &impl Runtime, params: Address) -> Result<(Address, u64), ActorError> {
-        let data = rt.state::<State>()?.get_facade(params);
-        Ok(data)
     }
 
     fn get_stats(rt: &impl Runtime) -> Result<GetStatsReturn, ActorError> {
@@ -593,7 +624,6 @@ impl ActorCode for BlobsActor {
         GetAccountType => get_account_type,
         TrimBlobs => trim_blobs,
         InvokeContract => invoke_contract,
-        GetFacade => get_facade,
         _ => fallback,
     }
 }
@@ -662,30 +692,6 @@ mod tests {
             None,
         );
     }
-
-    // #[test]
-    // fn test_invoke_contract() {
-    //     let rt = construct_and_verify();
-    //     let params = [
-    //         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 192, 95, 230, 182, 63, 250, 75, 60, 81, 142, 111,
-    //         241, 229, 151, 53, 142, 232, 57, 219, 1,
-    //     ];
-    //     let result = hex::encode(params);
-    //     println!("result: {:?}", result);
-    //     let params_decoded = getFacadeCall::abi_decode_rawj(&params, false).unwrap();
-    //     println!("params_decoded: {:?}", params_decoded);
-    // }
-
-    // #[test]
-    // fn test_invoke_contract() {
-    //     let rt = construct_and_verify();
-    //     let params = [
-    //         10, 192, 95, 230, 182, 63, 250, 75, 60, 81, 142, 111, 241, 229, 151, 53, 142, 232, 57,
-    //         219, 1,
-    //     ];
-    //     let addr = EthAddress(params[1..].try_into().unwrap());
-    //     println!("addr: {:?}", addr);
-    // }
 
     #[test]
     fn test_buy_credit() {
