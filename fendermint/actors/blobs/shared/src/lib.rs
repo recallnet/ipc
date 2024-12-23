@@ -48,6 +48,8 @@ pub enum Method {
     SetAccountType = frc42_dispatch::method_hash!("SetAccountType"),
     GetAccountType = frc42_dispatch::method_hash!("GetAccountType"),
     TrimBlobs = frc42_dispatch::method_hash!("TrimBlobs"),
+    InvokeContract = frc42_dispatch::method_hash!("InvokeEVM"),
+    GetFacade = frc42_dispatch::method_hash!("GetFacade"),
 }
 
 pub fn buy_credit(rt: &impl Runtime, to: Address) -> Result<Account, ActorError> {
@@ -80,6 +82,19 @@ pub fn approve_credit(
             ttl,
         })?,
         rt.message().value_received(),
+    ))?)
+}
+
+pub fn get_facade(rt: &impl Runtime, from: Address) -> Result<Option<(Address, u64)>, ActorError> {
+    let params = params::GetAccountParams(from);
+
+    deserialize_block(extract_send_result(rt.send(
+        &BLOBS_ACTOR_ADDR,
+        Method::GetFacade as MethodNum,
+        IpldBlock::serialize_cbor(&params)?,
+        rt.message().value_received(),
+        None,
+        SendFlags::READ_ONLY,
     ))?)
 }
 

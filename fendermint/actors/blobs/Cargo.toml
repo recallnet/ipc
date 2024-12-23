@@ -12,8 +12,11 @@ version = "0.1.0"
 crate-type = ["cdylib", "lib"]
 
 [dependencies]
+alloy-primitives = { workspace = true }
+alloy-sol-types = { workspace = true }
 anyhow = { workspace = true }
 cid = { workspace = true }
+ipc-types = { workspace = true }
 log = { workspace = true, features = ["std"] }
 num-traits = { workspace = true }
 fil_actors_runtime = { workspace = true }

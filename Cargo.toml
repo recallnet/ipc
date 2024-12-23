@@ -60,6 +60,8 @@ license = "MIT OR Apache-2.0"
 license-file = "LICENSE-APACHE"
 
 [workspace.dependencies]
+alloy-primitives = "0.8.1"
+alloy-sol-types = "0.8.1"
 ambassador = "0.3.5"
 anyhow = "1"
 arbitrary = { version = "1", features = ["derive"] }

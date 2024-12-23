@@ -40,11 +40,88 @@ pub struct BlobsActor;
 
 type BlobTuple = (Hash, HashSet<(Address, SubscriptionId, PublicKey)>);
 
+// Experimental Solidity ABI facades
+use alloy_primitives::{hex, Address as AlloyAddress, FixedBytes, U64 as AlloyU64};
+use alloy_sol_types::{sol, SolCall, SolStruct, SolType, SolValue};
+use fvm_ipld_encoding::{strict_bytes, tuple::*};
+use ipc_types::EthAddress;
+use std::str::FromStr;
+
+sol!(
+    #[derive(Debug, PartialEq, Eq)]
+    struct GetFacadeReturn {
+        address addr;
+        uint64 data;
+    }
+    #[derive(Debug, PartialEq, Eq)]
+    function getFacade(
+        address addr
+      ) external returns (GetFacadeReturn memory value);
+);
+
+#[derive(Default, Serialize_tuple, Deserialize_tuple)]
+#[serde(transparent)]
+pub struct InvokeContractParams {
+    #[serde(with = "strict_bytes")]
+    pub input_data: Vec<u8>,
+}
+
+#[derive(Serialize_tuple, Deserialize_tuple)]
+#[serde(transparent)]
+pub struct InvokeContractReturn {
+    #[serde(with = "strict_bytes")]
+    pub output_data: Vec<u8>,
+}
+
 impl BlobsActor {
     fn constructor(rt: &impl Runtime) -> Result<(), ActorError> {
         rt.validate_immediate_caller_is(std::iter::once(&SYSTEM_ACTOR_ADDR))?;
         let state = State::new(rt.store())?;
         rt.create(&state)
+    }
+
+    // Handle `get_account` method
+    fn invoke_contract(
+        rt: &impl Runtime,
+        params: InvokeContractParams,
+    ) -> Result<InvokeContractReturn, ActorError> {
+        rt.validate_immediate_caller_accept_any()?;
+        log::info!("FACADE params: {:?}", params.input_data);
+
+        let params_decoded = getFacadeCall::abi_decode(&params.input_data, false).map_err(|e| {
+            ActorError::illegal_argument(format!("Failed to decode facade params: {}", e))
+        })?;
+        log::info!("FACADE params_decoded: {:?}", params_decoded);
+        let eth_addr = EthAddress::from_str(&params_decoded.addr.to_string()).unwrap();
+        log::info!("FACADE eth_addr: {:?}", eth_addr);
+        let addr = Address::from(eth_addr);
+        log::info!("FACADE addr: {:?}", addr);
+        let data = Self::get_facade(rt, addr)?;
+        log::info!("FACADE data: {:?}", data);
+        let addr_from_call = EthAddress(data.0.payload_bytes()[1..].try_into().unwrap());
+        log::info!("FACADE addr_from_call: {:?}", addr_from_call);
+        // Convert to [u8; 20]
+        let addr_from_call_bytes: [u8; 20] = addr_from_call.as_ref().try_into().unwrap();
+        log::info!("FACADE addr_from_call_bytes: {:?}", addr_from_call_bytes);
+        let word = FixedBytes::from(addr_from_call_bytes);
+        log::info!("FACADE word: {:?}", word);
+        let data = GetFacadeReturn {
+            addr: AlloyAddress::from(word),
+            data: data.1,
+        };
+        log::info!("FACADE data: {:?}", data);
+        let encoded = <GetFacadeReturn as SolType>::abi_encode(&data);
+        log::info!("FACADE encoded: {:?}", encoded);
+        let hex = hex::encode(encoded.clone());
+        log::info!("FACADE hex: {:?}", hex);
+        Ok(InvokeContractReturn {
+            output_data: encoded,
+        })
+    }
+
+    fn get_facade(rt: &impl Runtime, params: Address) -> Result<(Address, u64), ActorError> {
+        let data = rt.state::<State>()?.get_facade(params);
+        Ok(data)
     }
 
     fn get_stats(rt: &impl Runtime) -> Result<GetStatsReturn, ActorError> {
@@ -515,6 +592,8 @@ impl ActorCode for BlobsActor {
         SetAccountType => set_account_type,
         GetAccountType => get_account_type,
         TrimBlobs => trim_blobs,
+        InvokeContract => invoke_contract,
+        GetFacade => get_facade,
         _ => fallback,
     }
 }
@@ -583,6 +662,30 @@ mod tests {
             None,
         );
     }
+
+    // #[test]
+    // fn test_invoke_contract() {
+    //     let rt = construct_and_verify();
+    //     let params = [
+    //         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 192, 95, 230, 182, 63, 250, 75, 60, 81, 142, 111,
+    //         241, 229, 151, 53, 142, 232, 57, 219, 1,
+    //     ];
+    //     let result = hex::encode(params);
+    //     println!("result: {:?}", result);
+    //     let params_decoded = getFacadeCall::abi_decode_rawj(&params, false).unwrap();
+    //     println!("params_decoded: {:?}", params_decoded);
+    // }
+
+    // #[test]
+    // fn test_invoke_contract() {
+    //     let rt = construct_and_verify();
+    //     let params = [
+    //         10, 192, 95, 230, 182, 63, 250, 75, 60, 81, 142, 111, 241, 229, 151, 53, 142, 232, 57,
+    //         219, 1,
+    //     ];
+    //     let addr = EthAddress(params[1..].try_into().unwrap());
+    //     println!("addr: {:?}", addr);
+    // }
 
     #[test]
     fn test_buy_credit() {

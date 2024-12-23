@@ -112,6 +112,10 @@ impl State {
         })
     }
 
+    pub fn get_facade(&self, from: Address) -> (Address, u64) {
+        (from, 54321)
+    }
+
     pub fn get_stats(&self, balance: TokenAmount, hoku_config: &HokuConfig) -> GetStatsReturn {
         GetStatsReturn {
             balance,
