@@ -481,7 +481,7 @@ if [[ -z "${PARENT_GATEWAY_ADDRESS+x}" || -z "${PARENT_REGISTRY_ADDRESS+x}" ]]; 
 
     # use the same account validator 0th account to deploy validator rewarder
     forge clean
-    deploy_validator_rewarder_token_out="$(forge script script/ValidatorRewarder.s.sol:DeployScript --private-key "${pk}" --rpc-url "${rpc_url}" --sig "runWithParams(string,address)" "local" "${SUPPLY_SOURCE_ADDRESS}" --broadcast --timeout 120 -vv)"
+    deploy_validator_rewarder_token_out="$(forge script script/ValidatorRewarder.s.sol:DeployScript --private-key "${pk}" --rpc-url "${rpc_url}" --sig "run(address)" "${SUPPLY_SOURCE_ADDRESS}" --broadcast --timeout 120 -vv)"
     echo "$DASHES deploy validator rewarder token output $DASHES"
     echo ""
 
