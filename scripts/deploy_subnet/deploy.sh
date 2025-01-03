@@ -8,7 +8,6 @@ if (($# != 1)); then
   echo "Arguments: <Specify GitHub remote branch name to use to deploy. Or use 'local' (without quote) to indicate using local repo instead. If not provided, will default to main branch"
   head_ref=main
   local_deploy=false
-  hoku_branch="main"
 else
   if [[ "$1" = "local" || "$1" = "localnet" ]]; then
     echo "$DASHES deploying to localnet $DASHES"
@@ -16,13 +15,6 @@ else
   else
     local_deploy=false
     head_ref=$1
-  fi
-
-  # Set hoku-contracts branch if provided
-  if (($# == 2)); then
-    hoku_branch="$2"
-  else
-    hoku_branch="main"
   fi
 fi
 
@@ -433,10 +425,6 @@ fi
 
 # Setup Hoku contracts
 cd "${IPC_FOLDER}/hoku-contracts"
-echo "$DASHES Checking out hoku-contracts branch: $hoku_branch $DASHES"
-git fetch
-git checkout "$hoku_branch"
-git pull origin "$hoku_branch"
 # need to run clean or we hit upgradeable safety validation errors resulting
 # from contracts with the same name
 forge clean
