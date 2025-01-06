@@ -151,6 +151,7 @@ impl CommandLineHandler for FundWithToken {
             );
         }
 
+
         println!(
             "fund with token performed in epoch: {:?}",
             provider.fund_with_token(subnet, from, to, amount).await?,

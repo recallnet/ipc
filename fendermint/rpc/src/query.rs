@@ -105,6 +105,7 @@ pub trait QueryClient: Sync {
             .perform(FvmQuery::StateParams, height)
             .await
             .context("state params query failed")?;
+        println!("state_params: res: {:?}", res);
         let height = res.height;
         let value = extract(res, |res| {
             fvm_ipld_encoding::from_slice(&res.value)

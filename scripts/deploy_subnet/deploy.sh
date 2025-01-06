@@ -412,7 +412,7 @@ echo "Default wallet address: $default_wallet_address"
 # Export validator private keys into files
 for i in {0..2}
 do
-  ipc-cli wallet export --wallet-type evm --address "${wallet_addresses[i]}" --hex > "${IPC_CONFIG_FOLDER}"/validator_"${i}".sk
+  ipc-cli wallet export --wallet-type evm --address "${wallet_addresses[i]}" --output "${IPC_CONFIG_FOLDER}"/validator_"${i}".sk --hex
   echo "Export private key for ${wallet_addresses[i]} to ${IPC_CONFIG_FOLDER}/validator_${i}.sk"
 done
 

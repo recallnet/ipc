@@ -51,6 +51,7 @@ members = [
     "hoku/kernel",
     "hoku/kernel/ops",
     "hoku/syscalls",
+    "hoku-dev",
 ]
 exclude = ["builtin-actors"]
 

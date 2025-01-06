@@ -1,0 +1,36 @@
+{
+  "chain_name": "/r31337/t410f6dl55afbyjbpupdtrmedyqrnmxdmpk7rxuduafq",
+  "timestamp": 43,
+  "network_version": 21,
+  "base_fee": "1000",
+  "power_scale": 3,
+  "validators": [
+    {
+      "public_key": "BIMYU1tUEF1Keq5gwI/EX5aHGBtP38YlvRp1P6c5f+11NUfxHKhpZkby86ywjjEBavrCPmMMXRH1n2H+9XsNKqU=",
+      "power": "1"
+    },
+    {
+      "public_key": "BLpXNNj3CRcZRx5/fta53xcNxwzGYcoF5ohgGtmE8Giw1nNR5fBgcwkkmTNqsIOe+KUhr9M05TgHIF+i8I7sdPQ=",
+      "power": "1"
+    },
+    {
+      "public_key": "BJ2QMel914/4wVqoaTnemx55EGagIk4zG8liogmaex8EZLi7r+FTXyMBxywss1NbFy2jCwJoarA5PTSGFPFX+9s=",
+      "power": "1"
+    }
+  ],
+  "accounts": [],
+  "eam_permission_mode": {
+    "mode": "unrestricted"
+  },
+  "ipc": {
+    "gateway": {
+      "subnet_id": "/r31337/t410f6dl55afbyjbpupdtrmedyqrnmxdmpk7rxuduafq",
+      "bottom_up_check_period": 10,
+      "majority_percentage": 67,
+      "active_validators_limit": 3
+    }
+  },
+  "credit_debit_interval": 60,
+  "blob_storage_capacity": 4294967296,
+  "blob_debit_rate": 1
+}

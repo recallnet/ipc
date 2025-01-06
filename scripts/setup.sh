@@ -14,6 +14,7 @@ rm -rf "$HOME/.fendermint"
 mkdir -p "$HOME/.fendermint/data"
 cp -r ./fendermint/app/config "$HOME/.fendermint/config"
 
+
 # Init CometBFT
 rm -rf "$HOME/.cometbft"
 "$GOPATH/bin/cometbft" init
