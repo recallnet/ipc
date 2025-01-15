@@ -19,6 +19,7 @@ futures = { workspace = true }
 futures-util = { workspace = true }
 hex = { workspace = true }
 iroh = { workspace = true }
+iroh-base = { workspace = true }
 k256 = { workspace = true }
 lazy_static = { workspace = true }
 libipld = { workspace = true }
