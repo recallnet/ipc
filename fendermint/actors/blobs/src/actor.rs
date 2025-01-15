@@ -2,8 +2,6 @@
 // Copyright 2021-2023 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::collections::HashSet;
-
 use fendermint_actor_blobs_shared::params::{
     AddBlobParams, ApproveCreditParams, BuyCreditParams, DeleteBlobParams, FinalizeBlobParams,
     GetAccountParams, GetAddedBlobsParams, GetBlobParams, GetBlobStatusParams,
@@ -29,6 +27,8 @@ use fvm_shared::econ::TokenAmount;
 use fvm_shared::error::ExitCode;
 use fvm_shared::{address::Address, MethodNum, METHOD_SEND};
 use num_traits::Zero;
+use std::collections::{HashMap, HashSet};
+use std::str::FromStr;
 
 use crate::{State, BLOBS_ACTOR_NAME};
 
@@ -49,6 +49,44 @@ pub struct BlobsActor;
 /// The return type used when fetching "added" or "pending" blobs.
 /// See `get_added_blobs` and `get_pending_blobs` for more information.
 type BlobRequest = (Hash, HashSet<(Address, SubscriptionId, PublicKey)>);
+
+/// Resolves an Account ID Address to its external Address
+fn resolve_address(rt: &impl Runtime, account_address: Address) -> Result<Address, ActorError> {
+    let account_id = rt
+        .resolve_address(&account_address)
+        .ok_or(ActorError::not_found(format!(
+            "actor {} not found",
+            account_address
+        )))?;
+
+    rt.lookup_delegated_address(account_id)
+        .ok_or(ActorError::not_found(format!(
+            "invalid address: actor {} is not delegated",
+            account_address
+        )))
+}
+
+/// Takes a map of credit approvals keyed by account ID addresses and resolves the keys into
+/// external addresses instead
+fn resolve_approvals_addresses(
+    rt: &impl Runtime,
+    approvals: HashMap<String, CreditApproval>,
+) -> Result<HashMap<String, CreditApproval>, ActorError> {
+    let mut resolved_approvals = HashMap::new();
+    for (account_key, approval) in approvals.into_iter() {
+        let account_address = Address::from_str(&account_key).map_err(|err| {
+            ActorError::serialization(format!(
+                "Failed to parse address {} from approvals map: {:?}",
+                account_key, err
+            ))
+        })?;
+
+        let external_account_address = resolve_address(rt, account_address)?;
+        resolved_approvals.insert(external_account_address.to_string(), approval);
+    }
+
+    Ok(resolved_approvals)
+}
 
 impl BlobsActor {
     /// Creates a new `[BlobsActor]` state.
@@ -209,8 +247,23 @@ impl BlobsActor {
     ) -> Result<Option<Account>, ActorError> {
         rt.validate_immediate_caller_accept_any()?;
         let from = to_id_address(rt, params.0, false)?;
-        let account = rt.state::<State>()?.get_account(rt.store(), from)?;
-        Ok(account)
+        let account = rt
+            .state::<State>()?
+            .get_account(rt.store(), from)?
+            .map(|mut account| {
+                // Iterate over the approvals maps and resolve all the addresses to their external form
+                account.approvals_to = resolve_approvals_addresses(rt, account.approvals_to)?;
+                account.approvals_from = resolve_approvals_addresses(rt, account.approvals_from)?;
+                // Resolve the credit sponsor
+                account.credit_sponsor = account
+                    .credit_sponsor
+                    .map(|sponsor| resolve_address(rt, sponsor))
+                    .transpose()?;
+
+                Ok(account)
+            });
+
+        account.transpose()
     }
 
     /// Returns the credit approval from one account to another if it exists.
