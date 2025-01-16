@@ -41,8 +41,6 @@ use warp::{
 use crate::cmd;
 use crate::options::objects::{ObjectsArgs, ObjectsCommands};
 
-/// Maximum size of the multipart form used for object upload.
-const MAX_FORM_LENGTH: u64 = 1024 * 1024;
 /// The alpha parameter for alpha entanglement determines the number of parity blobs to generate
 /// for the original blob.
 const ENTANGLER_ALPHA: u8 = 3;
@@ -88,7 +86,7 @@ cmd! {
                 let objects_upload = warp::path!("v1" / "objects" )
                 .and(warp::post())
                 .and(with_iroh(iroh_client.clone()))
-                .and(warp::multipart::form().max_length(MAX_FORM_LENGTH))
+                .and(warp::multipart::form().max_length(settings.max_object_size + 1024 * 1024)) // max_object_size + 1MB for form overhead
                 .and(with_max_size(settings.max_object_size))
                 .and_then(handle_object_upload);
 
@@ -748,8 +746,8 @@ async fn os_get<F: QueryClient + Send + Sync>(
 mod tests {
     use super::*;
     use fendermint_rpc::FendermintClient;
-    use iroh::blobs::Hash;
-    use iroh::net::NodeAddr;
+    use rand_chacha::rand_core::{RngCore, SeedableRng};
+    use rand_chacha::ChaCha8Rng;
     use tendermint_rpc::{Method, MockClient, MockRequestMethodMatcher};
 
     // Used to mocking Actor State
@@ -851,50 +849,56 @@ mod tests {
 
         let iroh = iroh::node::Node::memory().spawn().await.unwrap();
 
-        // Create test data and calculate its hash
-        let test_data = b"hello world".to_vec();
+        // Create a 10MB random file
+        const FILE_SIZE: usize = 10 * 1024 * 1024; // 10MB
+        let mut rng = ChaCha8Rng::seed_from_u64(12345);
+        let mut test_data = vec![0u8; FILE_SIZE];
+        rng.fill_bytes(&mut test_data);
+
         let size = test_data.len() as u64;
-        let hash = iroh_base::hash::Hash::new(test_data.as_slice());
+        let hash = iroh_base::hash::Hash::new(&test_data);
 
         // Create multipart form with direct data upload
-        let boundary = "--abcdef1234--";
-        let mut body = Vec::new();
-        let form_data = format!(
-            "\
-            --{0}\r\n\
-            content-disposition: form-data; name=\"chain_id\"\r\n\r\n\
-            314159\r\n\
-            --{0}\r\n\
-            content-disposition: form-data; name=\"msg\"\r\n\r\n\
-            some_signed_message\r\n\
-            --{0}\r\n\
-            content-disposition: form-data; name=\"hash\"\r\n\r\n\
-            {1}\r\n\
-            --{0}\r\n\
-            content-disposition: form-data; name=\"size\"\r\n\r\n\
-            {2}\r\n\
-            --{0}\r\n\
-            content-disposition: form-data; name=\"data\"\r\n\r\n\
-            hello world\r\n\
-            --{0}--\r\n\
-            ",
-            boundary, hash, size,
+        let boundary = "------------------------abcdef1234567890"; // Use a longer boundary
+        let mut body = Vec::with_capacity(FILE_SIZE + 1024); // Pre-allocate with some extra space for headers
+
+        // Write form fields
+        body.extend_from_slice(
+            format!(
+                "\
+            --{boundary}\r\n\
+            Content-Disposition: form-data; name=\"hash\"\r\n\r\n\
+            {hash}\r\n\
+            --{boundary}\r\n\
+            Content-Disposition: form-data; name=\"size\"\r\n\r\n\
+            {size}\r\n\
+            --{boundary}\r\n\
+            Content-Disposition: form-data; name=\"data\"\r\n\
+            Content-Type: application/octet-stream\r\n\r\n",
+            )
+            .as_bytes(),
         );
-        body.extend_from_slice(form_data.as_bytes());
+
+        // Write file data
+        body.extend_from_slice(&test_data);
+
+        // Write final boundary
+        body.extend_from_slice(format!("\r\n--{boundary}--\r\n").as_bytes());
 
         let form_data = warp::test::request()
             .method("POST")
             .header("content-length", body.len())
             .header(
                 "content-type",
-                format!("multipart/form-data; boundary={}", boundary),
+                format!("multipart/form-data; boundary={boundary}"),
             )
             .body(body)
-            .filter(&warp::multipart::form())
+            .filter(&warp::multipart::form().max_length(11 * 1024 * 1024))
             .await
             .unwrap();
 
-        let reply = handle_object_upload(iroh.client().clone(), form_data, 1000)
+        // Test with a larger max_size to accommodate our test file
+        let reply = handle_object_upload(iroh.client().clone(), form_data, FILE_SIZE as u64 * 2)
             .await
             .unwrap();
         let response = reply.into_response();
