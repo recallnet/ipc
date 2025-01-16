@@ -211,20 +211,18 @@ impl State {
         account.gas_allowance += &add_amount.clone();
         // Update credit approval
         if let Some(delegation) = delegation {
-            delegation.approval.gas_fee_used -= add_amount.clone();
-
             let origin = delegation.origin;
             let mut origin_account = accounts.get_or_err(&origin)?;
-            let origin_approval = origin_account.approvals_from.get_mut(&addr.to_string());
-
-            if let Some(origin_approval) = origin_approval {
-                origin_approval.gas_fee_used -= add_amount.clone();
-            } else {
-                return Err(ActorError::illegal_state(format!(
+            let origin_approval = origin_account
+                .approvals_from
+                .get_mut(&addr.to_string())
+                .ok_or(ActorError::illegal_state(format!(
                     "approval from {} to {} not found in 'to' account",
                     addr, origin
-                )));
-            }
+                )))?;
+
+            delegation.approval.gas_fee_used -= add_amount.clone();
+            origin_approval.gas_fee_used -= add_amount.clone();
             // Save delegation origin account
             accounts.set(&origin, origin_account)?;
         }
@@ -832,22 +830,18 @@ impl State {
         account.credit_free -= &credit_required;
         // Update credit approval
         if let Some(delegation) = delegation {
-            delegation.approval.credit_used += &credit_required;
-
             let origin = delegation.origin;
             let mut origin_account = accounts.get_or_err(&origin)?;
             let origin_approval = origin_account
                 .approvals_from
-                .get_mut(&subscriber.to_string());
-
-            if let Some(origin_approval) = origin_approval {
-                origin_approval.credit_used += &credit_required;
-            } else {
-                return Err(ActorError::illegal_state(format!(
+                .get_mut(&subscriber.to_string())
+                .ok_or(ActorError::illegal_state(format!(
                     "approval from {} to {} not found in 'to' account",
                     subscriber, origin
-                )));
-            }
+                )))?;
+
+            delegation.approval.credit_used += &credit_required;
+            origin_approval.credit_used += &credit_required;
             // Save delegation origin account
             accounts.set(&origin, origin_account)?;
         }
@@ -1107,16 +1101,14 @@ impl State {
                     let mut origin_account = accounts.get_or_err(&origin)?;
                     let origin_approval = origin_account
                         .approvals_from
-                        .get_mut(&subscriber.to_string());
-
-                    if let Some(origin_approval) = origin_approval {
-                        origin_approval.credit_used -= &reclaim_credits;
-                    } else {
-                        return Err(ActorError::illegal_state(format!(
+                        .get_mut(&subscriber.to_string())
+                        .ok_or(ActorError::illegal_state(format!(
                             "approval from {} to {} not found in 'to' account",
                             subscriber, origin
-                        )));
-                    }
+                        )))?;
+
+                    delegation.approval.credit_used -= &reclaim_credits;
+                    origin_approval.credit_used -= &reclaim_credits;
                     // Save delegation origin account
                     accounts.set(&origin, origin_account)?;
                 }
@@ -1301,17 +1293,14 @@ impl State {
                         let mut origin_account = accounts.get_or_err(&origin)?;
                         let origin_approval = origin_account
                             .approvals_from
-                            .get_mut(&subscriber.to_string());
-
-                        if let Some(origin_approval) = origin_approval {
-                            origin_approval.credit_used -= &reclaim_credits;
-                        } else {
-                            return Err(ActorError::illegal_state(format!(
+                            .get_mut(&subscriber.to_string())
+                            .ok_or(ActorError::illegal_state(format!(
                                 "approval from {} to {} not found in 'to' account",
                                 subscriber, origin
-                            )));
-                        }
+                            )))?;
 
+                        delegation.approval.credit_used -= &reclaim_credits;
+                        origin_approval.credit_used -= &reclaim_credits;
                         // Save delegation origin account
                         accounts.set(&origin, origin_account)?;
                     }
