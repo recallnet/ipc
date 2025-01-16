@@ -16,7 +16,9 @@ use fendermint_actor_blobs_shared::state::{
 use fendermint_actor_blobs_shared::Method;
 use fendermint_actor_hoku_config_shared as config;
 use fendermint_actor_hoku_config_shared::require_caller_is_admin;
-use fendermint_actor_machine::{require_addr_is_origin_or_caller, to_id_address};
+use fendermint_actor_machine::{
+    require_addr_is_origin_or_caller, resolve_delegated_address, to_id_address,
+};
 use fil_actors_runtime::{
     actor_dispatch, actor_error, extract_send_result,
     runtime::{ActorCode, Runtime},
@@ -50,22 +52,6 @@ pub struct BlobsActor;
 /// See `get_added_blobs` and `get_pending_blobs` for more information.
 type BlobRequest = (Hash, HashSet<(Address, SubscriptionId, PublicKey)>);
 
-/// Resolves an Account ID Address to its external Address
-fn resolve_address(rt: &impl Runtime, account_address: Address) -> Result<Address, ActorError> {
-    let account_id = rt
-        .resolve_address(&account_address)
-        .ok_or(ActorError::not_found(format!(
-            "actor {} not found",
-            account_address
-        )))?;
-
-    rt.lookup_delegated_address(account_id)
-        .ok_or(ActorError::not_found(format!(
-            "invalid address: actor {} is not delegated",
-            account_address
-        )))
-}
-
 /// Takes a map of credit approvals keyed by account ID addresses and resolves the keys into
 /// external addresses instead
 fn resolve_approvals_addresses(
@@ -81,7 +67,7 @@ fn resolve_approvals_addresses(
             ))
         })?;
 
-        let external_account_address = resolve_address(rt, account_address)?;
+        let external_account_address = resolve_delegated_address(rt, account_address)?;
         resolved_approvals.insert(external_account_address.to_string(), approval);
     }
 
@@ -257,7 +243,7 @@ impl BlobsActor {
                 // Resolve the credit sponsor
                 account.credit_sponsor = account
                     .credit_sponsor
-                    .map(|sponsor| resolve_address(rt, sponsor))
+                    .map(|sponsor| resolve_delegated_address(rt, sponsor))
                     .transpose()?;
 
                 Ok(account)
