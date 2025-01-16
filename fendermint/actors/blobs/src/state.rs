@@ -226,12 +226,11 @@ impl State {
                 )));
             }
             // Save delegation origin account
-            self.accounts
-                .save_tracked(accounts.set_and_flush_tracked(&origin, origin_account)?);
+            accounts.set(&origin, origin_account)?;
         }
-        // Save account
-        self.accounts
-            .save_tracked(accounts.set_and_flush_tracked(&addr, account)?);
+        // Save accounts
+        accounts.set(&addr, account)?;
+        self.accounts.save_tracked(accounts.flush_tracked()?);
 
         if add_amount.is_positive() {
             debug!("refunded {} atto to {}", add_amount.atto(), addr);
@@ -324,10 +323,9 @@ impl State {
         to_approval.expiry = expiry;
         // Save accounts
         let from_approval = from_approval.clone();
-        self.accounts
-            .save_tracked(accounts.set_and_flush_tracked(&from, from_account)?);
-        self.accounts
-            .save_tracked(accounts.set_and_flush_tracked(&to, to_account)?);
+        accounts.set(&from, from_account)?;
+        accounts.set(&to, to_account)?;
+        self.accounts.save_tracked(accounts.flush_tracked()?);
 
         debug!(
             "approved credits from {} to {} (credit limit: {:?}; gas fee limit: {:?}, expiry: {:?}",
@@ -364,10 +362,9 @@ impl State {
             )));
         }
         // Save accounts
-        self.accounts
-            .save_tracked(accounts.set_and_flush_tracked(&from, from_account)?);
-        self.accounts
-            .save_tracked(accounts.set_and_flush_tracked(&to, to_account)?);
+        accounts.set(&from, from_account)?;
+        accounts.set(&to, to_account)?;
+        self.accounts.save_tracked(accounts.flush_tracked()?);
 
         debug!("revoked credits from {} to {}", from, to);
         Ok(())
@@ -852,12 +849,12 @@ impl State {
                 )));
             }
             // Save delegation origin account
-            self.accounts
-                .save_tracked(accounts.set_and_flush_tracked(&origin, origin_account)?);
+            accounts.set(&origin, origin_account)?;
         }
-        // Save account
-        self.accounts
-            .save_tracked(accounts.set_and_flush_tracked(&subscriber, account)?);
+        // Save accounts
+        accounts.set(&subscriber, account)?;
+        self.accounts.save_tracked(accounts.flush_tracked()?);
+
         // Save blob
         self.blobs
             .save_tracked(blobs.set_and_flush_tracked(&hash, blob)?);
@@ -1121,8 +1118,7 @@ impl State {
                         )));
                     }
                     // Save delegation origin account
-                    self.accounts
-                        .save_tracked(accounts.set_and_flush_tracked(&origin, origin_account)?);
+                    accounts.set(&origin, origin_account)?;
                 }
                 debug!("released {} credits to {}", reclaim_credits, subscriber);
             }
@@ -1131,9 +1127,9 @@ impl State {
         // Remove the source from the pending queue
         self.pending
             .remove_source(store, hash, (subscriber, id, sub.source), blob.size)?;
-        // Save account
-        self.accounts
-            .save_tracked(accounts.set_and_flush_tracked(&subscriber, account)?);
+        // Save accounts
+        accounts.set(&subscriber, account)?;
+        self.accounts.save_tracked(accounts.flush_tracked()?);
         // Save blob
         self.blobs
             .save_tracked(blobs.set_and_flush_tracked(&hash, blob)?);
@@ -1317,8 +1313,7 @@ impl State {
                         }
 
                         // Save delegation origin account
-                        self.accounts
-                            .save_tracked(accounts.set_and_flush_tracked(&origin, origin_account)?);
+                        accounts.set(&origin, origin_account)?;
                     }
                     debug!("released {} credits to {}", reclaim_credits, subscriber);
                 }
@@ -1361,9 +1356,9 @@ impl State {
                 .save_tracked(blobs.set_and_flush_tracked(&hash, blob)?);
             false
         };
-        // Save account
-        self.accounts
-            .save_tracked(accounts.set_and_flush_tracked(&subscriber, account)?);
+        // Save accounts
+        accounts.set(&subscriber, account)?;
+        self.accounts.save_tracked(accounts.flush_tracked()?);
         Ok(delete_blob)
     }
 
