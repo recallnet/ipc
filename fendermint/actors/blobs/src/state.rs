@@ -309,7 +309,7 @@ impl State {
             if from_approval.gas_fee_used > limit {
                 return Err(ActorError::illegal_argument(format!(
                     "limit cannot be less than amount of already used gas fees ({})",
-                    from_approval.credit_used
+                    from_approval.gas_fee_used
                 )));
             }
         }
