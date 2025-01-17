@@ -71,7 +71,7 @@ jobs:
       - name: Build Docker image for e2e tests
         run: |
           ## Create the temporary Dockerfile.
-          cat <<EOF > /tmp/Dockerfile-${{ RUNNER_NAME }}-${{ github.sha }}
+          cat <<EOF > /tmp/Dockerfile-${{ env.RUNNER_NAME }}-${{ github.sha }}
           # syntax=docker/dockerfile:1
           FROM alpine AS builder
           COPY /fendermint/app/config /app/fendermint/app/config
@@ -80,17 +80,17 @@ jobs:
           EOF
           
           ## Append the runner build phase to the Dockerfile.
-          cat fendermint/docker/runner.Dockerfile >> /tmp/Dockerfile-${{ RUNNER_NAME }}-${{ github.sha }}
+          cat fendermint/docker/runner.Dockerfile >> /tmp/Dockerfile-${{ env.RUNNER_NAME }}-${{ github.sha }}
           
           ## Update Dockerfile permissions
-          chmod 777 /tmp/Dockerfile-${{ RUNNER_NAME }}-${{ github.sha }}
+          chmod 777 /tmp/Dockerfile-${{ env.RUNNER_NAME }}-${{ github.sha }}
           
           ## Print the Dockerfile for debugging.
-          echo "Dockerfile-${{ RUNNER_NAME }}-${{ github.sha }}:"
-          cat /tmp/Dockerfile-${{ RUNNER_NAME }}-${{ github.sha }}
+          echo "Dockerfile-${{ env.RUNNER_NAME }}-${{ github.sha }}:"
+          cat /tmp/Dockerfile-${{ env.RUNNER_NAME }}-${{ github.sha }}
           
           ## Create the temporary .dockerignore file.
-          cat <<EOF > /tmp/Dockerfile-${{ RUNNER_NAME }}-${{ github.sha }}.dockerignore
+          cat <<EOF > /tmp/Dockerfile-${{ env.RUNNER_NAME }}-${{ github.sha }}.dockerignore
           target
           !target/release/fendermint
           !target/release/ipc-cli
@@ -99,26 +99,26 @@ jobs:
           EOF
           
           ## Update .dockerignore file permissions
-          chmod 777 /tmp/Dockerfile-${{ RUNNER_NAME }}-${{ github.sha }}.dockerignore
+          chmod 777 /tmp/Dockerfile-${{ env.RUNNER_NAME }}-${{ github.sha }}.dockerignore
           
           ## Print the .dockerignore file for debugging.
-          echo "Dockerfile-${{ RUNNER_NAME }}-${{ github.sha }}.dockerignore:"
-          cat /tmp/Dockerfile-${{ RUNNER_NAME }}-${{ github.sha }}.dockerignore
+          echo "Dockerfile-${{ env.RUNNER_NAME }}-${{ github.sha }}.dockerignore:"
+          cat /tmp/Dockerfile-${{ env.RUNNER_NAME }}-${{ github.sha }}.dockerignore
           
           ## Build the Docker image.
           DOCKER_BUILDKIT=1 docker build \
             --load \
-            -f /tmp/Dockerfile-${{ RUNNER_NAME }}-${{ github.sha }} \
+            -f /tmp/Dockerfile-${{ env.RUNNER_NAME }}-${{ github.sha }} \
             -t fendermint:${{ github.sha }} \
             .
 
       - name: Create artifacts directory
         run: mkdir -p /tmp/artifacts
       - name: Export Docker image
-        run: docker save fendermint:${{ RUNNER_NAME }}-${{ github.sha }} > /tmp/artifacts/docker-image-${{ RUNNER_NAME }}-${{ github.sha }}.tar
+        run: docker save fendermint:${{ env.RUNNER_NAME }}-${{ github.sha }} > /tmp/artifacts/docker-image-${{ env.RUNNER_NAME }}-${{ github.sha }}.tar
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: docker-image-${{ RUNNER_NAME }}-${{ github.sha }}
-          path: /tmp/artifacts/docker-image-${{ RUNNER_NAME }}-${{ github.sha }}.tar
+          name: docker-image-${{ env.RUNNER_NAME }}-${{ github.sha }}
+          path: /tmp/artifacts/docker-image-${{ env.RUNNER_NAME }}-${{ github.sha }}.tar
