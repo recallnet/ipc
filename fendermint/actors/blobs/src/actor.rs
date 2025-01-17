@@ -154,14 +154,40 @@ impl BlobsActor {
         rt.validate_immediate_caller_accept_any()?;
         let from = to_id_address(rt, params.from, true)?;
         require_addr_is_origin_or_caller(rt, from)?;
-        let to = to_id_address(rt, params.to, true)?;
+
+        let mut to = to_id_address(rt, params.to, true);
+
         let config = config::get_config(rt)?;
+
+        // it can fail if the account doesn't exist
+        if to.is_err() {
+            // we send zero tokens to make sure the account is created on FVM
+            extract_send_result(rt.send_simple(
+                &params.to,
+                METHOD_SEND,
+                None,
+                TokenAmount::zero(),
+            ))?;
+
+            rt.transaction(|st: &mut State, rt| {
+                st.set_account_sponsor(
+                    &config,
+                    rt.store(),
+                    from,
+                    Some(rt.message().caller()),
+                    rt.curr_epoch(),
+                )
+            })?;
+
+            to = to_id_address(rt, params.to, true);
+        }
+
         rt.transaction(|st: &mut State, rt| {
             st.approve_credit(
                 &config,
                 rt.store(),
                 from,
-                to,
+                to?,
                 rt.curr_epoch(),
                 params.credit_limit,
                 params.gas_fee_limit,
