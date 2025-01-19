@@ -115,7 +115,7 @@ impl State {
         key: BytesKey,
         hash: Hash,
         size: u64,
-        metadata: HashMap<String, String>,
+        metadata: &HashMap<String, String>,
         overwrite: bool,
     ) -> anyhow::Result<Cid, ActorError> {
         let mut hamt = Hamt::<_, ObjectState>::load_with_config(&self.root, store, HAMT_CONFIG)
@@ -123,7 +123,7 @@ impl State {
         let object = ObjectState {
             hash,
             size,
-            metadata,
+            metadata: metadata.to_owned(),
         };
         if overwrite {
             hamt.set(key, object).map_err(state_error)?;
@@ -334,7 +334,7 @@ mod tests {
                 BytesKey(vec![1, 2, 3]),
                 object.hash,
                 object.size,
-                object.metadata,
+                &object.metadata,
                 true
             )
             .is_ok());
@@ -353,7 +353,7 @@ mod tests {
                 key.clone(),
                 object.hash,
                 object.size,
-                object.metadata,
+                &object.metadata,
                 true,
             )
             .unwrap();
@@ -371,7 +371,7 @@ mod tests {
         let key = BytesKey(vec![1, 2, 3]);
         let md = object.metadata.clone();
         state
-            .add(&store, key.clone(), object.hash, object.size, md, true)
+            .add(&store, key.clone(), object.hash, object.size, &md, true)
             .unwrap();
         let result = state.get(&store, &key);
 
@@ -390,7 +390,7 @@ mod tests {
             baz_key.clone(),
             object.hash,
             object.size,
-            object.metadata,
+            &object.metadata,
             false,
         )?;
         let bar_key = BytesKey("foo/bar.png".as_bytes().to_vec()); // index 1
@@ -400,7 +400,7 @@ mod tests {
             bar_key.clone(),
             object.hash,
             object.size,
-            object.metadata,
+            &object.metadata,
             false,
         )?;
         // We'll mostly ignore this one
@@ -411,7 +411,7 @@ mod tests {
             other_key.clone(),
             hash.0,
             8,
-            HashMap::<String, String>::new(),
+            &HashMap::<String, String>::new(),
             false,
         )?;
         let jpeg_key = BytesKey("foo.jpeg".as_bytes().to_vec()); // index 3
@@ -421,7 +421,7 @@ mod tests {
             jpeg_key.clone(),
             object.hash,
             object.size,
-            object.metadata,
+            &object.metadata,
             false,
         )?;
         Ok((baz_key, bar_key, jpeg_key))
@@ -458,7 +458,7 @@ mod tests {
                     key.clone(),
                     object.hash,
                     object.size,
-                    object.metadata,
+                    &object.metadata,
                     false,
                 )
                 .unwrap();
@@ -497,7 +497,7 @@ mod tests {
                     key.clone(),
                     object.hash,
                     object.size,
-                    object.metadata,
+                    &object.metadata,
                     false,
                 )
                 .unwrap();
@@ -565,7 +565,7 @@ mod tests {
                 jpeg_key.clone(),
                 hash.0,
                 8,
-                HashMap::<String, String>::new(),
+                &HashMap::<String, String>::new(),
                 false,
             )
             .unwrap();
@@ -577,7 +577,7 @@ mod tests {
                 bar_key.clone(),
                 hash.0,
                 8,
-                HashMap::<String, String>::new(),
+                &HashMap::<String, String>::new(),
                 false,
             )
             .unwrap();
@@ -589,7 +589,7 @@ mod tests {
                 baz_key.clone(),
                 hash.0,
                 8,
-                HashMap::<String, String>::new(),
+                &HashMap::<String, String>::new(),
                 false,
             )
             .unwrap();
@@ -641,7 +641,7 @@ mod tests {
                 one.clone(),
                 hash.0,
                 8,
-                HashMap::<String, String>::new(),
+                &HashMap::<String, String>::new(),
                 false,
             )
             .unwrap();
@@ -653,7 +653,7 @@ mod tests {
                 two.clone(),
                 hash.0,
                 8,
-                HashMap::<String, String>::new(),
+                &HashMap::<String, String>::new(),
                 false,
             )
             .unwrap();
