@@ -316,14 +316,6 @@ async fn handle_object_upload(
         })
     })?;
 
-    let hash = match parser.hash {
-        Some(hash) => hash,
-        None => {
-            return Err(Rejection::from(BadRequest {
-                message: "missing hash in form".to_string(),
-            }))
-        }
-    };
     let size = match parser.size {
         Some(size) => size,
         None => {
@@ -339,9 +331,17 @@ async fn handle_object_upload(
     }
 
     // Handle the two upload cases
-    match (parser.source, parser.data) {
+    let hash = match (parser.source, parser.data) {
         // Case 1: Source node provided - download from the source
         (Some(source), None) => {
+            let hash = match parser.hash {
+                Some(hash) => hash,
+                None => {
+                    return Err(Rejection::from(BadRequest {
+                        message: "missing hash in form".to_string(),
+                    }))
+                }
+            };
             let tag = iroh::blobs::Tag(format!("temp-{hash}").into());
             let progress = iroh
                 .blobs()
@@ -380,6 +380,7 @@ async fn handle_object_upload(
                 hash, outcome.stats.elapsed, size, outcome.local_size, outcome.downloaded_size,
             );
             COUNTER_BYTES_UPLOADED.inc_by(outcome.downloaded_size);
+            hash
         }
 
         // Case 2: Direct upload - store the provided data
@@ -393,8 +394,7 @@ async fn handle_object_upload(
                     ),
                 }));
             }
-
-            // Verify the hash matches
+            
             let uploaded_hash = iroh
                 .blobs()
                 .add_bytes(data.as_slice().to_vec())
@@ -406,17 +406,10 @@ async fn handle_object_upload(
                 })?
                 .hash;
 
-            if uploaded_hash != hash {
-                return Err(Rejection::from(BadRequest {
-                    message: format!(
-                        "uploaded data hash does not match provided hash (expected {}, got {})",
-                        hash, uploaded_hash
-                    ),
-                }));
-            }
-
-            info!("stored uploaded blob {} (size: {})", hash, size,);
+            info!("stored uploaded blob {} (size: {})", uploaded_hash, size);
             COUNTER_BYTES_UPLOADED.inc_by(size);
+            
+            uploaded_hash
         }
 
         (Some(_), Some(_)) => {
@@ -430,7 +423,7 @@ async fn handle_object_upload(
                 message: "must provide either source or data".to_string(),
             }));
         }
-    }
+    };
 
     let ent = new_entangler(iroh).map_err(|e| {
         Rejection::from(BadRequest {
