@@ -156,22 +156,12 @@ impl From<ParseIntError> for ObjectsError {
     }
 }
 
+#[derive(Default)]
 struct ObjectParser {
     hash: Option<Hash>,
     size: Option<u64>,
     source: Option<NodeAddr>,
     data: Option<Vec<u8>>,
-}
-
-impl Default for ObjectParser {
-    fn default() -> Self {
-        ObjectParser {
-            hash: None,
-            size: None,
-            source: None,
-            data: None,
-        }
-    }
 }
 
 impl ObjectParser {
@@ -394,7 +384,7 @@ async fn handle_object_upload(
                     ),
                 }));
             }
-            
+
             let uploaded_hash = iroh
                 .blobs()
                 .add_bytes(data.as_slice().to_vec())
@@ -408,7 +398,7 @@ async fn handle_object_upload(
 
             info!("stored uploaded blob {} (size: {})", uploaded_hash, size);
             COUNTER_BYTES_UPLOADED.inc_by(size);
-            
+
             uploaded_hash
         }
 
