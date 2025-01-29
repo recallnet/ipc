@@ -9,6 +9,7 @@ use fvm_ipld_encoding::tuple::*;
 use fvm_shared::{address::Address, MethodNum};
 use log::info;
 use sha2::{Digest, Sha256};
+use unsigned_varint::encode as varint_encode;
 
 use crate::shared::{ReadRequest, ReadRequestStatus};
 use fendermint_actor_blobs_shared::state::Hash;
@@ -39,22 +40,14 @@ impl State {
             )));
         }
 
-        let blob_hash_bytes = pad_to_32_bytes(blob_hash.0.as_ref());
-        let offset_bytes = pad_to_32_bytes(&offset.to_be_bytes());
-        let len_bytes = pad_to_32_bytes(&len.to_be_bytes());
-        let callback_addr_bytes = pad_to_32_bytes(&callback_addr.to_bytes());
-        let callback_method_bytes = pad_to_32_bytes(&callback_method.to_be_bytes());
-        let combined_bytes: Vec<u8> = [
-            &blob_hash_bytes[..],
-            &offset_bytes[..],
-            &len_bytes[..],
-            &callback_addr_bytes[..],
-            &callback_method_bytes[..],
-        ]
-        .concat();
         let mut hasher = Sha256::new();
-        hasher.update(&combined_bytes);
+        hasher.update(length_prefixed_bytes(blob_hash.0.as_ref()));
+        hasher.update(length_prefixed_bytes(&offset.to_be_bytes()));
+        hasher.update(length_prefixed_bytes(&len.to_be_bytes()));
+        hasher.update(length_prefixed_bytes(&callback_addr.to_bytes()));
+        hasher.update(length_prefixed_bytes(&callback_method.to_be_bytes()));
         let request_id: [u8; 32] = hasher.finalize().into();
+
         let read_request = ReadRequest {
             blob_hash,
             offset,
@@ -124,9 +117,12 @@ impl State {
     }
 }
 
-pub(crate) fn pad_to_32_bytes(input: &[u8]) -> [u8; 32] {
-    let mut padded = [0u8; 32];
-    let start = 32_usize.saturating_sub(input.len());
-    padded[start..].copy_from_slice(&input[..input.len().min(32)]);
-    padded
+pub(crate) fn length_prefixed_bytes(input: &[u8]) -> Vec<u8> {
+    let input_len = input.len() as u32;
+    let mut prefix_buffer = varint_encode::u32_buffer();
+    let prefix = varint_encode::u32(input_len, &mut prefix_buffer);
+    let mut result = Vec::with_capacity(prefix.len() + input.len());
+    result.extend_from_slice(prefix);
+    result.extend(input);
+    result
 }

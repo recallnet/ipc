@@ -3112,6 +3112,7 @@ dependencies = [
  "rand",
  "serde",
  "sha2 0.10.8",
+ "unsigned-varint 0.8.0",
 ]
 
 [[package]]

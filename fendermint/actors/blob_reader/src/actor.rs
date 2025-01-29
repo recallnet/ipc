@@ -118,7 +118,7 @@ impl ActorCode for ReadReqActor {
 mod tests {
     use super::*;
 
-    use crate::state::pad_to_32_bytes;
+    use crate::state::length_prefixed_bytes;
     use fil_actors_evm_shared::address::EthAddress;
     use fil_actors_runtime::test_utils::{
         expect_empty, MockRuntime, ETHACCOUNT_ACTOR_CODE_ID, SYSTEM_ACTOR_CODE_ID,
@@ -198,11 +198,11 @@ mod tests {
         let mut hasher = sha2::Sha256::new();
         hasher.update(
             [
-                &pad_to_32_bytes(blob_hash.0.as_ref())[..],
-                &pad_to_32_bytes(&offset.to_be_bytes())[..],
-                &pad_to_32_bytes(&len.to_be_bytes())[..],
-                &pad_to_32_bytes(&f4_eth_addr.to_bytes())[..],
-                &pad_to_32_bytes(&callback_method.to_be_bytes())[..],
+                &length_prefixed_bytes(blob_hash.0.as_ref())[..],
+                &length_prefixed_bytes(&offset.to_be_bytes())[..],
+                &length_prefixed_bytes(&len.to_be_bytes())[..],
+                &length_prefixed_bytes(&f4_eth_addr.to_bytes())[..],
+                &length_prefixed_bytes(&callback_method.to_be_bytes())[..],
             ]
             .concat(),
         );

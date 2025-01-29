@@ -21,6 +21,7 @@ frc42_dispatch = { workspace = true }
 num-derive = { workspace = true }
 sha2 = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
+unsigned-varint = "0.8.0"
 
 fendermint_actor_blobs_shared = { path = "../blobs/shared" }
 
