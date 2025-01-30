@@ -5,9 +5,9 @@
 use crate::fvm::FvmMessage;
 use anyhow::{bail, Context};
 use fendermint_actor_blobs_shared::state::TokenCreditRate;
-use fendermint_actor_hoku_config_shared::HokuConfig;
-use fendermint_actor_hoku_config_shared::Method::GetConfig;
-use fendermint_vm_actor_interface::hoku_config::HOKU_CONFIG_ACTOR_ADDR;
+use fendermint_actor_recall_config_shared::HokuConfig;
+use fendermint_actor_recall_config_shared::Method::GetConfig;
+use fendermint_vm_actor_interface::recall_config::HOKU_CONFIG_ACTOR_ADDR;
 use fendermint_vm_actor_interface::system;
 use fvm::executor::{ApplyKind, ApplyRet, Executor};
 use fvm_shared::bigint::BigInt;
@@ -39,7 +39,7 @@ impl HokuConfigTracker {
             blob_default_ttl: Zero::zero(),
         };
 
-        let reading = Self::read_hoku_config(executor)?;
+        let reading = Self::read_recall_config(executor)?;
 
         ret.blob_capacity = reading.blob_capacity;
         ret.token_credit_rate = reading.token_credit_rate;
@@ -50,7 +50,7 @@ impl HokuConfigTracker {
         Ok(ret)
     }
 
-    pub fn read_hoku_config<E: Executor>(executor: &mut E) -> anyhow::Result<HokuConfig> {
+    pub fn read_recall_config<E: Executor>(executor: &mut E) -> anyhow::Result<HokuConfig> {
         let msg = FvmMessage {
             from: system::SYSTEM_ACTOR_ADDR,
             to: HOKU_CONFIG_ACTOR_ADDR,
@@ -67,11 +67,11 @@ impl HokuConfigTracker {
         let apply_ret = Self::apply_implicit_message(executor, msg)?;
 
         if let Some(err) = apply_ret.failure_info {
-            bail!("failed to acquire hoku config: {}", err);
+            bail!("failed to acquire recall config: {}", err);
         }
 
         fvm_ipld_encoding::from_slice::<HokuConfig>(&apply_ret.msg_receipt.return_data)
-            .context("failed to parse hoku config")
+            .context("failed to parse recall config")
     }
 
     fn apply_implicit_message<E: Executor>(

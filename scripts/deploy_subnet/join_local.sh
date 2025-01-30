@@ -53,7 +53,7 @@ echo "Export private key for $validator_addr to ${IPC_CONFIG_FOLDER}/validator_3
 
 echo "$DASHES Approve new validator to stake $DASHES"
 pk=$(cat "${IPC_CONFIG_FOLDER}"/validator_0.sk)
-cd "${IPC_FOLDER}/hoku-contracts"
+cd "${IPC_FOLDER}/recall-contracts"
 # approved power min 1 HOKU max 10 HOKU
 cast send "$VALIDATOR_GATER_ADDRESS" "approve(address,uint256,uint256)" "$validator_addr" 1000000000000000000 100000000000000000000 --rpc-url "http://localhost:${ANVIL_HOST_PORT}" --private-key "$pk"
 echo "Approved new validator to stake on anvil rootnet"

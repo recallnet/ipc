@@ -10,7 +10,7 @@ use fendermint_actor_blobs_shared::state::{
     Account, Blob, BlobStatus, Credit, CreditApproval, GasAllowance, Hash, PublicKey, Subscription,
     SubscriptionGroup, SubscriptionId, TokenCreditRate, TtlStatus,
 };
-use fendermint_actor_hoku_config_shared::HokuConfig;
+use fendermint_actor_recall_config_shared::HokuConfig;
 use fil_actors_runtime::ActorError;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::tuple::*;
@@ -19,7 +19,7 @@ use fvm_shared::address::Address;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::econ::TokenAmount;
-use hoku_ipld::hamt::{BytesKey, MapKey};
+use recall_ipld::hamt::{BytesKey, MapKey};
 use log::{debug, warn};
 use num_traits::{ToPrimitive, Zero};
 

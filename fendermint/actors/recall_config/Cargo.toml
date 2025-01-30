@@ -1,6 +1,6 @@
 [package]
-name = "fendermint_actor_hoku_config"
-description = "Singleton actor for updateable Hoku network parameters"
+name = "fendermint_actor_recall_config"
+description = "Singleton actor for updateable Recall network parameters"
 license.workspace = true
 edition.workspace = true
 authors.workspace = true
@@ -20,7 +20,7 @@ log = { workspace = true, features = ["std"] }
 num-traits = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 
-fendermint_actor_hoku_config_shared = { path = "../hoku_config/shared" }
+fendermint_actor_recall_config_shared = { path = "../recall_config/shared" }
 fendermint_actor_machine = { path = "../machine" }
 
 [dev-dependencies]

@@ -7,13 +7,13 @@ use std::sync::Arc;
 use fvm::kernel::{ExecutionError, Result, SyscallError};
 use fvm::syscalls::Context;
 use fvm_shared::error::ErrorNumber;
-use hoku_kernel_ops::HokuOps;
+use recall_kernel_ops::HokuOps;
 use iroh::blobs::Hash;
 use iroh_manager::IrohManager;
 use once_cell::sync::Lazy;
 use tokio::{spawn, sync::Mutex};
 
-pub const MODULE_NAME: &str = "hoku";
+pub const MODULE_NAME: &str = "recall";
 pub const HASHRM_SYSCALL_FUNCTION_NAME: &str = "hash_rm";
 
 const ENV_IROH_ADDR: &str = "IROH_RPC_ADDR";

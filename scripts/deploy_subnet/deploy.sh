@@ -243,7 +243,7 @@ if ! $local_deploy ; then
   setup_ssh_config
   add_ssh_keys
   if ! ls "$IPC_FOLDER" ; then
-    git clone git@github.com-ipc:hokunet/ipc.git "${IPC_FOLDER}"
+    git clone git@github.com-ipc:recallnet/ipc.git "${IPC_FOLDER}"
   fi
   cd "${IPC_FOLDER}"
   git fetch
@@ -423,7 +423,7 @@ if ! $local_deploy ; then
 fi
 
 # Setup Hoku contracts
-cd "${IPC_FOLDER}/hoku-contracts"
+cd "${IPC_FOLDER}/recall-contracts"
 # need to run clean or we hit upgradeable safety validation errors resulting
 # from contracts with the same name
 forge clean
@@ -455,7 +455,7 @@ if [[ -z "${PARENT_GATEWAY_ADDRESS+x}" || -z "${PARENT_REGISTRY_ADDRESS+x}" ]]; 
   PARENT_REGISTRY_ADDRESS=$(echo "$deploy_contracts_output" | grep 'SubnetRegistryDiamond' | awk 'NR==2 {printf "%s", $NF}')
 
   if [ $local_deploy == true ]; then
-    cd "${IPC_FOLDER}/hoku-contracts"
+    cd "${IPC_FOLDER}/recall-contracts"
     # use the same account validator 0th account to deploy supply source token
     deploy_supply_source_token_out="$(forge script script/Hoku.s.sol --private-key "${pk}" --rpc-url "${rpc_url}" --tc DeployScript --sig 'run(string)' local --broadcast --timeout 120 -vv)"
     echo "$DASHES deploy supply source token output $DASHES"
@@ -500,7 +500,7 @@ echo "Parent supply source address: $SUPPLY_SOURCE_ADDRESS"
 echo "Parent validator rewarder address: $VALIDATOR_REWARDER_ADDRESS"
 
 # use the same account validator 0th account to deploy validator gater
-cd "${IPC_FOLDER}/hoku-contracts"
+cd "${IPC_FOLDER}/recall-contracts"
 forge clean && forge build # Note: required to avoid upgradeable safety validation errors with `ValidatorGater.sol`
 gas_mult=$(if $local_deploy; then echo 130; else echo 100000; fi)
 deploy_validator_gater_token_out="$(forge script script/ValidatorGater.s.sol --private-key "${pk}" --rpc-url "${rpc_url}" --tc DeployScript --sig 'run()' --broadcast --timeout 120 -g "${gas_mult}" -vv)"
@@ -760,7 +760,7 @@ if [[ $local_deploy = true ]]; then
   # move 10000 HOKU to subnet (i.e., leave 100 HOKU on rootnet for
   # testing purposes)
   # note: see comment above about why we're using 10**18 due 
-  # to `ipc-cli` & `hoku` CLI's atto assumption
+  # to `ipc-cli` & `recall` CLI's atto assumption
   token_amount="10000000000000000000000"
   for i in {0..9}
   do
@@ -780,14 +780,14 @@ if [[ $local_deploy = true ]]; then
     sleep 5
   done
   echo "Deposited HOKU for test accounts"
-  # buy 5000 credits if the hoku CLI is installed
-  if [[ -n $(which hoku) ]]; then
+  # buy 5000 credits if the recall CLI is installed
+  if [[ -n $(which recall) ]]; then
     echo "Buying credits for test accounts..."
     credit_amount="5000"
     for i in {0..9}
     do
       private_key=$(jq .["$i"].private_key < "${IPC_CONFIG_FOLDER}"/evm_keystore.json | tr -d '"')
-      HOKU_PRIVATE_KEY="${private_key}" HOKU_NETWORK=localnet hoku account credit buy "${credit_amount}"
+      RECALL_PRIVATE_KEY="${private_key}" RECALL_NETWORK=localnet recall account credit buy "${credit_amount}"
     done
     echo "Bought subnet credits for test accounts"
   else
@@ -800,7 +800,7 @@ if [[ $local_deploy = true ]]; then
   # with validator accounts. So, we deploy the bucket and credit manager contracts via the last evm
   # account. Ideally, we would use validator 0 and somehow avoid nonce clashes.
   deployer_pk=$(jq .[9].private_key < "${IPC_CONFIG_FOLDER}"/evm_keystore.json | tr -d '"')
-  cd "${IPC_FOLDER}/hoku-contracts"
+  cd "${IPC_FOLDER}/recall-contracts"
   echo "$DASHES deploy bucket and credit manager output $DASHES"
   deploy_blob_manager_token_out="$(forge script script/BlobManager.s.sol --private-key "${deployer_pk}" --rpc-url http://localhost:"${ETHAPI_HOST_PORTS[0]}" --tc DeployScript --sig 'run()' --broadcast --timeout 120 -g 100000 -vv)"
   deploy_bucket_manager_token_out="$(forge script script/BucketManager.s.sol --private-key "${deployer_pk}" --rpc-url http://localhost:"${ETHAPI_HOST_PORTS[0]}" --tc DeployScript --sig 'run()' --broadcast --timeout 120 -g 100000 -vv)"
@@ -883,13 +883,13 @@ if [[ $local_deploy = true ]]; then
   echo "Account balances:"
   addr=$(jq .[3].address < "${IPC_CONFIG_FOLDER}"/evm_keystore.json | tr -d '"')
   parent_native=$(cast balance --rpc-url http://localhost:"${ANVIL_HOST_PORT}" --ether "${addr}" | awk '{printf "%.2f", $1}')
-  parent_hoku=$(cast balance --rpc-url http://localhost:"${ANVIL_HOST_PORT}" --erc20 "${SUPPLY_SOURCE_ADDRESS}" "${addr}" | awk '{printf "%.0f", $1 / 1000000000000000000}')
+  parent_recall=$(cast balance --rpc-url http://localhost:"${ANVIL_HOST_PORT}" --erc20 "${SUPPLY_SOURCE_ADDRESS}" "${addr}" | awk '{printf "%.0f", $1 / 1000000000000000000}')
   subnet_native=$(cast balance --rpc-url http://localhost:"${ETHAPI_HOST_PORTS[0]}" --ether "${addr}" | awk '{printf "%.2f", $1}')
   echo "Parent native: ${parent_native%.*} ETH"
-  echo "Parent HOKU:   ${parent_hoku%.*} HOKU"
+  echo "Parent HOKU:   ${parent_recall%.*} HOKU"
   echo "Subnet native: ${subnet_native%.*} HOKU"
-  if [[ -n $(which hoku) ]]; then
-    credit_balance=$(HOKU_NETWORK=localnet hoku account info --address "${addr}" | jq '.credit.credit_free' | tr -d '"')
+  if [[ -n $(which recall) ]]; then
+    credit_balance=$(RECALL_NETWORK=localnet recall credit balance --address "${addr}" | jq '.credit_free' | tr -d '"')
     echo "Subnet credits: ${credit_balance}"
   fi
   echo

@@ -6,7 +6,7 @@ use std::collections::{HashMap, HashSet};
 use crate::fvm::activity::actor::ActorActivityTracker;
 use crate::fvm::externs::FendermintExterns;
 use crate::fvm::gas::BlockGasTracker;
-use crate::fvm::hoku_config::HokuConfigTracker;
+use crate::fvm::recall_config::HokuConfigTracker;
 use crate::fvm::state::priority::TxnPriorityCalculator;
 use anyhow::Ok;
 use cid::Cid;
@@ -29,8 +29,8 @@ use fvm_shared::{
     address::Address, chainid::ChainID, clock::ChainEpoch, econ::TokenAmount, error::ExitCode,
     message::Message, receipt::Receipt, version::NetworkVersion, ActorID,
 };
-use hoku_executor::HokuExecutor;
-use hoku_kernel::HokuKernel;
+use recall_executor::HokuExecutor;
+use recall_kernel::HokuKernel;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use std::fmt;
@@ -147,8 +147,8 @@ where
     /// Keeps track of block gas usage during execution, and takes care of updating
     /// the chosen gas market strategy (by default an on-chain actor delivering EIP-1559 behaviour).
     block_gas_tracker: BlockGasTracker,
-    /// Keeps track of hoku config parameters used during execution.
-    hoku_config_tracker: HokuConfigTracker,
+    /// Keeps track of recall config parameters used during execution.
+    recall_config_tracker: HokuConfigTracker,
     /// State of parameters that are outside the control of the FVM but can change and need to be persisted.
     params: FvmUpdatableParams,
     /// Indicate whether the parameters have been updated.
@@ -195,14 +195,14 @@ where
         let block_gas_tracker = BlockGasTracker::create(&mut executor)?;
         let base_fee = block_gas_tracker.base_fee().clone();
 
-        let hoku_config_tracker = HokuConfigTracker::create(&mut executor)?;
+        let recall_config_tracker = HokuConfigTracker::create(&mut executor)?;
 
         Ok(Self {
             executor,
             block_hash: None,
             block_producer: None,
             block_gas_tracker,
-            hoku_config_tracker,
+            recall_config_tracker,
             params: FvmUpdatableParams {
                 app_version: params.app_version,
                 base_fee: params.base_fee,
@@ -238,8 +238,8 @@ where
         BlockGasTracker::read_gas_market(&mut self.executor)
     }
 
-    pub fn hoku_config_tracker(&self) -> &HokuConfigTracker {
-        &self.hoku_config_tracker
+    pub fn recall_config_tracker(&self) -> &HokuConfigTracker {
+        &self.recall_config_tracker
     }
 
     /// Execute message implicitly.

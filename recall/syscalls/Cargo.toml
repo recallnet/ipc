@@ -1,5 +1,5 @@
 [package]
-name = "hoku_syscalls"
+name = "recall_syscalls"
 version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
@@ -16,5 +16,5 @@ once_cell = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
 
-hoku_kernel_ops = { path = "../kernel/ops" }
+recall_kernel_ops = { path = "../kernel/ops" }
 iroh_manager = { path = "../iroh_manager" }

@@ -1,5 +1,5 @@
 [package]
-name = "hoku_kernel"
+name = "recall_kernel"
 version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
@@ -15,5 +15,5 @@ fvm = { workspace = true }
 fvm_ipld_blockstore = { workspace = true }
 fvm_shared = { workspace = true }
 
-hoku_kernel_ops = { path = "./ops" }
-hoku_syscalls = { path = "../syscalls" }
+recall_kernel_ops = { path = "./ops" }
+recall_syscalls = { path = "../syscalls" }

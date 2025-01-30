@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use fendermint_actor_blobs_shared::state::TokenCreditRate;
-use fendermint_actor_hoku_config_shared::{HokuConfig, Method, SetAdminParams, SetConfigParams};
+use fendermint_actor_recall_config_shared::{HokuConfig, Method, SetAdminParams, SetConfigParams};
 use fendermint_actor_machine::to_id_address;
 use fil_actors_runtime::actor_error;
 use fil_actors_runtime::runtime::{ActorCode, Runtime};
@@ -16,7 +16,7 @@ use fvm_shared::clock::ChainEpoch;
 #[cfg(feature = "fil-actor")]
 fil_actors_runtime::wasm_trampoline!(Actor);
 
-pub const ACTOR_NAME: &str = "hoku_config";
+pub const ACTOR_NAME: &str = "recall_config";
 
 #[derive(Serialize_tuple, Deserialize_tuple, Debug, Clone)]
 pub struct State {
@@ -136,7 +136,7 @@ impl ActorCode for Actor {
 mod tests {
     use crate::{Actor, ConstructorParams, Method};
     use fendermint_actor_blobs_shared::state::TokenCreditRate;
-    use fendermint_actor_hoku_config_shared::{HokuConfig, HOKU_CONFIG_ACTOR_ID};
+    use fendermint_actor_recall_config_shared::{HokuConfig, HOKU_CONFIG_ACTOR_ID};
     use fil_actors_evm_shared::address::EthAddress;
     use fil_actors_runtime::test_utils::{
         expect_empty, MockRuntime, ETHACCOUNT_ACTOR_CODE_ID, SYSTEM_ACTOR_CODE_ID,
@@ -195,7 +195,7 @@ mod tests {
         );
 
         rt.expect_validate_caller_any();
-        let hoku_config = rt
+        let recall_config = rt
             .call::<Actor>(Method::GetConfig as u64, None)
             .unwrap()
             .unwrap()
@@ -203,11 +203,11 @@ mod tests {
             .unwrap();
 
         assert_eq!(
-            hoku_config.token_credit_rate,
+            recall_config.token_credit_rate,
             TokenCreditRate::from(BigInt::from(5))
         );
-        assert_eq!(hoku_config.blob_capacity, 1024);
-        assert_eq!(hoku_config.blob_credit_debit_interval, 3600);
+        assert_eq!(recall_config.blob_capacity, 1024);
+        assert_eq!(recall_config.blob_credit_debit_interval, 3600);
     }
 
     #[test]
@@ -244,7 +244,7 @@ mod tests {
         assert!(result.is_ok());
 
         rt.expect_validate_caller_any();
-        let hoku_config = rt
+        let recall_config = rt
             .call::<Actor>(Method::GetConfig as u64, None)
             .unwrap()
             .unwrap()
@@ -252,12 +252,12 @@ mod tests {
             .unwrap();
 
         assert_eq!(
-            hoku_config.token_credit_rate,
+            recall_config.token_credit_rate,
             TokenCreditRate::from(BigInt::from(10))
         );
-        assert_eq!(hoku_config.blob_capacity, 2048);
-        assert_eq!(hoku_config.blob_credit_debit_interval, 1800);
-        assert_eq!(hoku_config.blob_min_ttl, ChainEpoch::from(2 * 60 * 60));
-        assert_eq!(hoku_config.blob_default_ttl, ChainEpoch::from(24 * 60 * 60));
+        assert_eq!(recall_config.blob_capacity, 2048);
+        assert_eq!(recall_config.blob_credit_debit_interval, 1800);
+        assert_eq!(recall_config.blob_min_ttl, ChainEpoch::from(2 * 60 * 60));
+        assert_eq!(recall_config.blob_default_ttl, ChainEpoch::from(24 * 60 * 60));
     }
 }

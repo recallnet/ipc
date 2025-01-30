@@ -19,7 +19,7 @@ use fvm_shared::randomness::RANDOMNESS_LENGTH;
 use fvm_shared::sys::out::network::NetworkContext;
 use fvm_shared::sys::out::vm::MessageContext;
 use fvm_shared::{address::Address, econ::TokenAmount, ActorID, MethodNum};
-use hoku_kernel_ops::HokuOps;
+use recall_kernel_ops::HokuOps;
 
 #[allow(clippy::duplicated_attributes)]
 #[derive(Delegate)]
@@ -71,9 +71,9 @@ where
     fn link_syscalls(linker: &mut Linker<K>) -> anyhow::Result<()> {
         DefaultKernel::<K::CallManager>::link_syscalls(linker)?;
         linker.link_syscall(
-            hoku_syscalls::MODULE_NAME,
-            hoku_syscalls::HASHRM_SYSCALL_FUNCTION_NAME,
-            hoku_syscalls::hash_rm,
+            recall_syscalls::MODULE_NAME,
+            recall_syscalls::HASHRM_SYSCALL_FUNCTION_NAME,
+            recall_syscalls::hash_rm,
         )?;
 
         Ok(())

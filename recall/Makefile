@@ -1,6 +1,6 @@
 .PHONY: all build test clean lint check-fmt check-clippy
 
-CRATE   := hoku_actor_sdk hoku_kernel hoku_kernel_ops hoku_syscalls iroh_manager
+CRATE   := recall_actor_sdk recall_kernel recall_kernel_ops recall_syscalls iroh_manager
 PACKAGE := $(patsubst %, --package %, $(CRATE))
 
 all: test build

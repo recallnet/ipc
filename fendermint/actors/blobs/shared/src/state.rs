@@ -12,7 +12,7 @@ use fvm_shared::address::Address;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::econ::TokenAmount;
-use hoku_ipld::hamt::MapKey;
+use recall_ipld::hamt::MapKey;
 use serde::{Deserialize, Serialize};
 
 /// Credit is counted the same way as tokens.
