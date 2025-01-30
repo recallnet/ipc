@@ -16,6 +16,12 @@ use fil_actors_runtime::{
 };
 use fvm_ipld_hamt::BytesKey;
 use fvm_shared::address::Address;
+use recall_sol_facade::primitives::hex;
+use recall_sol_facade::{
+    buckets::{IBucketFacadeEvents, ObjectAdded},
+    primitives,
+    primitives::IntoLogData,
+};
 
 use crate::shared::{
     AddParams, DeleteParams, GetParams, ListObjectsReturn, ListParams, Method, Object,
@@ -88,6 +94,27 @@ impl Actor {
                 params.overwrite,
             )
         })?;
+
+        let obj = ObjectAdded {
+            hash: primitives::B256::from(params.hash.0),
+            size: primitives::U256::from(params.size),
+            expiry: primitives::U256::from(sub.expiry),
+            metadata: Default::default(),
+        };
+
+        let foo = IBucketFacadeEvents::ObjectAdded(obj);
+        let bar = foo.to_log_data();
+        log::debug!("{:#?}", bar);
+
+        let e = EventBuilder::new(OBJECT_ADDED_EVENT)
+            .param_indexed(params.hash.0)
+            .param_indexed(U256::from(params.size))
+            .param_indexed(U256::from(sub.expiry))
+            .build()?;
+        for i in e.entries {
+            log::debug!("{}", i.key);
+            log::debug!("{}", hex::encode(i.value));
+        }
 
         EventBuilder::new(OBJECT_ADDED_EVENT)
             .param_indexed(params.hash.0)
@@ -349,7 +376,7 @@ mod tests {
     };
     use fendermint_actor_blobs_shared::state::{Subscription, SubscriptionGroup};
     use fendermint_actor_blobs_shared::{Method as BlobMethod, BLOBS_ACTOR_ADDR};
-    use fendermint_actor_blobs_testing::{new_hash, new_pk};
+    use fendermint_actor_blobs_testing::{new_hash, new_pk, setup_logs};
     use fendermint_actor_machine::{ConstructorParams, InitParams};
     use fil_actors_runtime::runtime::Runtime;
     use fil_actors_runtime::test_utils::{
@@ -415,6 +442,7 @@ mod tests {
 
     #[test]
     pub fn test_add_object() {
+        setup_logs();
         let (rt, origin) = get_runtime();
 
         // Add an object
