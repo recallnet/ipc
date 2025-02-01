@@ -16,12 +16,12 @@ use num_derive::FromPrimitive;
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 
-pub const HOKU_CONFIG_ACTOR_ID: ActorID = 70;
-pub const HOKU_CONFIG_ACTOR_ADDR: Address = Address::new_id(HOKU_CONFIG_ACTOR_ID);
+pub const RECALL_CONFIG_ACTOR_ID: ActorID = 70;
+pub const RECALL_CONFIG_ACTOR_ADDR: Address = Address::new_id(RECALL_CONFIG_ACTOR_ID);
 
 /// The updatable config.
 #[derive(Serialize_tuple, Deserialize_tuple, Debug, Clone)]
-pub struct HokuConfig {
+pub struct RecallConfig {
     /// The total storage capacity of the subnet.
     pub blob_capacity: u64,
     /// The token to credit rate.
@@ -34,11 +34,11 @@ pub struct HokuConfig {
     pub blob_default_ttl: ChainEpoch,
 }
 
-impl Default for HokuConfig {
+impl Default for RecallConfig {
     fn default() -> Self {
         Self {
             blob_capacity: 10 * 1024 * 1024 * 1024 * 1024, // 10 TiB
-            // 1 HOKU buys 1e18 credits ~ 1 HOKU buys 1e36 atto credits.
+            // 1 RECALL buys 1e18 credits ~ 1 RECALL buys 1e36 atto credits.
             token_credit_rate: TokenCreditRate::from(BigInt::from(10u128.pow(36))),
             // This needs to be low enough to avoid out-of-gas errors.
             // TODO: Stress test with max-throughput (~100 blobs/s)
@@ -53,7 +53,7 @@ impl Default for HokuConfig {
 #[serde(transparent)]
 pub struct SetAdminParams(pub Address);
 
-pub type SetConfigParams = HokuConfig;
+pub type SetConfigParams = RecallConfig;
 
 #[derive(FromPrimitive)]
 #[repr(u64)]
@@ -67,7 +67,7 @@ pub enum Method {
 
 pub fn get_admin(rt: &impl Runtime) -> Result<Option<Address>, ActorError> {
     deserialize_block(extract_send_result(rt.send(
-        &HOKU_CONFIG_ACTOR_ADDR,
+        &RECALL_CONFIG_ACTOR_ADDR,
         Method::GetAdmin as MethodNum,
         None,
         TokenAmount::zero(),
@@ -76,7 +76,7 @@ pub fn get_admin(rt: &impl Runtime) -> Result<Option<Address>, ActorError> {
     ))?)
 }
 
-/// Requires caller is the Hoku Admin.
+/// Requires caller is the Recall Admin.
 pub fn require_caller_is_admin(rt: &impl Runtime) -> Result<(), ActorError> {
     let admin = get_admin(rt)?;
     if admin.is_none() {
@@ -88,9 +88,9 @@ pub fn require_caller_is_admin(rt: &impl Runtime) -> Result<(), ActorError> {
     }
 }
 
-pub fn get_config(rt: &impl Runtime) -> Result<HokuConfig, ActorError> {
+pub fn get_config(rt: &impl Runtime) -> Result<RecallConfig, ActorError> {
     deserialize_block(extract_send_result(rt.send(
-        &HOKU_CONFIG_ACTOR_ADDR,
+        &RECALL_CONFIG_ACTOR_ADDR,
         Method::GetConfig as MethodNum,
         None,
         TokenAmount::zero(),

@@ -7,7 +7,7 @@ use std::sync::Arc;
 use fvm::kernel::{ExecutionError, Result, SyscallError};
 use fvm::syscalls::Context;
 use fvm_shared::error::ErrorNumber;
-use recall_kernel_ops::HokuOps;
+use recall_kernel_ops::RecallOps;
 use iroh::blobs::Hash;
 use iroh_manager::IrohManager;
 use once_cell::sync::Lazy;
@@ -28,7 +28,7 @@ fn hash_source(bytes: &[u8]) -> Result<[u8; 32]> {
         .map_err(|e| ExecutionError::Syscall(SyscallError::new(ErrorNumber::IllegalArgument, e)))
 }
 
-pub fn hash_rm(context: Context<'_, impl HokuOps>, hash_offset: u32) -> Result<()> {
+pub fn hash_rm(context: Context<'_, impl RecallOps>, hash_offset: u32) -> Result<()> {
     let hash_bytes = context.memory.try_slice(hash_offset, 32)?;
     let hash = Hash::from_bytes(hash_source(hash_bytes)?);
     let iroh = IROH_INSTANCE.clone();

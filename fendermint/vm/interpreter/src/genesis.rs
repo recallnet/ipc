@@ -429,12 +429,12 @@ impl GenesisBuilder {
         // Initialize the recall config actor.
         let recall_config_state = fendermint_actor_recall_config::State {
             admin: None,
-            config: fendermint_actor_recall_config_shared::HokuConfig::default(),
+            config: fendermint_actor_recall_config_shared::RecallConfig::default(),
         };
         state
             .create_custom_actor(
                 fendermint_actor_recall_config::ACTOR_NAME,
-                recall_config::HOKU_CONFIG_ACTOR_ID,
+                recall_config::RECALL_CONFIG_ACTOR_ID,
                 &recall_config_state,
                 TokenAmount::zero(),
                 None,

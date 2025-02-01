@@ -672,7 +672,7 @@ mod tests {
 
     use fendermint_actor_blobs_shared::state::Credit;
     use fendermint_actor_blobs_testing::{new_hash, new_pk};
-    use fendermint_actor_recall_config_shared::{HokuConfig, HOKU_CONFIG_ACTOR_ADDR};
+    use fendermint_actor_recall_config_shared::{RecallConfig, RECALL_CONFIG_ACTOR_ADDR};
     use fil_actors_evm_shared::address::EthAddress;
     use fil_actors_runtime::test_utils::{
         expect_empty, MockRuntime, ETHACCOUNT_ACTOR_CODE_ID, EVM_ACTOR_CODE_ID,
@@ -702,13 +702,13 @@ mod tests {
 
     fn expect_get_config(rt: &MockRuntime) {
         rt.expect_send(
-            HOKU_CONFIG_ACTOR_ADDR,
+            RECALL_CONFIG_ACTOR_ADDR,
             fendermint_actor_recall_config_shared::Method::GetConfig as MethodNum,
             None,
             TokenAmount::zero(),
             None,
             SendFlags::READ_ONLY,
-            IpldBlock::serialize_cbor(&HokuConfig::default()).unwrap(),
+            IpldBlock::serialize_cbor(&RecallConfig::default()).unwrap(),
             ExitCode::OK,
             None,
         );

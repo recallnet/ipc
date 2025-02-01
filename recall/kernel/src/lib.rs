@@ -19,7 +19,7 @@ use fvm_shared::randomness::RANDOMNESS_LENGTH;
 use fvm_shared::sys::out::network::NetworkContext;
 use fvm_shared::sys::out::vm::MessageContext;
 use fvm_shared::{address::Address, econ::TokenAmount, ActorID, MethodNum};
-use recall_kernel_ops::HokuOps;
+use recall_kernel_ops::RecallOps;
 
 #[allow(clippy::duplicated_attributes)]
 #[derive(Delegate)]
@@ -34,9 +34,9 @@ use recall_kernel_ops::HokuOps;
 #[delegate(NetworkOps, where = "C: CallManager")]
 #[delegate(RandomnessOps, where = "C: CallManager")]
 #[delegate(SelfOps, where = "C: CallManager")]
-pub struct HokuKernel<C>(pub DefaultKernel<C>);
+pub struct RecallKernel<C>(pub DefaultKernel<C>);
 
-impl<C> HokuOps for HokuKernel<C>
+impl<C> RecallOps for RecallKernel<C>
 where
     C: CallManager,
 {
@@ -52,7 +52,7 @@ where
     }
 }
 
-impl<K> SyscallHandler<K> for HokuKernel<K::CallManager>
+impl<K> SyscallHandler<K> for RecallKernel<K::CallManager>
 where
     K: Kernel
         + ActorOps
@@ -66,7 +66,7 @@ where
         + NetworkOps
         + RandomnessOps
         + SelfOps
-        + HokuOps,
+        + RecallOps,
 {
     fn link_syscalls(linker: &mut Linker<K>) -> anyhow::Result<()> {
         DefaultKernel::<K::CallManager>::link_syscalls(linker)?;
@@ -80,7 +80,7 @@ where
     }
 }
 
-impl<C> Kernel for HokuKernel<C>
+impl<C> Kernel for RecallKernel<C>
 where
     C: CallManager,
 {
@@ -103,7 +103,7 @@ where
         value_received: TokenAmount,
         read_only: bool,
     ) -> Self {
-        HokuKernel(DefaultKernel::new(
+        RecallKernel(DefaultKernel::new(
             mgr,
             blocks,
             caller,

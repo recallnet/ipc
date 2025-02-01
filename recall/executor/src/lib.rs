@@ -45,13 +45,13 @@ use crate::outputs::{GasAmounts, GasOutputs};
 /// Message execution might run out of stack and crash (the entire process) if it doesn't have at
 /// least 64MiB of stack space. If you can't guarantee 64MiB of stack space, wrap this executor in
 /// a [`ThreadedExecutor`][super::ThreadedExecutor].
-pub struct HokuExecutor<K: Kernel> {
+pub struct RecallExecutor<K: Kernel> {
     engine_pool: EnginePool,
     // If the inner value is `None,` it means the machine got poisoned and is unusable.
     machine: Option<<K::CallManager as CallManager>::Machine>,
 }
 
-impl<K: Kernel> Deref for HokuExecutor<K> {
+impl<K: Kernel> Deref for RecallExecutor<K> {
     type Target = <K::CallManager as CallManager>::Machine;
 
     fn deref(&self) -> &Self::Target {
@@ -59,13 +59,13 @@ impl<K: Kernel> Deref for HokuExecutor<K> {
     }
 }
 
-impl<K: Kernel> DerefMut for HokuExecutor<K> {
+impl<K: Kernel> DerefMut for RecallExecutor<K> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut *self.machine.as_mut().expect("machine poisoned")
     }
 }
 
-impl<K> Executor for HokuExecutor<K>
+impl<K> Executor for RecallExecutor<K>
 where
     K: Kernel,
 {
@@ -306,11 +306,11 @@ where
     }
 }
 
-impl<K> HokuExecutor<K>
+impl<K> RecallExecutor<K>
 where
     K: Kernel,
 {
-    /// Create a new [`HokuExecutor`] for executing messages on the [`Machine`].
+    /// Create a new [`RecallExecutor`] for executing messages on the [`Machine`].
     pub fn new(
         engine_pool: EnginePool,
         machine: <K::CallManager as CallManager>::Machine,

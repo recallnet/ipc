@@ -1,4 +1,4 @@
-# Hoku development
+# Recall development
 
 > Start a three-node network for remote or local development.
 
@@ -22,7 +22,7 @@
 
 ## Background
 
-These scripts handle deploying Hoku subnets. There are two target environments:
+These scripts handle deploying Recall subnets. There are two target environments:
 
 - Testnet: Deploy to a live network (Filecoin Calibration) as a fresh instance or attach to an
   existing one (i.e., pre-existing registry and gateway contracts).
@@ -254,8 +254,8 @@ it's best to avoid these accounts since nonce race conditions can occur.
 ```txt
 Account balances:
 Parent native: 10000 ETH
-Parent HOKU:   100 HOKU
-Subnet native: 5000 HOKU
+Parent RECALL:   100 RECALL
+Subnet native: 5000 RECALL
 Subnet credits: 5000000000000000000000
 
 Accounts:
@@ -275,11 +275,11 @@ Private keys:
 
 You can use then these keys with the `recall` SDK and CLI by creating an `.env` file and sourcing it,
 or by setting the variables in your shell. Keep in mind a `NETWORK` variable is used by `fendermint`
-and `ipc-cli`, and these differ from the `HOKU_NETWORK` value used by the CLI.
+and `ipc-cli`, and these differ from the `RECALL_NETWORK` value used by the CLI.
 
 ```dotenv
-export HOKU_NETWORK=localnet
-export HOKU_PRIVATE_KEY=<private_key>
+export RECALL_NETWORK=localnet
+export RECALL_PRIVATE_KEY=<private_key>
 ```
 
 You can now use `recall` as normal, e.g., `recall account deposit`, `recall os create`, etc. Similarly,

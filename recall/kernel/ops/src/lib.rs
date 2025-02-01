@@ -5,6 +5,6 @@
 use fvm::kernel::prelude::Cid;
 use fvm::kernel::Result;
 
-pub trait HokuOps {
+pub trait RecallOps {
     fn block_add(&mut self, cid: Cid, data: &[u8]) -> Result<()>;
 }

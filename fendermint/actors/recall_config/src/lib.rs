@@ -4,7 +4,7 @@
 
 use fendermint_actor_blobs_shared::state::TokenCreditRate;
 use fendermint_actor_machine::to_id_address;
-use fendermint_actor_recall_config_shared::{HokuConfig, Method, SetAdminParams, SetConfigParams};
+use fendermint_actor_recall_config_shared::{RecallConfig, Method, SetAdminParams, SetConfigParams};
 use fil_actors_runtime::actor_error;
 use fil_actors_runtime::runtime::{ActorCode, Runtime};
 use fil_actors_runtime::SYSTEM_ACTOR_ADDR;
@@ -22,8 +22,8 @@ pub const ACTOR_NAME: &str = "recall_config";
 pub struct State {
     /// The admin address that is allowed to update the config.
     pub admin: Option<Address>,
-    /// The Hoku network configuration.
-    pub config: HokuConfig,
+    /// The Recall network configuration.
+    pub config: RecallConfig,
 }
 
 #[derive(Serialize_tuple, Deserialize_tuple, Debug, Clone)]
@@ -43,7 +43,7 @@ impl Actor {
         rt.validate_immediate_caller_is(std::iter::once(&SYSTEM_ACTOR_ADDR))?;
         let st = State {
             admin: None,
-            config: HokuConfig {
+            config: RecallConfig {
                 blob_capacity: params.initial_blob_capacity,
                 token_credit_rate: params.initial_token_credit_rate,
                 blob_credit_debit_interval: params.initial_blob_credit_debit_interval,
@@ -88,7 +88,7 @@ impl Actor {
         Ok(())
     }
 
-    fn get_config(rt: &impl Runtime) -> Result<HokuConfig, ActorError> {
+    fn get_config(rt: &impl Runtime) -> Result<RecallConfig, ActorError> {
         rt.validate_immediate_caller_accept_any()?;
         rt.state::<State>().map(|s| s.config)
     }
@@ -136,7 +136,7 @@ impl ActorCode for Actor {
 mod tests {
     use crate::{Actor, ConstructorParams, Method};
     use fendermint_actor_blobs_shared::state::TokenCreditRate;
-    use fendermint_actor_recall_config_shared::{HokuConfig, HOKU_CONFIG_ACTOR_ID};
+    use fendermint_actor_recall_config_shared::{RecallConfig, RECALL_CONFIG_ACTOR_ID};
     use fil_actors_evm_shared::address::EthAddress;
     use fil_actors_runtime::test_utils::{
         expect_empty, MockRuntime, ETHACCOUNT_ACTOR_CODE_ID, SYSTEM_ACTOR_CODE_ID,
@@ -155,7 +155,7 @@ mod tests {
         initial_blob_default_ttl: ChainEpoch,
     ) -> MockRuntime {
         let rt = MockRuntime {
-            receiver: Address::new_id(HOKU_CONFIG_ACTOR_ID),
+            receiver: Address::new_id(RECALL_CONFIG_ACTOR_ID),
             ..Default::default()
         };
 
@@ -199,7 +199,7 @@ mod tests {
             .call::<Actor>(Method::GetConfig as u64, None)
             .unwrap()
             .unwrap()
-            .deserialize::<HokuConfig>()
+            .deserialize::<RecallConfig>()
             .unwrap();
 
         assert_eq!(
@@ -232,7 +232,7 @@ mod tests {
         rt.expect_validate_caller_any();
         let result = rt.call::<Actor>(
             Method::SetConfig as u64,
-            IpldBlock::serialize_cbor(&HokuConfig {
+            IpldBlock::serialize_cbor(&RecallConfig {
                 blob_capacity: 2048,
                 token_credit_rate: TokenCreditRate::from(BigInt::from(10)),
                 blob_credit_debit_interval: ChainEpoch::from(1800),
@@ -248,7 +248,7 @@ mod tests {
             .call::<Actor>(Method::GetConfig as u64, None)
             .unwrap()
             .unwrap()
-            .deserialize::<HokuConfig>()
+            .deserialize::<RecallConfig>()
             .unwrap();
 
         assert_eq!(

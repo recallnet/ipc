@@ -5,18 +5,18 @@
 use crate::fvm::FvmMessage;
 use anyhow::{bail, Context};
 use fendermint_actor_blobs_shared::state::TokenCreditRate;
-use fendermint_actor_recall_config_shared::HokuConfig;
+use fendermint_actor_recall_config_shared::RecallConfig;
 use fendermint_actor_recall_config_shared::Method::GetConfig;
-use fendermint_vm_actor_interface::recall_config::HOKU_CONFIG_ACTOR_ADDR;
+use fendermint_vm_actor_interface::recall_config::RECALL_CONFIG_ACTOR_ADDR;
 use fendermint_vm_actor_interface::system;
 use fvm::executor::{ApplyKind, ApplyRet, Executor};
 use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use num_traits::Zero;
 
-/// Makes the current Hoku network configuration available to execution state.
+/// Makes the current Recall network configuration available to execution state.
 #[derive(Debug, Clone)]
-pub struct HokuConfigTracker {
+pub struct RecallConfigTracker {
     /// The total storage capacity of the subnet.
     pub blob_capacity: u64,
     /// The token to credit rate.
@@ -29,8 +29,8 @@ pub struct HokuConfigTracker {
     pub blob_default_ttl: ChainEpoch,
 }
 
-impl HokuConfigTracker {
-    pub fn create<E: Executor>(executor: &mut E) -> anyhow::Result<HokuConfigTracker> {
+impl RecallConfigTracker {
+    pub fn create<E: Executor>(executor: &mut E) -> anyhow::Result<RecallConfigTracker> {
         let mut ret = Self {
             blob_capacity: Zero::zero(),
             token_credit_rate: TokenCreditRate::from(BigInt::zero()),
@@ -50,10 +50,10 @@ impl HokuConfigTracker {
         Ok(ret)
     }
 
-    pub fn read_recall_config<E: Executor>(executor: &mut E) -> anyhow::Result<HokuConfig> {
+    pub fn read_recall_config<E: Executor>(executor: &mut E) -> anyhow::Result<RecallConfig> {
         let msg = FvmMessage {
             from: system::SYSTEM_ACTOR_ADDR,
-            to: HOKU_CONFIG_ACTOR_ADDR,
+            to: RECALL_CONFIG_ACTOR_ADDR,
             sequence: 0, // irrelevant for implicit executions.
             gas_limit: i64::MAX as u64,
             method_num: GetConfig as u64,
@@ -70,7 +70,7 @@ impl HokuConfigTracker {
             bail!("failed to acquire recall config: {}", err);
         }
 
-        fvm_ipld_encoding::from_slice::<HokuConfig>(&apply_ret.msg_receipt.return_data)
+        fvm_ipld_encoding::from_slice::<RecallConfig>(&apply_ret.msg_receipt.return_data)
             .context("failed to parse recall config")
     }
 
