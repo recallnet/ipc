@@ -14,11 +14,11 @@ use fendermint_actor_blobs_shared::state::{
     SubscriptionId,
 };
 use fendermint_actor_blobs_shared::Method;
-use fendermint_actor_recall_config_shared as config;
-use fendermint_actor_recall_config_shared::require_caller_is_admin;
 use fendermint_actor_machine::{
     require_addr_is_origin_or_caller, resolve_delegated_address, to_id_address,
 };
+use fendermint_actor_recall_config_shared as config;
+use fendermint_actor_recall_config_shared::require_caller_is_admin;
 use fil_actors_runtime::{
     actor_dispatch, actor_error, extract_send_result,
     runtime::{ActorCode, Runtime},

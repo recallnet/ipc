@@ -3252,13 +3252,15 @@ dependencies = [
 name = "fendermint_actor_machine"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "fil_actor_adm",
+ "fil_actors_evm_shared",
  "fil_actors_runtime",
  "frc42_dispatch",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding",
  "fvm_shared",
+ "hex",
+ "multihash 0.18.1",
  "num-traits",
  "serde",
 ]
@@ -3290,23 +3292,6 @@ dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared",
  "num-derive 0.3.3",
- "num-traits",
- "serde",
-]
-
-[[package]]
-name = "fendermint_actor_machine"
-version = "0.1.0"
-dependencies = [
- "fil_actor_adm",
- "fil_actors_evm_shared",
- "fil_actors_runtime",
- "frc42_dispatch",
- "fvm_ipld_blockstore",
- "fvm_ipld_encoding",
- "fvm_shared",
- "hex",
- "multihash 0.18.1",
  "num-traits",
  "serde",
 ]

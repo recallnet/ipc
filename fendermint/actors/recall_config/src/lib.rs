@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use fendermint_actor_blobs_shared::state::TokenCreditRate;
-use fendermint_actor_recall_config_shared::{HokuConfig, Method, SetAdminParams, SetConfigParams};
 use fendermint_actor_machine::to_id_address;
+use fendermint_actor_recall_config_shared::{HokuConfig, Method, SetAdminParams, SetConfigParams};
 use fil_actors_runtime::actor_error;
 use fil_actors_runtime::runtime::{ActorCode, Runtime};
 use fil_actors_runtime::SYSTEM_ACTOR_ADDR;
@@ -258,6 +258,9 @@ mod tests {
         assert_eq!(recall_config.blob_capacity, 2048);
         assert_eq!(recall_config.blob_credit_debit_interval, 1800);
         assert_eq!(recall_config.blob_min_ttl, ChainEpoch::from(2 * 60 * 60));
-        assert_eq!(recall_config.blob_default_ttl, ChainEpoch::from(24 * 60 * 60));
+        assert_eq!(
+            recall_config.blob_default_ttl,
+            ChainEpoch::from(24 * 60 * 60)
+        );
     }
 }

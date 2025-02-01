@@ -21,7 +21,7 @@ use fendermint_vm_actor_interface::eam::EthAddress;
 use fendermint_vm_actor_interface::ipc::IPC_CONTRACTS;
 use fendermint_vm_actor_interface::{
     account, activity, adm, blob_reader, blobs, burntfunds, chainmetadata, cron, eam, gas_market,
-    recall_config, init, ipc, reward, system, EMPTY_ARR,
+    init, ipc, recall_config, reward, system, EMPTY_ARR,
 };
 use fendermint_vm_core::Timestamp;
 use fendermint_vm_genesis::{ActorMeta, Collateral, Genesis, Power, PowerScale, Validator};
