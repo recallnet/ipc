@@ -4,7 +4,9 @@
 
 use fendermint_actor_blobs_shared::state::TokenCreditRate;
 use fendermint_actor_machine::to_id_address;
-use fendermint_actor_recall_config_shared::{RecallConfig, Method, SetAdminParams, SetConfigParams};
+use fendermint_actor_recall_config_shared::{
+    Method, RecallConfig, SetAdminParams, SetConfigParams,
+};
 use fil_actors_runtime::actor_error;
 use fil_actors_runtime::runtime::{ActorCode, Runtime};
 use fil_actors_runtime::SYSTEM_ACTOR_ADDR;
