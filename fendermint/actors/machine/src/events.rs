@@ -263,7 +263,7 @@ impl EventBuilder {
             .map(|e| e.evm_type.to_string())
             .collect::<Vec<_>>()
             .join(",");
-        validate_sig(&self.signature, &types)?;
+        validate_sig(self.signature, &types)?;
         let mut hasher = Keccak256::default();
         hasher.update(self.signature.as_bytes());
         Ok(hasher.finalize().to_vec())

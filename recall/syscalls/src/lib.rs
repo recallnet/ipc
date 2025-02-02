@@ -7,10 +7,10 @@ use std::sync::Arc;
 use fvm::kernel::{ExecutionError, Result, SyscallError};
 use fvm::syscalls::Context;
 use fvm_shared::error::ErrorNumber;
-use recall_kernel_ops::RecallOps;
 use iroh::blobs::Hash;
 use iroh_manager::IrohManager;
 use once_cell::sync::Lazy;
+use recall_kernel_ops::RecallOps;
 use tokio::{spawn, sync::Mutex};
 
 pub const MODULE_NAME: &str = "recall";
