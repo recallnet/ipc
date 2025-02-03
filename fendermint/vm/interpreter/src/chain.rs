@@ -143,7 +143,7 @@ impl From<&BlobPoolItem> for IrohTaskType {
 #[derive(Clone, Hash, PartialEq, Eq)]
 pub struct ReadRequestPoolItem {
     /// The unique id of the read request.
-    id: Hash,
+    id: u64,
     /// The hash of the blob that the read request is for.
     blob_hash: Hash,
     /// The offset of the read request.

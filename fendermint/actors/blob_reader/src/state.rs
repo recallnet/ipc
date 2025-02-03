@@ -10,7 +10,7 @@ use fvm_shared::{address::Address, MethodNum};
 use log::info;
 use sha2::{Digest, Sha256};
 
-use crate::shared::{ReadRequest, ReadRequestStatus};
+use crate::shared::{ReadRequest, ReadRequestStatus, RequestId};
 use fendermint_actor_blobs_shared::state::Hash;
 
 const MAX_READ_REQUEST_LEN: u32 = 1024 * 1024; // 1MB
@@ -19,7 +19,9 @@ const MAX_READ_REQUEST_LEN: u32 = 1024 * 1024; // 1MB
 #[derive(Debug, Default, Serialize_tuple, Deserialize_tuple)]
 pub struct State {
     /// Map of read requests by request ID.
-    pub read_requests: HashMap<Hash, ReadRequest>,
+    pub read_requests: HashMap<RequestId, ReadRequest>,
+    /// Counter to sequence the requests.
+    pub request_id_counter: RequestId,
 }
 
 impl State {
@@ -30,7 +32,7 @@ impl State {
         len: u32,
         callback_addr: Address,
         callback_method: u64,
-    ) -> Result<(), ActorError> {
+    ) -> Result<u64, ActorError> {
         // Validate length is not greater than the maximum allowed
         if len > MAX_READ_REQUEST_LEN {
             return Err(ActorError::illegal_argument(format!(
@@ -38,23 +40,7 @@ impl State {
                 len, MAX_READ_REQUEST_LEN
             )));
         }
-
-        let blob_hash_bytes = pad_to_32_bytes(blob_hash.0.as_ref());
-        let offset_bytes = pad_to_32_bytes(&offset.to_be_bytes());
-        let len_bytes = pad_to_32_bytes(&len.to_be_bytes());
-        let callback_addr_bytes = pad_to_32_bytes(&callback_addr.to_bytes());
-        let callback_method_bytes = pad_to_32_bytes(&callback_method.to_be_bytes());
-        let combined_bytes: Vec<u8> = [
-            &blob_hash_bytes[..],
-            &offset_bytes[..],
-            &len_bytes[..],
-            &callback_addr_bytes[..],
-            &callback_method_bytes[..],
-        ]
-        .concat();
-        let mut hasher = Sha256::new();
-        hasher.update(&combined_bytes);
-        let request_id: [u8; 32] = hasher.finalize().into();
+        let request_id = self.next_request_id();
         let read_request = ReadRequest {
             blob_hash,
             offset,
@@ -65,11 +51,11 @@ impl State {
         };
         info!("opening a read request onchain: {:?}", request_id);
         // will overrite a previous request with the same hash
-        self.read_requests.insert(Hash(request_id), read_request);
-        Ok(())
+        self.read_requests.insert(request_id, read_request);
+        Ok(request_id)
     }
 
-    pub fn close_read_request(&mut self, request_id: Hash) -> Result<(), ActorError> {
+    pub fn close_read_request(&mut self, request_id: RequestId) -> Result<(), ActorError> {
         if self.get_read_request_status(request_id).is_none() {
             return Err(ActorError::not_found(
                 "cannot close read request, it does not exist".to_string(),
@@ -83,7 +69,7 @@ impl State {
     pub fn get_open_read_requests(
         &self,
         size: u32,
-    ) -> Vec<(Hash, Hash, u32, u32, Address, MethodNum)> {
+    ) -> Vec<(RequestId, Hash, u32, u32, Address, MethodNum)> {
         self.read_requests
             .iter()
             .filter(|(_, request)| matches!(request.status, ReadRequestStatus::Open))
@@ -101,12 +87,17 @@ impl State {
             .collect::<Vec<_>>()
     }
 
-    pub fn get_read_request_status(&self, id: Hash) -> Option<ReadRequestStatus> {
-        self.read_requests.get(&id).map(|req| req.status.clone())
+    pub fn get_read_request_status(&self, id: RequestId) -> Option<ReadRequestStatus> {
+        self.get_read_request(id).map(|r| r.status)
+    }
+
+    /// As we index requests by number, it makes sense to return a request by its id.
+    pub fn get_read_request(&self, id: RequestId) -> Option<ReadRequest> {
+        self.read_requests.get(&id).map(|r| r.clone())
     }
 
     /// Set a read request status to pending.
-    pub fn set_read_request_pending(&mut self, id: Hash) -> Result<(), ActorError> {
+    pub fn set_read_request_pending(&mut self, id: RequestId) -> Result<(), ActorError> {
         let request = self
             .read_requests
             .get_mut(&id)
@@ -122,8 +113,14 @@ impl State {
         request.status = ReadRequestStatus::Pending;
         Ok(())
     }
+
+    fn next_request_id(&mut self) -> RequestId {
+        self.request_id_counter += 1;
+        self.request_id_counter
+    }
 }
 
+// FIXME SU Delete this
 pub(crate) fn pad_to_32_bytes(input: &[u8]) -> [u8; 32] {
     let mut padded = [0u8; 32];
     let start = 32_usize.saturating_sub(input.len());

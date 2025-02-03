@@ -15,10 +15,10 @@ use fvm_shared::MethodNum;
 use crate::shared::{
     CloseReadRequestParams, GetOpenReadRequestsParams, GetReadRequestStatusParams, Method,
     OpenReadRequestParams, ReadRequestStatus, SetReadRequestPendingParams, State,
-    BLOB_READER_ACTOR_NAME,
+    BLOB_READER_ACTOR_NAME, RequestId,
 };
 
-type OpenReadRequestTuple = (Hash, Hash, u32, u32, Address, u64);
+type OpenReadRequestTuple = (RequestId, Hash, u32, u32, Address, u64);
 
 #[cfg(feature = "fil-actor")]
 fil_actors_runtime::wasm_trampoline!(ReadReqActor);
@@ -35,7 +35,7 @@ impl ReadReqActor {
     fn open_read_request(
         rt: &impl Runtime,
         params: OpenReadRequestParams,
-    ) -> Result<(), ActorError> {
+    ) -> Result<RequestId, ActorError> {
         rt.validate_immediate_caller_accept_any()?;
         rt.transaction(|st: &mut State, _rt| {
             st.open_read_request(
@@ -189,6 +189,8 @@ mod tests {
             Method::OpenReadRequest as u64,
             IpldBlock::serialize_cbor(&open_params).unwrap(),
         );
+        // FIXME SU CONTINUE deserialzie and get request id
+        println!("CONTINUE");
         assert!(result.is_ok());
         rt.verify();
 

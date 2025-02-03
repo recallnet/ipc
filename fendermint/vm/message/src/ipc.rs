@@ -153,7 +153,7 @@ pub struct PendingBlob {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct ClosedReadRequest {
     /// The request ID.
-    pub id: Hash,
+    pub id: u64,
     /// The hash of the blob to read from.
     pub blob_hash: Hash,
     /// The offset in the blob to read from.

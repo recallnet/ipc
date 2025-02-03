@@ -16,6 +16,8 @@ pub const BLOB_READER_ACTOR_NAME: &str = "blob_reader";
 pub const BLOB_READER_ACTOR_ID: ActorID = 67;
 pub const BLOB_READER_ACTOR_ADDR: Address = Address::new_id(BLOB_READER_ACTOR_ID);
 
+pub type RequestId = u64;
+
 /// The status of a read request.
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub enum ReadRequestStatus {
@@ -81,7 +83,7 @@ pub struct OpenReadRequestParams {
 /// Params for closing a read request. The ID of the read request.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct CloseReadRequestParams(pub Hash);
+pub struct CloseReadRequestParams(pub RequestId);
 
 /// Params for getting pending read requests.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -91,9 +93,9 @@ pub struct GetOpenReadRequestsParams(pub u32);
 /// Params for setting a read request to pending.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct SetReadRequestPendingParams(pub Hash);
+pub struct SetReadRequestPendingParams(pub RequestId);
 
 /// Params for getting read request status.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct GetReadRequestStatusParams(pub Hash);
+pub struct GetReadRequestStatusParams(pub RequestId);
