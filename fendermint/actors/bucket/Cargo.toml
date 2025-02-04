@@ -33,6 +33,7 @@ fendermint_actor_machine = { path = "../machine" }
 fil_actors_runtime = { workspace = true, features = ["test_utils"] }
 quickcheck = { workspace = true }
 quickcheck_macros = { workspace = true }
+hex-literal = { workspace = true }
 
 fendermint_actor_blobs_testing = { path = "../blobs/testing" }
 

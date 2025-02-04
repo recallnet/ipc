@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use fendermint_actor_blobs_shared::state::{Blob, BlobStatus, SubscriptionId};
 use fendermint_actor_blobs_shared::{add_blob, delete_blob, get_blob, overwrite_blob};
 use fendermint_actor_machine::events::EventBuilder;
-use fendermint_actor_machine::MachineActor;
+use fendermint_actor_machine::{require_addr_is_origin_or_caller, MachineActor};
 use fil_actors_evm_shared::uints::U256;
 use fil_actors_runtime::{
     actor_dispatch, actor_error,
@@ -172,6 +172,10 @@ impl Actor {
         rt.validate_immediate_caller_accept_any()?;
 
         let state = rt.state::<State>()?;
+
+        let owner = state.owner;
+        require_addr_is_origin_or_caller(rt, owner)?;
+
         let key = BytesKey(params.key.clone());
         let metadata = params.metadata.clone();
 
@@ -925,6 +929,18 @@ mod tests {
             IpldBlock::serialize_cbor(&update_object_params).unwrap(),
         );
         assert!(result.is_ok());
+        rt.verify();
+
+        // Fail if neither origin nor caller is the owner.
+        let alien_id_addr = Address::new_id(112);
+        rt.set_caller(*ETHACCOUNT_ACTOR_CODE_ID, alien_id_addr);
+        rt.set_origin(alien_id_addr);
+        rt.expect_validate_caller_any();
+        let result = rt.call::<Actor>(
+            Method::UpdateObjectMetadata as u64,
+            IpldBlock::serialize_cbor(&update_object_params).unwrap(),
+        );
+        assert!(!result.is_ok());
         rt.verify();
 
         // Get the object and check metadata
