@@ -26,6 +26,8 @@ The `msg.sender`'s genesis block balance is not correctly set to 0 when they lea
 
 **Recommendation:**  Set the `msg.sender`'s genesis balance to zero by either explicitly setting it to 0 **OR** deleting it’s storage using `delete s.genesisBalance[msg.sender]`
 
+**Resolution:** The team has fixed this [here](https://github.com/consensus-shipyard/ipc/pull/1254/files#diff-73759bec6a63a717a540d6c2de7fe08b39c0a40532561115bdd91e824a5e6374L258).
+
 ## Low
 
 ### **L1:  Missing subnet validation for cross message recipient**
@@ -35,6 +37,8 @@ The `msg.sender`'s genesis block balance is not correctly set to 0 when they lea
 There is no validation for the subnet in `envelope.to`.  This means that it is currently possible to commit cross messages that are targeted to an invalid subnet.
 
 **Recommendation:**  Validate that the subnet in [`envelope.to`](http://envelope.to) is registered in `sendContractXnetMessage`.
+
+**Resolution:** The team has acknowledged this and have elected not to address it as the subnet does not know what the destination is on the destination chain.
 
 ### L2:  Incorrect comparison when checking minimum number of validators
 
@@ -54,6 +58,8 @@ The check should be updated to
 The current check will revert if the minimum number of validators are provided
 
 **Recommendation:**  Update check to allow having the minimum number of validators
+
+**Resolution:**  The team has fixed this [here](https://github.com/consensus-shipyard/ipc/pull/1254/files#diff-1f3ddd42139663a5b3f5b4092808a0b57c39f19f50fb41829194067fd0320791R123)
 
 ### L3:  Missing Gas Limit Validation when sending Cross Messages
 
@@ -78,6 +84,8 @@ The `sendContractXnetMessage` function allows any address to send a cross messag
       abi.encodeWithSelector(CrossMsgHelper.execute.selector, crossMsg, supplySource)
   );
 ```
+
+**Resolution:**  The team has acknowledged this and have elected to tackle this in the future.
 
 ## Informational
 
@@ -124,7 +132,9 @@ The `register` function in `GatewayManagerFacet` is called by the `SubwayActorDi
     }
 ```
 
-### I2:  Follow CEI Pattern in `addStake` function in `GatewayManagerFaucuet`
+**Resolution:**  The team has fixed this [here](https://github.com/consensus-shipyard/ipc/pull/1254/files#diff-af0bf141fbc4fa3a8197c97b198e06bd01f09e44c83cbbe9f631d1e779768c8dR56-R62).
+
+### I2:  Follow CEI Pattern in `addStake` function in `GatewayManagerFacet`
 
 [https://github.com/hokunet/ipc/blob/main/contracts/contracts/gateway/GatewayManagerFacet.sol#L64](https://github.com/hokunet/ipc/blob/main/contracts/contracts/gateway/GatewayManagerFacet.sol#L64)
 
@@ -154,6 +164,8 @@ Similar to I1, it is recommended to follow CEI in `addStake`
     }
 ```
 
+**Resolution:**  The team has acknowledged this 
+
 ### I3:  Complex EOA check can be simplified
 
 [https://github.com/hokunet/ipc/blob/main/contracts/contracts/gateway/GatewayMessengerFacet.sol#L41](https://github.com/hokunet/ipc/blob/main/contracts/contracts/gateway/GatewayMessengerFacet.sol#L41)
@@ -166,11 +178,15 @@ The check for whether or not `msg.sender` is an EOA can be simplified to
  }
 ```
 
+**Resolution:**  The team has fixed this [here](https://github.com/consensus-shipyard/ipc/pull/1254/files#diff-71559bfe927afaf1a3980c01ffe9f4d15c77d58650b2d850bbae821de9c009d0R48).
+
 ### I4:  Transfer limits in cross messages
 
 [https://github.com/hokunet/ipc/blob/main/contracts/contracts/gateway/GatewayMessengerFacet.sol#L60](https://github.com/hokunet/ipc/blob/main/contracts/contracts/gateway/GatewayMessengerFacet.sol#L60)
 
 There is currently no limit to the amount of assets that can be sent in cross messages.  Consider adding some limits to the amount of assets that can be transferred by a sender within some timeframe to gradually monitor the behavior of the system before increasing the limits. 
+
+**Resolution:**  The team has acknowledged this
 
 ### I5:  Missing NatSpec comments
 
@@ -181,6 +197,8 @@ The following functions are missing NatSpec comments
 [https://github.com/hokunet/ipc/blob/main/contracts/contracts/subnet/SubnetActorManagerFacet.sol#L76](https://github.com/hokunet/ipc/blob/main/contracts/contracts/subnet/SubnetActorManagerFacet.sol#L76)
 
 **Recommendation:**  Add NatSpec comments to describe the purpose of a function, it’s parameters and it’s return types.
+
+**Resolution:**  The team has addressed this [here](https://github.com/consensus-shipyard/ipc/pull/1254/files#diff-73759bec6a63a717a540d6c2de7fe08b39c0a40532561115bdd91e824a5e6374R79-R80).
 
 ### I6:  **Missing Event Emissions**
 
@@ -200,11 +218,15 @@ Consider emitting an event in the following functions
 
 **Recommendation:**  Emit events in state changing functions so that off-chain indexers can index them if needed.
 
+**Resolution:**  The team has partially addressed this [here](https://github.com/consensus-shipyard/ipc/pull/1254/files#diff-73759bec6a63a717a540d6c2de7fe08b39c0a40532561115bdd91e824a5e6374R84) and [here](https://github.com/consensus-shipyard/ipc/pull/1254/files#diff-73759bec6a63a717a540d6c2de7fe08b39c0a40532561115bdd91e824a5e6374R306) 
+
 ### I7:  Delete unused memory from storage
 
 Memory that is no longer used can be deleted to get some gas refunds.
 
 [https://github.com/hokunet/ipc/blob/main/contracts/contracts/subnet/SubnetActorManagerFacet.sol#L258](https://github.com/hokunet/ipc/blob/main/contracts/contracts/subnet/SubnetActorManagerFacet.sol#L258)
+
+**Resolution:** The team has addressed this [here](https://github.com/consensus-shipyard/ipc/pull/1254/files#diff-73759bec6a63a717a540d6c2de7fe08b39c0a40532561115bdd91e824a5e6374L258).
 
 ### I8:  Inefficient incrementing of storage variables
 
@@ -219,3 +241,5 @@ can be updated to `++subnet.appliedBottomUpNonce;`
 can be updated to `++s.appliedTopDownNonce;`
 
 **Recommendation:**  Pre-increment variables to save gas
+
+**Resolution:** The team has acknowledged this
