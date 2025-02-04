@@ -15,15 +15,15 @@ use tracing::debug;
 use crate::{Leaf, Method, PushParams, PushReturn, State, TIMEHUB_ACTOR_NAME};
 
 #[cfg(feature = "fil-actor")]
-fil_actors_runtime::wasm_trampoline!(Actor);
+fil_actors_runtime::wasm_trampoline!(TimehubActor);
 
-pub struct Actor;
+pub struct TimehubActor;
 
 // Raw type persisted in the store.
 // This avoids using CID so that the store does not try to validate or resolve it.
 type RawLeaf = (u64, Vec<u8>);
 
-impl Actor {
+impl TimehubActor {
     fn push(rt: &impl Runtime, params: PushParams) -> Result<PushReturn, ActorError> {
         rt.validate_immediate_caller_accept_any()?;
 
@@ -92,11 +92,11 @@ impl Actor {
     }
 }
 
-impl MachineActor for Actor {
+impl MachineActor for TimehubActor {
     type State = State;
 }
 
-impl ActorCode for Actor {
+impl ActorCode for TimehubActor {
     type Methods = Method;
 
     fn name() -> &'static str {
@@ -114,5 +114,214 @@ impl ActorCode for Actor {
         Peaks => get_peaks,
         Count => get_count,
         _ => fallback,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use fendermint_actor_machine::{ConstructorParams, InitParams};
+    use fil_actors_runtime::test_utils::{
+        expect_empty, MockRuntime, ADM_ACTOR_CODE_ID, ETHACCOUNT_ACTOR_CODE_ID, INIT_ACTOR_CODE_ID,
+    };
+    use fil_actors_runtime::{ADM_ACTOR_ADDR, INIT_ACTOR_ADDR};
+    use fvm_ipld_encoding::ipld_block::IpldBlock;
+    use fvm_shared::address::Address;
+    use std::collections::HashMap;
+    use std::str::FromStr;
+
+    pub fn construct_and_verify(actor_address: Address, owner: Address) -> MockRuntime {
+        let rt = MockRuntime {
+            receiver: actor_address,
+            ..Default::default()
+        };
+        rt.set_caller(*INIT_ACTOR_CODE_ID, INIT_ACTOR_ADDR);
+        rt.expect_validate_caller_addr(vec![INIT_ACTOR_ADDR]);
+        let metadata = HashMap::new();
+
+        let result = rt
+            .call::<TimehubActor>(
+                Method::Constructor as u64,
+                IpldBlock::serialize_cbor(&ConstructorParams { owner, metadata }).unwrap(),
+            )
+            .unwrap();
+        expect_empty(result);
+        rt.verify();
+
+        rt.set_caller(*ADM_ACTOR_CODE_ID, ADM_ACTOR_ADDR);
+        rt.expect_validate_caller_addr(vec![ADM_ACTOR_ADDR]);
+        let actor_init = rt
+            .call::<TimehubActor>(
+                Method::Init as u64,
+                IpldBlock::serialize_cbor(&InitParams {
+                    address: actor_address,
+                })
+                .unwrap(),
+            )
+            .unwrap();
+        expect_empty(actor_init);
+        rt.verify();
+
+        rt.reset();
+        rt
+    }
+
+    #[test]
+    pub fn test_basic_crud() {
+        let owner = Address::new_id(110);
+        let actor_address = Address::new_id(111);
+
+        let rt = construct_and_verify(actor_address, owner);
+
+        // Push calls comes from Timehub owner
+        rt.set_caller(*ETHACCOUNT_ACTOR_CODE_ID, owner);
+        rt.set_origin(owner);
+
+        // Check the initial count
+        rt.expect_validate_caller_any();
+        let count = rt
+            .call::<TimehubActor>(Method::Count as u64, None)
+            .unwrap()
+            .unwrap()
+            .deserialize::<u64>()
+            .unwrap();
+        assert_eq!(count, 0);
+
+        // Check the initial root
+        rt.expect_validate_caller_any();
+        let root = rt
+            .call::<TimehubActor>(Method::Root as u64, None)
+            .unwrap()
+            .unwrap()
+            .deserialize::<Cid>()
+            .unwrap();
+        assert_eq!(root, Cid::from_str("baeaaaaa").unwrap());
+
+        // Push one CID
+        let t0 = 1738787063;
+        let cid0 = Cid::from_str("bafk2bzacecmnyfiwb52tkbwmm2dsd7ysi3nvuxl3lmspy7pl26wxj4zj7w4wi")
+            .unwrap();
+        let push_params = PushParams(cid0.to_bytes());
+        rt.expect_validate_caller_any();
+        rt.expect_tipset_timestamp(t0);
+        let result0 = rt
+            .call::<TimehubActor>(
+                Method::Push as u64,
+                IpldBlock::serialize_cbor(&push_params).unwrap(),
+            )
+            .unwrap()
+            .unwrap()
+            .deserialize::<PushReturn>()
+            .unwrap();
+
+        assert_eq!(0, result0.index);
+        let expected_root0 =
+            Cid::from_str("bafy2bzacebva5uaq4ayn6ax7zzywcqapf3w4q3oamez6sukidiqiz3m4c6osu")
+                .unwrap();
+        assert_eq!(result0.root, expected_root0);
+
+        // Read the value pushed
+        rt.expect_validate_caller_any();
+        let leaf = rt
+            .call::<TimehubActor>(Method::Get as u64, IpldBlock::serialize_cbor(&0).unwrap())
+            .unwrap()
+            .unwrap()
+            .deserialize::<Option<Leaf>>()
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(leaf.witnessed, cid0);
+        assert_eq!(leaf.timestamp, t0);
+
+        // Check the root
+        rt.expect_validate_caller_any();
+        let root = rt
+            .call::<TimehubActor>(Method::Root as u64, None)
+            .unwrap()
+            .unwrap()
+            .deserialize::<Cid>()
+            .unwrap();
+        assert_eq!(root, expected_root0);
+
+        // Check the count
+        rt.expect_validate_caller_any();
+        let count = rt
+            .call::<TimehubActor>(Method::Count as u64, None)
+            .unwrap()
+            .unwrap()
+            .deserialize::<u64>()
+            .unwrap();
+        assert_eq!(count, 1);
+
+        // Push a second CID
+        let t1 = t0 + 1;
+        let cid1 =
+            Cid::from_str("baeabeidtz333ke5c4ultzeg6jkyzgdmvduytt2so3ahozm4zqstiuwq33e").unwrap();
+        let push_params2 = PushParams(cid1.to_bytes());
+        rt.expect_validate_caller_any();
+        rt.expect_tipset_timestamp(t1);
+        let result1 = rt
+            .call::<TimehubActor>(
+                Method::Push as u64,
+                IpldBlock::serialize_cbor(&push_params2).unwrap(),
+            )
+            .unwrap()
+            .unwrap()
+            .deserialize::<PushReturn>()
+            .unwrap();
+
+        assert_eq!(1, result1.index);
+        let expected_root1 =
+            Cid::from_str("bafy2bzaceb6nrirwdm2ebk5ygl4nhwqjaegpbhavjg2obkshcgoogy4kbovds")
+                .unwrap();
+        assert_eq!(result1.root, expected_root1);
+
+        // Read the first value pushed
+        rt.expect_validate_caller_any();
+        let leaf0 = rt
+            .call::<TimehubActor>(Method::Get as u64, IpldBlock::serialize_cbor(&0).unwrap())
+            .unwrap()
+            .unwrap()
+            .deserialize::<Option<Leaf>>()
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(leaf0.witnessed, cid0);
+        assert_eq!(leaf0.timestamp, t0);
+
+        // Read the second value pushed
+        rt.expect_validate_caller_any();
+        let leaf1 = rt
+            .call::<TimehubActor>(Method::Get as u64, IpldBlock::serialize_cbor(&1).unwrap())
+            .unwrap()
+            .unwrap()
+            .deserialize::<Option<Leaf>>()
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(leaf1.witnessed, cid1);
+        assert_eq!(leaf1.timestamp, t1);
+
+        // Check the root
+        rt.expect_validate_caller_any();
+        let root = rt
+            .call::<TimehubActor>(Method::Root as u64, None)
+            .unwrap()
+            .unwrap()
+            .deserialize::<Cid>()
+            .unwrap();
+        assert_eq!(root, expected_root1);
+
+        // Check the count
+        rt.expect_validate_caller_any();
+        let count = rt
+            .call::<TimehubActor>(Method::Count as u64, None)
+            .unwrap()
+            .unwrap()
+            .deserialize::<u64>()
+            .unwrap();
+        assert_eq!(count, 2);
+
+        rt.verify();
     }
 }
