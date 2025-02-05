@@ -11,11 +11,20 @@ use anyhow::Context;
 use bytes::Buf;
 use entangler::{ChunkRange, Config, Entangler};
 use entangler_storage::iroh::IrohStorage as EntanglerIrohStorage;
+use fendermint_actor_blobs_shared::params::GetBlobParams;
+use fendermint_actor_blobs_shared::state::{Blob, BlobStatus};
+use fendermint_actor_blobs_shared::Method::GetBlob;
+use fendermint_actor_blobs_shared::BLOBS_ACTOR_ADDR;
 use fendermint_actor_bucket::{GetParams, Object};
 use fendermint_app_settings::objects::ObjectsSettings;
-use fendermint_rpc::{client::FendermintClient, message::GasParams, QueryClient};
+use fendermint_rpc::response::decode_data;
+use fendermint_rpc::{
+    client::FendermintClient, message::GasParams, message::MessageFactory, QueryClient,
+};
+use fendermint_vm_actor_interface::system::SYSTEM_ACTOR_ADDR;
 use fendermint_vm_message::query::FvmQueryHeight;
 use futures_util::{StreamExt, TryStreamExt};
+use fvm_ipld_encoding::RawBytes;
 use fvm_shared::{
     address::{Address, Error as NetworkError, Network},
     econ::TokenAmount,
@@ -23,7 +32,7 @@ use fvm_shared::{
 use ipc_api::ethers_address_to_fil_address;
 use iroh::{
     blobs::{provider::AddProgress, util::SetTagOption, Hash},
-    client::blobs::BlobStatus,
+    client::blobs::BlobStatus as IrohBlobStatus,
     net::NodeAddr,
 };
 use lazy_static::lazy_static;
@@ -506,7 +515,7 @@ async fn handle_object_download<F: QueryClient + Send + Sync>(
     method: String,
     range: Option<String>,
     height_query: HeightQuery,
-    client: F,
+    mut client: F,
     iroh: iroh::client::Iroh,
 ) -> Result<impl Reply, Rejection> {
     let address = parse_address(&address).map_err(|e| {
@@ -520,7 +529,7 @@ async fn handle_object_download<F: QueryClient + Send + Sync>(
     let path = tail.as_str();
     let key: Vec<u8> = path.into();
     let start_time = Instant::now();
-    let maybe_object = os_get(client, address, GetParams(key), height)
+    let maybe_object = os_get(&mut client, address, GetParams(key), height)
         .await
         .map_err(|e| {
             Rejection::from(BadRequest {
@@ -530,13 +539,30 @@ async fn handle_object_download<F: QueryClient + Send + Sync>(
 
     match maybe_object {
         Some(object) => {
+            let blob = match get_blob(&client, object.hash).await {
+                Ok(blob) => blob,
+                Err(err) => {
+                    return Err(Rejection::from(BadRequest {
+                        message: format!("failed to get blob: {}", err),
+                    }))
+                }
+            };
+
+            if let Some(blob) = blob {
+                if blob.status != BlobStatus::Resolved {
+                    return Err(Rejection::from(BadRequest {
+                        message: "blob is not resolved".to_string(),
+                    }));
+                }
+            }
+
             let hash = Hash::from_bytes(object.hash.0);
             let status = iroh.blobs().status(hash).await.map_err(|e| {
                 Rejection::from(BadRequest {
                     message: format!("failed to read object: {} {}", hash, e),
                 })
             })?;
-            let BlobStatus::Complete { size } = status else {
+            let IrohBlobStatus::Complete { size } = status else {
                 return Err(Rejection::from(BadRequest {
                     message: format!("object {} is not available", hash),
                 }));
@@ -742,7 +768,7 @@ async fn handle_rejection(err: Rejection) -> Result<impl Reply, Infallible> {
 // RPC methods
 
 async fn os_get<F: QueryClient + Send + Sync>(
-    mut client: F,
+    client: &mut F,
     address: Address,
     params: GetParams,
     height: u64,
@@ -761,6 +787,34 @@ async fn os_get<F: QueryClient + Send + Sync>(
     Ok(return_data)
 }
 
+async fn get_blob<F: QueryClient + Send + Sync>(
+    client: &F,
+    hash: fendermint_actor_blobs_shared::state::Hash,
+) -> anyhow::Result<Option<Blob>> {
+    let params = RawBytes::serialize(GetBlobParams(hash))?;
+    let msg = MessageFactory::new(SYSTEM_ACTOR_ADDR, 0).transaction(
+        BLOBS_ACTOR_ADDR,
+        GetBlob as u64,
+        params,
+        TokenAmount::default(),
+        GasParams {
+            gas_limit: Default::default(),
+            gas_fee_cap: Default::default(),
+            gas_premium: Default::default(),
+        },
+    );
+    let response = client.call(msg, FvmQueryHeight::Committed).await?;
+
+    if response.value.code.is_err() {
+        return Err(anyhow!("{}", response.value.info));
+    }
+
+    let deliver_tx = &response.value;
+    let data = decode_data(&deliver_tx.data)?;
+    fvm_ipld_encoding::from_slice::<Option<Blob>>(&data)
+        .map_err(|e| anyhow!("error parsing as Option<Blob>: {e}"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -771,22 +825,22 @@ mod tests {
 
     // Used to mocking Actor State
     const ABCI_QUERY_RESPONSE_DOWNLOAD: &str = r#"{
-        "jsonrpc": "2.0",
-        "id": "",
-        "result": {
-         "response": {
-            "code": 0,
-            "log": "",
-            "info": "",
-            "index": "0",
-            "key": "",
-            "value": "mQEIEhizARiFGJgYIBgYGNcYGBhJGBgYgRgYGO8YGBinCgwYGBiICxgYGI0YGBiMGBgYGRgYGIUYGBjQGBgYdRgYGNsYGBjLGBgY9hgYGHkYGBi5GBgYmhgYGF8YGBiZFBgYGOUYGBiqGBgY+RgYGGsYGBiDGBgYGhgYGJ4YGBgkGJgYIBgYGOwYGBhRGBgYoBgYGNEYGBhyGBgY2RgYGOcYGBhlGBgYpxgYGDMYGBjKExgYGOsYGBgYGBgY8hgYGN0YGBjNGBgYbRgYGMwYGBhOGBgYKhgYGPcYGBgoGBgYixgYGBgYGBjJGBgYXRgYGDQYGBiJABgYGIcYGBj3CxgZFRg2GKIYYxhmGG8YbxhjGGIYYRhyGGwYYxhvGG4YdBhlGG4YdBgtGHQYeRhwGGUYeBgYGGEYcBhwGGwYaRhjGGEYdBhpGG8YbhgvGG8YYxh0GGUYdBgtGHMYdBhyGGUYYRhtGDAYzBjgGL8CGDoYSwoHGG0YZRhzGHMYYRhnGGUSDQoEGGYYchhvGG0SAxh0GDAYMBgYARIYMQoCGHQYbxIYKRh0GDIYZxhvGGMYcBhuGGwYcRhpGGwYeBh5GG0Ydhh3GDQYdhhuGGwYaBg0GG4YcBhuGGQYeRh4GGoYYxhsGDMYMxh5GGgYdRhjGHQYaRhjGGkYGAE=",
-            "proof": null,
-            "height": "6017",
-            "codespace": ""
+          "jsonrpc": "2.0",
+          "id": "",
+          "result": {
+            "response": {
+              "code": 0,
+              "log": "",
+              "info": "",
+              "index": "0",
+              "key": "",
+              "value": "mQEMEhjcARiECxiYGCAYGBhpGBgYORgYGN0YGBhmGBgYsxgYGKAYGBj4GBgYRRgYGOcUGBgY9hgYGPEYGBjCGBgYWRgYGKUYGBjxGBgYTRgYGNgYGBi5FhgYGD0YGBjqGBgYfRgYGP4YGBhxGBgYYxgYGEIYGBihGBgYlBgYGHQYGBhEGBgYSxihGGUYZhgwGDEYMBgwGKEYeBhAGGQYZBhmGDkYORg3GDMYOBhiGGIYNBhiGDEYZRgzGGQYYhgwGGMYMhg0GGMYYhhmGGQYZRg5GGYYYxhjGDEYYRgzGGUYZRhkGGMYYxhhGDYYORg4GDQYZRg3GDUYNBg5GDYYZBg3GGUYYhhhGGIYNhg5GDgYMRg4GGIYYRhjGDcYhRgYGDkYGgABGFEYuRiYGCAYGBhdGBgYzAwYGBjRGBgY9RUYGBgyGBgYKwMYGBhhGBgYGhgYGJgOGBgYsxEYGBhzGBgYfxgYGLsYGBh6GBgYTxgYGBsYGBg7GBgYeBgYGMQYGBhhGBgYmhgYGLQYGBheGBgYlxgYGLEYGBjYGBgYrBj2GPQYaBhSGGUYcxhvGGwYdhhlGGQYMBjYGOkYgQIYOhgmCgcYbRhlGHMYcxhhGGcYZRINCgQYZhhyGG8YbRIDGHQYMBgwGBgBEgwKAhh0GG8SBBh0GDAYNhg2GBgB",
+              "proof": null,
+              "height": "65",
+              "codespace": ""
             }
-        }
-     }"#;
+          }
+        }"#;
 
     fn setup_logs() {
         use tracing_subscriber::layer::SubscriberExt;
@@ -926,7 +980,7 @@ mod tests {
         // Verify the blob was stored in iroh
         let status = iroh.blobs().status(hash).await.unwrap();
         match status {
-            BlobStatus::Complete { size: stored_size } => {
+            IrohBlobStatus::Complete { size: stored_size } => {
                 assert_eq!(stored_size, size);
             }
             _ => panic!("Expected blob to be stored completely"),
