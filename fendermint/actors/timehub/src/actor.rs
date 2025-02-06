@@ -144,7 +144,7 @@ mod tests {
     use std::collections::HashMap;
     use std::str::FromStr;
 
-    pub fn construct_and_verify(actor_address: Address, owner: Address) -> MockRuntime {
+    pub fn construct_runtime(actor_address: Address, owner: Address) -> MockRuntime {
         let rt = MockRuntime {
             receiver: actor_address,
             ..Default::default()
@@ -180,53 +180,75 @@ mod tests {
         rt
     }
 
+    fn get_count(rt: &MockRuntime) -> u64 {
+        rt.expect_validate_caller_any();
+        rt.call::<TimehubActor>(Method::Count as u64, None)
+            .unwrap()
+            .unwrap()
+            .deserialize::<u64>()
+            .unwrap()
+    }
+
+    fn get_root(rt: &MockRuntime) -> Cid {
+        rt.expect_validate_caller_any();
+        rt.call::<TimehubActor>(Method::Root as u64, None)
+            .unwrap()
+            .unwrap()
+            .deserialize::<Cid>()
+            .unwrap()
+    }
+
+    fn get_leaf(rt: &MockRuntime, index: u64) -> Leaf {
+        rt.expect_validate_caller_any();
+        rt.call::<TimehubActor>(
+            Method::Get as u64,
+            IpldBlock::serialize_cbor(&index).unwrap(),
+        )
+        .unwrap()
+        .unwrap()
+        .deserialize::<Option<Leaf>>()
+        .unwrap()
+        .unwrap()
+    }
+
+    fn push_cid(rt: &MockRuntime, cid: Cid, timestamp: u64) -> PushReturn {
+        rt.expect_validate_caller_any();
+        rt.expect_tipset_timestamp(timestamp);
+        let push_params = PushParams(cid.to_bytes());
+        rt.call::<TimehubActor>(
+            Method::Push as u64,
+            IpldBlock::serialize_cbor(&push_params).unwrap(),
+        )
+        .unwrap()
+        .unwrap()
+        .deserialize::<PushReturn>()
+        .unwrap()
+    }
+
     #[test]
     pub fn test_basic_crud() {
         let owner = Address::new_id(110);
         let actor_address = Address::new_id(111);
 
-        let rt = construct_and_verify(actor_address, owner);
+        let rt = construct_runtime(actor_address, owner);
 
         // Push calls comes from Timehub owner
         rt.set_caller(*ETHACCOUNT_ACTOR_CODE_ID, owner);
         rt.set_origin(owner);
 
         // Check the initial count
-        rt.expect_validate_caller_any();
-        let count = rt
-            .call::<TimehubActor>(Method::Count as u64, None)
-            .unwrap()
-            .unwrap()
-            .deserialize::<u64>()
-            .unwrap();
+        let count = get_count(&rt);
         assert_eq!(count, 0);
 
         // Check the initial root
-        rt.expect_validate_caller_any();
-        let root = rt
-            .call::<TimehubActor>(Method::Root as u64, None)
-            .unwrap()
-            .unwrap()
-            .deserialize::<Cid>()
-            .unwrap();
+        let root = get_root(&rt);
         assert_eq!(root, Cid::from_str("baeaaaaa").unwrap());
 
         // Push one CID
         let t0 = 1738787063;
         let cid0 = Cid::from_str("bafk2bzacecmnyfiwb52tkbwmm2dsd7ysi3nvuxl3lmspy7pl26wxj4zj7w4wi")
             .unwrap();
-        let push_params = PushParams(cid0.to_bytes());
-        rt.expect_validate_caller_any();
-        rt.expect_tipset_timestamp(t0);
-        let result0 = rt
-            .call::<TimehubActor>(
-                Method::Push as u64,
-                IpldBlock::serialize_cbor(&push_params).unwrap(),
-            )
-            .unwrap()
-            .unwrap()
-            .deserialize::<PushReturn>()
-            .unwrap();
+        let result0 = push_cid(&rt, cid0, t0);
 
         assert_eq!(0, result0.index);
         let expected_root0 =
@@ -235,54 +257,23 @@ mod tests {
         assert_eq!(result0.root, expected_root0);
 
         // Read the value pushed
-        rt.expect_validate_caller_any();
-        let leaf = rt
-            .call::<TimehubActor>(Method::Get as u64, IpldBlock::serialize_cbor(&0).unwrap())
-            .unwrap()
-            .unwrap()
-            .deserialize::<Option<Leaf>>()
-            .unwrap()
-            .unwrap();
-
+        let leaf = get_leaf(&rt, 0);
         assert_eq!(leaf.witnessed, cid0);
         assert_eq!(leaf.timestamp, t0);
 
         // Check the root
-        rt.expect_validate_caller_any();
-        let root = rt
-            .call::<TimehubActor>(Method::Root as u64, None)
-            .unwrap()
-            .unwrap()
-            .deserialize::<Cid>()
-            .unwrap();
+        let root = get_root(&rt);
         assert_eq!(root, expected_root0);
 
         // Check the count
-        rt.expect_validate_caller_any();
-        let count = rt
-            .call::<TimehubActor>(Method::Count as u64, None)
-            .unwrap()
-            .unwrap()
-            .deserialize::<u64>()
-            .unwrap();
+        let count = get_count(&rt);
         assert_eq!(count, 1);
 
         // Push a second CID
         let t1 = t0 + 1;
         let cid1 =
             Cid::from_str("baeabeidtz333ke5c4ultzeg6jkyzgdmvduytt2so3ahozm4zqstiuwq33e").unwrap();
-        let push_params2 = PushParams(cid1.to_bytes());
-        rt.expect_validate_caller_any();
-        rt.expect_tipset_timestamp(t1);
-        let result1 = rt
-            .call::<TimehubActor>(
-                Method::Push as u64,
-                IpldBlock::serialize_cbor(&push_params2).unwrap(),
-            )
-            .unwrap()
-            .unwrap()
-            .deserialize::<PushReturn>()
-            .unwrap();
+        let result1 = push_cid(&rt, cid1, t1);
 
         assert_eq!(1, result1.index);
         let expected_root1 =
@@ -291,49 +282,21 @@ mod tests {
         assert_eq!(result1.root, expected_root1);
 
         // Read the first value pushed
-        rt.expect_validate_caller_any();
-        let leaf0 = rt
-            .call::<TimehubActor>(Method::Get as u64, IpldBlock::serialize_cbor(&0).unwrap())
-            .unwrap()
-            .unwrap()
-            .deserialize::<Option<Leaf>>()
-            .unwrap()
-            .unwrap();
-
+        let leaf0 = get_leaf(&rt, 0);
         assert_eq!(leaf0.witnessed, cid0);
         assert_eq!(leaf0.timestamp, t0);
 
         // Read the second value pushed
-        rt.expect_validate_caller_any();
-        let leaf1 = rt
-            .call::<TimehubActor>(Method::Get as u64, IpldBlock::serialize_cbor(&1).unwrap())
-            .unwrap()
-            .unwrap()
-            .deserialize::<Option<Leaf>>()
-            .unwrap()
-            .unwrap();
-
+        let leaf1 = get_leaf(&rt, 1);
         assert_eq!(leaf1.witnessed, cid1);
         assert_eq!(leaf1.timestamp, t1);
 
         // Check the root
-        rt.expect_validate_caller_any();
-        let root = rt
-            .call::<TimehubActor>(Method::Root as u64, None)
-            .unwrap()
-            .unwrap()
-            .deserialize::<Cid>()
-            .unwrap();
+        let root = get_root(&rt);
         assert_eq!(root, expected_root1);
 
         // Check the count
-        rt.expect_validate_caller_any();
-        let count = rt
-            .call::<TimehubActor>(Method::Count as u64, None)
-            .unwrap()
-            .unwrap()
-            .deserialize::<u64>()
-            .unwrap();
+        let count = get_count(&rt);
         assert_eq!(count, 2);
 
         rt.verify();
@@ -345,7 +308,7 @@ mod tests {
         let actor_address = Address::new_id(111);
         let origin = Address::new_id(112);
 
-        let rt = construct_and_verify(actor_address, owner);
+        let rt = construct_runtime(actor_address, owner);
 
         // Push calls comes from the origin Address, which is *not* the Timehub owner.
         rt.set_caller(*ETHACCOUNT_ACTOR_CODE_ID, origin);
@@ -392,7 +355,7 @@ mod tests {
         let actor_address = Address::new_id(111);
         let origin = Address::new_id(112);
 
-        let rt = construct_and_verify(actor_address, owner);
+        let rt = construct_runtime(actor_address, owner);
 
         // Push calls comes from the origin Address, which is *not* the Timehub owner.
         rt.set_caller(*ETHACCOUNT_ACTOR_CODE_ID, origin);
@@ -426,25 +389,13 @@ mod tests {
         let tipset_timestamp = 1738787063;
         let cid = Cid::from_str("bafk2bzacecmnyfiwb52tkbwmm2dsd7ysi3nvuxl3lmspy7pl26wxj4zj7w4wi")
             .unwrap();
-        let push_params = PushParams(cid.to_bytes());
-        rt.expect_validate_caller_any();
-        rt.expect_tipset_timestamp(tipset_timestamp);
+        let result = push_cid(&rt, cid, tipset_timestamp);
 
-        let result0 = rt
-            .call::<TimehubActor>(
-                Method::Push as u64,
-                IpldBlock::serialize_cbor(&push_params).unwrap(),
-            )
-            .unwrap()
-            .unwrap()
-            .deserialize::<PushReturn>()
-            .unwrap();
-
-        assert_eq!(0, result0.index);
+        assert_eq!(0, result.index);
         let expected_root0 =
             Cid::from_str("bafy2bzacebva5uaq4ayn6ax7zzywcqapf3w4q3oamez6sukidiqiz3m4c6osu")
                 .unwrap();
-        assert_eq!(result0.root, expected_root0);
+        assert_eq!(result.root, expected_root0);
 
         rt.verify();
     }
@@ -455,7 +406,7 @@ mod tests {
         let actor_address = Address::new_id(111);
         let origin = Address::new_id(112);
 
-        let rt = construct_and_verify(actor_address, owner);
+        let rt = construct_runtime(actor_address, owner);
 
         // Push calls comes from the origin Address, which is *not* the Timehub owner.
         rt.set_caller(*ETHACCOUNT_ACTOR_CODE_ID, origin);
@@ -493,25 +444,13 @@ mod tests {
         let tipset_timestamp = 1738787063;
         let cid = Cid::from_str("bafk2bzacecmnyfiwb52tkbwmm2dsd7ysi3nvuxl3lmspy7pl26wxj4zj7w4wi")
             .unwrap();
-        let push_params = PushParams(cid.to_bytes());
-        rt.expect_validate_caller_any();
-        rt.expect_tipset_timestamp(tipset_timestamp);
 
-        let result0 = rt
-            .call::<TimehubActor>(
-                Method::Push as u64,
-                IpldBlock::serialize_cbor(&push_params).unwrap(),
-            )
-            .unwrap()
-            .unwrap()
-            .deserialize::<PushReturn>()
-            .unwrap();
-
-        assert_eq!(0, result0.index);
+        let result = push_cid(&rt, cid, tipset_timestamp);
+        assert_eq!(0, result.index);
         let expected_root0 =
             Cid::from_str("bafy2bzacebva5uaq4ayn6ax7zzywcqapf3w4q3oamez6sukidiqiz3m4c6osu")
                 .unwrap();
-        assert_eq!(result0.root, expected_root0);
+        assert_eq!(result.root, expected_root0);
 
         rt.verify();
     }
@@ -522,7 +461,7 @@ mod tests {
         let actor_address = Address::new_id(111);
         let origin = Address::new_id(112);
 
-        let rt = construct_and_verify(actor_address, owner);
+        let rt = construct_runtime(actor_address, owner);
 
         // Push calls comes from the origin Address, which is *not* the Timehub owner.
         rt.set_caller(*ETHACCOUNT_ACTOR_CODE_ID, origin);
