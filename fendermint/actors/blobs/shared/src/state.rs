@@ -3,8 +3,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::collections::HashMap;
+use std::error::Error;
 use std::fmt;
 use std::ops::{Div, Mul};
+use std::str::from_utf8;
 
 use fendermint_actor_machine::util::to_delegated_address;
 use fil_actors_runtime::runtime::Runtime;
@@ -15,9 +17,7 @@ use fvm_shared::address::Address;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::econ::TokenAmount;
-use recall_ipld::hamt;
-use recall_ipld::hamt::map::TrackedFlushResult;
-use recall_ipld::hamt::MapKey;
+use recall_ipld::{hamt, hamt::map::TrackedFlushResult, hamt::MapKey};
 use serde::{Deserialize, Serialize};
 
 /// Credit is counted the same way as tokens.
@@ -226,18 +226,54 @@ impl From<u64> for Hash {
 pub struct PublicKey(pub [u8; 32]);
 
 /// The stored representation of a blob.
-#[derive(Clone, PartialEq, Debug, Default, Serialize_tuple, Deserialize_tuple)]
+#[derive(Clone, PartialEq, Debug, Serialize_tuple, Deserialize_tuple)]
 pub struct Blob {
     /// The size of the content.
     pub size: u64,
     /// Blob metadata that contains information for blob recovery.
     pub metadata_hash: Hash,
     /// Active subscribers (accounts) that are paying for the blob.
-    pub subscribers: HashMap<String, SubscriptionGroup>,
+    pub subscribers: BlobSubscribers,
     /// Blob status.
     pub status: BlobStatus,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize_tuple, Deserialize_tuple)]
+pub struct BlobSubscribers {
+    pub root: hamt::Root<Address, SubscriptionGroup>,
+    size: u64,
+}
+
+impl BlobSubscribers {
+    pub fn new<BS: Blockstore>(store: &BS) -> Result<Self, ActorError> {
+        let root = hamt::Root::<Address, SubscriptionGroup>::new(store, "blob-subscribers")?;
+        Ok(Self { root, size: 0 })
+    }
+
+    pub fn hamt<BS: Blockstore>(
+        &self,
+        store: BS,
+    ) -> Result<hamt::map::Hamt<BS, Address, SubscriptionGroup>, ActorError> {
+        self.root.hamt(store, self.size)
+    }
+
+    pub fn save_tracked(
+        &mut self,
+        tracked_flush_result: TrackedFlushResult<Address, SubscriptionGroup>,
+    ) {
+        self.root = tracked_flush_result.root;
+        self.size = tracked_flush_result.size;
+    }
+
+    pub fn len(&self) -> u64 {
+        self.size
+    }
+
+    // This is demanded by clippy, https://rust-lang.github.io/rust-clippy/master/index.html#len_without_is_empty.
+    pub fn is_empty(&self) -> bool {
+        self.size == 0
+    }
+}
 /// An object used to determine what [`Account`](s) are accountable for a blob, and for how long.
 /// Subscriptions allow us to distribute the cost of a blob across multiple accounts that
 /// have added the same blob.   
@@ -298,25 +334,64 @@ impl fmt::Display for SubscriptionId {
     }
 }
 
-/// A group of subscriptions for the same subscriber.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(transparent)]
+#[derive(Debug, Clone, PartialEq, Serialize_tuple, Deserialize_tuple)]
 pub struct SubscriptionGroup {
-    /// Subscription group keys.
-    pub subscriptions: HashMap<String, Subscription>,
+    /// Subscription group hamt, keyed by a string representation of SubscriptionId.
+    pub root: hamt::Root<String, Subscription>,
+    size: u64,
+}
+
+// TODO: is works well afaict, but is it a ok/good/reasonable pattern in Rust?
+fn sub_illegal_state_err_map<E>(e: E, sub_id: &SubscriptionId) -> ActorError
+where
+    E: Error,
+{
+    ActorError::illegal_state(format!(
+        "subscriptions for id {} cannot be iterated over: {}",
+        sub_id, e
+    ))
 }
 
 impl SubscriptionGroup {
+    pub fn new<BS: Blockstore>(store: &BS) -> Result<Self, ActorError> {
+        let root = hamt::Root::<String, Subscription>::new(store, "subscription_group")?;
+        Ok(Self { root, size: 0 })
+    }
+
+    pub fn hamt<BS: Blockstore>(
+        &self,
+        store: BS,
+    ) -> Result<hamt::map::Hamt<BS, String, Subscription>, ActorError> {
+        self.root.hamt(store, self.size)
+    }
+
+    pub fn save_tracked(&mut self, tracked_flush_result: TrackedFlushResult<String, Subscription>) {
+        self.root = tracked_flush_result.root;
+        self.size = tracked_flush_result.size;
+    }
+
+    pub fn len(&self) -> u64 {
+        self.size
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.size == 0
+    }
     /// Returns the current group max expiry and the group max expiry after adding the provided ID
     /// and new value.
-    pub fn max_expiries(
+    pub fn max_expiries<BS: Blockstore>(
         &self,
+        store: &BS,
         target_id: &SubscriptionId,
         new_value: Option<ChainEpoch>,
-    ) -> (Option<ChainEpoch>, Option<ChainEpoch>) {
+    ) -> Result<(Option<ChainEpoch>, Option<ChainEpoch>), ActorError> {
         let mut max = None;
         let mut new_max = None;
-        for (id, sub) in self.subscriptions.iter() {
+        let subscriptions = self.hamt(store)?;
+        for val in subscriptions.iter() {
+            let (id_bytes, sub) = val.map_err(|e| sub_illegal_state_err_map(e, target_id))?;
+            let id = from_utf8(id_bytes).map_err(|e| sub_illegal_state_err_map(e, target_id))?;
+
             if sub.failed {
                 continue;
             }
@@ -338,26 +413,31 @@ impl SubscriptionGroup {
                 new_max = Some(new_value);
             }
         }
-        (max, new_max)
+        Ok((max, new_max))
     }
 
     /// Returns whether the provided ID corresponds to a subscription that has the minimum
     /// added epoch and the next minimum added epoch in the group.
-    pub fn is_min_added(
+    pub fn is_min_added<BS: Blockstore>(
         &self,
+        store: &BS,
         trim_id: &SubscriptionId,
     ) -> anyhow::Result<(bool, Option<ChainEpoch>), ActorError> {
         let tid = trim_id.to_string();
-        let trim = self
-            .subscriptions
-            .get(&tid)
+        let subscriptions = self.hamt(store)?;
+        let trim = subscriptions
+            .get(&tid)?
             .ok_or(ActorError::not_found(format!(
                 "subscription id {} not found",
                 trim_id
             )))?;
+
         let mut next_min = None;
-        for (id, sub) in self.subscriptions.iter() {
-            if sub.failed || *id == tid {
+        for val in subscriptions.iter() {
+            let (id_bytes, sub) = val.map_err(|e| sub_illegal_state_err_map(e, trim_id))?;
+            let id = from_utf8(id_bytes).map_err(|e| sub_illegal_state_err_map(e, trim_id))?;
+
+            if sub.failed || id == tid {
                 continue;
             }
             if sub.added < trim.added {
