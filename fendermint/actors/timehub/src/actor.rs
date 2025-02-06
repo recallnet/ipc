@@ -35,8 +35,14 @@ impl TimehubActor {
         let origin = rt.message().origin();
         let actor_address = state.address.get()?;
         if origin != owner {
-            let approved = get_credit_approval(rt, owner, origin)?.is_some();
-            if !approved {
+            let approval = get_credit_approval(rt, owner, origin)?;
+            let cur_epoch = rt.curr_epoch();
+            if approval.is_none()
+                || approval
+                    .unwrap()
+                    .expiry
+                    .is_some_and(|expiry| expiry < cur_epoch)
+            {
                 return Err(actor_error!(
                     forbidden;
                     format!("Unauthorized: missing credit approval from Timehub owner {} to origin {} for Timehub {}", owner, origin, actor_address)));
@@ -120,6 +126,9 @@ impl ActorCode for TimehubActor {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use fendermint_actor_blobs_shared::params::GetCreditApprovalParams;
+    use fendermint_actor_blobs_shared::state::CreditApproval;
+    use fendermint_actor_blobs_shared::{Method as BlobMethod, BLOBS_ACTOR_ADDR};
     use fendermint_actor_machine::{ConstructorParams, InitParams};
     use fil_actors_runtime::test_utils::{
         expect_empty, MockRuntime, ADM_ACTOR_CODE_ID, ETHACCOUNT_ACTOR_CODE_ID, INIT_ACTOR_CODE_ID,
@@ -127,6 +136,11 @@ mod tests {
     use fil_actors_runtime::{ADM_ACTOR_ADDR, INIT_ACTOR_ADDR};
     use fvm_ipld_encoding::ipld_block::IpldBlock;
     use fvm_shared::address::Address;
+    use fvm_shared::clock::ChainEpoch;
+    use fvm_shared::econ::TokenAmount;
+    use fvm_shared::error::ExitCode;
+    use fvm_shared::sys::SendFlags;
+    use fvm_shared::MethodNum;
     use std::collections::HashMap;
     use std::str::FromStr;
 
@@ -321,6 +335,241 @@ mod tests {
             .deserialize::<u64>()
             .unwrap();
         assert_eq!(count, 2);
+
+        rt.verify();
+    }
+
+    #[test]
+    pub fn test_push_access_control_with_no_approval() {
+        let owner = Address::new_id(110);
+        let actor_address = Address::new_id(111);
+        let origin = Address::new_id(112);
+
+        let rt = construct_and_verify(actor_address, owner);
+
+        // Push calls comes from the origin Address, which is *not* the Timehub owner.
+        rt.set_caller(*ETHACCOUNT_ACTOR_CODE_ID, origin);
+        rt.set_origin(origin);
+
+        // Set up that the account doing the push does not have a credit approval from the Timehub owner
+        let missing_approval: Option<CreditApproval> = None;
+        rt.expect_send(
+            BLOBS_ACTOR_ADDR,
+            BlobMethod::GetCreditApproval as MethodNum,
+            IpldBlock::serialize_cbor(&GetCreditApprovalParams {
+                from: owner,
+                to: origin,
+            })
+            .unwrap(),
+            TokenAmount::from_whole(0),
+            None,
+            SendFlags::READ_ONLY,
+            IpldBlock::serialize_cbor(&missing_approval).unwrap(),
+            ExitCode::OK,
+            None,
+        );
+
+        // Attempt to push a CID, should fail with access control error.
+        let cid = Cid::from_str("bafk2bzacecmnyfiwb52tkbwmm2dsd7ysi3nvuxl3lmspy7pl26wxj4zj7w4wi")
+            .unwrap();
+        let push_params = PushParams(cid.to_bytes());
+        rt.expect_validate_caller_any();
+
+        let err = rt
+            .call::<TimehubActor>(
+                Method::Push as u64,
+                IpldBlock::serialize_cbor(&push_params).unwrap(),
+            )
+            .expect_err("Push succeeded despite not having a valid credit approval");
+        assert_eq!(err.exit_code(), ExitCode::USR_FORBIDDEN);
+
+        rt.verify();
+    }
+
+    #[test]
+    pub fn test_push_access_control_with_valid_approval_no_expiry() {
+        let owner = Address::new_id(110);
+        let actor_address = Address::new_id(111);
+        let origin = Address::new_id(112);
+
+        let rt = construct_and_verify(actor_address, owner);
+
+        // Push calls comes from the origin Address, which is *not* the Timehub owner.
+        rt.set_caller(*ETHACCOUNT_ACTOR_CODE_ID, origin);
+        rt.set_origin(origin);
+
+        // Set up valid credit approval from the Timehub owner to the address that will perform the push
+        let approval = CreditApproval {
+            credit_limit: None,
+            gas_fee_limit: None,
+            expiry: None,
+            credit_used: Default::default(),
+            gas_fee_used: Default::default(),
+        };
+        rt.expect_send(
+            BLOBS_ACTOR_ADDR,
+            BlobMethod::GetCreditApproval as MethodNum,
+            IpldBlock::serialize_cbor(&GetCreditApprovalParams {
+                from: owner,
+                to: origin,
+            })
+            .unwrap(),
+            TokenAmount::from_whole(0),
+            None,
+            SendFlags::READ_ONLY,
+            IpldBlock::serialize_cbor(&approval).unwrap(),
+            ExitCode::OK,
+            None,
+        );
+
+        // Push a CID
+        let tipset_timestamp = 1738787063;
+        let cid = Cid::from_str("bafk2bzacecmnyfiwb52tkbwmm2dsd7ysi3nvuxl3lmspy7pl26wxj4zj7w4wi")
+            .unwrap();
+        let push_params = PushParams(cid.to_bytes());
+        rt.expect_validate_caller_any();
+        rt.expect_tipset_timestamp(tipset_timestamp);
+
+        let result0 = rt
+            .call::<TimehubActor>(
+                Method::Push as u64,
+                IpldBlock::serialize_cbor(&push_params).unwrap(),
+            )
+            .unwrap()
+            .unwrap()
+            .deserialize::<PushReturn>()
+            .unwrap();
+
+        assert_eq!(0, result0.index);
+        let expected_root0 =
+            Cid::from_str("bafy2bzacebva5uaq4ayn6ax7zzywcqapf3w4q3oamez6sukidiqiz3m4c6osu")
+                .unwrap();
+        assert_eq!(result0.root, expected_root0);
+
+        rt.verify();
+    }
+
+    #[test]
+    pub fn test_push_access_control_with_valid_approval_future_expiry() {
+        let owner = Address::new_id(110);
+        let actor_address = Address::new_id(111);
+        let origin = Address::new_id(112);
+
+        let rt = construct_and_verify(actor_address, owner);
+
+        // Push calls comes from the origin Address, which is *not* the Timehub owner.
+        rt.set_caller(*ETHACCOUNT_ACTOR_CODE_ID, origin);
+        rt.set_origin(origin);
+
+        // Set up valid credit approval from the Timehub owner to the address that will perform the push
+        let epoch0: ChainEpoch = 100;
+        let epoch1 = epoch0 + 1;
+        rt.set_epoch(epoch0);
+
+        let approval = CreditApproval {
+            credit_limit: None,
+            gas_fee_limit: None,
+            expiry: Some(epoch1),
+            credit_used: Default::default(),
+            gas_fee_used: Default::default(),
+        };
+        rt.expect_send(
+            BLOBS_ACTOR_ADDR,
+            BlobMethod::GetCreditApproval as MethodNum,
+            IpldBlock::serialize_cbor(&GetCreditApprovalParams {
+                from: owner,
+                to: origin,
+            })
+            .unwrap(),
+            TokenAmount::from_whole(0),
+            None,
+            SendFlags::READ_ONLY,
+            IpldBlock::serialize_cbor(&approval).unwrap(),
+            ExitCode::OK,
+            None,
+        );
+
+        // Push a CID
+        let tipset_timestamp = 1738787063;
+        let cid = Cid::from_str("bafk2bzacecmnyfiwb52tkbwmm2dsd7ysi3nvuxl3lmspy7pl26wxj4zj7w4wi")
+            .unwrap();
+        let push_params = PushParams(cid.to_bytes());
+        rt.expect_validate_caller_any();
+        rt.expect_tipset_timestamp(tipset_timestamp);
+
+        let result0 = rt
+            .call::<TimehubActor>(
+                Method::Push as u64,
+                IpldBlock::serialize_cbor(&push_params).unwrap(),
+            )
+            .unwrap()
+            .unwrap()
+            .deserialize::<PushReturn>()
+            .unwrap();
+
+        assert_eq!(0, result0.index);
+        let expected_root0 =
+            Cid::from_str("bafy2bzacebva5uaq4ayn6ax7zzywcqapf3w4q3oamez6sukidiqiz3m4c6osu")
+                .unwrap();
+        assert_eq!(result0.root, expected_root0);
+
+        rt.verify();
+    }
+
+    #[test]
+    pub fn test_push_access_control_with_expired_approval() {
+        let owner = Address::new_id(110);
+        let actor_address = Address::new_id(111);
+        let origin = Address::new_id(112);
+
+        let rt = construct_and_verify(actor_address, owner);
+
+        // Push calls comes from the origin Address, which is *not* the Timehub owner.
+        rt.set_caller(*ETHACCOUNT_ACTOR_CODE_ID, origin);
+        rt.set_origin(origin);
+
+        // Set up that the account doing the push does has a credit approval from the Timehub owner,
+        // but it is expired
+        let epoch0: ChainEpoch = 100;
+        let epoch1 = epoch0 + 1;
+        rt.set_epoch(epoch1);
+
+        let expired_approval = CreditApproval {
+            credit_limit: None,
+            gas_fee_limit: None,
+            expiry: Some(epoch0),
+            credit_used: Default::default(),
+            gas_fee_used: Default::default(),
+        };
+        rt.expect_send(
+            BLOBS_ACTOR_ADDR,
+            BlobMethod::GetCreditApproval as MethodNum,
+            IpldBlock::serialize_cbor(&GetCreditApprovalParams {
+                from: owner,
+                to: origin,
+            })
+            .unwrap(),
+            TokenAmount::from_whole(0),
+            None,
+            SendFlags::READ_ONLY,
+            IpldBlock::serialize_cbor(&expired_approval).unwrap(),
+            ExitCode::OK,
+            None,
+        );
+
+        // Attempt to push a CID, should fail with access control error.
+        let cid = Cid::from_str("bafk2bzacecmnyfiwb52tkbwmm2dsd7ysi3nvuxl3lmspy7pl26wxj4zj7w4wi")
+            .unwrap();
+        let push_params = PushParams(cid.to_bytes());
+        rt.expect_validate_caller_any();
+
+        let err = rt
+            .call::<TimehubActor>(
+                Method::Push as u64,
+                IpldBlock::serialize_cbor(&push_params).unwrap(),
+            )
+            .expect_err("Push succeeded despite not having a valid credit approval");
+        assert_eq!(err.exit_code(), ExitCode::USR_FORBIDDEN);
 
         rt.verify();
     }
