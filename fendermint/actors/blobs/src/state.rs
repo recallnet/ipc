@@ -3594,14 +3594,15 @@ mod tests {
                 let subscribers = blob.subscribers.hamt(store).unwrap();
                 subscribers
                     .for_each(|_, group| {
-                        Ok(for (_, sub) in &group.subscriptions {
+                        for sub in group.subscriptions.values() {
                             assert_eq!(
                                 sub.expiry,
                                 current_epoch + tc.expected_blob_ttl,
                                 "Test case '{}' has unexpected blob expiry",
                                 tc.name
                             );
-                        })
+                        }
+                        Ok(())
                     })
                     .unwrap();
             } else {

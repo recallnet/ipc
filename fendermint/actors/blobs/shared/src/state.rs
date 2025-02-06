@@ -259,6 +259,11 @@ impl BlobSubscribers {
     pub fn len(&self) -> u64 {
         self.size
     }
+
+    // This is demanded by clippy, https://rust-lang.github.io/rust-clippy/master/index.html#len_without_is_empty.
+    pub fn is_empty(&self) -> bool {
+        self.size == 0
+    }
 }
 /// An object used to determine what [`Account`](s) are accountable for a blob, and for how long.
 /// Subscriptions allow us to distribute the cost of a blob across multiple accounts that
