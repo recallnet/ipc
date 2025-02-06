@@ -14,6 +14,7 @@ use fil_actors_runtime::{
     runtime::{ActorCode, Runtime},
     ActorError,
 };
+use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_hamt::BytesKey;
 use fvm_shared::address::Address;
 
@@ -128,7 +129,7 @@ impl Actor {
         let sub_id = get_blob_id(&state, params.0)?;
         if let Some(object_state) = state.get(rt.store(), &key)? {
             if let Some(blob) = get_blob(rt, object_state.hash)? {
-                let object = build_object(&blob, &object_state, sub_id, owner)?;
+                let object = build_object(rt.store(), &blob, &object_state, sub_id, owner)?;
                 Ok(object)
             } else {
                 Ok(None)
@@ -226,7 +227,8 @@ fn get_blob_id(state: &State, key: Vec<u8>) -> anyhow::Result<SubscriptionId, Ac
 }
 
 /// Build an object from its state and blob.
-fn build_object(
+fn build_object<BS: Blockstore>(
+    store: &BS,
     blob: &Blob,
     object_state: &ObjectState,
     sub_id: SubscriptionId,
@@ -234,15 +236,13 @@ fn build_object(
 ) -> anyhow::Result<Option<Object>, ActorError> {
     match blob.status {
         BlobStatus::Resolved => {
-            let group = blob
-                .subscribers
-                .get(&subscriber.to_string())
-                .ok_or_else(|| {
-                    ActorError::illegal_state(format!(
-                        "owner {} is not subscribed to blob {}; this should not happen",
-                        subscriber, object_state.hash
-                    ))
-                })?;
+            let subscribers = blob.subscribers.hamt(store)?;
+            let group = subscribers.get(&subscriber)?.ok_or_else(|| {
+                ActorError::illegal_state(format!(
+                    "owner {} is not subscribed to blob {}; this should not happen",
+                    subscriber, object_state.hash
+                ))
+            })?;
             let (expiry, _) = group.max_expiries(&sub_id, None);
             if let Some(expiry) = expiry {
                 Ok(Some(Object {
@@ -348,7 +348,7 @@ mod tests {
     use fendermint_actor_blobs_shared::params::{
         AddBlobParams, DeleteBlobParams, GetBlobParams, OverwriteBlobParams,
     };
-    use fendermint_actor_blobs_shared::state::{Subscription, SubscriptionGroup};
+    use fendermint_actor_blobs_shared::state::{BlobSubscribers, Subscription, SubscriptionGroup};
     use fendermint_actor_blobs_shared::{Method as BlobMethod, BLOBS_ACTOR_ADDR};
     use fendermint_actor_blobs_testing::{new_hash, new_pk};
     use fendermint_actor_machine::{ConstructorParams, InitParams};
@@ -802,21 +802,23 @@ mod tests {
         // Get the object
         let blob = Blob {
             size: add_params.size,
-            subscribers: HashMap::from([(
-                origin.to_string(),
-                SubscriptionGroup {
+            subscribers: BlobSubscribers::from(
+                rt.store(),
+                origin,
+                &SubscriptionGroup {
                     subscriptions: HashMap::from([(
                         sub_id.to_string(),
                         Subscription {
                             added: 0,
-                            expiry: ttl,
+                            expiry: ChainEpoch::from(3600),
                             source: add_params.source,
                             delegate: Some(origin),
                             failed: false,
                         },
                     )]),
                 },
-            )]),
+            )
+            .unwrap(),
             status: BlobStatus::Resolved,
             metadata_hash: add_params.recovery_hash,
         };
@@ -931,9 +933,10 @@ mod tests {
         let sub_id = get_blob_id(&state, key.clone()).unwrap();
         let blob = Blob {
             size: add_params.size,
-            subscribers: HashMap::from([(
-                origin.to_string(),
-                SubscriptionGroup {
+            subscribers: BlobSubscribers::from(
+                rt.store(),
+                origin,
+                &SubscriptionGroup {
                     subscriptions: HashMap::from([(
                         sub_id.to_string(),
                         Subscription {
@@ -945,7 +948,8 @@ mod tests {
                         },
                     )]),
                 },
-            )]),
+            )
+            .unwrap(),
             status: BlobStatus::Resolved,
             metadata_hash: add_params.recovery_hash,
         };
