@@ -7,12 +7,13 @@ use std::fmt;
 use std::ops::{Div, Mul};
 
 use fil_actors_runtime::ActorError;
+use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::tuple::*;
 use fvm_shared::address::Address;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::econ::TokenAmount;
-use recall_ipld::hamt::MapKey;
+use recall_ipld::{hamt, hamt::MapKey};
 use serde::{Deserialize, Serialize};
 
 /// Credit is counted the same way as tokens.
@@ -211,18 +212,54 @@ impl From<u64> for Hash {
 pub struct PublicKey(pub [u8; 32]);
 
 /// The stored representation of a blob.
-#[derive(Clone, PartialEq, Debug, Default, Serialize_tuple, Deserialize_tuple)]
+#[derive(Clone, PartialEq, Debug, Serialize_tuple, Deserialize_tuple)]
 pub struct Blob {
     /// The size of the content.
     pub size: u64,
     /// Blob metadata that contains information for blob recovery.
     pub metadata_hash: Hash,
     /// Active subscribers (accounts) that are paying for the blob.
-    pub subscribers: HashMap<String, SubscriptionGroup>,
+    // TODO: this becomes hamt?
+    pub subscribers: BlobSubscribers,
     /// Blob status.
     pub status: BlobStatus,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize_tuple, Deserialize_tuple)]
+pub struct BlobSubscribers {
+    pub root: hamt::Root<Address, SubscriptionGroup>,
+    size: u64,
+}
+
+impl BlobSubscribers {
+    pub fn new<BS: Blockstore>(store: &BS) -> Result<Self, ActorError> {
+        let root = hamt::Root::<Address, SubscriptionGroup>::new(store, "blob")?;
+        Ok(Self { root, size: 0 })
+    }
+
+    pub fn from<BS: Blockstore>(
+        store: &BS,
+        origin: Address,
+        subscription_group: &SubscriptionGroup,
+    ) -> Result<Self, ActorError> {
+        let root = hamt::Root::<Address, SubscriptionGroup>::new(store, "blob")?;
+
+        let mut bsub = root.hamt(store, 0)?;
+        bsub.set(&origin, subscription_group.clone()).unwrap();
+        Ok(Self { root, size: 1 })
+    }
+
+    pub fn hamt<BS: Blockstore>(
+        &self,
+        store: BS,
+    ) -> Result<hamt::map::Hamt<BS, Address, SubscriptionGroup>, ActorError> {
+        self.root.hamt(store, self.size)
+    }
+
+    pub fn len(&self) -> u64 {
+        self.size
+    }
+}
 /// An object used to determine what [`Account`](s) are accountable for a blob, and for how long.
 /// Subscriptions allow us to distribute the cost of a blob across multiple accounts that
 /// have added the same blob.   
@@ -288,6 +325,7 @@ impl fmt::Display for SubscriptionId {
 #[serde(transparent)]
 pub struct SubscriptionGroup {
     /// Subscription group keys.
+    // TODO: this becomes hamt?
     pub subscriptions: HashMap<String, Subscription>,
 }
 
