@@ -258,10 +258,25 @@ impl BlobsActor {
         params: GetAccountParams,
     ) -> Result<Option<Account>, ActorError> {
         rt.validate_immediate_caller_accept_any()?;
-        let from = to_id_address(rt, params.0, false)?;
+
+        let addr = match to_id_address(rt, params.0, false) {
+            Ok(addr) => addr,
+            Err(e) if e.exit_code() == ExitCode::USR_NOT_FOUND => {
+                // We send zero tokens to create the account in the FVM
+                extract_send_result(rt.send_simple(
+                    &params.0,
+                    METHOD_SEND,
+                    None,
+                    TokenAmount::zero(),
+                ))?;
+                to_id_address(rt, params.0, true)?
+            }
+            Err(e) => return Err(e),
+        };
+
         let account = rt
             .state::<State>()?
-            .get_account(rt.store(), from)?
+            .get_account(rt.store(), addr)?
             .map(|mut account| {
                 // Iterate over the approvals maps and resolve all the addresses to their external form
                 account.approvals_to = resolve_approvals_addresses(rt, account.approvals_to)?;
@@ -707,6 +722,91 @@ mod tests {
             ExitCode::OK,
             None,
         );
+    }
+
+    #[test]
+    fn test_get_account() {
+        let rt = construct_and_verify();
+
+        // Set up an account
+        let id_addr = Address::new_id(110);
+        let eth_addr = EthAddress(hex_literal::hex!(
+            "CAFEB0BA00000000000000000000000000000000"
+        ));
+        let f4_eth_addr = Address::new_delegated(10, &eth_addr.0).unwrap();
+
+        rt.set_delegated_address(id_addr.id().unwrap(), f4_eth_addr);
+        rt.set_caller(*ETHACCOUNT_ACTOR_CODE_ID, id_addr);
+        rt.set_origin(id_addr);
+
+        // Buy some credit first to create the account
+        rt.set_received(TokenAmount::from_whole(1));
+        rt.expect_validate_caller_any();
+        let fund_params = BuyCreditParams(f4_eth_addr);
+        expect_get_config(&rt);
+        rt.call::<BlobsActor>(
+            Method::BuyCredit as u64,
+            IpldBlock::serialize_cbor(&fund_params).unwrap(),
+        )
+        .unwrap();
+        rt.verify();
+
+        // Get the account details
+        rt.expect_validate_caller_any();
+        let get_params = GetAccountParams(f4_eth_addr);
+        let result = rt
+            .call::<BlobsActor>(
+                Method::GetAccount as u64,
+                IpldBlock::serialize_cbor(&get_params).unwrap(),
+            )
+            .unwrap()
+            .unwrap()
+            .deserialize::<Option<Account>>()
+            .unwrap();
+
+        assert!(result.is_some());
+        let account = result.unwrap();
+        assert!(account.credit_free > Credit::zero());
+        assert!(account.gas_allowance > TokenAmount::zero());
+        assert!(account.approvals_to.is_empty());
+        assert!(account.approvals_from.is_empty());
+        assert!(account.credit_sponsor.is_none());
+        rt.verify();
+    }
+
+    #[test]
+    fn test_get_account_new() {
+        let rt = construct_and_verify();
+
+        // Use an address that doesn't exist in the FVM yet
+        let eth_addr = EthAddress(hex_literal::hex!(
+            "CAFEB0BA00000000000000000000000000000001"
+        ));
+        let f4_eth_addr = Address::new_delegated(10, &eth_addr.0).unwrap();
+
+        // Try to get the non-existent account
+        rt.expect_validate_caller_any();
+        rt.expect_send_simple(
+            f4_eth_addr,
+            METHOD_SEND,
+            None,
+            TokenAmount::zero(),
+            None,
+            ExitCode::OK,
+        );
+        let get_params = GetAccountParams(f4_eth_addr);
+        let result = rt.call::<BlobsActor>(
+            Method::GetAccount as u64,
+            IpldBlock::serialize_cbor(&get_params).unwrap(),
+        );
+
+        // In the mock runtime, sending tokens doesn't create the actor like in real FVM
+        // So we expect a "not found" error after the send attempt
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert_eq!(err.exit_code(), ExitCode::USR_NOT_FOUND);
+        assert!(err.msg().contains("not found"));
+        rt.verify();
     }
 
     #[test]
