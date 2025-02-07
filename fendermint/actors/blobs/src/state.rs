@@ -52,6 +52,9 @@ pub struct State {
     pub accounts: AccountsState,
     /// HAMT containing all blobs keyed by blob hash.
     pub blobs: BlobsState,
+    /// The next account to debit in the current debit cycle.
+    /// If this is None, we have finished the debit cycle.    
+    pub next_debit_addr: Option<Address>,
 }
 
 /// Key used to namespace subscriptions in the expiry index.
@@ -121,6 +124,7 @@ impl State {
             pending: BlobsProgressCollection::new(store, "pending blobs queue")?,
             accounts: AccountsState::new(store)?,
             blobs: BlobsState::new(store)?,
+            next_debit_addr: None,
         })
     }
 
@@ -539,19 +543,31 @@ impl State {
         // Debit for existing usage
         let reader = self.accounts.hamt(store)?;
         let mut writer = self.accounts.hamt(store)?;
-        reader.for_each(|address, account| {
-            let mut account = account.clone();
-            let debit_blocks = current_epoch - account.last_debit_epoch;
-            let debit_credits =
-                Credit::from_whole(self.get_storage_cost(debit_blocks, &account.capacity_used));
-            self.credit_debited += &debit_credits;
-            self.credit_committed -= &debit_credits;
-            account.credit_committed -= &debit_credits;
-            account.last_debit_epoch = current_epoch;
-            debug!("debited {} credits from {}", debit_credits, address);
-            writer.set(&address, account)?;
-            Ok(())
-        })?;
+
+        let start_key = match self.next_debit_addr {
+            Some(address) => Some(BytesKey::from(address.to_bytes())),
+            None => None,
+        };
+        let batch_size = Some(5);
+        let (count, next_account) =
+            reader.for_each_ranged(start_key.as_ref(), batch_size, |address, account| {
+                let mut account = account.clone();
+                let debit_blocks = current_epoch - account.last_debit_epoch;
+                let debit_credits =
+                    Credit::from_whole(self.get_storage_cost(debit_blocks, &account.capacity_used));
+                self.credit_debited += &debit_credits;
+                self.credit_committed -= &debit_credits;
+                account.credit_committed -= &debit_credits;
+                account.last_debit_epoch = current_epoch;
+                debug!("debited {} credits from {}", debit_credits, address);
+                writer.set(&address, account)?;
+                Ok(())
+            })?;
+        debug!(
+            "finished debiting {:#?} accounts, next account: {:#?}",
+            count, next_account
+        );
+        self.next_debit_addr = next_account;
         self.accounts.root = writer.flush()?;
         Ok(delete_from_disc)
     }
@@ -4438,5 +4454,102 @@ mod tests {
         assert_eq!(stats.bytes_added, 0);
         assert_eq!(stats.num_resolving, 0);
         assert_eq!(stats.bytes_resolving, 0);
+    }
+
+    #[test]
+    fn test_paginated_debit_accounts() {
+        let config = RecallConfig::default();
+        let store = MemoryBlockstore::default();
+        let mut state = State::new(&store).unwrap();
+        let current_epoch = ChainEpoch::from(1);
+
+        // Create more than one batch worth of accounts (>50)
+        for i in 0..10 {
+            let address = Address::new_id(1000 + i);
+            let token_amount = TokenAmount::from_whole(10);
+
+            // Buy credits for each account
+            state
+                .buy_credit(
+                    &config,
+                    &store,
+                    address,
+                    token_amount.clone(),
+                    current_epoch,
+                )
+                .unwrap();
+
+            // Add some storage usage
+            let mut accounts = state.accounts.hamt(&store).unwrap();
+            let mut account = accounts.get(&address).unwrap().unwrap();
+            account.capacity_used = 1000;
+            accounts.set(&address, account).unwrap();
+        }
+
+        // First batch (should process 50 accounts)
+        assert!(state.next_debit_addr.is_none());
+        let deletes1 = state.debit_accounts(&store, current_epoch + 1).unwrap();
+        assert!(deletes1.is_empty()); // No expired blobs
+        assert!(state.next_debit_addr.is_some());
+
+        // Second batch (should process remaining 10 accounts and clear state)
+        let deletes2 = state.debit_accounts(&store, current_epoch + 1).unwrap();
+        assert!(deletes2.is_empty());
+        assert!(state.next_debit_addr.is_none()); // State should be cleared after all accounts processed
+
+        // Verify all accounts were processed
+        let reader = state.accounts.hamt(&store).unwrap();
+        reader
+            .for_each(|_, account| {
+                assert_eq!(account.last_debit_epoch, current_epoch + 1);
+                Ok(())
+            })
+            .unwrap();
+    }
+
+    #[test]
+    fn test_multiple_debit_cycles() {
+        let config = RecallConfig::default();
+        let store = MemoryBlockstore::default();
+        let mut state = State::new(&store).unwrap();
+        let current_epoch = ChainEpoch::from(1);
+
+        // Create accounts
+        for i in 0..10 {
+            let address = Address::new_id(1000 + i);
+            let token_amount = TokenAmount::from_whole(10);
+            state
+                .buy_credit(
+                    &config,
+                    &store,
+                    address,
+                    token_amount.clone(),
+                    current_epoch,
+                )
+                .unwrap();
+
+            let mut accounts = state.accounts.hamt(&store).unwrap();
+            let mut account = accounts.get(&address).unwrap().unwrap();
+            account.capacity_used = 1000;
+            accounts.set(&address, account).unwrap();
+        }
+
+        // First cycle
+        let deletes1 = state.debit_accounts(&store, current_epoch + 1).unwrap();
+        assert!(deletes1.is_empty());
+        assert!(state.next_debit_addr.is_some());
+
+        let deletes2 = state.debit_accounts(&store, current_epoch + 1).unwrap();
+        assert!(deletes2.is_empty());
+        assert!(state.next_debit_addr.is_none()); // First cycle complete
+
+        // Second cycle
+        let deletes3 = state.debit_accounts(&store, current_epoch + 2).unwrap();
+        assert!(deletes3.is_empty());
+        assert!(state.next_debit_addr.is_some());
+
+        let deletes4 = state.debit_accounts(&store, current_epoch + 2).unwrap();
+        assert!(deletes4.is_empty());
+        assert!(state.next_debit_addr.is_none()); // Second cycle complete
     }
 }
