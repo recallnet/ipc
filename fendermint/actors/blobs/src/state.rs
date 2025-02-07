@@ -544,10 +544,9 @@ impl State {
         let reader = self.accounts.hamt(store)?;
         let mut writer = self.accounts.hamt(store)?;
 
-        let start_key = match self.next_debit_addr {
-            Some(address) => Some(BytesKey::from(address.to_bytes())),
-            None => None,
-        };
+        let start_key = self
+            .next_debit_addr
+            .map(|address| BytesKey::from(address.to_bytes()));
         let batch_size = Some(5);
         let (count, next_account) =
             reader.for_each_ranged(start_key.as_ref(), batch_size, |address, account| {
