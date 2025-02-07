@@ -821,10 +821,62 @@ mod tests {
     use fendermint_rpc::FendermintClient;
     use rand_chacha::rand_core::{RngCore, SeedableRng};
     use rand_chacha::ChaCha8Rng;
-    use tendermint_rpc::{Method, MockClient, MockRequestMethodMatcher};
+    use tendermint_rpc::dialect::Dialect;
+    use tendermint_rpc::{MockClient, MockRequestMatcher, Request, Response};
+
+    pub struct MockRequestMultipleResponseMethodMatcher {}
+
+    impl MockRequestMatcher for MockRequestMultipleResponseMethodMatcher {
+        fn response_for<R, S>(
+            &self,
+            request: R,
+        ) -> Option<Result<R::Response, tendermint_rpc::error::Error>>
+        where
+            R: Request<S>,
+            S: Dialect,
+        {
+            #[derive(Debug, Deserialize)]
+            struct Data {
+                data: String,
+            }
+
+            #[derive(Debug, Deserialize)]
+            struct Req {
+                params: Data,
+            }
+            let req: Req =
+                serde_json::from_str(&request.into_json()).expect("failed to deserialize request");
+
+            if req.params.data
+                == "A16443616C6C8A0042007E42000000400040401A70F1BD724847666F6F2F626172"
+            {
+                return Some(Response::from_string(ABCI_QUERY_GET_OBJECT_RESPONSE));
+            }
+
+            Some(Response::from_string(ABCI_QUERY_GET_BLOB_RESPONSE))
+        }
+    }
 
     // Used to mocking Actor State
-    const ABCI_QUERY_RESPONSE_DOWNLOAD: &str = r#"{
+    const ABCI_QUERY_GET_OBJECT_RESPONSE: &str = r#"{
+          "jsonrpc": "2.0",
+          "id": "",
+          "result": {
+            "response": {
+              "code": 0,
+              "log": "",
+              "info": "",
+              "index": "0",
+              "key": "",
+              "value": "mQEIEhizARiFGJgYIBgYGNcYGBhJGBgYgRgYGO8YGBinCgwYGBiICxgYGI0YGBiMGBgYGRgYGIUYGBjQGBgYdRgYGNsYGBjLGBgY9hgYGHkYGBi5GBgYmhgYGF8YGBiZFBgYGOUYGBiqGBgY+RgYGGsYGBiDGBgYGhgYGJ4YGBgkGJgYIBgYGOwYGBhRGBgYoBgYGNEYGBhyGBgY2RgYGOcYGBhlGBgYpxgYGDMYGBjKExgYGOsYGBgYGBgY8hgYGN0YGBjNGBgYbRgYGMwYGBhOGBgYKhgYGPcYGBgoGBgYixgYGBgYGBjJGBgYXRgYGDQYGBiJABgYGIcYGBj3CxgZFRg2GKIYYxhmGG8YbxhjGGIYYRhyGGwYYxhvGG4YdBhlGG4YdBgtGHQYeRhwGGUYeBgYGGEYcBhwGGwYaRhjGGEYdBhpGG8YbhgvGG8YYxh0GGUYdBgtGHMYdBhyGGUYYRhtGDAYzBjgGL8CGDoYSwoHGG0YZRhzGHMYYRhnGGUSDQoEGGYYchhvGG0SAxh0GDAYMBgYARIYMQoCGHQYbxIYKRh0GDIYZxhvGGMYcBhuGGwYcRhpGGwYeBh5GG0Ydhh3GDQYdhhuGGwYaBg0GG4YcBhuGGQYeRh4GGoYYxhsGDMYMxh5GGgYdRhjGHQYaRhjGGkYGAE=",
+              "proof": null,
+              "height": "65",
+              "codespace": ""
+            }
+          }
+        }"#;
+
+    const ABCI_QUERY_GET_BLOB_RESPONSE: &str = r#"{
           "jsonrpc": "2.0",
           "id": "",
           "result": {
@@ -989,11 +1041,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_handle_object_download_get() {
-        let matcher = MockRequestMethodMatcher::default().map(
-            Method::AbciQuery,
-            Ok(ABCI_QUERY_RESPONSE_DOWNLOAD.to_string()),
-        );
+        let matcher = MockRequestMultipleResponseMethodMatcher {};
+
         let client = FendermintClient::new(MockClient::new(matcher).0);
+
         let iroh = iroh::node::Node::memory().spawn().await.unwrap();
         let _hash = iroh
             .blobs()
@@ -1003,7 +1054,7 @@ mod tests {
             .hash;
 
         let result = handle_object_download(
-            "t2mnd5jkuvmsaf457ympnf3monalh3vothdd5njoy".into(),
+            "0xff0000000000000000000000000000000000007e".into(),
             warp::test::request()
                 .path("/foo/bar")
                 .filter(&warp::path::tail())
@@ -1036,10 +1087,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_handle_object_download_with_range() {
-        let matcher = MockRequestMethodMatcher::default().map(
-            Method::AbciQuery,
-            Ok(ABCI_QUERY_RESPONSE_DOWNLOAD.to_string()),
-        );
+        let matcher = MockRequestMultipleResponseMethodMatcher {};
         let client = FendermintClient::new(MockClient::new(matcher).0);
         let iroh = iroh::node::Node::memory().spawn().await.unwrap();
         let _hash = iroh
@@ -1050,7 +1098,7 @@ mod tests {
             .hash;
 
         let result = handle_object_download(
-            "t2mnd5jkuvmsaf457ympnf3monalh3vothdd5njoy".into(),
+            "0xff0000000000000000000000000000000000007e".into(),
             warp::test::request()
                 .path("/foo/bar")
                 .filter(&warp::path::tail())
@@ -1074,10 +1122,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_handle_object_download_head() {
-        let matcher = MockRequestMethodMatcher::default().map(
-            Method::AbciQuery,
-            Ok(ABCI_QUERY_RESPONSE_DOWNLOAD.to_string()),
-        );
+        let matcher = MockRequestMultipleResponseMethodMatcher {};
         let client = FendermintClient::new(MockClient::new(matcher).0);
         let iroh = iroh::node::Node::memory().spawn().await.unwrap();
         let _hash = iroh
@@ -1088,7 +1133,7 @@ mod tests {
             .hash;
 
         let result = handle_object_download(
-            "t2mnd5jkuvmsaf457ympnf3monalh3vothdd5njoy".into(),
+            "0xff0000000000000000000000000000000000007e".into(),
             warp::test::request()
                 .path("/foo/bar")
                 .filter(&warp::path::tail())
