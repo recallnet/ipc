@@ -211,9 +211,9 @@ mod tests {
         .unwrap()
     }
 
-    fn push_cid(rt: &MockRuntime, cid: Cid, timestamp: u64) -> PushReturn {
+    fn push_cid(rt: &mut MockRuntime, cid: Cid, timestamp: u64) -> PushReturn {
         rt.expect_validate_caller_any();
-        rt.expect_tipset_timestamp(timestamp);
+        rt.tipset_timestamp = timestamp;
         let push_params = PushParams(cid.to_bytes());
         rt.call::<TimehubActor>(
             Method::Push as u64,
@@ -230,7 +230,7 @@ mod tests {
         let owner = Address::new_id(110);
         let actor_address = Address::new_id(111);
 
-        let rt = construct_runtime(actor_address, owner);
+        let mut rt = construct_runtime(actor_address, owner);
 
         // Push calls comes from Timehub owner
         rt.set_caller(*ETHACCOUNT_ACTOR_CODE_ID, owner);
@@ -248,7 +248,7 @@ mod tests {
         let t0 = 1738787063;
         let cid0 = Cid::from_str("bafk2bzacecmnyfiwb52tkbwmm2dsd7ysi3nvuxl3lmspy7pl26wxj4zj7w4wi")
             .unwrap();
-        let result0 = push_cid(&rt, cid0, t0);
+        let result0 = push_cid(&mut rt, cid0, t0);
 
         assert_eq!(0, result0.index);
         let expected_root0 =
@@ -273,7 +273,7 @@ mod tests {
         let t1 = t0 + 1;
         let cid1 =
             Cid::from_str("baeabeidtz333ke5c4ultzeg6jkyzgdmvduytt2so3ahozm4zqstiuwq33e").unwrap();
-        let result1 = push_cid(&rt, cid1, t1);
+        let result1 = push_cid(&mut rt, cid1, t1);
 
         assert_eq!(1, result1.index);
         let expected_root1 =
@@ -355,7 +355,7 @@ mod tests {
         let actor_address = Address::new_id(111);
         let origin = Address::new_id(112);
 
-        let rt = construct_runtime(actor_address, owner);
+        let mut rt = construct_runtime(actor_address, owner);
 
         // Push calls comes from the origin Address, which is *not* the Timehub owner.
         rt.set_caller(*ETHACCOUNT_ACTOR_CODE_ID, origin);
@@ -389,7 +389,7 @@ mod tests {
         let tipset_timestamp = 1738787063;
         let cid = Cid::from_str("bafk2bzacecmnyfiwb52tkbwmm2dsd7ysi3nvuxl3lmspy7pl26wxj4zj7w4wi")
             .unwrap();
-        let result = push_cid(&rt, cid, tipset_timestamp);
+        let result = push_cid(&mut rt, cid, tipset_timestamp);
 
         assert_eq!(0, result.index);
         let expected_root0 =
@@ -406,7 +406,7 @@ mod tests {
         let actor_address = Address::new_id(111);
         let origin = Address::new_id(112);
 
-        let rt = construct_runtime(actor_address, owner);
+        let mut rt = construct_runtime(actor_address, owner);
 
         // Push calls comes from the origin Address, which is *not* the Timehub owner.
         rt.set_caller(*ETHACCOUNT_ACTOR_CODE_ID, origin);
@@ -445,7 +445,7 @@ mod tests {
         let cid = Cid::from_str("bafk2bzacecmnyfiwb52tkbwmm2dsd7ysi3nvuxl3lmspy7pl26wxj4zj7w4wi")
             .unwrap();
 
-        let result = push_cid(&rt, cid, tipset_timestamp);
+        let result = push_cid(&mut rt, cid, tipset_timestamp);
         assert_eq!(0, result.index);
         let expected_root0 =
             Cid::from_str("bafy2bzacebva5uaq4ayn6ax7zzywcqapf3w4q3oamez6sukidiqiz3m4c6osu")
