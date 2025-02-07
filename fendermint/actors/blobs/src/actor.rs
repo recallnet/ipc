@@ -388,6 +388,7 @@ impl BlobsActor {
                 params.ttl,
                 params.source,
                 tokens_received,
+                rt.current_balance(),
             )
         })?;
         // Send the tokens not required for the buying back
@@ -565,6 +566,7 @@ impl BlobsActor {
                 add_params.ttl,
                 add_params.source,
                 TokenAmount::zero(),
+                rt.current_balance(),
             )?;
             Ok((delete, subscription))
         })?;

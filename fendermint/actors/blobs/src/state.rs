@@ -578,6 +578,7 @@ impl State {
         ttl: Option<ChainEpoch>,
         source: PublicKey,
         tokens_received: TokenAmount,
+        balance: TokenAmount,
     ) -> anyhow::Result<(Subscription, TokenAmount), ActorError> {
         // Get or create a new account
         let mut accounts = self.accounts.hamt(store)?;
@@ -647,6 +648,7 @@ impl State {
                     &credit_required,
                     &config.token_credit_rate,
                     &tokens_received,
+                    &balance,
                     &subscriber,
                     current_epoch,
                     &delegation,
@@ -710,6 +712,7 @@ impl State {
                     &credit_required,
                     &config.token_credit_rate,
                     &tokens_received,
+                    &balance,
                     &subscriber,
                     current_epoch,
                     &delegation,
@@ -769,6 +772,7 @@ impl State {
                 &credit_required,
                 &config.token_credit_rate,
                 &tokens_received,
+                &balance,
                 &subscriber,
                 current_epoch,
                 &delegation,
@@ -1413,6 +1417,7 @@ impl State {
                                     Some(new_ttl),
                                     sub.source,
                                     TokenAmount::zero(),
+                                    TokenAmount::zero(),
                                 )?;
                             }
                             processed += 1;
@@ -1494,56 +1499,57 @@ fn ensure_credit_or_buy(
     credit_required: &Credit,
     token_credit_rate: &TokenCreditRate,
     tokens_received: &TokenAmount,
+    balance: &TokenAmount,
     subscriber: &Address,
     current_epoch: ChainEpoch,
     delegate: &Option<CreditDelegation>,
 ) -> anyhow::Result<TokenAmount, ActorError> {
-    let tokens_received_non_zero = !tokens_received.is_zero();
-    let has_delegation = delegate.is_some();
-    match (tokens_received_non_zero, has_delegation) {
-        (true, true) => Err(ActorError::illegal_argument(format!(
-            "cannot buy credits inline for {}",
+    if tokens_received.is_zero() {
+        let ensure_result = ensure_credit(
             subscriber,
-        ))),
-        (true, false) => {
+            current_epoch,
+            account_credit_free,
+            credit_required,
+            delegate,
+        );
+        if ensure_result.is_err() {
             // Try buying credits for self
-            let not_enough_credits = *account_credit_free < *credit_required;
-            if not_enough_credits {
-                let credits_needed: Credit = credit_required - &*account_credit_free;
-                let tokens_needed = &credits_needed / token_credit_rate;
-                if tokens_needed <= *tokens_received {
-                    let tokens_to_rebate = tokens_received - tokens_needed;
-                    *state_credit_sold += &credits_needed;
-                    *account_credit_free += &credits_needed;
-                    Ok(tokens_to_rebate)
-                } else {
-                    Err(ActorError::insufficient_funds(format!(
-                        "account {} sent insufficient tokens (received: {}; required: {})",
-                        subscriber, tokens_received, tokens_needed
-                    )))
-                }
+            let credits_needed: Credit = credit_required - &*account_credit_free;
+            let tokens_needed = &credits_needed / token_credit_rate;
+            if tokens_needed <= *balance {
+                let tokens_to_rebate = balance - tokens_needed.clone();
+                *state_credit_sold += &credits_needed;
+                *account_credit_free += &credits_needed;
+                Ok(tokens_to_rebate)
             } else {
-                Ok(TokenAmount::zero())
+                Err(ensure_result.err().unwrap())
             }
-        }
-        (false, true) => {
-            ensure_credit(
-                subscriber,
-                current_epoch,
-                account_credit_free,
-                credit_required,
-                delegate,
-            )?;
+        } else {
             Ok(TokenAmount::zero())
         }
-        (false, false) => {
-            ensure_credit(
-                subscriber,
-                current_epoch,
-                account_credit_free,
-                credit_required,
-                delegate,
-            )?;
+    } else if delegate.is_some() {
+        Err(ActorError::illegal_argument(format!(
+            "cannot buy credits inline for {}",
+            subscriber,
+        )))
+    } else {
+        // Try buying credits for self
+        let not_enough_credits = *account_credit_free < *credit_required;
+        if not_enough_credits {
+            let credits_needed: Credit = credit_required - &*account_credit_free;
+            let tokens_needed = &credits_needed / token_credit_rate;
+            if tokens_needed <= *tokens_received {
+                let tokens_to_rebate = tokens_received - tokens_needed.clone();
+                *state_credit_sold += &credits_needed;
+                *account_credit_free += &credits_needed;
+                Ok(tokens_to_rebate)
+            } else {
+                Err(ActorError::insufficient_funds(format!(
+                    "account {} sent insufficient tokens (received: {}; required: {})",
+                    subscriber, tokens_received, tokens_needed
+                )))
+            }
+        } else {
             Ok(TokenAmount::zero())
         }
     }
@@ -1881,6 +1887,7 @@ mod tests {
             None,
             new_pk(),
             TokenAmount::zero(),
+            TokenAmount::zero(),
         );
         assert!(res.is_ok());
 
@@ -2043,7 +2050,7 @@ mod tests {
         let ttl1 = ChainEpoch::from(config.blob_min_ttl);
         let source = new_pk();
         let res = state.add_blob(
-            config,
+            &config,
             &store,
             origin,
             subscriber,
@@ -2054,6 +2061,7 @@ mod tests {
             size,
             Some(ttl1),
             source,
+            TokenAmount::zero(),
             TokenAmount::zero(),
         );
         assert!(res.is_ok());
@@ -2125,6 +2133,7 @@ mod tests {
             size,
             Some(ttl2),
             source,
+            TokenAmount::zero(),
             TokenAmount::zero(),
         );
         assert!(res.is_ok());
@@ -2204,6 +2213,124 @@ mod tests {
         if using_approval {
             check_approval_used(&state, store, origin, subscriber);
         }
+    }
+
+    #[test]
+    fn test_add_blob_insufficient_credits_and_balance() {
+        setup_logs();
+        let config = RecallConfig::default();
+        let store = MemoryBlockstore::default();
+        let mut state = State::new(&store).unwrap();
+        let subscriber = new_address();
+        let current_epoch = ChainEpoch::from(1);
+
+        // Try to add blob that requires more credit than available
+        let (hash, size) = new_hash(1024 * 1024); // Large size
+        let res = state.add_blob(
+            &config,
+            &store,
+            subscriber,
+            subscriber,
+            current_epoch,
+            hash,
+            new_metadata_hash(),
+            SubscriptionId::default(),
+            size,
+            Some(config.blob_min_ttl),
+            new_pk(),
+            TokenAmount::zero(),
+            TokenAmount::zero(),
+        );
+
+        assert!(res.is_err());
+        let err = res.err().unwrap();
+        assert!(
+            err.msg().contains("insufficient credit"),
+            "Error message '{}' did not contain 'insufficient credit'",
+            err.msg()
+        );
+    }
+
+    #[test]
+    fn test_add_blob_sufficient_balance() {
+        setup_logs();
+        let config = RecallConfig::default();
+        let store = MemoryBlockstore::default();
+        let mut state = State::new(&store).unwrap();
+        let subscriber = new_address();
+        let current_epoch = ChainEpoch::from(1);
+
+        let (hash, size) = new_hash(1024);
+
+        let res = state.add_blob(
+            &config,
+            &store,
+            subscriber,
+            subscriber,
+            current_epoch,
+            hash,
+            new_metadata_hash(),
+            SubscriptionId::default(),
+            size,
+            Some(config.blob_min_ttl),
+            new_pk(),
+            TokenAmount::zero(),
+            TokenAmount::from_whole(1),
+        );
+
+        assert!(res.is_ok());
+        let (_, rebate) = res.unwrap();
+        assert!(rebate > TokenAmount::zero());
+
+        // Verify credit was purchased
+        let account = state.get_account(&store, subscriber).unwrap().unwrap();
+        assert_eq!(
+            account.credit_committed,
+            Credit::from_whole(size * config.blob_min_ttl as u64)
+        );
+    }
+
+    #[test]
+    fn test_add_blob_sufficient_credits() {
+        setup_logs();
+        let config = RecallConfig::default();
+        let store = MemoryBlockstore::default();
+        let mut state = State::new(&store).unwrap();
+        let subscriber = new_address();
+        let current_epoch = ChainEpoch::from(1);
+
+        let (hash, size) = new_hash(1024);
+        let token_amount = TokenAmount::from_whole(1);
+        state
+            .buy_credit(&config, &store, subscriber, token_amount, current_epoch)
+            .unwrap();
+
+        let res = state.add_blob(
+            &config,
+            &store,
+            subscriber,
+            subscriber,
+            current_epoch,
+            hash,
+            new_metadata_hash(),
+            SubscriptionId::default(),
+            size,
+            Some(config.blob_min_ttl),
+            new_pk(),
+            TokenAmount::zero(),
+            TokenAmount::zero(),
+        );
+
+        assert!(res.is_ok());
+        let (_, rebate) = res.unwrap();
+        assert!(rebate == TokenAmount::zero());
+
+        // Verify credit was purchased
+        let account = state.get_account(&store, subscriber).unwrap().unwrap();
+        assert_eq!(
+            account.credit_committed,
+            Credit::from_whole(size * config.blob_min_ttl as u64)
+        );
     }
 
     #[test]
@@ -2305,6 +2432,7 @@ mod tests {
             Some(config.blob_min_ttl),
             source,
             TokenAmount::zero(),
+            TokenAmount::zero(),
         );
         assert!(res.is_ok());
 
@@ -2354,6 +2482,7 @@ mod tests {
             size2,
             Some(config.blob_min_ttl),
             source,
+            TokenAmount::zero(),
             TokenAmount::zero(),
         );
         assert!(res.is_ok());
@@ -2409,6 +2538,7 @@ mod tests {
             size1,
             Some(config.blob_min_ttl),
             source,
+            TokenAmount::zero(),
             TokenAmount::zero(),
         );
         assert!(res.is_ok());
@@ -2564,6 +2694,7 @@ mod tests {
             Some(config.blob_min_ttl),
             source,
             TokenAmount::zero(),
+            TokenAmount::zero(),
         );
         assert!(res.is_ok());
         let (sub, _) = res.unwrap();
@@ -2665,6 +2796,7 @@ mod tests {
             Some(config.blob_min_ttl),
             source,
             TokenAmount::zero(),
+            TokenAmount::zero(),
         );
         assert!(res.is_ok());
         let (sub, _) = res.unwrap();
@@ -2722,6 +2854,7 @@ mod tests {
             size,
             Some(config.blob_min_ttl),
             source,
+            TokenAmount::zero(),
             TokenAmount::zero(),
         );
         assert!(res.is_ok());
@@ -2870,6 +3003,7 @@ mod tests {
             None,
             new_pk(),
             TokenAmount::zero(),
+            TokenAmount::zero(),
         );
         assert!(res.is_ok());
 
@@ -2927,6 +3061,7 @@ mod tests {
             Some(ChainEpoch::MAX),
             new_pk(),
             TokenAmount::zero(),
+            TokenAmount::zero(),
         );
         assert!(res.is_ok());
         let (sub, _) = res.unwrap();
@@ -2961,6 +3096,7 @@ mod tests {
             size,
             None,
             source,
+            TokenAmount::zero(),
             TokenAmount::zero(),
         );
         assert!(res.is_ok());
@@ -3025,6 +3161,7 @@ mod tests {
             size,
             None,
             source,
+            TokenAmount::zero(),
             TokenAmount::zero(),
         );
         assert!(res.is_ok());
@@ -3111,6 +3248,7 @@ mod tests {
             size,
             Some(config.blob_min_ttl),
             source,
+            TokenAmount::zero(),
             TokenAmount::zero(),
         );
         assert!(res.is_ok());
@@ -3296,6 +3434,7 @@ mod tests {
             Some(config.blob_min_ttl),
             source1,
             TokenAmount::zero(),
+            TokenAmount::zero(),
         );
         assert!(res.is_ok());
 
@@ -3355,6 +3494,7 @@ mod tests {
             size2,
             Some(config.blob_min_ttl),
             new_pk(),
+            TokenAmount::zero(),
             TokenAmount::zero(),
         );
         assert!(res.is_ok());
@@ -3543,6 +3683,7 @@ mod tests {
                 size,
                 tc.blob_ttl,
                 new_pk(),
+                TokenAmount::zero(),
                 TokenAmount::zero(),
             );
 
@@ -3768,6 +3909,7 @@ mod tests {
                         *ttl,
                         source,
                         TokenAmount::zero(),
+                        TokenAmount::zero(),
                     )
                     .unwrap();
                 state
@@ -3945,6 +4087,7 @@ mod tests {
                         Some(7200), // 2 hours
                         source,
                         TokenAmount::zero(),
+                        TokenAmount::zero(),
                     )
                     .unwrap();
                 state
@@ -4099,6 +4242,7 @@ mod tests {
                     Some(7200), // 2 hours
                     source,
                     TokenAmount::zero(),
+                    TokenAmount::zero(),
                 )
                 .unwrap();
             state
@@ -4134,6 +4278,7 @@ mod tests {
                     size,
                     Some(7200), // 2 hours
                     source,
+                    TokenAmount::zero(),
                     TokenAmount::zero(),
                 )
                 .unwrap();
@@ -4303,6 +4448,7 @@ mod tests {
                             blob.size,
                             Some(ttl),
                             source,
+                            TokenAmount::zero(),
                             TokenAmount::zero(),
                         );
                         assert!(res.is_ok());
