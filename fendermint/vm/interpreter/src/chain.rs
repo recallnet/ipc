@@ -1345,12 +1345,19 @@ where
         gas_fee_cap: Default::default(),
         gas_premium: Default::default(),
     };
-    let (apply_ret, _) = state.execute_implicit(msg)?;
-    tracing::debug!(
-        "Callback delivered for id: {:?}, exit code: {:?}",
-        id,
-        apply_ret.msg_receipt.exit_code
-    );
+    let result = state.execute_implicit(msg);
+    match result {
+        Ok((apply_ret, _)) => {
+            tracing::debug!(
+                "Callback delivered for id: {:?}, exit code: {:?}",
+                id,
+                apply_ret.msg_receipt.exit_code
+            );
+        }
+        Err(e) => {
+            tracing::error!("failed to execute read request callback: {}", e);
+        }
+    }
 
     Ok(())
 }
