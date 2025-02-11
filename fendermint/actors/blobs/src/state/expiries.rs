@@ -88,7 +88,7 @@ impl ExpiriesState {
                 Ok(true)
             },
         )?;
-        self.next_idx = batch_size.and_then(|_| next_idx);
+        self.next_idx = batch_size.and(next_idx);
         Ok(())
     }
 
