@@ -510,31 +510,40 @@ impl State {
         // Delete expired subscriptions
         let mut delete_from_disc = HashSet::new();
         let mut num_deleted = 0;
-        let expiries = self.expiries.clone();
-        expiries.foreach_up_to_epoch(store, current_epoch, |_, subscriber, key| {
-            match self.delete_blob(
-                store,
-                subscriber,
-                subscriber,
-                current_epoch,
-                key.hash,
-                key.id.clone(),
-            ) {
-                Ok((from_disc, _)) => {
-                    num_deleted += 1;
-                    if from_disc {
-                        delete_from_disc.insert(key.hash);
+        let mut expiries = self.expiries.clone();
+        // TODO: Make these configurable
+        let blob_delete_batch_size = Some(10);
+        let account_debit_batch_size = Some(5);
+
+        expiries.foreach_up_to_epoch(
+            store,
+            current_epoch,
+            blob_delete_batch_size,
+            |_, subscriber, key| {
+                match self.delete_blob(
+                    store,
+                    subscriber,
+                    subscriber,
+                    current_epoch,
+                    key.hash,
+                    key.id.clone(),
+                ) {
+                    Ok(from_disc) => {
+                        num_deleted += 1;
+                        if from_disc {
+                            delete_from_disc.insert(key.hash);
+                        }
+                    }
+                    Err(e) => {
+                        warn!(
+                            "failed to delete blob {} for {} (id: {}): {}",
+                            key.hash, subscriber, key.id, e
+                        )
                     }
                 }
-                Err(e) => {
-                    warn!(
-                        "failed to delete blob {} for {} (id: {}): {}",
-                        key.hash, subscriber, key.id, e
-                    )
-                }
-            }
-            Ok(())
-        })?;
+                Ok(())
+            },
+        )?;
         debug!("deleted {} expired subscriptions", num_deleted);
         debug!(
             "{} blobs marked for deletion from disc",
@@ -547,9 +556,10 @@ impl State {
         let start_key = self
             .next_debit_addr
             .map(|address| BytesKey::from(address.to_bytes()));
-        let batch_size = Some(5);
-        let (count, next_account) =
-            reader.for_each_ranged(start_key.as_ref(), batch_size, |address, account| {
+        let (count, next_account) = reader.for_each_ranged(
+            start_key.as_ref(),
+            account_debit_batch_size,
+            |address, account| {
                 let mut account = account.clone();
                 let debit_blocks = current_epoch - account.last_debit_epoch;
                 let debit_credits =
@@ -561,7 +571,8 @@ impl State {
                 debug!("debited {} credits from {}", debit_credits, address);
                 writer.set(&address, account)?;
                 Ok(())
-            })?;
+            },
+        )?;
         debug!(
             "finished debiting {:#?} accounts, next account: {:#?}",
             count, next_account
