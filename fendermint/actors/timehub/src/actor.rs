@@ -37,12 +37,7 @@ impl TimehubActor {
         if origin != owner {
             let approval = get_credit_approval(rt, owner, origin)?;
             let cur_epoch = rt.curr_epoch();
-            if approval.is_none()
-                || approval
-                    .unwrap()
-                    .expiry
-                    .is_some_and(|expiry| expiry < cur_epoch)
-            {
+            if approval.map_or(true, |a| a.expiry.is_some_and(|expiry| expiry < cur_epoch)) {
                 return Err(actor_error!(
                     forbidden;
                     format!("Unauthorized: missing credit approval from Timehub owner {} to origin {} for Timehub {}", owner, origin, actor_address)));
