@@ -889,29 +889,39 @@ mod tests {
         .unwrap();
         rt.verify();
 
+        let store = rt.store();
+        let blob_subscribers = BlobSubscribers::new(store).unwrap();
+
+        let mut subscribers = blob_subscribers.hamt(store).unwrap();
+
         // Get the object
-        let blob = Blob {
+        let mut blob = Blob {
             size: add_params.size,
-            subscribers: BlobSubscribers::from(
-                rt.store(),
-                origin,
-                &SubscriptionGroup {
-                    subscriptions: HashMap::from([(
-                        sub_id.to_string(),
-                        Subscription {
-                            added: 0,
-                            expiry: ChainEpoch::from(3600),
-                            source: add_params.source,
-                            delegate: Some(origin),
-                            failed: false,
-                        },
-                    )]),
-                },
-            )
-            .unwrap(),
+            subscribers: blob_subscribers,
             status: BlobStatus::Resolved,
             metadata_hash: add_params.recovery_hash,
         };
+
+        blob.subscribers.save_tracked(
+            subscribers
+                .set_and_flush_tracked(
+                    &origin,
+                    SubscriptionGroup {
+                        subscriptions: HashMap::from([(
+                            sub_id.to_string(),
+                            Subscription {
+                                added: 0,
+                                expiry: ChainEpoch::from(3600),
+                                source: add_params.source,
+                                delegate: Some(origin),
+                                failed: false,
+                            },
+                        )]),
+                    },
+                )
+                .unwrap(),
+        );
+
         rt.expect_validate_caller_any();
         rt.expect_send(
             BLOBS_ACTOR_ADDR,
@@ -1117,29 +1127,38 @@ mod tests {
         rt.verify();
 
         // Get the object and check metadata
-        let sub_id = get_blob_id(&state, &key).unwrap();
-        let blob = Blob {
+        let store = rt.store();
+        let blob_subscribers = BlobSubscribers::new(store).unwrap();
+        let mut subscribers = blob_subscribers.hamt(store).unwrap();
+
+        let sub_id = get_blob_id(&state, key.clone()).unwrap();
+        let mut blob = Blob {
             size: add_params.size,
-            subscribers: BlobSubscribers::from(
-                rt.store(),
-                origin,
-                &SubscriptionGroup {
-                    subscriptions: HashMap::from([(
-                        sub_id.to_string(),
-                        Subscription {
-                            added: 0,
-                            expiry: ChainEpoch::from(3600),
-                            source: add_params.source,
-                            delegate: Some(origin),
-                            failed: false,
-                        },
-                    )]),
-                },
-            )
-            .unwrap(),
+            subscribers: blob_subscribers,
             status: BlobStatus::Resolved,
             metadata_hash: add_params.recovery_hash,
         };
+
+        blob.subscribers.save_tracked(
+            subscribers
+                .set_and_flush_tracked(
+                    &origin,
+                    SubscriptionGroup {
+                        subscriptions: HashMap::from([(
+                            sub_id.to_string(),
+                            Subscription {
+                                added: 0,
+                                expiry: ChainEpoch::from(3600),
+                                source: add_params.source,
+                                delegate: Some(origin),
+                                failed: false,
+                            },
+                        )]),
+                    },
+                )
+                .unwrap(),
+        );
+
         rt.expect_validate_caller_any();
         rt.expect_send(
             BLOBS_ACTOR_ADDR,

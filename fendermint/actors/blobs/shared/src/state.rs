@@ -13,7 +13,7 @@ use fvm_shared::address::Address;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::econ::TokenAmount;
-use recall_ipld::{hamt, hamt::MapKey};
+use recall_ipld::{hamt, hamt::map::TrackedFlushResult, hamt::MapKey};
 use serde::{Deserialize, Serialize};
 
 /// Credit is counted the same way as tokens.
@@ -237,23 +237,19 @@ impl BlobSubscribers {
         Ok(Self { root, size: 0 })
     }
 
-    pub fn from<BS: Blockstore>(
-        store: &BS,
-        origin: Address,
-        subscription_group: &SubscriptionGroup,
-    ) -> Result<Self, ActorError> {
-        let root = hamt::Root::<Address, SubscriptionGroup>::new(store, "blob")?;
-
-        let mut bsub = root.hamt(store, 0)?;
-        bsub.set(&origin, subscription_group.clone()).unwrap();
-        Ok(Self { root, size: 1 })
-    }
-
     pub fn hamt<BS: Blockstore>(
         &self,
         store: BS,
     ) -> Result<hamt::map::Hamt<BS, Address, SubscriptionGroup>, ActorError> {
         self.root.hamt(store, self.size)
+    }
+
+    pub fn save_tracked(
+        &mut self,
+        tracked_flush_result: TrackedFlushResult<Address, SubscriptionGroup>,
+    ) {
+        self.root = tracked_flush_result.root;
+        self.size = tracked_flush_result.size;
     }
 
     pub fn len(&self) -> u64 {

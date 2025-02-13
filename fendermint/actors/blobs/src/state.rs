@@ -611,9 +611,8 @@ impl State {
         // Get or create a new blob
         let mut blobs = self.blobs.hamt(store)?;
         let (sub, blob) = if let Some(mut blob) = blobs.get(&hash)? {
-            let subscribers = blob.subscribers.hamt(store)?;
-            // TODO: get_mut -> hamt?
-            let sub = if let Some(group) = subscribers.get(&subscriber)? {
+            let mut subscribers = blob.subscribers.hamt(store)?;
+            let sub = if let Some(mut group) = subscribers.get(&subscriber)? {
                 let (group_expiry, new_group_expiry) = group.max_expiries(&id, Some(expiry));
                 // If the subscriber has been debited after the group's max expiry, we need to
                 // clean up the accounting with a refund.
@@ -653,7 +652,7 @@ impl State {
                     current_epoch,
                     &delegation,
                 )?;
-                if let Some(sub) = group.clone().subscriptions.get_mut(&id.to_string()) {
+                let sub = if let Some(sub) = group.subscriptions.get_mut(&id.to_string()) {
                     // Update expiry index
                     if expiry != sub.expiry {
                         self.expiries.update_index(
@@ -684,7 +683,6 @@ impl State {
                         failed: false,
                     };
                     group
-                        .clone()
                         .subscriptions
                         .insert(id.clone().to_string(), sub.clone());
                     debug!(
@@ -700,7 +698,12 @@ impl State {
                         vec![ExpiryUpdate::Add(expiry)],
                     )?;
                     sub
-                }
+                };
+
+                blob.subscribers
+                    .save_tracked(subscribers.set_and_flush_tracked(&subscriber, group)?);
+
+                sub
             } else {
                 new_account_capacity = size;
                 // One or more accounts have already committed credit.
@@ -730,13 +733,15 @@ impl State {
                 // TODO: above `if let Some(group)`, but it's tempting to use `set_if_absent` here anyway...
                 // TODO: Need to figure out the async implications of the synchonous fn `set`, e.g. how does this relate to blob.status?
 
-                subscribers.set(
+                let sf_subs = subscribers.set_and_flush_tracked(
                     &subscriber,
                     SubscriptionGroup {
                         // TODO: this will need to be convert to a hamt soon.
                         subscriptions: HashMap::from([(id.clone().to_string(), sub.clone())]),
                     },
                 )?;
+
+                blob.subscribers.save_tracked(sf_subs);
                 debug!(
                     "created new subscription to blob {} for {} (key: {})",
                     hash, subscriber, id
@@ -790,19 +795,25 @@ impl State {
                 delegate: delegation.as_ref().map(|d| d.origin),
                 failed: false,
             };
-            let blob = Blob {
+
+            let blob_subscribers = BlobSubscribers::new(store)?;
+            let mut subscribers = blob_subscribers.hamt(store)?;
+
+            let mut blob = Blob {
                 size: size.to_u64().unwrap(),
                 metadata_hash,
-                subscribers: BlobSubscribers::from(
-                    store,
-                    subscriber,
-                    &SubscriptionGroup {
-                        subscriptions: HashMap::from([(id.clone().to_string(), sub.clone())]),
-                    },
-                )
-                .unwrap(),
+                subscribers: blob_subscribers,
                 status: BlobStatus::Added,
             };
+
+            blob.subscribers
+                .save_tracked(subscribers.set_and_flush_tracked(
+                    &subscriber,
+                    SubscriptionGroup {
+                        subscriptions: HashMap::from([(id.clone().to_string(), sub.clone())]),
+                    },
+                )?);
+
             debug!("created new blob {}", hash);
             debug!(
                 "created new subscription to blob {} for {} (key: {})",
@@ -819,6 +830,7 @@ impl State {
             // Add the source to the added queue
             self.added
                 .upsert(store, hash, (subscriber, id, source), blob.size)?;
+
             (sub, blob)
         };
         // Account capacity is changing, debit for existing usage
@@ -1026,7 +1038,7 @@ impl State {
             // We can ignore later finalizations, even if they are failed.
             return Ok(());
         }
-        let subscribers = blob.subscribers.hamt(store)?;
+        let mut subscribers = blob.subscribers.hamt(store)?;
         let mut group = subscribers
             .get(&subscriber)
             .unwrap()
@@ -1140,9 +1152,13 @@ impl State {
         // Save accounts
         accounts.set(&subscriber, account)?;
         self.accounts.save_tracked(accounts.flush_tracked()?);
+
+        blob.subscribers
+            .save_tracked(subscribers.set_and_flush_tracked(&subscriber, group)?);
         // Save blob
         self.blobs
             .save_tracked(blobs.set_and_flush_tracked(&hash, blob)?);
+
         Ok(())
     }
 
@@ -1161,7 +1177,7 @@ impl State {
         let mut account = accounts.get_or_err(&subscriber)?;
         // Get the blob
         let mut blobs = self.blobs.hamt(store)?;
-        let blob = if let Some(blob) = blobs.get(&hash)? {
+        let mut blob = if let Some(blob) = blobs.get(&hash)? {
             blob
         } else {
             // We could error here, but since this method is called from other actors,
@@ -1348,7 +1364,8 @@ impl State {
         );
         // Delete the group if empty
         let delete_blob = if group.subscriptions.is_empty() {
-            subscribers.delete(&subscriber)?;
+            let (del_sub, _) = subscribers.delete_and_flush_tracked(&subscriber)?;
+            blob.subscribers.save_tracked(del_sub);
             debug!("deleted subscriber {} to blob {}", subscriber, hash);
             // Delete or update blob
             let delete_blob = subscribers.is_empty();
@@ -1359,8 +1376,10 @@ impl State {
             }
             delete_blob
         } else {
+            blob.subscribers
+                .save_tracked(subscribers.set_and_flush_tracked(&subscriber, group)?);
             self.blobs
-                .save_tracked(blobs.set_and_flush_tracked(&hash, blob)?);
+                .save_tracked(blobs.set_and_flush_tracked(&hash, blob.clone())?);
             false
         };
         // Save accounts
@@ -2708,6 +2727,7 @@ mod tests {
 
         // Check the blob
         let blob = state.get_blob(&store, hash).unwrap().unwrap();
+        let subscribers = blob.subscribers.hamt(store).unwrap();
         assert_eq!(blob.subscribers.len(), 1);
         assert_eq!(blob.status, BlobStatus::Resolved);
         assert_eq!(blob.size, size);
@@ -2774,6 +2794,7 @@ mod tests {
 
         // Check the blob
         let blob = state.get_blob(&store, hash).unwrap().unwrap();
+        let subscribers = blob.subscribers.hamt(store).unwrap();
         assert_eq!(blob.subscribers.len(), 1); // still only one subscriber
         assert_eq!(blob.status, BlobStatus::Resolved);
         assert_eq!(blob.size, size);
@@ -2817,7 +2838,10 @@ mod tests {
 
         // Delete the default subscription ID
         let delete_epoch = ChainEpoch::from(51);
+
+        // Note: `delete_blob` is going to mutate the block store state, we have to reload the HAMTs into memory here
         let res = state.delete_blob(&store, origin, subscriber, delete_epoch, hash, id1.clone());
+
         assert!(res.is_ok());
         let (delete_from_disk, deleted_size) = res.unwrap();
         assert!(!delete_from_disk);
@@ -2825,6 +2849,8 @@ mod tests {
 
         // Check the blob
         let blob = state.get_blob(&store, hash).unwrap().unwrap();
+        let subscribers = blob.subscribers.hamt(store).unwrap();
+
         assert_eq!(blob.subscribers.len(), 1); // still one subscriber
         assert_eq!(blob.status, BlobStatus::Resolved);
         assert_eq!(blob.size, size);
