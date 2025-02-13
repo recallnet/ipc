@@ -728,20 +728,16 @@ impl State {
                     delegate: delegation.as_ref().map(|d| d.origin),
                     failed: false,
                 };
+
                 let mut subscribers = blob.subscribers.hamt(store)?;
-                // TODO: we are assuming the address is absent since this is the else block of the
-                // TODO: above `if let Some(group)`, but it's tempting to use `set_if_absent` here anyway...
-                // TODO: Need to figure out the async implications of the synchonous fn `set`, e.g. how does this relate to blob.status?
-
-                let sf_subs = subscribers.set_and_flush_tracked(
-                    &subscriber,
-                    SubscriptionGroup {
-                        // TODO: this will need to be convert to a hamt soon.
-                        subscriptions: HashMap::from([(id.clone().to_string(), sub.clone())]),
-                    },
-                )?;
-
-                blob.subscribers.save_tracked(sf_subs);
+                blob.subscribers
+                    .save_tracked(subscribers.set_and_flush_tracked(
+                        &subscriber,
+                        SubscriptionGroup {
+                            // TODO: this will need to be convert to a hamt soon.
+                            subscriptions: HashMap::from([(id.clone().to_string(), sub.clone())]),
+                        },
+                    )?);
                 debug!(
                     "created new subscription to blob {} for {} (key: {})",
                     hash, subscriber, id
@@ -830,7 +826,6 @@ impl State {
             // Add the source to the added queue
             self.added
                 .upsert(store, hash, (subscriber, id, source), blob.size)?;
-
             (sub, blob)
         };
         // Account capacity is changing, debit for existing usage
@@ -914,6 +909,7 @@ impl State {
             .ok()
             .and_then(|blobs| blobs.get(&hash).ok())
             .flatten()?;
+        // If the blob can be loaded here, so should the subscribers. Hence we can error if that isn't the case
         let subscribers = blob
             .subscribers
             .hamt(store)
@@ -930,7 +926,6 @@ impl State {
                     // We need to see if this specific subscription failed.
                     if let Some(sub) = subscribers
                         .get(&subscriber)
-                        // TODO: how should I be handling all these unwraps and `?`s
                         .unwrap()? // safe here
                         .subscriptions
                         .get(&id.to_string())
@@ -1379,7 +1374,7 @@ impl State {
             blob.subscribers
                 .save_tracked(subscribers.set_and_flush_tracked(&subscriber, group)?);
             self.blobs
-                .save_tracked(blobs.set_and_flush_tracked(&hash, blob.clone())?);
+                .save_tracked(blobs.set_and_flush_tracked(&hash, blob)?);
             false
         };
         // Save accounts
@@ -2838,8 +2833,6 @@ mod tests {
 
         // Delete the default subscription ID
         let delete_epoch = ChainEpoch::from(51);
-
-        // Note: `delete_blob` is going to mutate the block store state, we have to reload the HAMTs into memory here
         let res = state.delete_blob(&store, origin, subscriber, delete_epoch, hash, id1.clone());
 
         assert!(res.is_ok());
