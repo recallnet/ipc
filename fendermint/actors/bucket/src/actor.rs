@@ -296,7 +296,7 @@ fn build_object<BS: Blockstore>(
                     subscriber, object_state.hash
                 ))
             })?;
-            let (expiry, _) = group.max_expiries(&sub_id, None);
+            let (expiry, _) = group.max_expiries(store, &sub_id, None);
             if let Some(expiry) = expiry {
                 Ok(Some(Object {
                     hash: object_state.hash,
@@ -902,25 +902,26 @@ mod tests {
             metadata_hash: add_params.recovery_hash,
         };
 
-        blob.subscribers.save_tracked(
-            subscribers
+        let mut group = SubscriptionGroup::new(store).unwrap();
+        let mut group_hamt = group.hamt(store).unwrap();
+
+        group.save_tracked(
+            group_hamt
                 .set_and_flush_tracked(
-                    &origin,
-                    SubscriptionGroup {
-                        subscriptions: HashMap::from([(
-                            sub_id.to_string(),
-                            Subscription {
-                                added: 0,
-                                expiry: ChainEpoch::from(3600),
-                                source: add_params.source,
-                                delegate: Some(origin),
-                                failed: false,
-                            },
-                        )]),
+                    &sub_id.to_string(),
+                    Subscription {
+                        added: 0,
+                        expiry: ChainEpoch::from(3600),
+                        source: add_params.source,
+                        delegate: Some(origin),
+                        failed: false,
                     },
                 )
                 .unwrap(),
         );
+
+        blob.subscribers
+            .save_tracked(subscribers.set_and_flush_tracked(&origin, group).unwrap());
 
         rt.expect_validate_caller_any();
         rt.expect_send(
@@ -1139,25 +1140,26 @@ mod tests {
             metadata_hash: add_params.recovery_hash,
         };
 
-        blob.subscribers.save_tracked(
-            subscribers
+        let mut group = SubscriptionGroup::new(store).unwrap();
+        let mut group_hamt = group.hamt(store).unwrap();
+
+        group.save_tracked(
+            group_hamt
                 .set_and_flush_tracked(
-                    &origin,
-                    SubscriptionGroup {
-                        subscriptions: HashMap::from([(
-                            sub_id.to_string(),
-                            Subscription {
-                                added: 0,
-                                expiry: ChainEpoch::from(3600),
-                                source: add_params.source,
-                                delegate: Some(origin),
-                                failed: false,
-                            },
-                        )]),
+                    &sub_id.to_string(),
+                    Subscription {
+                        added: 0,
+                        expiry: ChainEpoch::from(3600),
+                        source: add_params.source,
+                        delegate: Some(origin),
+                        failed: false,
                     },
                 )
                 .unwrap(),
         );
+
+        blob.subscribers
+            .save_tracked(subscribers.set_and_flush_tracked(&origin, group).unwrap());
 
         rt.expect_validate_caller_any();
         rt.expect_send(

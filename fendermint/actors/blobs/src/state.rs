@@ -3,7 +3,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::collections::{HashMap, HashSet};
+use std::error::Error;
 use std::fmt::Display;
+use std::str::from_utf8;
 
 use fendermint_actor_blobs_shared::params::GetStatsReturn;
 use fendermint_actor_blobs_shared::state::{
@@ -613,7 +615,8 @@ impl State {
         let (sub, blob) = if let Some(mut blob) = blobs.get(&hash)? {
             let mut subscribers = blob.subscribers.hamt(store)?;
             let sub = if let Some(mut group) = subscribers.get(&subscriber)? {
-                let (group_expiry, new_group_expiry) = group.max_expiries(&id, Some(expiry));
+                let mut group_hamt = group.hamt(store)?;
+                let (group_expiry, new_group_expiry) = group.max_expiries(store, &id, Some(expiry));
                 // If the subscriber has been debited after the group's max expiry, we need to
                 // clean up the accounting with a refund.
                 // If the ensure-credit check below fails, the refund won't be saved in the
@@ -652,7 +655,7 @@ impl State {
                     current_epoch,
                     &delegation,
                 )?;
-                let sub = if let Some(sub) = group.subscriptions.get_mut(&id.to_string()) {
+                let sub = if let Some(mut sub) = group_hamt.get(&id.to_string())? {
                     // Update expiry index
                     if expiry != sub.expiry {
                         self.expiries.update_index(
@@ -672,7 +675,10 @@ impl State {
                         "updated subscription to blob {} for {} (key: {})",
                         hash, subscriber, id
                     );
-                    sub.clone()
+                    group.save_tracked(
+                        group_hamt.set_and_flush_tracked(&id.to_string(), sub.clone())?,
+                    );
+                    sub
                 } else {
                     // Add new subscription
                     let sub = Subscription {
@@ -682,9 +688,9 @@ impl State {
                         delegate: delegation.as_ref().map(|d| d.origin),
                         failed: false,
                     };
-                    group
-                        .subscriptions
-                        .insert(id.clone().to_string(), sub.clone());
+                    group.save_tracked(
+                        group_hamt.set_and_flush_tracked(&id.to_string(), sub.clone())?,
+                    );
                     debug!(
                         "created new subscription to blob {} for {} (key: {})",
                         hash, subscriber, id
@@ -730,14 +736,15 @@ impl State {
                 };
 
                 let mut subscribers = blob.subscribers.hamt(store)?;
-                blob.subscribers
-                    .save_tracked(subscribers.set_and_flush_tracked(
-                        &subscriber,
-                        SubscriptionGroup {
-                            // TODO: this will need to be convert to a hamt soon.
-                            subscriptions: HashMap::from([(id.clone().to_string(), sub.clone())]),
-                        },
-                    )?);
+                let mut subscription_group = SubscriptionGroup::new(store)?;
+                let mut subscription_group_hamt = subscription_group.hamt(store)?;
+                subscription_group.save_tracked(
+                    subscription_group_hamt.set_and_flush_tracked(&id.to_string(), sub.clone())?,
+                );
+
+                blob.subscribers.save_tracked(
+                    subscribers.set_and_flush_tracked(&subscriber, subscription_group)?,
+                );
                 debug!(
                     "created new subscription to blob {} for {} (key: {})",
                     hash, subscriber, id
@@ -802,13 +809,14 @@ impl State {
                 status: BlobStatus::Added,
             };
 
+            let mut subscription_group = SubscriptionGroup::new(store)?;
+            let mut subscription_group_hamt = subscription_group.hamt(store)?;
+            subscription_group.save_tracked(
+                subscription_group_hamt.set_and_flush_tracked(&id.to_string(), sub.clone())?,
+            );
+
             blob.subscribers
-                .save_tracked(subscribers.set_and_flush_tracked(
-                    &subscriber,
-                    SubscriptionGroup {
-                        subscriptions: HashMap::from([(id.clone().to_string(), sub.clone())]),
-                    },
-                )?);
+                .save_tracked(subscribers.set_and_flush_tracked(&subscriber, subscription_group)?);
 
             debug!("created new blob {}", hash);
             debug!(
@@ -924,12 +932,10 @@ impl State {
                     // The blob state's status may have been finalized as failed by another
                     // subscription.
                     // We need to see if this specific subscription failed.
-                    if let Some(sub) = subscribers
-                        .get(&subscriber)
-                        .unwrap()? // safe here
-                        .subscriptions
-                        .get(&id.to_string())
-                    {
+                    // TODO: I'm not sure about using all these unwraps. It seems like this function should return a Result<Option...>
+                    let group = subscribers.get(&subscriber).unwrap()?; // safe here
+                    let group_hamt = group.hamt(store).unwrap();
+                    if let Some(sub) = group_hamt.get(&id.to_string()).unwrap() {
                         if sub.failed {
                             Some(BlobStatus::Failed)
                         } else {
@@ -1043,12 +1049,11 @@ impl State {
             )))?;
         // Get max expiries with the current subscription removed in case we need them below.
         // We have to do this here to avoid breaking borrow rules.
-        let (group_expiry, new_group_expiry) = group.max_expiries(&id, Some(0));
-        let (sub_is_min_added, next_min_added) = group.is_min_added(&id)?;
-        let sub = group
-            // TODO: this needs to be a hamt
-            .subscriptions
-            .get_mut(&id.to_string())
+        let (group_expiry, new_group_expiry) = group.max_expiries(store, &id, Some(0));
+        let (sub_is_min_added, next_min_added) = group.is_min_added(store, &id)?;
+        let mut group_hamt = group.hamt(store)?;
+        let mut sub = group_hamt
+            .get(&id.to_string())?
             .ok_or(ActorError::not_found(format!(
                 "subscription id {} not found",
                 id.clone()
@@ -1139,7 +1144,10 @@ impl State {
                 }
                 debug!("released {} credits to {}", reclaim_credits, subscriber);
             }
+
             sub.failed = true;
+            // flush the mutated sub to the group's store
+            group.save_tracked(group_hamt.set_and_flush_tracked(&id.to_string(), sub.clone())?);
         }
         // Remove the source from the pending queue
         self.pending
@@ -1192,10 +1200,10 @@ impl State {
                 "subscriber {} is not subscribed to blob {}",
                 subscriber, hash
             )))?;
-        let (group_expiry, new_group_expiry) = group.max_expiries(&id, Some(0));
-        let sub = group
-            .subscriptions
-            .get(&id.to_string())
+        let mut group_hamt = group.hamt(store)?;
+        let (group_expiry, new_group_expiry) = group.max_expiries(store, &id, Some(0));
+        let sub = group_hamt
+            .get(&id.to_string())?
             .ok_or(ActorError::not_found(format!(
                 "subscription id {} not found",
                 id.clone()
@@ -1352,13 +1360,14 @@ impl State {
         self.pending
             .remove_source(store, hash, (subscriber, id.clone(), sub.source), size)?;
         // Delete subscription
-        group.subscriptions.remove(&id.to_string());
+        let (sub_del_flush, _) = group_hamt.delete_and_flush_tracked(&id.to_string())?;
+        group.save_tracked(sub_del_flush);
         debug!(
             "deleted subscription to blob {} for {} (key: {})",
             hash, subscriber, id
         );
         // Delete the group if empty
-        let delete_blob = if group.subscriptions.is_empty() {
+        let delete_blob = if group.is_empty() {
             let (del_sub, _) = subscribers.delete_and_flush_tracked(&subscriber)?;
             blob.subscribers.save_tracked(del_sub);
             debug!("deleted subscriber {} to blob {}", subscriber, hash);
@@ -1412,13 +1421,28 @@ impl State {
         let mut processed = 0;
         let blobs = self.blobs.hamt(store)?;
         let starting_key = starting_hash.map(|h| BytesKey::from(h.0.as_slice()));
+
+        fn err_map<E>(e: E) -> ActorError
+        where
+            E: Error,
+        {
+            ActorError::illegal_state(format!(
+                "subscriptions group cannot be iterated over: {}",
+                e
+            ))
+        }
+
         let (_, next_key) = blobs.for_each_ranged(
             starting_key.as_ref(),
             limit,
             |hash, blob| -> Result<(), ActorError> {
                 let subscribers = blob.subscribers.hamt(store)?;
                 if let Some(group) = subscribers.get(&subscriber)? {
-                    for (id, sub) in &group.subscriptions {
+                    let group_hamt = group.hamt(store)?;
+                    for val in group_hamt.iter() {
+                        let (id_bytes, sub) = val.map_err(err_map)?;
+                        let id = from_utf8(id_bytes).map_err(err_map)?;
+
                         if sub.expiry - sub.added > new_ttl {
                             if new_ttl == 0 {
                                 // Delete subscription
@@ -1442,7 +1466,7 @@ impl State {
                                     current_epoch,
                                     hash,
                                     blob.metadata_hash,
-                                    SubscriptionId::new(&id.clone())?,
+                                    SubscriptionId::new(&id)?,
                                     blob.size,
                                     Some(new_ttl),
                                     sub.source,
@@ -2185,7 +2209,7 @@ mod tests {
         let blob = state.get_blob(&store, hash).unwrap().unwrap();
         let subscribers = blob.subscribers.hamt(store).unwrap();
         let group = subscribers.get(&subscriber).unwrap().unwrap();
-        assert_eq!(group.subscriptions.len(), 2);
+        assert_eq!(group.len(), 2);
 
         // Debit all accounts at an epoch between the two expiries (3601-3621)
         let debit_epoch = ChainEpoch::from(config.blob_min_ttl + 11);
@@ -2206,7 +2230,7 @@ mod tests {
         let blob = state.get_blob(&store, hash).unwrap().unwrap();
         let subscribers = blob.subscribers.hamt(&store).unwrap();
         let group = subscribers.get(&subscriber).unwrap().unwrap();
-        assert_eq!(group.subscriptions.len(), 1); // the first subscription was deleted
+        assert_eq!(group.len(), 1); // the first subscription was deleted
 
         // Debit all accounts at an epoch greater than group expiry (3621)
         let debit_epoch = ChainEpoch::from(config.blob_min_ttl + 31);
@@ -2634,9 +2658,10 @@ mod tests {
 
         // Check the subscription group
         let group = subscribers.get(&subscriber).unwrap().unwrap();
-        assert_eq!(group.subscriptions.len(), 1);
-        let got_sub = group.subscriptions.get(&id1.clone().to_string()).unwrap();
-        assert_eq!(*got_sub, sub);
+        let group_hamt = group.hamt(store).unwrap();
+        assert_eq!(group.len(), 1);
+        let got_sub = group_hamt.get(&id1.clone().to_string()).unwrap().unwrap();
+        assert_eq!(got_sub, sub);
 
         // Check the account balance
         let account = state.get_account(&store, subscriber).unwrap().unwrap();
@@ -2729,9 +2754,10 @@ mod tests {
 
         // Check the subscription group
         let group = subscribers.get(&subscriber).unwrap().unwrap();
-        assert_eq!(group.subscriptions.len(), 1); // Still only one subscription
-        let got_sub = group.subscriptions.get(&id1.clone().to_string()).unwrap();
-        assert_eq!(*got_sub, sub);
+        let group_hamt = group.hamt(store).unwrap();
+        assert_eq!(group.len(), 1); // Still only one subscription
+        let got_sub = group_hamt.get(&id1.clone().to_string()).unwrap().unwrap();
+        assert_eq!(got_sub, sub);
 
         // Check the account balance
         let account = state.get_account(&store, subscriber).unwrap().unwrap();
@@ -2796,9 +2822,10 @@ mod tests {
 
         // Check the subscription group
         let group = subscribers.get(&subscriber).unwrap().unwrap();
-        assert_eq!(group.subscriptions.len(), 2);
-        let got_sub = group.subscriptions.get(&id2.clone().to_string()).unwrap();
-        assert_eq!(*got_sub, sub);
+        let group_hamt = group.hamt(store).unwrap();
+        assert_eq!(group.len(), 2);
+        let got_sub = group_hamt.get(&id2.clone().to_string()).unwrap().unwrap();
+        assert_eq!(got_sub, sub);
 
         // Check the account balance
         let account = state.get_account(&store, subscriber).unwrap().unwrap();
@@ -2850,8 +2877,9 @@ mod tests {
 
         // Check the subscription group
         let group = subscribers.get(&subscriber).unwrap().unwrap();
-        assert_eq!(group.subscriptions.len(), 1);
-        let sub = group.subscriptions.get(&id2.clone().to_string()).unwrap();
+        let group_hamt = group.hamt(store).unwrap();
+        assert_eq!(group.len(), 1);
+        let sub = group_hamt.get(&id2.clone().to_string()).unwrap().unwrap();
         assert_eq!(sub.added, add3_epoch);
         assert_eq!(sub.expiry, add3_epoch + config.blob_min_ttl);
 
@@ -3610,10 +3638,12 @@ mod tests {
                 let res = state.get_blob(&store, hash);
                 assert!(res.is_ok(), "Failed to get blob: {:?}", res.err());
                 let blob = res.unwrap().unwrap();
-                let subscribers = blob.subscribers.hamt(store).unwrap();
+                let subscribers = blob.subscribers.hamt(&store).unwrap();
                 subscribers
                     .for_each(|_, group| {
-                        for sub in group.subscriptions.values() {
+                        let group_hamt = group.hamt(&store).unwrap();
+                        for val in group_hamt.iter() {
+                            let (_, sub) = val.unwrap();
                             assert_eq!(
                                 sub.expiry,
                                 current_epoch + tc.expected_blob_ttl,
@@ -3874,7 +3904,8 @@ mod tests {
                     let blob = state.get_blob(&store, *hash).unwrap().unwrap();
                     let subscribers = blob.subscribers.hamt(&store).unwrap();
                     let group = subscribers.get(&addr).unwrap().unwrap();
-                    let sub = group.subscriptions.get(&format!("blob-{}", i)).unwrap();
+                    let group_hamt = group.hamt(&store).unwrap();
+                    let sub = group_hamt.get(&format!("blob-{}", i)).unwrap().unwrap();
 
                     assert_eq!(
                         sub.expiry - sub.added,

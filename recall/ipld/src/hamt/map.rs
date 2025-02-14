@@ -10,7 +10,7 @@ use cid::Cid;
 use fil_actors_runtime::ActorError;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::tuple::*;
-use fvm_ipld_hamt::BytesKey;
+use fvm_ipld_hamt::{BytesKey, Iter};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
@@ -230,5 +230,9 @@ where
         F: FnMut(K, &V) -> Result<(), ActorError>,
     {
         self.map.for_each_until(starting_key, ending_key, &mut f)
+    }
+
+    pub fn iter(&self) -> Iter<BS, V, BytesKey> {
+        self.map.iter()
     }
 }

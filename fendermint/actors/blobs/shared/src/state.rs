@@ -3,8 +3,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::collections::HashMap;
+use std::error::Error;
 use std::fmt;
 use std::ops::{Div, Mul};
+use std::str::from_utf8;
 
 use fil_actors_runtime::ActorError;
 use fvm_ipld_blockstore::Blockstore;
@@ -219,7 +221,6 @@ pub struct Blob {
     /// Blob metadata that contains information for blob recovery.
     pub metadata_hash: Hash,
     /// Active subscribers (accounts) that are paying for the blob.
-    // TODO: this becomes hamt?
     pub subscribers: BlobSubscribers,
     /// Blob status.
     pub status: BlobStatus,
@@ -321,26 +322,73 @@ impl fmt::Display for SubscriptionId {
     }
 }
 
-/// A group of subscriptions for the same subscriber.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(transparent)]
+/// A group of subscriptions for the same subscriber. Groups are keyed by SubscriptionId
+#[derive(Debug, Clone, PartialEq, Serialize_tuple, Deserialize_tuple)]
 pub struct SubscriptionGroup {
     /// Subscription group keys.
     // TODO: this becomes hamt?
-    pub subscriptions: HashMap<String, Subscription>,
+    // pub subscriptions: HashMap<String, Subscription>,
+    pub root: hamt::Root<String, Subscription>,
+    size: u64,
 }
 
 impl SubscriptionGroup {
+    pub fn new<BS: Blockstore>(store: &BS) -> Result<Self, ActorError> {
+        let root = hamt::Root::<String, Subscription>::new(store, "subscription_group")?;
+        Ok(Self { root, size: 0 })
+    }
+
+    pub fn hamt<BS: Blockstore>(
+        &self,
+        store: BS,
+    ) -> Result<hamt::map::Hamt<BS, String, Subscription>, ActorError> {
+        self.root.hamt(store, self.size)
+    }
+
+    pub fn save_tracked(&mut self, tracked_flush_result: TrackedFlushResult<String, Subscription>) {
+        self.root = tracked_flush_result.root;
+        self.size = tracked_flush_result.size;
+    }
+
+    pub fn len(&self) -> u64 {
+        self.size
+    }
+
+    // This is demanded by clippy, https://rust-lang.github.io/rust-clippy/master/index.html#len_without_is_empty.
+    pub fn is_empty(&self) -> bool {
+        self.size == 0
+    }
     /// Returns the current group max expiry and the group max expiry after adding the provided ID
     /// and new value.
-    pub fn max_expiries(
+    pub fn max_expiries<BS: Blockstore>(
         &self,
+        store: &BS,
         target_id: &SubscriptionId,
         new_value: Option<ChainEpoch>,
     ) -> (Option<ChainEpoch>, Option<ChainEpoch>) {
         let mut max = None;
         let mut new_max = None;
-        for (id, sub) in self.subscriptions.iter() {
+        let subscriptions = self.hamt(store);
+        // TODO: this function returns an option, but now that we are converting the data to a hamt located on the
+        // TODO: blockstore we want to handle both the None case, and the case that the lookup results in an error
+        // TODO: I'm currently just returning None when there's an error, but maybe I should be panicing with an actor error?
+        // TODO: Or maybe convert this function so it returns Result<(Option<ChainEpoch>, Option<ChainEpoch>), ActorError>?
+        if subscriptions.is_err() {
+            return (None, None);
+        }
+        let subscriptions = subscriptions.unwrap();
+
+        for val in subscriptions.iter() {
+            if val.is_err() {
+                return (None, None);
+            }
+            let (id_bytes, sub) = val.unwrap();
+            let id = from_utf8(id_bytes);
+            if id.is_err() {
+                return (None, None);
+            }
+            let id = id.unwrap();
+
             if sub.failed {
                 continue;
             }
@@ -367,21 +415,38 @@ impl SubscriptionGroup {
 
     /// Returns whether the provided ID corresponds to a subscription that has the minimum
     /// added epoch and the next minimum added epoch in the group.
-    pub fn is_min_added(
+    pub fn is_min_added<BS: Blockstore>(
         &self,
+        store: &BS,
         trim_id: &SubscriptionId,
     ) -> anyhow::Result<(bool, Option<ChainEpoch>), ActorError> {
         let tid = trim_id.to_string();
-        let trim = self
-            .subscriptions
-            .get(&tid)
+        let subscriptions = self.hamt(store)?;
+        let trim = subscriptions
+            // TODO: double check that this Option/Result into Subscription is working how we want
+            .get(&tid)?
             .ok_or(ActorError::not_found(format!(
                 "subscription id {} not found",
                 trim_id
             )))?;
+
+        // TODO: is works well imo, but is it a ok/good/reasonable pattern in Rust?
+        fn err_map<E>(e: E, trim_id: &SubscriptionId) -> ActorError
+        where
+            E: Error,
+        {
+            ActorError::illegal_state(format!(
+                "subscriptions for id {} cannot be iterated over: {}",
+                trim_id, e
+            ))
+        }
+
         let mut next_min = None;
-        for (id, sub) in self.subscriptions.iter() {
-            if sub.failed || *id == tid {
+        for val in subscriptions.iter() {
+            let (id_bytes, sub) = val.map_err(|e| err_map(e, trim_id))?;
+            let id = from_utf8(id_bytes).map_err(|e| err_map(e, trim_id))?;
+
+            if sub.failed || id == tid {
                 continue;
             }
             if sub.added < trim.added {
