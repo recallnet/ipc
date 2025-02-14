@@ -2,7 +2,7 @@
 // Copyright 2021-2023 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::error::Error;
 use std::fmt::Display;
 use std::str::from_utf8;
@@ -1452,7 +1452,7 @@ impl State {
                                     subscriber,
                                     current_epoch,
                                     hash,
-                                    SubscriptionId::new(&id)?,
+                                    SubscriptionId::new(id)?,
                                 )? {
                                     deleted_blobs.push(hash);
                                 };
@@ -1465,7 +1465,7 @@ impl State {
                                     current_epoch,
                                     hash,
                                     blob.metadata_hash,
-                                    SubscriptionId::new(&id)?,
+                                    SubscriptionId::new(id)?,
                                     blob.size,
                                     Some(new_ttl),
                                     sub.source,
@@ -1673,7 +1673,7 @@ mod tests {
     use fvm_ipld_blockstore::MemoryBlockstore;
     use rand::seq::SliceRandom;
     use rand::Rng;
-    use std::collections::BTreeMap;
+    use std::collections::{BTreeMap, HashMap};
     use std::ops::{AddAssign, SubAssign};
 
     fn check_approval_used<BS: Blockstore>(
