@@ -616,7 +616,8 @@ impl State {
             let mut subscribers = blob.subscribers.hamt(store)?;
             let sub = if let Some(mut group) = subscribers.get(&subscriber)? {
                 let mut group_hamt = group.hamt(store)?;
-                let (group_expiry, new_group_expiry) = group.max_expiries(store, &id, Some(expiry));
+                let (group_expiry, new_group_expiry) =
+                    group.max_expiries(store, &id, Some(expiry))?;
                 // If the subscriber has been debited after the group's max expiry, we need to
                 // clean up the accounting with a refund.
                 // If the ensure-credit check below fails, the refund won't be saved in the
@@ -1049,7 +1050,7 @@ impl State {
             )))?;
         // Get max expiries with the current subscription removed in case we need them below.
         // We have to do this here to avoid breaking borrow rules.
-        let (group_expiry, new_group_expiry) = group.max_expiries(store, &id, Some(0));
+        let (group_expiry, new_group_expiry) = group.max_expiries(store, &id, Some(0))?;
         let (sub_is_min_added, next_min_added) = group.is_min_added(store, &id)?;
         let mut group_hamt = group.hamt(store)?;
         let mut sub = group_hamt
@@ -1201,7 +1202,7 @@ impl State {
                 subscriber, hash
             )))?;
         let mut group_hamt = group.hamt(store)?;
-        let (group_expiry, new_group_expiry) = group.max_expiries(store, &id, Some(0));
+        let (group_expiry, new_group_expiry) = group.max_expiries(store, &id, Some(0))?;
         let sub = group_hamt
             .get(&id.to_string())?
             .ok_or(ActorError::not_found(format!(

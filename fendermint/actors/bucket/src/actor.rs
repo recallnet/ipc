@@ -296,7 +296,7 @@ fn build_object<BS: Blockstore>(
                     subscriber, object_state.hash
                 ))
             })?;
-            let (expiry, _) = group.max_expiries(store, &sub_id, None);
+            let (expiry, _) = group.max_expiries(store, &sub_id, None)?;
             if let Some(expiry) = expiry {
                 Ok(Some(Object {
                     hash: object_state.hash,

@@ -332,6 +332,17 @@ pub struct SubscriptionGroup {
     size: u64,
 }
 
+// TODO: is works well afaict, but is it a ok/good/reasonable pattern in Rust?
+fn sub_illegal_state_err_map<E>(e: E, sub_id: &SubscriptionId) -> ActorError
+where
+    E: Error,
+{
+    ActorError::illegal_state(format!(
+        "subscriptions for id {} cannot be iterated over: {}",
+        sub_id, e
+    ))
+}
+
 impl SubscriptionGroup {
     pub fn new<BS: Blockstore>(store: &BS) -> Result<Self, ActorError> {
         let root = hamt::Root::<String, Subscription>::new(store, "subscription_group")?;
@@ -354,7 +365,6 @@ impl SubscriptionGroup {
         self.size
     }
 
-    // This is demanded by clippy, https://rust-lang.github.io/rust-clippy/master/index.html#len_without_is_empty.
     pub fn is_empty(&self) -> bool {
         self.size == 0
     }
@@ -365,29 +375,13 @@ impl SubscriptionGroup {
         store: &BS,
         target_id: &SubscriptionId,
         new_value: Option<ChainEpoch>,
-    ) -> (Option<ChainEpoch>, Option<ChainEpoch>) {
+    ) -> Result<(Option<ChainEpoch>, Option<ChainEpoch>), ActorError> {
         let mut max = None;
         let mut new_max = None;
-        let subscriptions = self.hamt(store);
-        // TODO: this function returns an option, but now that we are converting the data to a hamt located on the
-        // TODO: blockstore we want to handle both the None case, and the case that the lookup results in an error
-        // TODO: I'm currently just returning None when there's an error, but maybe I should be panicing with an actor error?
-        // TODO: Or maybe convert this function so it returns Result<(Option<ChainEpoch>, Option<ChainEpoch>), ActorError>?
-        if subscriptions.is_err() {
-            return (None, None);
-        }
-        let subscriptions = subscriptions.unwrap();
-
+        let subscriptions = self.hamt(store)?;
         for val in subscriptions.iter() {
-            if val.is_err() {
-                return (None, None);
-            }
-            let (id_bytes, sub) = val.unwrap();
-            let id = from_utf8(id_bytes);
-            if id.is_err() {
-                return (None, None);
-            }
-            let id = id.unwrap();
+            let (id_bytes, sub) = val.map_err(|e| sub_illegal_state_err_map(e, target_id))?;
+            let id = from_utf8(id_bytes).map_err(|e| sub_illegal_state_err_map(e, target_id))?;
 
             if sub.failed {
                 continue;
@@ -410,7 +404,7 @@ impl SubscriptionGroup {
                 new_max = Some(new_value);
             }
         }
-        (max, new_max)
+        Ok((max, new_max))
     }
 
     /// Returns whether the provided ID corresponds to a subscription that has the minimum
@@ -423,28 +417,16 @@ impl SubscriptionGroup {
         let tid = trim_id.to_string();
         let subscriptions = self.hamt(store)?;
         let trim = subscriptions
-            // TODO: double check that this Option/Result into Subscription is working how we want
             .get(&tid)?
             .ok_or(ActorError::not_found(format!(
                 "subscription id {} not found",
                 trim_id
             )))?;
 
-        // TODO: is works well imo, but is it a ok/good/reasonable pattern in Rust?
-        fn err_map<E>(e: E, trim_id: &SubscriptionId) -> ActorError
-        where
-            E: Error,
-        {
-            ActorError::illegal_state(format!(
-                "subscriptions for id {} cannot be iterated over: {}",
-                trim_id, e
-            ))
-        }
-
         let mut next_min = None;
         for val in subscriptions.iter() {
-            let (id_bytes, sub) = val.map_err(|e| err_map(e, trim_id))?;
-            let id = from_utf8(id_bytes).map_err(|e| err_map(e, trim_id))?;
+            let (id_bytes, sub) = val.map_err(|e| sub_illegal_state_err_map(e, trim_id))?;
+            let id = from_utf8(id_bytes).map_err(|e| sub_illegal_state_err_map(e, trim_id))?;
 
             if sub.failed || id == tid {
                 continue;
