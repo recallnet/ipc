@@ -322,12 +322,9 @@ impl fmt::Display for SubscriptionId {
     }
 }
 
-/// A group of subscriptions for the same subscriber. Groups are keyed by SubscriptionId
 #[derive(Debug, Clone, PartialEq, Serialize_tuple, Deserialize_tuple)]
 pub struct SubscriptionGroup {
-    /// Subscription group keys.
-    // TODO: this becomes hamt?
-    // pub subscriptions: HashMap<String, Subscription>,
+    /// Subscription group hamt, keyed by a string representation of SubscriptionId.
     pub root: hamt::Root<String, Subscription>,
     size: u64,
 }
