@@ -570,7 +570,6 @@ mod tests {
             BlobMethod::OverwriteBlob as MethodNum,
             IpldBlock::serialize_cbor(&OverwriteBlobParams {
                 old_hash: add_params.hash,
-                from: origin,
                 add: AddBlobParams {
                     id: sub_id,
                     hash: add_params2.hash,
