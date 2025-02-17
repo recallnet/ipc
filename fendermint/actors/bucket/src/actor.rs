@@ -47,7 +47,7 @@ impl Actor {
         // From should be origin or caller
         let from = to_id_address(rt, params.from, false)?;
         require_addr_is_origin_or_caller(rt, from)?;
-        // Blobs actor checks if `from` is a bucket owner or have a credit delegation from the bucket owner
+        // Access control will be enforced by the Blobs actor.  We will pass in the Bucket owner as the `subscriber`, and the blobs actor will enforce that the `from` address either is the `subscriber` or has a valid credit delegation from the `subscriber`.
 
         let sub_id = get_blob_id(&state, params.key)?;
         let sub = if let Some(object) = state.get(rt.store(), &key)? {
