@@ -196,6 +196,7 @@ impl Actor {
             .get(rt.store(), &key)?
             .ok_or(ActorError::illegal_state("object not found".into()))?;
 
+        // Only the bucket owner or someone with a credit delegation from the bucket owner can update metadata of objects in the bucket.
         let bucket_owner = state.owner;
         if !has_credit_approval(rt, bucket_owner, from)? {
             return Err(actor_error!(
