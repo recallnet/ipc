@@ -22,7 +22,7 @@ use fvm_shared::{
 };
 use ipc_api::ethers_address_to_fil_address;
 use iroh::{
-    blobs::{provider::AddProgress, util::SetTagOption, Hash},
+    blobs::{provider::AddProgress, util::SetTagOption, Hash, HashAndFormat, Tag},
     client::blobs::BlobStatus,
     net::NodeAddr,
 };
@@ -318,7 +318,7 @@ async fn handle_object_upload(
     }
 
     // Handle the two upload cases
-    let hash = match (parser.source, parser.data_part) {
+    let (hash, tag) = match (parser.source, parser.data_part) {
         // Case 1: Source node provided - download from the source
         (Some(source), None) => {
             let hash = match parser.hash {
@@ -337,7 +337,7 @@ async fn handle_object_upload(
                     iroh::client::blobs::DownloadOptions {
                         format: iroh::blobs::BlobFormat::Raw,
                         nodes: vec![source],
-                        tag: SetTagOption::Named(tag),
+                        tag: SetTagOption::Named(tag.clone()),
                         mode: iroh::client::blobs::DownloadMode::Queued,
                     },
                 )
@@ -367,7 +367,7 @@ async fn handle_object_upload(
                 hash, outcome.stats.elapsed, size, outcome.local_size, outcome.downloaded_size,
             );
             COUNTER_BYTES_UPLOADED.inc_by(outcome.downloaded_size);
-            hash
+            (hash, tag)
         }
 
         // Case 2: Direct upload - store the provided data
@@ -390,7 +390,7 @@ async fn handle_object_upload(
                     })
                 })?;
 
-            let uploaded_hash = loop {
+            let (uploaded_hash, tag) = loop {
                 let Some(event) = progress.next().await else {
                     return Err(Rejection::from(BadRequest {
                         message: "Unexpected end while ingesting data".to_string(),
@@ -401,8 +401,8 @@ async fn handle_object_upload(
                         message: format!("failed to make progress: {}", e),
                     })
                 })? {
-                    AddProgress::AllDone { hash, .. } => {
-                        break hash;
+                    AddProgress::AllDone { hash, tag, .. } => {
+                        break (hash, tag);
                     }
                     AddProgress::Abort(err) => {
                         return Err(Rejection::from(BadRequest {
@@ -415,7 +415,7 @@ async fn handle_object_upload(
             info!("stored uploaded blob {} (size: {})", uploaded_hash, size);
             COUNTER_BYTES_UPLOADED.inc_by(size);
 
-            uploaded_hash
+            (uploaded_hash, tag)
         }
 
         (Some(_), Some(_)) => {
@@ -431,7 +431,7 @@ async fn handle_object_upload(
         }
     };
 
-    let ent = new_entangler(iroh).map_err(|e| {
+    let ent = new_entangler(iroh.clone()).map_err(|e| {
         Rejection::from(BadRequest {
             message: format!("failed to create entangler: {}", e),
         })
@@ -442,6 +442,14 @@ async fn handle_object_upload(
         })
     })?;
 
+    tag_entangled_data(&iroh, &ent, &metadata_hash, tag)
+        .await
+        .map_err(|e| {
+            Rejection::from(BadRequest {
+                message: format!("failed to tag entangled data: {}", e),
+            })
+        })?;
+
     COUNTER_BLOBS_UPLOADED.inc();
     HISTOGRAM_UPLOAD_TIME.observe(start_time.elapsed().as_secs_f64());
 
@@ -450,6 +458,28 @@ async fn handle_object_upload(
         metadata_hash,
     };
     Ok(warp::reply::json(&response))
+}
+
+async fn tag_entangled_data(
+    iroh: &iroh::client::Iroh,
+    ent: &Entangler<EntanglerIrohStorage>,
+    metadata_hash: &String,
+    tag: Tag,
+) -> Result<(), anyhow::Error> {
+    let metadata = ent.download_metadata(metadata_hash).await?;
+    let batch = iroh.blobs().batch().await?;
+    for blob_hash in metadata
+        .parity_hashes
+        .iter()
+        .map(|(_, v)| v.clone())
+        .chain(std::iter::once(metadata_hash.clone()))
+    {
+        let tt = batch
+            .temp_tag(HashAndFormat::raw(Hash::from_str(blob_hash.as_str())?))
+            .await?;
+        batch.persist_to(tt, tag.clone()).await?;
+    }
+    Ok(())
 }
 
 fn new_entangler(
