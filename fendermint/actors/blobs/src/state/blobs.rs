@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::collections::HashSet;
-use std::str::{from_utf8, FromStr};
+use std::str::FromStr;
 
 use fendermint_actor_blobs_shared::state::{Blob, Hash};
 use fendermint_actor_blobs_shared::state::{PublicKey, SubscriptionId};
@@ -59,36 +59,8 @@ pub struct BlobsProgressCollection {
 /// and an Iroh node [`PublicKey`].
 type BlobSource = (Address, SubscriptionId, PublicKey);
 
-struct BlobSourceSetId {
-    pub id: String,
-    source: BlobSource
-}
-
-impl BlobSourceSetId {
-    pub fn new(source: &BlobSource) -> Self {
-        let source = source.clone();
-        let id = Self::get_id_from_source(&source);
-        BlobSourceSetId { id, source }
-    }
-
-    // TODO: this might be a bad way to do this, In theory this would be a hash (like `HashSet`), but if we want to
-    // TODO: map the hamt back to a hash set for read requests this needs to be reversible.
-    // TODO: Also, not sure how to get the default `HashSet` hashing algo?
-    pub fn get_id_from_source(source: &BlobSource) -> String {
-        let addr_string = format!("{}", source.0);
-        let subcr_string = source.1.to_string();
-        let pub_key_string = format!("{:?}", source.2);
-
-        // Note: the `:` delimiter can be used to separate addr from the rest of the string, or pub_key from
-        //  the rest of the string, but subcription_string is a user defined value and can contain the `:` character
-        format!("{}:{}:{}", addr_string, subcr_string, pub_key_string)
-    }
-}
-
 /// A set of [`BlobSource`]s implemented with Hamt.
 /// A blob in the collection may have multiple sources.
-// TODO: This should become a HAMT based type.  iiur we are concerned the this set will get too large
-// TODO: and the BlobsProgressCollection will not be able to flush to the blockstore.
 #[derive(Debug, Clone, Serialize_tuple, Deserialize_tuple, PartialEq)]
 pub struct BlobSourceSet {
     pub root: hamt::Root<String, ()>,
@@ -109,6 +81,41 @@ impl BlobSourceSet {
         Ok(Self { root, size: 0 })
     }
 
+    // These two statics allow us to map the hamt back to a hash set for read requests that use `take_page`,
+    // and also work around the fact a tuple is the set key type.
+    pub fn get_id_from_source(source: &BlobSource) -> String {
+        let addr_string = format!("{}", source.0);
+        let subcr_string = source.1.to_string();
+        let pub_key_string = format!("{:?}", source.2);
+
+        // Note: the `:` delimiter can be used to separate addr from the rest of the string, or pub_key from
+        //  the rest of the string, but subcription_string is a user defined value and can contain the `:` character
+        format!("{}:{}:{}", addr_string, subcr_string, pub_key_string)
+    }
+
+    pub fn get_source_from_id(id: String) -> Result<BlobSource, ActorError> {
+        let mut parts = id.split(':');
+        let addr_string = parts.next().unwrap();
+        let pub_key_string = parts.next_back().unwrap();
+        // the middle value of the string might contain our delimiter, so we can't simply use `next`
+        let sub_id_string: String = parts
+            .map(|v| format!("{}:", v))
+            .collect();
+
+        Ok((
+            Address::from_str(&addr_string)
+                .map_err(|e| ActorError::illegal_state(format!("invalid hash set key in BlobSourceSet: {}", e)))?,
+            SubscriptionId::new(&sub_id_string)?,
+            PublicKey(
+                convert_slice_to_array(
+                pub_key_string.as_bytes()
+                ).map_err(
+                    |e| ActorError::illegal_state(format!("invalid hash set key in BlobSourceSet: {}", e))
+                )?
+            )
+        ))
+    }
+
     pub fn hamt<BS: Blockstore>(
         &self,
         store: BS,
@@ -121,21 +128,8 @@ impl BlobSourceSet {
         let hamt = self.hamt(store)?;
 
         hamt.for_each(|key, _| {
-            let mut parts = key.split(':');
-            let addr_string = parts.next().unwrap();
-            let pub_key_string = parts.next_back().unwrap();
-            // the middle value of the string might contain our delimiter, so we can't simply use `next`
-            let sub_id_string: String = parts
-                .map(|v| format!("{}:", v))
-                .collect();
-
             hset.insert(
-                (
-                    Address::from_str(&addr_string)
-                        .map_err(|e| ActorError::illegal_state(format!("invalid hash set key in BlobSourceSet: {}", e)))?,
-                    SubscriptionId::new(&sub_id_string)?,
-                    PublicKey::from(PublicKey(convert_slice_to_array(pub_key_string.as_bytes()).unwrap()))
-                )
+                Self::get_source_from_id(key)?
             );
             Ok(())
         })?;
@@ -161,7 +155,7 @@ impl BlobSourceSet {
 
     pub fn insert<BS: Blockstore>(&mut self, store: &BS, source: &BlobSource) -> Result<(), ActorError> {
         let mut source_set_hamt = self.hamt(store)?;
-        let upsert_source_id = BlobSourceSetId::get_id_from_source(source);
+        let upsert_source_id = Self::get_id_from_source(source);
         self.save_tracked(source_set_hamt.set_and_flush_tracked(&upsert_source_id, ())?);
 
         Ok(())
@@ -169,7 +163,7 @@ impl BlobSourceSet {
 
     pub fn remove<BS: Blockstore>(&mut self, store: &BS, source: &BlobSource) -> Result<bool, ActorError> {
         let mut source_set_hamt = self.hamt(store)?;
-        let remove_source_id = BlobSourceSetId::get_id_from_source(source);
+        let remove_source_id = Self::get_id_from_source(source);
         let (del_result, was_deleted) = source_set_hamt.delete_and_flush_tracked(&remove_source_id)?;
         self.save_tracked(del_result);
 
@@ -236,7 +230,7 @@ impl BlobsProgressCollection {
             Some(mut source_set) => {
                 // Modify existing entry
                 let mut source_set_hamt = source_set.hamt(&store)?;
-                let upsert_source_id = BlobSourceSetId::get_id_from_source(&source);
+                let upsert_source_id = BlobSourceSet::get_id_from_source(&source);
                 source_set.save_tracked(source_set_hamt.set_and_flush_tracked(&upsert_source_id, ())?);
 
                 map.set(&hash, source_set)?;
@@ -245,7 +239,7 @@ impl BlobsProgressCollection {
                 // create new entry
                 let mut source_set = BlobSourceSet::new(&store)?;
                 let mut source_set_hamt = source_set.hamt(&store)?;
-                let upsert_source_id = BlobSourceSetId::get_id_from_source(&source);
+                let upsert_source_id = BlobSourceSet::get_id_from_source(&source);
                 source_set.save_tracked(source_set_hamt.set_and_flush_tracked(&upsert_source_id, ())?);
 
                 map.set(&hash, source_set)?;
