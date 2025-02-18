@@ -67,11 +67,16 @@ pub struct BlobSourceSet {
     size: u64,
 }
 
-fn convert_slice_to_array(slice: &[u8]) -> Result<[u8; 32], &'static str> {
+fn convert_slice_to_array(slice: &[u8]) -> Result<[u8; 32], ActorError> {
     if slice.len() == 32 {
-        Ok(slice.try_into().unwrap()) // This will panic if the length is not 32, so better to handle it safely
+        let arr = slice.try_into().map_err(|e| {
+            ActorError::illegal_argument(format!("cannot convert slice to array: {}", e))
+        })?;
+        Ok(arr)
     } else {
-        Err("Slice does not have exactly 32 elements")
+        Err(ActorError::illegal_argument(String::from(
+            "Slice does not have exactly 32 elements",
+        )))
     }
 }
 
