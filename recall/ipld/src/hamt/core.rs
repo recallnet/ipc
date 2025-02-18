@@ -34,7 +34,7 @@ where
     key_type: PhantomData<K>,
 }
 
-pub trait MapKey: Sized + Debug {
+pub trait 	MapKey: Sized + Debug {
     fn from_bytes(b: &[u8]) -> Result<Self, String>;
     fn to_bytes(&self) -> Result<Vec<u8>, String>;
 }

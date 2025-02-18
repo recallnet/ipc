@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::collections::HashSet;
+use std::str::{from_utf8, FromStr};
 
 use fendermint_actor_blobs_shared::state::{Blob, Hash};
 use fendermint_actor_blobs_shared::state::{PublicKey, SubscriptionId};
@@ -10,6 +11,7 @@ use fil_actors_runtime::ActorError;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::tuple::*;
 use fvm_shared::address::Address;
+// use log::kv::source;
 use recall_ipld::hamt;
 use recall_ipld::hamt::map::TrackedFlushResult;
 
@@ -57,9 +59,130 @@ pub struct BlobsProgressCollection {
 /// and an Iroh node [`PublicKey`].
 type BlobSource = (Address, SubscriptionId, PublicKey);
 
-/// A set of [`BlobSource`]s.
+struct BlobSourceSetId {
+    pub id: String,
+    source: BlobSource
+}
+
+impl BlobSourceSetId {
+    pub fn new(source: &BlobSource) -> Self {
+        let source = source.clone();
+        let id = Self::get_id_from_source(&source);
+        BlobSourceSetId { id, source }
+    }
+
+    // TODO: this might be a bad way to do this, In theory this would be a hash (like `HashSet`), but if we want to
+    // TODO: map the hamt back to a hash set for read requests this needs to be reversible.
+    // TODO: Also, not sure how to get the default `HashSet` hashing algo?
+    pub fn get_id_from_source(source: &BlobSource) -> String {
+        let addr_string = format!("{}", source.0);
+        let subcr_string = source.1.to_string();
+        let pub_key_string = format!("{:?}", source.2);
+
+        // Note: the `:` delimiter can be used to separate addr from the rest of the string, or pub_key from
+        //  the rest of the string, but subcription_string is a user defined value and can contain the `:` character
+        format!("{}:{}:{}", addr_string, subcr_string, pub_key_string)
+    }
+}
+
+/// A set of [`BlobSource`]s implemented with Hamt.
 /// A blob in the collection may have multiple sources.
-type BlobSourceSet = HashSet<(Address, SubscriptionId, PublicKey)>;
+// TODO: This should become a HAMT based type.  iiur we are concerned the this set will get too large
+// TODO: and the BlobsProgressCollection will not be able to flush to the blockstore.
+#[derive(Debug, Clone, Serialize_tuple, Deserialize_tuple, PartialEq)]
+pub struct BlobSourceSet {
+    pub root: hamt::Root<String, ()>,
+    size: u64,
+}
+
+fn convert_slice_to_array(slice: &[u8]) -> Result<[u8; 32], &'static str> {
+    if slice.len() == 32 {
+        Ok(slice.try_into().unwrap()) // This will panic if the length is not 32, so better to handle it safely
+    } else {
+        Err("Slice does not have exactly 32 elements")
+    }
+}
+
+impl BlobSourceSet {
+    pub fn new<BS: Blockstore>(store: &BS) -> Result<Self, ActorError> {
+        let root = hamt::Root::<String, ()>::new(store, "blob_source_set")?;
+        Ok(Self { root, size: 0 })
+    }
+
+    pub fn hamt<BS: Blockstore>(
+        &self,
+        store: BS,
+    ) -> Result<hamt::map::Hamt<BS, String, ()>, ActorError> {
+        self.root.hamt(store, self.size)
+    }
+
+    pub fn as_hash_set<BS: Blockstore>(&self, store: &BS) -> Result<HashSet<BlobSource>, ActorError> {
+        let mut hset: HashSet<BlobSource> = HashSet::new();
+        let hamt = self.hamt(store)?;
+
+        hamt.for_each(|key, _| {
+            let mut parts = key.split(':');
+            let addr_string = parts.next().unwrap();
+            let pub_key_string = parts.next_back().unwrap();
+            // the middle value of the string might contain our delimiter, so we can't simply use `next`
+            let sub_id_string: String = parts
+                .map(|v| format!("{}:", v))
+                .collect();
+
+            hset.insert(
+                (
+                    Address::from_str(&addr_string)
+                        .map_err(|e| ActorError::illegal_state(format!("invalid hash set key in BlobSourceSet: {}", e)))?,
+                    SubscriptionId::new(&sub_id_string)?,
+                    PublicKey::from(PublicKey(convert_slice_to_array(pub_key_string.as_bytes()).unwrap()))
+                )
+            );
+            Ok(())
+        })?;
+
+        Ok(hset)
+    }
+
+    pub fn save_tracked(
+        &mut self,
+        tracked_flush_result: TrackedFlushResult<String, ()>,
+    ) {
+        self.root = tracked_flush_result.root;
+        self.size = tracked_flush_result.size;
+    }
+
+    pub fn len(&self) -> u64 {
+        self.size
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.size == 0
+    }
+
+    pub fn insert<BS: Blockstore>(&mut self, store: &BS, source: &BlobSource) -> Result<(), ActorError> {
+        let mut source_set_hamt = self.hamt(store)?;
+        let upsert_source_id = BlobSourceSetId::get_id_from_source(source);
+        self.save_tracked(source_set_hamt.set_and_flush_tracked(&upsert_source_id, ())?);
+
+        Ok(())
+    }
+
+    pub fn remove<BS: Blockstore>(&mut self, store: &BS, source: &BlobSource) -> Result<bool, ActorError> {
+        let mut source_set_hamt = self.hamt(store)?;
+        let remove_source_id = BlobSourceSetId::get_id_from_source(source);
+        let (del_result, was_deleted) = source_set_hamt.delete_and_flush_tracked(&remove_source_id)?;
+        self.save_tracked(del_result);
+
+        let was_deleted = match was_deleted {
+            Some(_) => true,
+            None => false
+        };
+
+        Ok(was_deleted)
+    }
+}
+
+// type BlobSourceSet = HashSet<(Address, SubscriptionId, PublicKey)>;
 
 impl BlobsProgressCollection {
     /// Returns a new progress collection.
@@ -106,16 +229,30 @@ impl BlobsProgressCollection {
         source: BlobSource,
         blob_size: u64,
     ) -> Result<(), ActorError> {
-        let mut map = self.hamt(store)?;
-        if !map.set_if_absent(&hash, HashSet::from([source.clone()]))? {
-            // Modify existing entry
-            let mut entry = map.get(&hash)?.expect("entry should exist");
-            entry.insert(source);
-            map.set(&hash, entry)?;
-        } else {
-            // Entry did not exist, add to tracked bytes size
-            self.bytes_size += blob_size;
-        }
+        let mut map = self.hamt(&store)?;
+        let blob_source_set = map.get(&hash)?;
+
+        match blob_source_set {
+            Some(mut source_set) => {
+                // Modify existing entry
+                let mut source_set_hamt = source_set.hamt(&store)?;
+                let upsert_source_id = BlobSourceSetId::get_id_from_source(&source);
+                source_set.save_tracked(source_set_hamt.set_and_flush_tracked(&upsert_source_id, ())?);
+
+                map.set(&hash, source_set)?;
+            },
+            None => {
+                // create new entry
+                let mut source_set = BlobSourceSet::new(&store)?;
+                let mut source_set_hamt = source_set.hamt(&store)?;
+                let upsert_source_id = BlobSourceSetId::get_id_from_source(&source);
+                source_set.save_tracked(source_set_hamt.set_and_flush_tracked(&upsert_source_id, ())?);
+
+                map.set(&hash, source_set)?;
+                // Entry did not exist, add to tracked bytes size
+                self.bytes_size += blob_size;
+            }
+        };
         self.save_tracked(map.flush_tracked()?);
         Ok(())
     }
@@ -125,11 +262,11 @@ impl BlobsProgressCollection {
         &self,
         store: BS,
         size: u32,
-    ) -> Result<Vec<(Hash, BlobSourceSet)>, ActorError> {
-        let map = self.hamt(store)?;
+    ) -> Result<Vec<(Hash, HashSet<BlobSource>)>, ActorError> {
+        let map = self.hamt(&store)?;
         let mut page = Vec::with_capacity(size as usize);
         map.for_each_ranged(None, Some(size as usize), |hash, set| {
-            page.push((hash, set.clone()));
+            page.push((hash, set.clone().as_hash_set(&store)?));
             Ok(())
         })?;
         page.shrink_to_fit();
@@ -145,9 +282,9 @@ impl BlobsProgressCollection {
         source: BlobSource,
         blob_size: u64,
     ) -> Result<(), ActorError> {
-        let mut map = self.hamt(store)?;
+        let mut map = self.hamt(&store)?;
         if let Some(mut set) = map.get(&hash)? {
-            if set.remove(&source) {
+            if set.remove(&store, &source)? {
                 if set.is_empty() {
                     map.delete(&hash)?;
                     self.bytes_size -= blob_size;
