@@ -98,21 +98,21 @@ impl BlobSourceSet {
         let addr_string = parts.next().unwrap();
         let pub_key_string = parts.next_back().unwrap();
         // the middle value of the string might contain our delimiter, so we can't simply use `next`
-        let sub_id_string: String = parts
-            .map(|v| format!("{}:", v))
-            .collect();
+        let sub_id_string: String = parts.map(|v| format!("{}:", v)).collect();
 
         Ok((
-            Address::from_str(&addr_string)
-                .map_err(|e| ActorError::illegal_state(format!("invalid hash set key in BlobSourceSet: {}", e)))?,
+            Address::from_str(&addr_string).map_err(|e| {
+                ActorError::illegal_state(format!("invalid hash set key in BlobSourceSet: {}", e))
+            })?,
             SubscriptionId::new(&sub_id_string)?,
             PublicKey(
-                convert_slice_to_array(
-                pub_key_string.as_bytes()
-                ).map_err(
-                    |e| ActorError::illegal_state(format!("invalid hash set key in BlobSourceSet: {}", e))
-                )?
-            )
+                convert_slice_to_array(pub_key_string.as_bytes()).map_err(|e| {
+                    ActorError::illegal_state(format!(
+                        "invalid hash set key in BlobSourceSet: {}",
+                        e
+                    ))
+                })?,
+            ),
         ))
     }
 
@@ -123,24 +123,22 @@ impl BlobSourceSet {
         self.root.hamt(store, self.size)
     }
 
-    pub fn as_hash_set<BS: Blockstore>(&self, store: &BS) -> Result<HashSet<BlobSource>, ActorError> {
+    pub fn as_hash_set<BS: Blockstore>(
+        &self,
+        store: &BS,
+    ) -> Result<HashSet<BlobSource>, ActorError> {
         let mut hset: HashSet<BlobSource> = HashSet::new();
         let hamt = self.hamt(store)?;
 
         hamt.for_each(|key, _| {
-            hset.insert(
-                Self::get_source_from_id(key)?
-            );
+            hset.insert(Self::get_source_from_id(key)?);
             Ok(())
         })?;
 
         Ok(hset)
     }
 
-    pub fn save_tracked(
-        &mut self,
-        tracked_flush_result: TrackedFlushResult<String, ()>,
-    ) {
+    pub fn save_tracked(&mut self, tracked_flush_result: TrackedFlushResult<String, ()>) {
         self.root = tracked_flush_result.root;
         self.size = tracked_flush_result.size;
     }
@@ -153,7 +151,11 @@ impl BlobSourceSet {
         self.size == 0
     }
 
-    pub fn insert<BS: Blockstore>(&mut self, store: &BS, source: &BlobSource) -> Result<(), ActorError> {
+    pub fn insert<BS: Blockstore>(
+        &mut self,
+        store: &BS,
+        source: &BlobSource,
+    ) -> Result<(), ActorError> {
         let mut source_set_hamt = self.hamt(store)?;
         let upsert_source_id = Self::get_id_from_source(source);
         self.save_tracked(source_set_hamt.set_and_flush_tracked(&upsert_source_id, ())?);
@@ -161,15 +163,20 @@ impl BlobSourceSet {
         Ok(())
     }
 
-    pub fn remove<BS: Blockstore>(&mut self, store: &BS, source: &BlobSource) -> Result<bool, ActorError> {
+    pub fn remove<BS: Blockstore>(
+        &mut self,
+        store: &BS,
+        source: &BlobSource,
+    ) -> Result<bool, ActorError> {
         let mut source_set_hamt = self.hamt(store)?;
         let remove_source_id = Self::get_id_from_source(source);
-        let (del_result, was_deleted) = source_set_hamt.delete_and_flush_tracked(&remove_source_id)?;
+        let (del_result, was_deleted) =
+            source_set_hamt.delete_and_flush_tracked(&remove_source_id)?;
         self.save_tracked(del_result);
 
         let was_deleted = match was_deleted {
             Some(_) => true,
-            None => false
+            None => false,
         };
 
         Ok(was_deleted)
@@ -231,16 +238,18 @@ impl BlobsProgressCollection {
                 // Modify existing entry
                 let mut source_set_hamt = source_set.hamt(&store)?;
                 let upsert_source_id = BlobSourceSet::get_id_from_source(&source);
-                source_set.save_tracked(source_set_hamt.set_and_flush_tracked(&upsert_source_id, ())?);
+                source_set
+                    .save_tracked(source_set_hamt.set_and_flush_tracked(&upsert_source_id, ())?);
 
                 map.set(&hash, source_set)?;
-            },
+            }
             None => {
                 // create new entry
                 let mut source_set = BlobSourceSet::new(&store)?;
                 let mut source_set_hamt = source_set.hamt(&store)?;
                 let upsert_source_id = BlobSourceSet::get_id_from_source(&source);
-                source_set.save_tracked(source_set_hamt.set_and_flush_tracked(&upsert_source_id, ())?);
+                source_set
+                    .save_tracked(source_set_hamt.set_and_flush_tracked(&upsert_source_id, ())?);
 
                 map.set(&hash, source_set)?;
                 // Entry did not exist, add to tracked bytes size
