@@ -4502,12 +4502,16 @@ mod tests {
 
     #[test]
     fn test_paginated_debit_accounts() {
-        let config = RecallConfig::default();
+        let config = RecallConfig {
+            account_debit_batch_size: 5, // Process 5 accounts at a time (10 accounts total)
+            ..Default::default()
+        };
+
         let store = MemoryBlockstore::default();
         let mut state = State::new(&store).unwrap();
         let current_epoch = ChainEpoch::from(1);
 
-        // Create more than one batch worth of accounts (>50)
+        // Create more than one batch worth of accounts (>5)
         for i in 0..10 {
             let address = Address::new_id(1000 + i);
             let token_amount = TokenAmount::from_whole(10);
@@ -4530,7 +4534,7 @@ mod tests {
             accounts.set(&address, account).unwrap();
         }
 
-        // First batch (should process 50 accounts)
+        // First batch (should process 5 accounts)
         assert!(state.next_debit_addr.is_none());
         let deletes1 = state
             .debit_accounts(
@@ -4543,7 +4547,7 @@ mod tests {
         assert!(deletes1.is_empty()); // No expired blobs
         assert!(state.next_debit_addr.is_some());
 
-        // Second batch (should process remaining 10 accounts and clear state)
+        // Second batch (should process remaining 5 accounts and clear state)
         let deletes2 = state
             .debit_accounts(
                 &store,
@@ -4567,7 +4571,11 @@ mod tests {
 
     #[test]
     fn test_multiple_debit_cycles() {
-        let config = RecallConfig::default();
+        let config = RecallConfig {
+            account_debit_batch_size: 5, // Process 5 accounts at a time (10 accounts total)
+            ..Default::default()
+        };
+
         let store = MemoryBlockstore::default();
         let mut state = State::new(&store).unwrap();
         let current_epoch = ChainEpoch::from(1);
