@@ -385,10 +385,8 @@ impl BlobsActor {
     /// This is called by the system actor every X blocks, where X is set in the recall config actor.
     /// TODO: Take a start key and page limit to avoid out-of-gas errors.
     fn debit_accounts(rt: &impl Runtime) -> Result<(), ActorError> {
-        // rt.validate_immediate_caller_is(std::iter::once(&SYSTEM_ACTOR_ADDR))?;
-        rt.validate_immediate_caller_accept_any()?;
+        rt.validate_immediate_caller_is(std::iter::once(&SYSTEM_ACTOR_ADDR))?;
         let config = get_config(rt)?;
-
         let mut credit_debited = Credit::zero();
         let (deletes, num_accounts) = rt.transaction(|st: &mut State, rt| {
             let initial_credit_debited = st.credit_debited.clone();
@@ -1375,12 +1373,6 @@ mod tests {
         assert!(result.is_ok());
         rt.verify();
 
-        // After funding the account, commit credits for storage
-        rt.set_caller(*ETHACCOUNT_ACTOR_CODE_ID, id_addr);
-        rt.expect_validate_caller_any();
-        expect_get_config(&rt);
-
-        // Then add blobs...
         rt.set_epoch(ChainEpoch::from(5));
         rt.expect_validate_caller_any();
         expect_get_config(&rt);

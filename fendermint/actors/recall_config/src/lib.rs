@@ -130,6 +130,18 @@ impl Actor {
                 "default TTL must be greater than or equal to minimum TTL"
             ));
         }
+        if params.blob_delete_batch_size <= 0 {
+            return Err(actor_error!(
+                illegal_argument,
+                "blob delete batch size must be positive"
+            ));
+        }
+        if params.account_debit_batch_size <= 0 {
+            return Err(actor_error!(
+                illegal_argument,
+                "account debit batch size must be positive"
+            ));
+        }
 
         let (admin_id_addr, admin_delegated_addr) = if !admin_exists {
             // The first caller becomes admin

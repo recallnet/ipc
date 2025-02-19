@@ -49,8 +49,8 @@ impl Default for RecallConfig {
             blob_credit_debit_interval: ChainEpoch::from(60 * 10), // ~10 min
             blob_min_ttl: ChainEpoch::from(60 * 60),               // ~1 hour
             blob_default_ttl: ChainEpoch::from(60 * 60 * 24),      // ~1 day
-            blob_delete_batch_size: 150, // Default from previous hardcoded value
-            account_debit_batch_size: 2000, // Default from previous hardcoded value
+            blob_delete_batch_size: 150,
+            account_debit_batch_size: 2000,
         }
     }
 }
