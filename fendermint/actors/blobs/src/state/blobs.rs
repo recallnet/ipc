@@ -106,7 +106,7 @@ impl BlobSourceSet {
         let sub_id_string: String = parts.map(|v| format!("{}:", v)).collect();
 
         Ok((
-            Address::from_str(&addr_string).map_err(|e| {
+            Address::from_str(addr_string).map_err(|e| {
                 ActorError::illegal_state(format!("invalid hash set key in BlobSourceSet: {}", e))
             })?,
             SubscriptionId::new(&sub_id_string)?,
@@ -179,10 +179,7 @@ impl BlobSourceSet {
             source_set_hamt.delete_and_flush_tracked(&remove_source_id)?;
         self.save_tracked(del_result);
 
-        let was_deleted = match was_deleted {
-            Some(_) => true,
-            None => false,
-        };
+        let was_deleted = was_deleted.is_some();
 
         Ok(was_deleted)
     }
