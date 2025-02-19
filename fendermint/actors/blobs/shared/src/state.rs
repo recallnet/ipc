@@ -234,7 +234,7 @@ pub struct BlobSubscribers {
 
 impl BlobSubscribers {
     pub fn new<BS: Blockstore>(store: &BS) -> Result<Self, ActorError> {
-        let root = hamt::Root::<Address, SubscriptionGroup>::new(store, "blob")?;
+        let root = hamt::Root::<Address, SubscriptionGroup>::new(store, "blob-subscribers")?;
         Ok(Self { root, size: 0 })
     }
 
