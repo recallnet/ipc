@@ -130,13 +130,13 @@ impl Actor {
                 "default TTL must be greater than or equal to minimum TTL"
             ));
         }
-        if params.blob_delete_batch_size <= 0 {
+        if params.blob_delete_batch_size == 0 {
             return Err(actor_error!(
                 illegal_argument,
                 "blob delete batch size must be positive"
             ));
         }
-        if params.account_debit_batch_size <= 0 {
+        if params.account_debit_batch_size == 0 {
             return Err(actor_error!(
                 illegal_argument,
                 "account debit batch size must be positive"
@@ -320,7 +320,6 @@ mod tests {
         rt.expect_validate_caller_any();
         let event = to_actor_event(config_admin_set(f4_eth_addr).unwrap()).unwrap();
         rt.expect_emitted_event(event);
-        SetAdminParams(f4_eth_addr);
         let result = rt.call::<Actor>(
             Method::SetConfig as u64,
             IpldBlock::serialize_cbor(&RecallConfig {
@@ -360,10 +359,9 @@ mod tests {
         rt.expect_validate_caller_addr(vec![id_addr]);
         let event = to_actor_event(config_admin_set(new_f4_eth_addr).unwrap()).unwrap();
         rt.expect_emitted_event(event);
-        let params = SetAdminParams(new_f4_eth_addr);
         let result = rt.call::<Actor>(
             Method::SetAdmin as u64,
-            IpldBlock::serialize_cbor(&params).unwrap(),
+            IpldBlock::serialize_cbor(&SetAdminParams(new_f4_eth_addr)).unwrap(),
         );
         assert!(result.is_ok());
         rt.verify();
@@ -401,10 +399,9 @@ mod tests {
         rt.expect_validate_caller_any();
         let event = to_actor_event(config_admin_set(f4_eth_addr).unwrap()).unwrap();
         rt.expect_emitted_event(event);
-        let params = SetAdminParams(f4_eth_addr);
         let result = rt.call::<Actor>(
             Method::SetAdmin as u64,
-            IpldBlock::serialize_cbor(&params).unwrap(),
+            IpldBlock::serialize_cbor(&SetAdminParams(f4_eth_addr)).unwrap(),
         );
         assert!(result.is_ok());
         rt.verify();
@@ -420,10 +417,9 @@ mod tests {
 
         rt.set_caller(*ETHACCOUNT_ACTOR_CODE_ID, unauthorized_id_addr); // unauthorized caller
         rt.expect_validate_caller_addr(vec![id_addr]); // expect current admin
-        let params = SetAdminParams(unauthorized_f4_eth_addr);
         let result = rt.call::<Actor>(
             Method::SetAdmin as u64,
-            IpldBlock::serialize_cbor(&params).unwrap(),
+            IpldBlock::serialize_cbor(&SetAdminParams(unauthorized_f4_eth_addr)).unwrap(),
         );
         rt.verify();
 
@@ -452,34 +448,18 @@ mod tests {
         rt.expect_validate_caller_any();
         let event = to_actor_event(config_admin_set(f4_eth_addr).unwrap()).unwrap();
         rt.expect_emitted_event(event);
-        let params = RecallConfig {
-            blob_capacity: 2048,
-            token_credit_rate: TokenCreditRate::from(BigInt::from(10)),
-            blob_credit_debit_interval: ChainEpoch::from(1800),
-            blob_min_ttl: ChainEpoch::from(2 * 60 * 60),
-            blob_default_ttl: ChainEpoch::from(24 * 60 * 60),
-            blob_delete_batch_size: 100,
-            account_debit_batch_size: 100,
-        };
-        let event = to_actor_event(
-            config_set(
-                params.blob_capacity,
-                params
-                    .token_credit_rate
-                    .rate()
-                    .to_biguint()
-                    .unwrap_or_default(),
-                params.blob_credit_debit_interval as u64,
-                params.blob_min_ttl as u64,
-                params.blob_default_ttl as u64,
-            )
-            .unwrap(),
-        )
-        .unwrap();
-        rt.expect_emitted_event(event);
         let result = rt.call::<Actor>(
             Method::SetConfig as u64,
-            IpldBlock::serialize_cbor(&params).unwrap(),
+            IpldBlock::serialize_cbor(&RecallConfig {
+                blob_capacity: 2048,
+                token_credit_rate: TokenCreditRate::from(BigInt::from(10)),
+                blob_credit_debit_interval: ChainEpoch::from(1800),
+                blob_min_ttl: ChainEpoch::from(2 * 60 * 60),
+                blob_default_ttl: ChainEpoch::from(24 * 60 * 60),
+                blob_delete_batch_size: 100,
+                account_debit_batch_size: 100,
+            })
+            .unwrap(),
         );
         assert!(result.is_ok());
         rt.verify();
