@@ -1104,6 +1104,7 @@ mod tests {
         rt.set_caller(*EVM_ACTOR_CODE_ID, proxy_id_addr);
         rt.set_origin(owner_id_addr);
         rt.expect_validate_caller_any();
+        expect_get_config(&rt);
         let approve_params = ApproveCreditParams {
             from: owner_id_addr,
             to: to_id_addr,
@@ -1373,6 +1374,7 @@ mod tests {
         assert!(result.is_ok());
         rt.verify();
 
+        // Try with sufficient balance
         rt.set_epoch(ChainEpoch::from(5));
         rt.expect_validate_caller_any();
         expect_get_config(&rt);
