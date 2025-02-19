@@ -73,7 +73,7 @@ impl ExpiriesState {
         F: FnMut(ChainEpoch, Address, ExpiryKey) -> Result<(), ActorError>,
     {
         let expiries = self.amt(&store)?;
-        let (_, next_idx) = expiries.for_each_while_ranged(
+        let (count, next_idx) = expiries.for_each_while_ranged(
             self.next_idx,
             batch_size,
             |index, per_chain_epoch_root| {
@@ -89,6 +89,11 @@ impl ExpiriesState {
             },
         )?;
         self.next_idx = batch_size.and(next_idx);
+        log::debug!(
+            "finished deleting expired blobs up to epoch: {}, count: {}",
+            epoch,
+            count
+        );
         Ok(())
     }
 

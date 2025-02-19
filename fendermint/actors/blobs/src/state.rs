@@ -506,19 +506,18 @@ impl State {
         &mut self,
         store: &BS,
         current_epoch: ChainEpoch,
+        blob_delete_batch_size: u64,
+        account_debit_batch_size: u64,
     ) -> anyhow::Result<HashSet<Hash>, ActorError> {
         // Delete expired subscriptions
         let mut delete_from_disc = HashSet::new();
         let mut num_deleted = 0;
         let mut expiries = self.expiries.clone();
-        // TODO: Make these configurable
-        let blob_delete_batch_size = Some(10);
-        let account_debit_batch_size = Some(5);
 
         expiries.foreach_up_to_epoch(
             store,
             current_epoch,
-            blob_delete_batch_size,
+            Some(blob_delete_batch_size),
             |_, subscriber, key| {
                 match self.delete_blob(
                     store,
@@ -558,7 +557,7 @@ impl State {
             .map(|address| BytesKey::from(address.to_bytes()));
         let (count, next_account) = reader.for_each_ranged(
             start_key.as_ref(),
-            account_debit_batch_size,
+            Some(account_debit_batch_size as usize),
             |address, account| {
                 let mut account = account.clone();
                 let debit_blocks = current_epoch - account.last_debit_epoch;
@@ -2181,7 +2180,14 @@ mod tests {
 
         // Debit all accounts at an epoch between the two expiries (3601-3621)
         let debit_epoch = ChainEpoch::from(config.blob_min_ttl + 11);
-        let deletes_from_disc = state.debit_accounts(&store, debit_epoch).unwrap();
+        let deletes_from_disc = state
+            .debit_accounts(
+                &store,
+                debit_epoch,
+                config.blob_delete_batch_size,
+                config.account_debit_batch_size,
+            )
+            .unwrap();
         assert!(deletes_from_disc.is_empty());
 
         // Check the account balance
@@ -2201,7 +2207,14 @@ mod tests {
 
         // Debit all accounts at an epoch greater than group expiry (3621)
         let debit_epoch = ChainEpoch::from(config.blob_min_ttl + 31);
-        let deletes_from_disc = state.debit_accounts(&store, debit_epoch).unwrap();
+        let deletes_from_disc = state
+            .debit_accounts(
+                &store,
+                debit_epoch,
+                config.blob_delete_batch_size,
+                config.account_debit_batch_size,
+            )
+            .unwrap();
         assert!(!deletes_from_disc.is_empty()); // blob is marked for deletion
 
         // Check the account balance
@@ -2801,7 +2814,14 @@ mod tests {
 
         // Debit all accounts
         let debit_epoch = ChainEpoch::from(41);
-        let deletes_from_disc = state.debit_accounts(&store, debit_epoch).unwrap();
+        let deletes_from_disc = state
+            .debit_accounts(
+                &store,
+                debit_epoch,
+                config.blob_delete_batch_size,
+                config.account_debit_batch_size,
+            )
+            .unwrap();
         assert!(deletes_from_disc.is_empty());
 
         // Check the account balance
@@ -3161,7 +3181,14 @@ mod tests {
 
         // Debit accounts to trigger a refund when we fail below
         let debit_epoch = ChainEpoch::from(11);
-        let deletes_from_disc = state.debit_accounts(&store, debit_epoch).unwrap();
+        let deletes_from_disc = state
+            .debit_accounts(
+                &store,
+                debit_epoch,
+                config.blob_delete_batch_size,
+                config.account_debit_batch_size,
+            )
+            .unwrap();
         assert!(deletes_from_disc.is_empty());
 
         // Check the account balance
@@ -4422,7 +4449,14 @@ mod tests {
 
             // Every debit interval epochs we debit all acounts
             if epoch % debit_interval == 0 {
-                let deletes_from_disc = state.debit_accounts(&store, epoch).unwrap();
+                let deletes_from_disc = state
+                    .debit_accounts(
+                        &store,
+                        epoch,
+                        config.blob_delete_batch_size,
+                        config.account_debit_batch_size,
+                    )
+                    .unwrap();
                 warn!(
                     "deleting {} blobs at epoch {}",
                     deletes_from_disc.len(),
@@ -4498,12 +4532,26 @@ mod tests {
 
         // First batch (should process 50 accounts)
         assert!(state.next_debit_addr.is_none());
-        let deletes1 = state.debit_accounts(&store, current_epoch + 1).unwrap();
+        let deletes1 = state
+            .debit_accounts(
+                &store,
+                current_epoch + 1,
+                config.blob_delete_batch_size,
+                config.account_debit_batch_size,
+            )
+            .unwrap();
         assert!(deletes1.is_empty()); // No expired blobs
         assert!(state.next_debit_addr.is_some());
 
         // Second batch (should process remaining 10 accounts and clear state)
-        let deletes2 = state.debit_accounts(&store, current_epoch + 1).unwrap();
+        let deletes2 = state
+            .debit_accounts(
+                &store,
+                current_epoch + 1,
+                config.blob_delete_batch_size,
+                config.account_debit_batch_size,
+            )
+            .unwrap();
         assert!(deletes2.is_empty());
         assert!(state.next_debit_addr.is_none()); // State should be cleared after all accounts processed
 
@@ -4545,20 +4593,48 @@ mod tests {
         }
 
         // First cycle
-        let deletes1 = state.debit_accounts(&store, current_epoch + 1).unwrap();
+        let deletes1 = state
+            .debit_accounts(
+                &store,
+                current_epoch + 1,
+                config.blob_delete_batch_size,
+                config.account_debit_batch_size,
+            )
+            .unwrap();
         assert!(deletes1.is_empty());
         assert!(state.next_debit_addr.is_some());
 
-        let deletes2 = state.debit_accounts(&store, current_epoch + 1).unwrap();
+        let deletes2 = state
+            .debit_accounts(
+                &store,
+                current_epoch + 1,
+                config.blob_delete_batch_size,
+                config.account_debit_batch_size,
+            )
+            .unwrap();
         assert!(deletes2.is_empty());
         assert!(state.next_debit_addr.is_none()); // First cycle complete
 
         // Second cycle
-        let deletes3 = state.debit_accounts(&store, current_epoch + 2).unwrap();
+        let deletes3 = state
+            .debit_accounts(
+                &store,
+                current_epoch + 2,
+                config.blob_delete_batch_size,
+                config.account_debit_batch_size,
+            )
+            .unwrap();
         assert!(deletes3.is_empty());
         assert!(state.next_debit_addr.is_some());
 
-        let deletes4 = state.debit_accounts(&store, current_epoch + 2).unwrap();
+        let deletes4 = state
+            .debit_accounts(
+                &store,
+                current_epoch + 2,
+                config.blob_delete_batch_size,
+                config.account_debit_batch_size,
+            )
+            .unwrap();
         assert!(deletes4.is_empty());
         assert!(state.next_debit_addr.is_none()); // Second cycle complete
     }

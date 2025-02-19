@@ -40,6 +40,8 @@ pub struct ConstructorParams {
     initial_blob_credit_debit_interval: ChainEpoch,
     initial_blob_min_ttl: ChainEpoch,
     initial_blob_default_ttl: ChainEpoch,
+    initial_blob_delete_batch_size: u64,
+    initial_account_debit_batch_size: u64,
 }
 
 pub struct Actor {}
@@ -56,6 +58,8 @@ impl Actor {
                 blob_credit_debit_interval: params.initial_blob_credit_debit_interval,
                 blob_min_ttl: params.initial_blob_min_ttl,
                 blob_default_ttl: params.initial_blob_default_ttl,
+                blob_delete_batch_size: params.initial_blob_delete_batch_size,
+                account_debit_batch_size: params.initial_account_debit_batch_size,
             },
         };
         rt.create(&st)
@@ -248,6 +252,8 @@ mod tests {
                     ),
                     initial_blob_min_ttl,
                     initial_blob_default_ttl,
+                    initial_blob_delete_batch_size: 100,
+                    initial_account_debit_batch_size: 100,
                 })
                 .unwrap(),
             )
@@ -302,10 +308,19 @@ mod tests {
         rt.expect_validate_caller_any();
         let event = to_actor_event(config_admin_set(f4_eth_addr).unwrap()).unwrap();
         rt.expect_emitted_event(event);
-        let params = SetAdminParams(f4_eth_addr);
+        SetAdminParams(f4_eth_addr);
         let result = rt.call::<Actor>(
-            Method::SetAdmin as u64,
-            IpldBlock::serialize_cbor(&params).unwrap(),
+            Method::SetConfig as u64,
+            IpldBlock::serialize_cbor(&RecallConfig {
+                blob_capacity: 2048,
+                token_credit_rate: TokenCreditRate::from(BigInt::from(10)),
+                blob_credit_debit_interval: ChainEpoch::from(1800),
+                blob_min_ttl: ChainEpoch::from(2 * 60 * 60),
+                blob_default_ttl: ChainEpoch::from(24 * 60 * 60),
+                blob_delete_batch_size: 100,
+                account_debit_batch_size: 100,
+            })
+            .unwrap(),
         );
         assert!(result.is_ok());
         rt.verify();
@@ -431,6 +446,8 @@ mod tests {
             blob_credit_debit_interval: ChainEpoch::from(1800),
             blob_min_ttl: ChainEpoch::from(2 * 60 * 60),
             blob_default_ttl: ChainEpoch::from(24 * 60 * 60),
+            blob_delete_batch_size: 100,
+            account_debit_batch_size: 100,
         };
         let event = to_actor_event(
             config_set(
@@ -501,6 +518,8 @@ mod tests {
             blob_credit_debit_interval: ChainEpoch::from(1800),
             blob_min_ttl: ChainEpoch::from(2 * 60 * 60),
             blob_default_ttl: ChainEpoch::from(24 * 60 * 60),
+            blob_delete_batch_size: 100,
+            account_debit_batch_size: 100,
         };
 
         let test_cases = vec![
