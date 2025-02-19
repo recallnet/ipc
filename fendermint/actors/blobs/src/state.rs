@@ -528,7 +528,7 @@ impl State {
                     key.hash,
                     key.id.clone(),
                 ) {
-                    Ok(from_disc) => {
+                    Ok((from_disc, _)) => {
                         num_deleted += 1;
                         if from_disc {
                             delete_from_disc.insert(key.hash);
