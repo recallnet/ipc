@@ -1453,7 +1453,7 @@ impl State {
                                     subscriber,
                                     current_epoch,
                                     hash,
-                                    SubscriptionId::new(&id.clone())?,
+                                    SubscriptionId::new(id)?,
                                 )?;
                                 if from_disc {
                                     deleted_blobs.push(hash);

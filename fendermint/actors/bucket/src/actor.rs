@@ -401,15 +401,12 @@ mod tests {
             AddBlobParams, DeleteBlobParams, GetBlobParams, GetCreditApprovalParams,
             OverwriteBlobParams,
         },
-        state::{CreditApproval, Hash, Subscription, SubscriptionGroup},
+        state::{BlobSubscribers, CreditApproval, Hash, Subscription, SubscriptionGroup},
         Method as BlobMethod, BLOBS_ACTOR_ADDR,
     };
-
     use fendermint_actor_blobs_testing::{new_hash, new_pk, setup_logs};
     use fendermint_actor_machine::{events::to_actor_event, ConstructorParams, InitParams, Kind};
     use fil_actors_evm_shared::address::EthAddress;
-    use fendermint_actor_blobs_shared::state::{BlobSubscribers, Subscription, SubscriptionGroup};
-    use fendermint_actor_blobs_shared::{Method as BlobMethod, BLOBS_ACTOR_ADDR};
     use fil_actors_runtime::runtime::Runtime;
     use fil_actors_runtime::test_utils::{
         expect_empty, MockRuntime, ADM_ACTOR_CODE_ID, ETHACCOUNT_ACTOR_CODE_ID, INIT_ACTOR_CODE_ID,
@@ -1132,7 +1129,7 @@ mod tests {
         let blob_subscribers = BlobSubscribers::new(store).unwrap();
         let mut subscribers = blob_subscribers.hamt(store).unwrap();
 
-        let sub_id = get_blob_id(&state, key.clone()).unwrap();
+        let sub_id = get_blob_id(&state, &key).unwrap();
         let mut blob = Blob {
             size: add_params.size,
             subscribers: blob_subscribers,
