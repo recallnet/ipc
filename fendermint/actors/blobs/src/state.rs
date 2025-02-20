@@ -1042,8 +1042,7 @@ impl State {
         }
         let mut subscribers = blob.subscribers.hamt(store)?;
         let mut group = subscribers
-            .get(&subscriber)
-            .unwrap()
+            .get(&subscriber)?
             .ok_or(ActorError::forbidden(format!(
                 "subscriber {} is not subscribed to blob {}",
                 subscriber, hash
