@@ -257,7 +257,6 @@ impl BlobSubscribers {
         self.size
     }
 
-    // This is demanded by clippy, https://rust-lang.github.io/rust-clippy/master/index.html#len_without_is_empty.
     pub fn is_empty(&self) -> bool {
         self.size == 0
     }
