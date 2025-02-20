@@ -1,7 +1,7 @@
 // Copyright 2022-2024 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use crate::selector::{GasLimitSelector, MessageSelector};
@@ -53,6 +53,8 @@ use fendermint_vm_topdown::voting::{ValidatorKey, VoteTally};
 use fendermint_vm_topdown::{
     CachedFinalityProvider, IPCParentFinality, ParentFinalityProvider, ParentViewProvider, Toggle,
 };
+use fvm::executor::{ApplyFailure, ApplyRet};
+use fvm::{call_manager::Backtrace, trace::ExecutionTrace};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::RawBytes;
 use fvm_shared::address::Address;
@@ -60,6 +62,7 @@ use fvm_shared::clock::ChainEpoch;
 use fvm_shared::econ::TokenAmount;
 use fvm_shared::message::Message;
 use fvm_shared::MethodNum;
+use fvm_shared::{error::ExitCode, receipt::Receipt};
 use iroh::base::key::PublicKey;
 use iroh::blobs::Hash;
 use iroh::net::NodeId;
@@ -848,34 +851,71 @@ where
                     let gas_limit = fvm_shared::BLOCK_GAS_LIMIT;
                     let msg =
                         create_implicit_message(to, method_num, Default::default(), gas_limit);
-                    let (apply_ret, emitters) = state.execute_implicit(msg)?;
+                    let result = state.execute_implicit(msg);
 
-                    let info = apply_ret
-                        .failure_info
-                        .clone()
-                        .map(|i| i.to_string())
-                        .filter(|s| !s.is_empty());
-                    tracing::info!(
-                        exit_code = apply_ret.msg_receipt.exit_code.value(),
-                        from = from.to_string(),
-                        to = to.to_string(),
-                        method_num = method_num,
-                        gas_limit = gas_limit,
-                        gas_used = apply_ret.msg_receipt.gas_used,
-                        info = info.unwrap_or_default(),
-                        "implicit tx delivered"
-                    );
-                    tracing::debug!("chain interpreter debited accounts");
+                    match result {
+                        Ok((apply_ret, emitters)) => {
+                            let info = apply_ret
+                                .failure_info
+                                .clone()
+                                .map(|i| i.to_string())
+                                .filter(|s| !s.is_empty());
+                            tracing::info!(
+                                exit_code = apply_ret.msg_receipt.exit_code.value(),
+                                from = from.to_string(),
+                                to = to.to_string(),
+                                method_num = method_num,
+                                gas_limit = gas_limit,
+                                gas_used = apply_ret.msg_receipt.gas_used,
+                                info = info.unwrap_or_default(),
+                                "implicit tx delivered"
+                            );
+                            tracing::debug!("chain interpreter debited accounts");
 
-                    let ret = FvmApplyRet {
-                        apply_ret,
-                        from,
-                        to,
-                        method_num,
-                        gas_limit,
-                        emitters,
-                    };
-                    Ok(((env, state), ChainMessageApplyRet::Ipc(ret)))
+                            let ret = FvmApplyRet {
+                                apply_ret,
+                                from,
+                                to,
+                                method_num,
+                                gas_limit,
+                                emitters,
+                            };
+                            Ok(((env, state), ChainMessageApplyRet::Ipc(ret)))
+                        }
+                        Err(e) => {
+                            tracing::error!("failed to execute debit accounts: {}", e);
+                            // Create a default response indicating failure
+                            let apply_ret = ApplyRet {
+                                msg_receipt: Receipt {
+                                    exit_code: ExitCode::USR_UNSPECIFIED,
+                                    return_data: Default::default(),
+                                    gas_used: gas_limit,
+                                    events_root: None,
+                                },
+                                penalty: Default::default(),
+                                miner_tip: Default::default(),
+                                base_fee_burn: Default::default(),
+                                over_estimation_burn: Default::default(),
+                                refund: Default::default(),
+                                gas_refund: 0,
+                                gas_burned: 0,
+                                failure_info: Some(ApplyFailure::MessageBacktrace(
+                                    Backtrace::default(),
+                                )),
+                                exec_trace: ExecutionTrace::default(),
+                                events: vec![],
+                            };
+                            let ret = FvmApplyRet {
+                                apply_ret,
+                                from,
+                                to,
+                                method_num,
+                                gas_limit,
+                                emitters: HashMap::new(),
+                            };
+                            Ok(((env, state), ChainMessageApplyRet::Ipc(ret)))
+                        }
+                    }
                 }
                 IpcMessage::BlobPending(blob) => {
                     let from = system::SYSTEM_ACTOR_ADDR;
