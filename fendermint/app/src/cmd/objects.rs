@@ -22,7 +22,9 @@ use fvm_shared::{
 };
 use ipc_api::ethers_address_to_fil_address;
 use iroh::{
-    blobs::{provider::AddProgress, util::SetTagOption, Hash, HashAndFormat, Tag},
+    blobs::{
+        hashseq::HashSeq, provider::AddProgress, util::SetTagOption, Hash, HashAndFormat, Tag,
+    },
     client::blobs::BlobStatus,
     net::NodeAddr,
 };
@@ -442,7 +444,7 @@ async fn handle_object_upload(
         })
     })?;
 
-    tag_entangled_data(&iroh, &ent, &metadata_hash, tag)
+    tag_entangled_data(&iroh, &ent, &metadata_hash)
         .await
         .map_err(|e| {
             Rejection::from(BadRequest {
@@ -464,21 +466,16 @@ async fn tag_entangled_data(
     iroh: &iroh::client::Iroh,
     ent: &Entangler<EntanglerIrohStorage>,
     metadata_hash: &String,
-    tag: Tag,
 ) -> Result<(), anyhow::Error> {
     let metadata = ent.download_metadata(metadata_hash).await?;
-    let batch = iroh.blobs().batch().await?;
-    for blob_hash in metadata
-        .parity_hashes
-        .iter()
-        .map(|(_, v)| v.clone())
-        .chain(std::iter::once(metadata_hash.clone()))
-    {
-        let tt = batch
-            .temp_tag(HashAndFormat::raw(Hash::from_str(blob_hash.as_str())?))
-            .await?;
-        batch.persist_to(tt, tag.clone()).await?;
+    let orig_hash = Hash::from_str(metadata.orig_hash.as_str())?;
+    let mut hashes = vec![orig_hash.clone(), Hash::from_str(metadata_hash.as_str())?];
+    for (_, blob_hash) in metadata.parity_hashes {
+        hashes.push(Hash::from_str(blob_hash.as_str())?);
     }
+    let tag = iroh::blobs::Tag(format!("temp-{orig_hash}").into());
+    let hash_seq = hashes.into_iter().collect::<HashSeq>();
+    iroh.blobs().add_bytes_named(hash_seq, tag).await?;
     Ok(())
 }
 
