@@ -174,8 +174,8 @@ impl Actor {
                 params.blob_credit_debit_interval as u64,
                 params.blob_min_ttl as u64,
                 params.blob_default_ttl as u64,
-                params.blob_delete_batch_size as u64,
-                params.account_debit_batch_size as u64,
+                params.blob_delete_batch_size,
+                params.account_debit_batch_size,
             ),
         )?;
 
@@ -463,8 +463,8 @@ mod tests {
                 config.blob_credit_debit_interval as u64,
                 config.blob_min_ttl as u64,
                 config.blob_default_ttl as u64,
-                config.blob_delete_batch_size as u64,
-                config.account_debit_batch_size as u64,
+                config.blob_delete_batch_size,
+                config.account_debit_batch_size,
             )
             .unwrap(),
         )
