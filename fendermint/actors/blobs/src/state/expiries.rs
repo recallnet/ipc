@@ -89,10 +89,11 @@ impl ExpiriesState {
             },
         )?;
         self.next_idx = batch_size.and(next_idx);
-        log::debug!(
-            "finished deleting expired blobs up to epoch: {}, count: {}",
-            epoch,
-            count
+        log::info!(
+            "finished deleting {} blobs, next_idx: {:?}, current_epoch: {}",
+            count,
+            self.next_idx,
+            epoch
         );
         Ok(())
     }
