@@ -32,7 +32,7 @@ use fil_actors_runtime::{
 use fvm_ipld_encoding::ipld_block::IpldBlock;
 use fvm_shared::{address::Address, econ::TokenAmount, error::ExitCode, MethodNum, METHOD_SEND};
 use num_traits::Zero;
-use recall_sol_facade::{blobs::{blob_added, blob_deleted, blob_finalized, blob_pending}, blobs::calls as blobs_calls, credit::{
+use recall_sol_facade::{blobs::{blob_added, blob_deleted, blob_finalized, blob_pending}, credit::{
     credit_approved, credit_debited as credit_debited_event, credit_purchased, credit_revoked,
 }, gas::{gas_sponsor_set, gas_sponsor_unset}, blobs};
 use recall_sol_facade::types::{InvokeContractParams, InvokeContractReturn};
