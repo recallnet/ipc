@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::collections::{HashMap, HashSet};
+use std::io::Read;
 use std::str::FromStr;
 
 use fendermint_actor_blobs_shared::params::{
@@ -31,14 +32,10 @@ use fil_actors_runtime::{
 use fvm_ipld_encoding::ipld_block::IpldBlock;
 use fvm_shared::{address::Address, econ::TokenAmount, error::ExitCode, MethodNum, METHOD_SEND};
 use num_traits::Zero;
-use recall_sol_facade::{
-    blobs::{blob_added, blob_deleted, blob_finalized, blob_pending},
-    credit::{
-        credit_approved, credit_debited as credit_debited_event, credit_purchased, credit_revoked,
-    },
-    gas::{gas_sponsor_set, gas_sponsor_unset},
-};
-
+use recall_sol_facade::{blobs::{blob_added, blob_deleted, blob_finalized, blob_pending}, blobs::calls as blobs_calls, credit::{
+    credit_approved, credit_debited as credit_debited_event, credit_purchased, credit_revoked,
+}, gas::{gas_sponsor_set, gas_sponsor_unset}, blobs};
+use recall_sol_facade::types::{InvokeContractParams, InvokeContractReturn};
 use crate::{State, BLOBS_ACTOR_NAME};
 
 #[cfg(feature = "fil-actor")]
@@ -761,6 +758,18 @@ impl BlobsActor {
         Ok((processed, next_key))
     }
 
+    fn invoke_contract(rt: &impl Runtime, params: InvokeContractParams) -> Result<InvokeContractReturn, ActorError> {
+        let selector = params.selector()?;
+        let bytes = match selector {
+            blobs::getPendingBytesCount::SELECTOR => {
+                let stats = Self::get_stats(rt)?;
+                blobs::getPendingBytesCount::abi_encode_result(stats.bytes_resolving)
+            }
+            _ => return Err(ActorError::illegal_argument(format!("Can not find method for selector {:?}", selector))),
+        };
+        Ok(InvokeContractReturn { output_data: bytes })
+    }
+
     /// Fallback method for unimplemented method numbers.
     pub fn fallback(
         rt: &impl Runtime,
@@ -853,6 +862,7 @@ impl ActorCode for BlobsActor {
 
         // Metrics methods
         GetStats => get_stats,
+        InvokeContract => invoke_contract,
         _ => fallback,
     }
 }
