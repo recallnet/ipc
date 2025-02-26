@@ -905,7 +905,7 @@ mod tests {
         group.save_tracked(
             group_hamt
                 .set_and_flush_tracked(
-                    &sub_id.to_string(),
+                    &sub_id,
                     Subscription {
                         added: 0,
                         expiry: ChainEpoch::from(3600),
@@ -1143,7 +1143,7 @@ mod tests {
         group.save_tracked(
             group_hamt
                 .set_and_flush_tracked(
-                    &sub_id.to_string(),
+                    &sub_id,
                     Subscription {
                         added: 0,
                         expiry: ChainEpoch::from(3600),

@@ -15,6 +15,7 @@ use serde::de::DeserializeOwned;
 use serde::Serialize;
 
 use super::core::{Map, MapKey, DEFAULT_HAMT_CONFIG};
+use crate::Hasher;
 
 #[derive(Clone, PartialEq, Debug, Serialize_tuple, Deserialize_tuple)]
 pub struct Root<K, V>
@@ -232,7 +233,7 @@ where
         self.map.for_each_until(starting_key, ending_key, &mut f)
     }
 
-    pub fn iter(&self) -> Iter<BS, V, BytesKey> {
+    pub fn iter(&self) -> Iter<BS, V, BytesKey, Hasher> {
         self.map.iter()
     }
 }

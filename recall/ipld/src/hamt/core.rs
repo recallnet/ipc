@@ -11,7 +11,6 @@ use cid::Cid;
 use fil_actors_runtime::{ActorError, AsActorError};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_hamt as hamt;
-use fvm_ipld_hamt::{BytesKey, Iter};
 use fvm_shared::address::Address;
 use fvm_shared::error::ExitCode;
 use integer_encoding::VarInt;
@@ -254,8 +253,7 @@ where
         Ok(())
     }
 
-    /// Return an Iter of the key-value pairs in the map.
-    pub fn iter(&self) -> Iter<BS, V, BytesKey> {
+    pub fn iter(&self) -> hamt::Iter<BS, V, hamt::BytesKey, Hasher> {
         self.hamt.iter()
     }
 
@@ -292,13 +290,7 @@ impl MapKey for Vec<u8> {
 
 impl MapKey for String {
     fn from_bytes(b: &[u8]) -> Result<Self, String> {
-        let result = String::from_utf8(b.to_vec());
-
-        if result.is_ok() {
-            Ok(result.unwrap())
-        } else {
-            Err(format!("failed to decode varint in {:?}", b))
-        }
+        String::from_utf8(b.to_vec()).map_err(|e| e.to_string())
     }
 
     fn to_bytes(&self) -> Result<Vec<u8>, String> {

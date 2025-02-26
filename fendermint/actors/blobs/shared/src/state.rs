@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::collections::HashMap;
-use std::error::Error;
 use std::fmt;
 use std::ops::{Div, Mul};
 use std::str::from_utf8;
@@ -246,7 +245,7 @@ pub struct BlobSubscribers {
 
 impl BlobSubscribers {
     pub fn new<BS: Blockstore>(store: &BS) -> Result<Self, ActorError> {
-        let root = hamt::Root::<Address, SubscriptionGroup>::new(store, "blob-subscribers")?;
+        let root = hamt::Root::<Address, SubscriptionGroup>::new(store, "blob_subscribers")?;
         Ok(Self { root, size: 0 })
     }
 
@@ -334,38 +333,40 @@ impl fmt::Display for SubscriptionId {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize_tuple, Deserialize_tuple)]
-pub struct SubscriptionGroup {
-    /// Subscription group hamt, keyed by a string representation of SubscriptionId.
-    pub root: hamt::Root<String, Subscription>,
-    size: u64,
+impl MapKey for SubscriptionId {
+    fn from_bytes(b: &[u8]) -> Result<Self, String> {
+        let inner = String::from_utf8(b.to_vec()).map_err(|e| e.to_string())?;
+        Self::new(&inner).map_err(|e| e.to_string())
+    }
+
+    fn to_bytes(&self) -> Result<Vec<u8>, String> {
+        Ok(self.inner.as_bytes().to_vec())
+    }
 }
 
-// TODO: is works well afaict, but is it a ok/good/reasonable pattern in Rust?
-fn sub_illegal_state_err_map<E>(e: E, sub_id: &SubscriptionId) -> ActorError
-where
-    E: Error,
-{
-    ActorError::illegal_state(format!(
-        "subscriptions for id {} cannot be iterated over: {}",
-        sub_id, e
-    ))
+#[derive(Debug, Clone, PartialEq, Serialize_tuple, Deserialize_tuple)]
+pub struct SubscriptionGroup {
+    pub root: hamt::Root<SubscriptionId, Subscription>,
+    size: u64,
 }
 
 impl SubscriptionGroup {
     pub fn new<BS: Blockstore>(store: &BS) -> Result<Self, ActorError> {
-        let root = hamt::Root::<String, Subscription>::new(store, "subscription_group")?;
+        let root = hamt::Root::<SubscriptionId, Subscription>::new(store, "subscription_group")?;
         Ok(Self { root, size: 0 })
     }
 
     pub fn hamt<BS: Blockstore>(
         &self,
         store: BS,
-    ) -> Result<hamt::map::Hamt<BS, String, Subscription>, ActorError> {
+    ) -> Result<hamt::map::Hamt<BS, SubscriptionId, Subscription>, ActorError> {
         self.root.hamt(store, self.size)
     }
 
-    pub fn save_tracked(&mut self, tracked_flush_result: TrackedFlushResult<String, Subscription>) {
+    pub fn save_tracked(
+        &mut self,
+        tracked_flush_result: TrackedFlushResult<SubscriptionId, Subscription>,
+    ) {
         self.root = tracked_flush_result.root;
         self.size = tracked_flush_result.size;
     }
@@ -377,6 +378,7 @@ impl SubscriptionGroup {
     pub fn is_empty(&self) -> bool {
         self.size == 0
     }
+
     /// Returns the current group max expiry and the group max expiry after adding the provided ID
     /// and new value.
     pub fn max_expiries<BS: Blockstore>(
@@ -389,16 +391,14 @@ impl SubscriptionGroup {
         let mut new_max = None;
         let subscriptions = self.hamt(store)?;
         for val in subscriptions.iter() {
-            let (id_bytes, sub) = val.map_err(|e| sub_illegal_state_err_map(e, target_id))?;
-            let id = from_utf8(id_bytes).map_err(|e| sub_illegal_state_err_map(e, target_id))?;
-
+            let (id, sub) = deserialize_iter_sub(val)?;
             if sub.failed {
                 continue;
             }
             if sub.expiry > max.unwrap_or(0) {
                 max = Some(sub.expiry);
             }
-            let new_value = if *id == target_id.to_string() {
+            let new_value = if &id == target_id {
                 new_value.unwrap_or_default()
             } else {
                 sub.expiry
@@ -423,10 +423,9 @@ impl SubscriptionGroup {
         store: &BS,
         trim_id: &SubscriptionId,
     ) -> anyhow::Result<(bool, Option<ChainEpoch>), ActorError> {
-        let tid = trim_id.to_string();
         let subscriptions = self.hamt(store)?;
         let trim = subscriptions
-            .get(&tid)?
+            .get(trim_id)?
             .ok_or(ActorError::not_found(format!(
                 "subscription id {} not found",
                 trim_id
@@ -434,10 +433,8 @@ impl SubscriptionGroup {
 
         let mut next_min = None;
         for val in subscriptions.iter() {
-            let (id_bytes, sub) = val.map_err(|e| sub_illegal_state_err_map(e, trim_id))?;
-            let id = from_utf8(id_bytes).map_err(|e| sub_illegal_state_err_map(e, trim_id))?;
-
-            if sub.failed || id == tid {
+            let (id, sub) = deserialize_iter_sub(val)?;
+            if sub.failed || &id == trim_id {
                 continue;
             }
             if sub.added < trim.added {
@@ -449,6 +446,24 @@ impl SubscriptionGroup {
         }
         Ok((true, next_min))
     }
+}
+
+fn deserialize_iter_sub<'a>(
+    val: Result<(&hamt::BytesKey, &'a Subscription), hamt::Error>,
+) -> Result<(SubscriptionId, &'a Subscription), ActorError> {
+    let (id_bytes, sub) = val.map_err(|e| {
+        ActorError::illegal_state(format!(
+            "failed to deserialize subscription from iter: {}",
+            e
+        ))
+    })?;
+    let id = from_utf8(id_bytes).map_err(|e| {
+        ActorError::illegal_state(format!(
+            "failed to deserialize subscription ID from iter: {}",
+            e
+        ))
+    })?;
+    Ok((SubscriptionId::new(id)?, sub))
 }
 
 /// The status of a blob.
