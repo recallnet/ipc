@@ -904,6 +904,99 @@ mod tests {
             .ok();
     }
 
+    // A mock QueryClient that returns a predefined Object
+    struct MockQueryClient {
+        object: Option<Object>,
+    }
+
+    impl MockQueryClient {
+        fn new(object: Object) -> Self {
+            Self {
+                object: Some(object),
+            }
+        }
+    }
+
+    #[async_trait]
+    impl QueryClient for MockQueryClient {
+        async fn os_get_call(
+            &mut self,
+            _address: Address,
+            _params: GetParams,
+            _value: TokenAmount,
+            _gas_params: GasParams,
+            _height: FvmQueryHeight,
+        ) -> anyhow::Result<Option<Object>> {
+            Ok(self.object.take())
+        }
+
+        async fn perform(&self, _: FvmQuery, _: FvmQueryHeight) -> anyhow::Result<AbciQuery> {
+            Ok(AbciQuery::default())
+        }
+    }
+
+    fn new_mock_client_with_predefined_object(
+        hash_seq_hash: Hash,
+        metadata_iroh_hash: Hash,
+    ) -> MockQueryClient {
+        let object = Object {
+            hash: BlobHash(hash_seq_hash.as_bytes().clone()),
+            recovery_hash: BlobHash(metadata_iroh_hash.as_bytes().clone()),
+            metadata: HashMap::from([
+                ("foo".to_string(), "bar".to_string()),
+                (
+                    "content-type".to_string(),
+                    "application/octet-stream".to_string(),
+                ),
+            ]),
+            size: 11,
+            expiry: 86400,
+        };
+
+        MockQueryClient::new(object)
+    }
+
+    /// Prepares test data for object download tests by uploading data, creating entanglement,
+    /// and properly tagging the hash sequence
+    async fn simulate_blob_upload(
+        iroh: &iroh::client::Iroh,
+        data: impl Into<Bytes>,
+    ) -> (Hash, Hash) {
+        let data = data.into(); // Convert to Bytes first, which implements Send
+        let ent = new_entangler(iroh.clone()).unwrap();
+        let (original_hash, metadata_hash) = ent.upload(data).await.unwrap();
+
+        let metadata = ent.download_metadata(metadata_hash.as_str()).await.unwrap();
+
+        let hash_seq = vec![
+            Hash::from_str(original_hash.as_str()).unwrap(),
+            Hash::from_str(metadata_hash.as_str()).unwrap(),
+        ]
+        .into_iter()
+        .chain(
+            metadata
+                .parity_hashes
+                .values()
+                .map(|hash| Hash::from_str(hash).unwrap()),
+        )
+        .collect::<HashSeq>();
+        let hash_seq_hash = iroh.blobs().add_bytes(hash_seq).await.unwrap().hash;
+
+        // Add a tag to the hash sequence as expected by the system
+        let batch = iroh.blobs().batch().await.unwrap();
+        let temp_tag = batch
+            .temp_tag(HashAndFormat::hash_seq(hash_seq_hash))
+            .await
+            .unwrap();
+        let tag_name = format!("temp-{hash_seq_hash}");
+        let hash_seq_tag = iroh::blobs::Tag(tag_name.into());
+        batch.persist_to(temp_tag, hash_seq_tag).await.unwrap();
+
+        let metadata_iroh_hash = Hash::from_str(metadata_hash.as_str()).unwrap();
+
+        (hash_seq_hash, metadata_iroh_hash)
+    }
+
     #[tokio::test]
     async fn test_handle_object_upload() {
         setup_logs();
@@ -1033,78 +1126,6 @@ mod tests {
         }
     }
 
-    /// Prepares test data for object download tests by uploading data, creating entanglement,
-    /// and properly tagging the hash sequence
-    async fn simulate_blob_upload(
-        iroh: &iroh::client::Iroh,
-        data: impl Into<Bytes>,
-    ) -> (Hash, Hash) {
-        let data = data.into(); // Convert to Bytes first, which implements Send
-        let ent = new_entangler(iroh.clone()).unwrap();
-        let (original_hash, metadata_hash) = ent.upload(data).await.unwrap();
-
-        let metadata = ent.download_metadata(metadata_hash.as_str()).await.unwrap();
-
-        let hash_seq = vec![
-            Hash::from_str(original_hash.as_str()).unwrap(),
-            Hash::from_str(metadata_hash.as_str()).unwrap(),
-        ]
-        .into_iter()
-        .chain(
-            metadata
-                .parity_hashes
-                .values()
-                .map(|hash| Hash::from_str(hash).unwrap()),
-        )
-        .collect::<HashSeq>();
-        let hash_seq_hash = iroh.blobs().add_bytes(hash_seq).await.unwrap().hash;
-
-        // Add a tag to the hash sequence as expected by the system
-        let batch = iroh.blobs().batch().await.unwrap();
-        let temp_tag = batch
-            .temp_tag(HashAndFormat::hash_seq(hash_seq_hash))
-            .await
-            .unwrap();
-        let tag_name = format!("temp-{hash_seq_hash}");
-        let hash_seq_tag = iroh::blobs::Tag(tag_name.into());
-        batch.persist_to(temp_tag, hash_seq_tag).await.unwrap();
-
-        let metadata_iroh_hash = Hash::from_str(metadata_hash.as_str()).unwrap();
-
-        (hash_seq_hash, metadata_iroh_hash)
-    }
-
-    // A mock QueryClient that returns a predefined Object
-    struct MockQueryClient {
-        object: Option<Object>,
-    }
-
-    impl MockQueryClient {
-        fn new(object: Object) -> Self {
-            Self {
-                object: Some(object),
-            }
-        }
-    }
-
-    #[async_trait]
-    impl QueryClient for MockQueryClient {
-        async fn os_get_call(
-            &mut self,
-            _address: Address,
-            _params: GetParams,
-            _value: TokenAmount,
-            _gas_params: GasParams,
-            _height: FvmQueryHeight,
-        ) -> anyhow::Result<Option<Object>> {
-            Ok(self.object.take())
-        }
-
-        async fn perform(&self, _: FvmQuery, _: FvmQueryHeight) -> anyhow::Result<AbciQuery> {
-            Ok(AbciQuery::default())
-        }
-    }
-
     #[tokio::test]
     async fn test_handle_object_download_get() {
         setup_logs();
@@ -1114,25 +1135,8 @@ mod tests {
         let (hash_seq_hash, metadata_iroh_hash) =
             simulate_blob_upload(&iroh, &b"hello world"[..]).await;
 
-        // Create a mock object with hash_seq_hash and recovery_hash
-        let object = Object {
-            hash: BlobHash(hash_seq_hash.as_bytes().clone()),
-            recovery_hash: BlobHash(metadata_iroh_hash.as_bytes().clone()),
-            metadata: HashMap::from([
-                ("foo".to_string(), "bar".to_string()),
-                (
-                    "content-type".to_string(),
-                    "application/octet-stream".to_string(),
-                ),
-            ]),
-            size: 11,
-            expiry: 86400,
-        };
+        let mock_client = new_mock_client_with_predefined_object(hash_seq_hash, metadata_iroh_hash);
 
-        // Mock the client to return our object
-        let mock_client = MockQueryClient::new(object);
-
-        // Now run the test with the mocked client
         let result = handle_object_download(
             "t2mnd5jkuvmsaf457ympnf3monalh3vothdd5njoy".into(),
             warp::test::request()
@@ -1176,23 +1180,7 @@ mod tests {
         let (hash_seq_hash, metadata_iroh_hash) =
             simulate_blob_upload(&iroh, &b"hello world"[..]).await;
 
-        // Create a mock object with hash_seq_hash and recovery_hash
-        let object = Object {
-            hash: BlobHash(hash_seq_hash.as_bytes().clone()),
-            recovery_hash: BlobHash(metadata_iroh_hash.as_bytes().clone()),
-            metadata: HashMap::from([
-                ("foo".to_string(), "bar".to_string()),
-                (
-                    "content-type".to_string(),
-                    "application/octet-stream".to_string(),
-                ),
-            ]),
-            size: 11,
-            expiry: 86400,
-        };
-
-        // Mock the client to return our object
-        let mock_client = MockQueryClient::new(object);
+        let mock_client = new_mock_client_with_predefined_object(hash_seq_hash, metadata_iroh_hash);
 
         let result = handle_object_download(
             "t2mnd5jkuvmsaf457ympnf3monalh3vothdd5njoy".into(),
@@ -1226,23 +1214,7 @@ mod tests {
         let (hash_seq_hash, metadata_iroh_hash) =
             simulate_blob_upload(&iroh, &b"hello world"[..]).await;
 
-        // Create a mock object with hash_seq_hash and recovery_hash
-        let object = Object {
-            hash: BlobHash(hash_seq_hash.as_bytes().clone()),
-            recovery_hash: BlobHash(metadata_iroh_hash.as_bytes().clone()),
-            metadata: HashMap::from([
-                ("foo".to_string(), "bar".to_string()),
-                (
-                    "content-type".to_string(),
-                    "application/octet-stream".to_string(),
-                ),
-            ]),
-            size: 11,
-            expiry: 86400,
-        };
-
-        // Mock the client to return our object
-        let mock_client = MockQueryClient::new(object);
+        let mock_client = new_mock_client_with_predefined_object(hash_seq_hash, metadata_iroh_hash);
 
         let result = handle_object_download(
             "t2mnd5jkuvmsaf457ympnf3monalh3vothdd5njoy".into(),
