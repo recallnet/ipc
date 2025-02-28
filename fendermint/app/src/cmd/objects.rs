@@ -11,6 +11,7 @@ use anyhow::Context;
 use bytes::Buf;
 use entangler::{ChunkRange, Config, Entangler};
 use entangler_storage::iroh::IrohStorage as EntanglerIrohStorage;
+use fendermint_actor_blobs_shared::state::Hash as BlobHash;
 use fendermint_actor_bucket::{GetParams, Object};
 use fendermint_app_settings::objects::ObjectsSettings;
 use fendermint_rpc::{client::FendermintClient, message::GasParams, QueryClient};
@@ -22,9 +23,7 @@ use fvm_shared::{
 };
 use ipc_api::ethers_address_to_fil_address;
 use iroh::{
-    blobs::{
-        hashseq::HashSeq, provider::AddProgress, util::SetTagOption, Hash, HashAndFormat, Tag,
-    },
+    blobs::{hashseq::HashSeq, provider::AddProgress, util::SetTagOption, Hash, HashAndFormat},
     client::blobs::BlobStatus,
     net::NodeAddr,
 };
@@ -320,7 +319,7 @@ async fn handle_object_upload(
     }
 
     // Handle the two upload cases
-    let (hash, tag) = match (parser.source, parser.data_part) {
+    let hash = match (parser.source, parser.data_part) {
         // Case 1: Source node provided - download from the source
         (Some(source), None) => {
             let hash = match parser.hash {
@@ -331,7 +330,6 @@ async fn handle_object_upload(
                     }))
                 }
             };
-            let tag = iroh::blobs::Tag(format!("temp-{hash}").into());
             let progress = iroh
                 .blobs()
                 .download_with_opts(
@@ -339,7 +337,7 @@ async fn handle_object_upload(
                     iroh::client::blobs::DownloadOptions {
                         format: iroh::blobs::BlobFormat::Raw,
                         nodes: vec![source],
-                        tag: SetTagOption::Named(tag.clone()),
+                        tag: SetTagOption::Auto,
                         mode: iroh::client::blobs::DownloadMode::Queued,
                     },
                 )
@@ -369,7 +367,7 @@ async fn handle_object_upload(
                 hash, outcome.stats.elapsed, size, outcome.local_size, outcome.downloaded_size,
             );
             COUNTER_BYTES_UPLOADED.inc_by(outcome.downloaded_size);
-            (hash, tag)
+            hash
         }
 
         // Case 2: Direct upload - store the provided data
@@ -392,7 +390,7 @@ async fn handle_object_upload(
                     })
                 })?;
 
-            let (uploaded_hash, tag) = loop {
+            let uploaded_hash = loop {
                 let Some(event) = progress.next().await else {
                     return Err(Rejection::from(BadRequest {
                         message: "Unexpected end while ingesting data".to_string(),
@@ -403,8 +401,8 @@ async fn handle_object_upload(
                         message: format!("failed to make progress: {}", e),
                     })
                 })? {
-                    AddProgress::AllDone { hash, tag, .. } => {
-                        break (hash, tag);
+                    AddProgress::AllDone { hash, .. } => {
+                        break hash;
                     }
                     AddProgress::Abort(err) => {
                         return Err(Rejection::from(BadRequest {
@@ -417,7 +415,7 @@ async fn handle_object_upload(
             info!("stored uploaded blob {} (size: {})", uploaded_hash, size);
             COUNTER_BYTES_UPLOADED.inc_by(size);
 
-            (uploaded_hash, tag)
+            uploaded_hash
         }
 
         (Some(_), Some(_)) => {
@@ -444,7 +442,7 @@ async fn handle_object_upload(
         })
     })?;
 
-    tag_entangled_data(&iroh, &ent, &metadata_hash)
+    let hash_seq_hash = tag_entangled_data(&iroh, &ent, &metadata_hash)
         .await
         .map_err(|e| {
             Rejection::from(BadRequest {
@@ -456,7 +454,7 @@ async fn handle_object_upload(
     HISTOGRAM_UPLOAD_TIME.observe(start_time.elapsed().as_secs_f64());
 
     let response = UploadResponse {
-        hash: hash.to_string(),
+        hash: hash_seq_hash.to_string(),
         metadata_hash,
     };
     Ok(warp::reply::json(&response))
@@ -466,17 +464,52 @@ async fn tag_entangled_data(
     iroh: &iroh::client::Iroh,
     ent: &Entangler<EntanglerIrohStorage>,
     metadata_hash: &String,
-) -> Result<(), anyhow::Error> {
+) -> Result<Hash, anyhow::Error> {
     let metadata = ent.download_metadata(metadata_hash).await?;
     let orig_hash = Hash::from_str(metadata.orig_hash.as_str())?;
+    // collect all hashes related to the blob
     let mut hashes = vec![orig_hash.clone(), Hash::from_str(metadata_hash.as_str())?];
     for (_, blob_hash) in metadata.parity_hashes {
         hashes.push(Hash::from_str(blob_hash.as_str())?);
     }
-    let tag = iroh::blobs::Tag(format!("temp-{orig_hash}").into());
+
+    // iterate over all tags and find the ones that are related to the blob
+    let temp_tags: Vec<_> = iroh
+        .tags()
+        .list()
+        .await?
+        .try_filter_map(|tag| {
+            let cloned_hashes = hashes.clone();
+            async move {
+                if cloned_hashes.contains(&tag.hash) {
+                    Ok(Some(tag.name))
+                } else {
+                    Ok(None)
+                }
+            }
+        })
+        .try_collect()
+        .await?;
+
+    // make a hash sequence object from the hashes and upload it to iroh
     let hash_seq = hashes.into_iter().collect::<HashSeq>();
-    iroh.blobs().add_bytes_named(hash_seq, tag).await?;
-    Ok(())
+    let res = iroh.blobs().add_bytes(hash_seq).await?;
+
+    // assign a consistent tag to the hash sequence object
+    let batch = iroh.blobs().batch().await?;
+    let temp_tag = batch.temp_tag(HashAndFormat::hash_seq(res.hash)).await?;
+    let hash_seq_hash = res.hash;
+    // this tag will be replaced later by the validator to "stored-{hash_seq_hash}"
+    let hash_seq_tag = iroh::blobs::Tag(format!("temp-{hash_seq_hash}").into());
+    batch.persist_to(temp_tag, hash_seq_tag).await?;
+
+    // delete all temporary tags
+    for temp_tag in temp_tags {
+        iroh.tags().delete(temp_tag).await?;
+    }
+    iroh.tags().delete(res.tag).await?;
+
+    Ok(res.hash)
 }
 
 fn new_entangler(
@@ -557,23 +590,13 @@ async fn handle_object_download<F: QueryClient + Send + Sync>(
 
     match maybe_object {
         Some(object) => {
-            let hash = Hash::from_bytes(object.hash.0);
-            let status = iroh.blobs().status(hash).await.map_err(|e| {
-                Rejection::from(BadRequest {
-                    message: format!("failed to read object: {} {}", hash, e),
-                })
-            })?;
-            let BlobStatus::Complete { size } = status else {
-                return Err(Rejection::from(BadRequest {
-                    message: format!("object {} is not available", hash),
-                }));
-            };
-            // Sanity check size
-            if size.is_zero() {
-                return Err(Rejection::from(BadRequest {
-                    message: format!("object {} has zero size", hash),
-                }));
-            }
+            let (hash, size) = extract_blob_hash_and_size(&iroh, &object.hash)
+                .await
+                .map_err(|e| {
+                    Rejection::from(BadRequest {
+                        message: e.to_string(),
+                    })
+                })?;
 
             let ent = new_entangler(iroh).map_err(|e| {
                 Rejection::from(BadRequest {
@@ -706,6 +729,72 @@ async fn handle_object_download<F: QueryClient + Send + Sync>(
         }
         None => Err(Rejection::from(NotFound)),
     }
+}
+
+async fn extract_blob_hash_and_size(
+    iroh: &iroh::client::Iroh,
+    object_hash: &BlobHash,
+) -> Result<(Hash, u64), anyhow::Error> {
+    let hash_seq_hash = Hash::from_bytes(object_hash.0);
+    let status = iroh.blobs().status(hash_seq_hash).await.map_err(|e| {
+        anyhow!(
+            "failed to get status for hash sequence object: {} {}",
+            hash_seq_hash,
+            e
+        )
+    })?;
+
+    let BlobStatus::Complete { size } = status else {
+        return Err(anyhow!(
+            "hash sequence object {} is not available",
+            hash_seq_hash
+        ));
+    };
+
+    if size.is_zero() {
+        return Err(anyhow!(
+            "hash sequence object {} has zero size",
+            hash_seq_hash
+        ));
+    }
+
+    let res = iroh
+        .blobs()
+        .read_to_bytes(hash_seq_hash)
+        .await
+        .map_err(|e| {
+            anyhow!(
+                "failed to read hash sequence object: {} {}",
+                hash_seq_hash,
+                e
+            )
+        })?;
+
+    let hash_seq = HashSeq::try_from(res).map_err(|e| {
+        anyhow!(
+            "failed to parse hash sequence object: {} {}",
+            hash_seq_hash,
+            e
+        )
+    })?;
+
+    let blob_hash = hash_seq.get(0).ok_or_else(|| {
+        anyhow!(
+            "failed to get hash with index 0 from hash sequence object: {}",
+            hash_seq_hash
+        )
+    })?;
+
+    let status = iroh
+        .blobs()
+        .status(blob_hash)
+        .await
+        .map_err(|e| anyhow!("failed to read object: {} {}", blob_hash, e))?;
+
+    let BlobStatus::Complete { size } = status else {
+        return Err(anyhow!("object {} is not available", blob_hash));
+    };
+    Ok((blob_hash, size))
 }
 
 /// Parse an f/eth-address from string.
