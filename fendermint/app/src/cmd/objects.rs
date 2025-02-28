@@ -880,29 +880,13 @@ async fn os_get<F: QueryClient + Send + Sync>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use fendermint_rpc::FendermintClient;
+    use async_trait::async_trait;
+    use bytes::Bytes;
+    use fendermint_vm_message::query::FvmQuery;
     use rand_chacha::rand_core::{RngCore, SeedableRng};
     use rand_chacha::ChaCha8Rng;
-    use tendermint_rpc::{Method, MockClient, MockRequestMethodMatcher};
-
-    // Used to mocking Actor State
-    const ABCI_QUERY_RESPONSE_DOWNLOAD: &str = r#"{
-        "jsonrpc": "2.0",
-        "id": "",
-        "result": {
-         "response": {
-            "code": 0,
-            "log": "",
-            "info": "",
-            "index": "0",
-            "key": "",
-            "value": "mQEIEhizARiFGJgYIBgYGNcYGBhJGBgYgRgYGO8YGBinCgwYGBiICxgYGI0YGBiMGBgYGRgYGIUYGBjQGBgYdRgYGNsYGBjLGBgY9hgYGHkYGBi5GBgYmhgYGF8YGBiZFBgYGOUYGBiqGBgY+RgYGGsYGBiDGBgYGhgYGJ4YGBgkGJgYIBgYGOwYGBhRGBgYoBgYGNEYGBhyGBgY2RgYGOcYGBhlGBgYpxgYGDMYGBjKExgYGOsYGBgYGBgY8hgYGN0YGBjNGBgYbRgYGMwYGBhOGBgYKhgYGPcYGBgoGBgYixgYGBgYGBjJGBgYXRgYGDQYGBiJABgYGIcYGBj3CxgZFRg2GKIYYxhmGG8YbxhjGGIYYRhyGGwYYxhvGG4YdBhlGG4YdBgtGHQYeRhwGGUYeBgYGGEYcBhwGGwYaRhjGGEYdBhpGG8YbhgvGG8YYxh0GGUYdBgtGHMYdBhyGGUYYRhtGDAYzBjgGL8CGDoYSwoHGG0YZRhzGHMYYRhnGGUSDQoEGGYYchhvGG0SAxh0GDAYMBgYARIYMQoCGHQYbxIYKRh0GDIYZxhvGGMYcBhuGGwYcRhpGGwYeBh5GG0Ydhh3GDQYdhhuGGwYaBg0GG4YcBhuGGQYeRh4GGoYYxhsGDMYMxh5GGgYdRhjGHQYaRhjGGkYGAE=",
-            "proof": null,
-            "height": "6017",
-            "codespace": ""
-            }
-        }
-     }"#;
+    use std::collections::HashMap;
+    use tendermint_rpc::endpoint::abci_query::AbciQuery;
 
     fn setup_logs() {
         use tracing_subscriber::layer::SubscriberExt;
@@ -1049,21 +1033,106 @@ mod tests {
         }
     }
 
+    /// Prepares test data for object download tests by uploading data, creating entanglement,
+    /// and properly tagging the hash sequence
+    async fn simulate_blob_upload(
+        iroh: &iroh::client::Iroh,
+        data: impl Into<Bytes>,
+    ) -> (Hash, Hash) {
+        let data = data.into(); // Convert to Bytes first, which implements Send
+        let ent = new_entangler(iroh.clone()).unwrap();
+        let (original_hash, metadata_hash) = ent.upload(data).await.unwrap();
+
+        let metadata = ent.download_metadata(metadata_hash.as_str()).await.unwrap();
+
+        let hash_seq = vec![
+            Hash::from_str(original_hash.as_str()).unwrap(),
+            Hash::from_str(metadata_hash.as_str()).unwrap(),
+        ]
+        .into_iter()
+        .chain(
+            metadata
+                .parity_hashes
+                .values()
+                .map(|hash| Hash::from_str(hash).unwrap()),
+        )
+        .collect::<HashSeq>();
+        let hash_seq_hash = iroh.blobs().add_bytes(hash_seq).await.unwrap().hash;
+
+        // Add a tag to the hash sequence as expected by the system
+        let batch = iroh.blobs().batch().await.unwrap();
+        let temp_tag = batch
+            .temp_tag(HashAndFormat::hash_seq(hash_seq_hash))
+            .await
+            .unwrap();
+        let tag_name = format!("temp-{hash_seq_hash}");
+        let hash_seq_tag = iroh::blobs::Tag(tag_name.into());
+        batch.persist_to(temp_tag, hash_seq_tag).await.unwrap();
+
+        let metadata_iroh_hash = Hash::from_str(metadata_hash.as_str()).unwrap();
+
+        (hash_seq_hash, metadata_iroh_hash)
+    }
+
+    // A mock QueryClient that returns a predefined Object
+    struct MockQueryClient {
+        object: Option<Object>,
+    }
+
+    impl MockQueryClient {
+        fn new(object: Object) -> Self {
+            Self {
+                object: Some(object),
+            }
+        }
+    }
+
+    #[async_trait]
+    impl QueryClient for MockQueryClient {
+        async fn os_get_call(
+            &mut self,
+            _address: Address,
+            _params: GetParams,
+            _value: TokenAmount,
+            _gas_params: GasParams,
+            _height: FvmQueryHeight,
+        ) -> anyhow::Result<Option<Object>> {
+            Ok(self.object.take())
+        }
+
+        async fn perform(&self, _: FvmQuery, _: FvmQueryHeight) -> anyhow::Result<AbciQuery> {
+            Ok(AbciQuery::default())
+        }
+    }
+
     #[tokio::test]
     async fn test_handle_object_download_get() {
-        let matcher = MockRequestMethodMatcher::default().map(
-            Method::AbciQuery,
-            Ok(ABCI_QUERY_RESPONSE_DOWNLOAD.to_string()),
-        );
-        let client = FendermintClient::new(MockClient::new(matcher).0);
-        let iroh = iroh::node::Node::memory().spawn().await.unwrap();
-        let _hash = iroh
-            .blobs()
-            .add_bytes(&b"hello world"[..])
-            .await
-            .unwrap()
-            .hash;
+        setup_logs();
 
+        let iroh = iroh::node::Node::memory().spawn().await.unwrap();
+
+        let (hash_seq_hash, metadata_iroh_hash) =
+            simulate_blob_upload(&iroh, &b"hello world"[..]).await;
+
+        // Create a mock object with hash_seq_hash and recovery_hash
+        let object = Object {
+            hash: BlobHash(hash_seq_hash.as_bytes().clone()),
+            recovery_hash: BlobHash(metadata_iroh_hash.as_bytes().clone()),
+            metadata: HashMap::from([
+                ("foo".to_string(), "bar".to_string()),
+                (
+                    "content-type".to_string(),
+                    "application/octet-stream".to_string(),
+                ),
+            ]),
+            size: 11,
+            expiry: 86400,
+        };
+
+        // Mock the client to return our object
+        let mock_client = MockQueryClient::new(object);
+
+        // Now run the test with the mocked client
         let result = handle_object_download(
             "t2mnd5jkuvmsaf457ympnf3monalh3vothdd5njoy".into(),
             warp::test::request()
@@ -1074,11 +1143,12 @@ mod tests {
             "GET".to_string(),
             None,
             HeightQuery { height: Some(1) },
-            client,
+            mock_client,
             iroh.client().clone(),
         )
         .await;
-        assert!(result.is_ok());
+
+        assert!(result.is_ok(), "{:#?}", result.err());
         let response = result.unwrap().into_response();
         assert_eq!(response.status(), StatusCode::OK);
         assert_eq!(
@@ -1090,6 +1160,7 @@ mod tests {
                 .unwrap(),
             "application/octet-stream"
         );
+
         let body = warp::hyper::body::to_bytes(response.into_body())
             .await
             .unwrap();
@@ -1098,18 +1169,30 @@ mod tests {
 
     #[tokio::test]
     async fn test_handle_object_download_with_range() {
-        let matcher = MockRequestMethodMatcher::default().map(
-            Method::AbciQuery,
-            Ok(ABCI_QUERY_RESPONSE_DOWNLOAD.to_string()),
-        );
-        let client = FendermintClient::new(MockClient::new(matcher).0);
+        setup_logs();
+
         let iroh = iroh::node::Node::memory().spawn().await.unwrap();
-        let _hash = iroh
-            .blobs()
-            .add_bytes(&b"hello world"[..])
-            .await
-            .unwrap()
-            .hash;
+
+        let (hash_seq_hash, metadata_iroh_hash) =
+            simulate_blob_upload(&iroh, &b"hello world"[..]).await;
+
+        // Create a mock object with hash_seq_hash and recovery_hash
+        let object = Object {
+            hash: BlobHash(hash_seq_hash.as_bytes().clone()),
+            recovery_hash: BlobHash(metadata_iroh_hash.as_bytes().clone()),
+            metadata: HashMap::from([
+                ("foo".to_string(), "bar".to_string()),
+                (
+                    "content-type".to_string(),
+                    "application/octet-stream".to_string(),
+                ),
+            ]),
+            size: 11,
+            expiry: 86400,
+        };
+
+        // Mock the client to return our object
+        let mock_client = MockQueryClient::new(object);
 
         let result = handle_object_download(
             "t2mnd5jkuvmsaf457ympnf3monalh3vothdd5njoy".into(),
@@ -1121,7 +1204,7 @@ mod tests {
             "GET".to_string(),
             Some("bytes=0-4".to_string()),
             HeightQuery { height: Some(1) },
-            client,
+            mock_client,
             iroh.client().clone(),
         )
         .await;
@@ -1136,18 +1219,30 @@ mod tests {
 
     #[tokio::test]
     async fn test_handle_object_download_head() {
-        let matcher = MockRequestMethodMatcher::default().map(
-            Method::AbciQuery,
-            Ok(ABCI_QUERY_RESPONSE_DOWNLOAD.to_string()),
-        );
-        let client = FendermintClient::new(MockClient::new(matcher).0);
+        setup_logs();
+
         let iroh = iroh::node::Node::memory().spawn().await.unwrap();
-        let _hash = iroh
-            .blobs()
-            .add_bytes(&b"hello world"[..])
-            .await
-            .unwrap()
-            .hash;
+
+        let (hash_seq_hash, metadata_iroh_hash) =
+            simulate_blob_upload(&iroh, &b"hello world"[..]).await;
+
+        // Create a mock object with hash_seq_hash and recovery_hash
+        let object = Object {
+            hash: BlobHash(hash_seq_hash.as_bytes().clone()),
+            recovery_hash: BlobHash(metadata_iroh_hash.as_bytes().clone()),
+            metadata: HashMap::from([
+                ("foo".to_string(), "bar".to_string()),
+                (
+                    "content-type".to_string(),
+                    "application/octet-stream".to_string(),
+                ),
+            ]),
+            size: 11,
+            expiry: 86400,
+        };
+
+        // Mock the client to return our object
+        let mock_client = MockQueryClient::new(object);
 
         let result = handle_object_download(
             "t2mnd5jkuvmsaf457ympnf3monalh3vothdd5njoy".into(),
@@ -1159,12 +1254,12 @@ mod tests {
             "HEAD".to_string(),
             None,
             HeightQuery { height: Some(1) },
-            client,
+            mock_client,
             iroh.client().clone(),
         )
         .await;
 
-        assert!(result.is_ok());
+        assert!(result.is_ok(), "{:#?}", result.err());
         let response = result.unwrap().into_response();
         assert_eq!(response.status(), StatusCode::OK);
         assert_eq!(response.headers().get("Content-Length").unwrap(), "11");
