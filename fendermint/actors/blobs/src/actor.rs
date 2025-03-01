@@ -92,8 +92,8 @@ impl BlobsActor {
         let account = rt.transaction(|st: &mut State, rt| {
             let pre_buy = st.credit_sold.clone();
             let account = st.buy_credit(
-                &config,
                 rt.store(),
+                &config,
                 id_addr,
                 rt.message().value_received(),
                 rt.curr_epoch(),
@@ -206,7 +206,7 @@ impl BlobsActor {
         }?;
 
         let event_credit_limit = token_to_biguint(approval.credit_limit.clone());
-        let event_fas_fee_limit = token_to_biguint(approval.gas_fee_limit.clone());
+        let event_gas_fee_limit = token_to_biguint(approval.gas_allowance_limit.clone());
         let event_expiry = approval.expiry.unwrap_or_default() as u64;
         emit_evm_event(
             rt,
@@ -214,7 +214,7 @@ impl BlobsActor {
                 from_delegated_addr,
                 to_delegated_addr,
                 event_credit_limit,
-                event_fas_fee_limit,
+                event_gas_fee_limit,
                 event_expiry,
             ),
         )?;

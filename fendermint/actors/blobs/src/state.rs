@@ -4,26 +4,23 @@
 
 use std::collections::HashSet;
 use std::error::Error;
-use std::fmt::Display;
 use std::str::from_utf8;
 
-use fendermint_actor_blobs_shared::params::GetStatsReturn;
-use fendermint_actor_blobs_shared::state::{
-    Account, Blob, BlobStatus, BlobSubscribers, Credit, CreditApproval, GasAllowance, Hash,
-    PublicKey, Subscription, SubscriptionGroup, SubscriptionId, TokenCreditRate, TtlStatus,
+use fendermint_actor_blobs_shared::{
+    params::GetStatsReturn,
+    state::{
+        Account, Blob, BlobStatus, BlobSubscribers, Credit, Hash, PublicKey, Subscription,
+        SubscriptionGroup, SubscriptionId, TtlStatus,
+    },
 };
 use fendermint_actor_recall_config_shared::RecallConfig;
 use fil_actors_runtime::ActorError;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::tuple::*;
-use fvm_ipld_encoding::RawBytes;
-use fvm_shared::address::Address;
-use fvm_shared::bigint::BigInt;
-use fvm_shared::clock::ChainEpoch;
-use fvm_shared::econ::TokenAmount;
+use fvm_shared::{address::Address, bigint::BigInt, clock::ChainEpoch, econ::TokenAmount};
 use log::{debug, warn};
 use num_traits::{ToPrimitive, Zero};
-use recall_ipld::hamt::{BytesKey, MapKey};
+use recall_ipld::hamt::BytesKey;
 
 mod accounts;
 mod blobs;
@@ -32,6 +29,8 @@ mod expiries;
 use accounts::AccountsState;
 use blobs::{BlobsProgressCollection, BlobsState};
 use expiries::{ExpiriesState, ExpiryUpdate};
+
+use crate::caller::Caller;
 
 /// The state represents all accounts and stored blobs.
 #[derive(Debug, Serialize_tuple, Deserialize_tuple)]
@@ -57,61 +56,6 @@ pub struct State {
     /// The next account to debit in the current debit cycle.
     /// If this is None, we have finished the debit cycle.    
     pub next_debit_addr: Option<Address>,
-}
-
-/// Key used to namespace subscriptions in the expiry index.
-#[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize_tuple, Deserialize_tuple)]
-pub struct ExpiryKey {
-    /// Key hash.
-    pub hash: Hash,
-    /// Key subscription ID.
-    pub id: SubscriptionId,
-}
-
-impl Display for ExpiryKey {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "ExpiryKey(hash: {}, id: {})", self.hash, self.id)
-    }
-}
-
-impl MapKey for ExpiryKey {
-    fn from_bytes(b: &[u8]) -> Result<Self, String> {
-        let raw_bytes = RawBytes::from(b.to_vec());
-        fil_actors_runtime::cbor::deserialize(&raw_bytes, "ExpiryKey")
-            .map_err(|e| format!("Failed to deserialize ExpiryKey {}", e))
-    }
-
-    fn to_bytes(&self) -> Result<Vec<u8>, String> {
-        let raw_bytes = fil_actors_runtime::cbor::serialize(self, "ExpiryKey")
-            .map_err(|e| format!("Failed to serialize ExpiryKey {}", e))?;
-        Ok(raw_bytes.to_vec())
-    }
-}
-
-impl ExpiryKey {
-    /// Create a new expiry key.
-    pub fn new(hash: Hash, id: &SubscriptionId) -> Self {
-        Self {
-            hash,
-            id: id.clone(),
-        }
-    }
-}
-
-/// Helper for handling credit approvals.
-struct CreditDelegation<'a> {
-    /// The address that is submitting the transaction to add this blob.
-    pub origin: Address,
-    /// Information about the approval that allows "origin" to use credits.
-    /// Note that the Address that has issued this approval (the subscriber/sponsor), and whose
-    /// credits are being allowed to be used, are not stored internal to this struct.
-    pub approval: &'a mut CreditApproval,
-}
-
-impl<'a> CreditDelegation<'a> {
-    pub fn new(origin: Address, approval: &'a mut CreditApproval) -> Self {
-        Self { origin, approval }
-    }
 }
 
 impl State {
@@ -148,275 +92,23 @@ impl State {
         }
     }
 
-    pub fn buy_credit<BS: Blockstore>(
-        &mut self,
-        config: &RecallConfig,
-        store: &BS,
-        to: Address,
-        amount: TokenAmount,
-        current_epoch: ChainEpoch,
-    ) -> anyhow::Result<Account, ActorError> {
-        if amount.is_negative() {
-            return Err(ActorError::illegal_argument(
-                "token amount must be positive".into(),
-            ));
+    /// Return available capacity as a difference between `blob_capacity_total` and `capacity_used`.
+    fn capacity_available(&self, blob_capacity_total: u64) -> u64 {
+        // Prevent underflow. We only care if free capacity is > 0 anyway.
+        if blob_capacity_total > self.capacity_used {
+            blob_capacity_total - self.capacity_used
+        } else {
+            0
         }
+    }
 
-        let credits: Credit = amount.clone() * &config.token_credit_rate;
-        // Don't sell credits if we're at storage capacity
-        if self.capacity_available(config.blob_capacity).is_zero() {
+    /// Returns an error if the subnet storage is at capacity.
+    pub fn ensure_capacity(&self, capacity: u64) -> anyhow::Result<(), ActorError> {
+        if self.capacity_available(capacity).is_zero() {
             return Err(ActorError::forbidden(
-                "credits not available (subnet has reached storage capacity)".into(),
+                "subnet has reached storage capacity".into(),
             ));
         }
-        self.credit_sold += &credits;
-        // Get or create a new account
-        let mut accounts = self.accounts.hamt(store)?;
-        let mut account = accounts.get_or_create(&to, || {
-            Account::new(store, current_epoch, config.blob_default_ttl)
-        })?;
-        account.credit_free += &credits;
-        account.gas_allowance += amount;
-        // Save account
-        self.accounts
-            .save_tracked(accounts.set_and_flush_tracked(&to, account.clone())?);
-
-        debug!("sold {} credits to {}", credits, to);
-        Ok(account)
-    }
-
-    pub fn update_gas_allowance<BS: Blockstore>(
-        &mut self,
-        store: &BS,
-        from: Address,
-        sponsor: Option<Address>,
-        add_amount: TokenAmount,
-        current_epoch: ChainEpoch,
-    ) -> anyhow::Result<(), ActorError> {
-        let addr = sponsor.unwrap_or(from);
-        // Get the account
-        let mut accounts = self.accounts.hamt(store)?;
-        let mut account = accounts.get_or_err(&addr)?;
-
-        let mut origin_approval = if let Some(sponsor) = sponsor {
-            let approval =
-                account
-                    .approvals_to
-                    .hamt(store)?
-                    .get(&from)?
-                    .ok_or(ActorError::forbidden(format!(
-                        "approval from {} to {} not found",
-                        sponsor, from
-                    )))?;
-            Some((from, approval))
-        } else {
-            None
-        };
-
-        let delegation = origin_approval
-            .as_mut()
-            .map(|(origin, approval)| CreditDelegation::new(*origin, approval));
-
-        // Check gas balance and debit
-        if add_amount.is_negative() {
-            let gas_required = -add_amount.clone();
-            ensure_gas_limit(&addr, current_epoch, &gas_required, &delegation)?;
-        }
-
-        account.gas_allowance += &add_amount.clone();
-        // Update credit approval
-        if let Some(delegation) = delegation {
-            let origin = delegation.origin;
-            let mut origin_account = accounts.get_or_err(&origin)?;
-            let mut origin_approval = origin_account
-                .approvals_from
-                .hamt(store)?
-                .get(&addr)?
-                .ok_or(ActorError::illegal_state(format!(
-                    "approval from {} to {} not found in 'to' account",
-                    addr, origin
-                )))?;
-
-            delegation.approval.gas_fee_used -= add_amount.clone();
-            origin_approval.gas_fee_used -= add_amount.clone();
-            // Save delegation origin account
-            origin_account.approvals_from.save_tracked(
-                origin_account
-                    .approvals_from
-                    .hamt(store)?
-                    .set_and_flush_tracked(&addr, origin_approval)?,
-            );
-            account.approvals_to.save_tracked(
-                account
-                    .approvals_to
-                    .hamt(store)?
-                    .set_and_flush_tracked(&origin, delegation.approval.clone())?,
-            );
-            accounts.set(&origin, origin_account)?;
-        }
-        // Save accounts
-        accounts.set(&addr, account)?;
-        self.accounts.save_tracked(accounts.flush_tracked()?);
-
-        if add_amount.is_positive() {
-            debug!("refunded {} atto to {}", add_amount.atto(), addr);
-        } else {
-            debug!(
-                "debited {} atto from {}",
-                add_amount.atto().magnitude(),
-                addr
-            );
-        }
-        Ok(())
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    pub fn approve_credit<BS: Blockstore>(
-        &mut self,
-        config: &RecallConfig,
-        store: &BS,
-        from: Address,
-        to: Address,
-        current_epoch: ChainEpoch,
-        credit_limit: Option<Credit>,
-        gas_fee_limit: Option<TokenAmount>,
-        ttl: Option<ChainEpoch>,
-    ) -> anyhow::Result<CreditApproval, ActorError> {
-        let credit_limit = credit_limit.map(Credit::from);
-        let gas_fee_limit = gas_fee_limit.map(TokenAmount::from);
-        if let Some(ttl) = ttl {
-            if ttl < config.blob_min_ttl {
-                return Err(ActorError::illegal_argument(format!(
-                    "minimum approval TTL is {}",
-                    config.blob_min_ttl
-                )));
-            }
-        }
-        let expiry = ttl.map(|t| i64::saturating_add(t, current_epoch));
-        // Get or create a new account
-        let mut accounts = self.accounts.hamt(store)?;
-        let mut from_account = accounts.get_or_create(&from, || {
-            Account::new(store, current_epoch, config.blob_default_ttl)
-        })?;
-        let mut to_account = accounts.get_or_create(&to, || {
-            Account::new(store, current_epoch, config.blob_default_ttl)
-        })?;
-        // Get or add a new approval
-        let approval = CreditApproval {
-            credit_limit: credit_limit.clone(),
-            gas_fee_limit: gas_fee_limit.clone(),
-            expiry,
-            credit_used: Credit::zero(),
-            gas_fee_used: TokenAmount::zero(),
-        };
-        let mut from_approval = from_account
-            .approvals_to
-            .hamt(store)?
-            .get_or_create(&to, || Ok(approval.clone()))?;
-        let mut to_approval = to_account
-            .approvals_from
-            .hamt(store)?
-            .get_or_create(&from, || Ok(approval))?;
-        if from_approval != to_approval {
-            return Err(ActorError::illegal_state(format!(
-                "approval in 'from' account ({}) doesn't match approval in 'to' account ({})",
-                from, to,
-            )));
-        }
-
-        // Validate approval changes
-        if let Some(limit) = credit_limit.clone() {
-            if from_approval.credit_used > limit {
-                return Err(ActorError::illegal_argument(format!(
-                    "limit cannot be less than amount of already used credits ({})",
-                    from_approval.credit_used
-                )));
-            }
-        }
-
-        if let Some(limit) = gas_fee_limit.clone() {
-            if from_approval.gas_fee_used > limit {
-                return Err(ActorError::illegal_argument(format!(
-                    "limit cannot be less than amount of already used gas fees ({})",
-                    from_approval.gas_fee_used
-                )));
-            }
-        }
-        from_approval.credit_limit = credit_limit.clone();
-        from_approval.gas_fee_limit = gas_fee_limit.clone();
-        from_approval.expiry = expiry;
-        to_approval.credit_limit = credit_limit;
-        to_approval.gas_fee_limit = gas_fee_limit;
-        to_approval.expiry = expiry;
-
-        from_account.approvals_to.save_tracked(
-            from_account
-                .approvals_to
-                .hamt(store)?
-                .set_and_flush_tracked(&to, from_approval.clone())?,
-        );
-
-        to_account.approvals_from.save_tracked(
-            to_account
-                .approvals_from
-                .hamt(store)?
-                .set_and_flush_tracked(&from, to_approval)?,
-        );
-
-        // Save accounts
-        let from_approval = from_approval.clone();
-        accounts.set(&from, from_account)?;
-        accounts.set(&to, to_account)?;
-        self.accounts.save_tracked(accounts.flush_tracked()?);
-
-        debug!(
-            "approved credits from {} to {} (credit limit: {:?}; gas fee limit: {:?}, expiry: {:?}",
-            from, to, from_approval.credit_limit, from_approval.gas_fee_limit, from_approval.expiry
-        );
-        Ok(from_approval)
-    }
-
-    /// Revokes credit from one account to another.
-    pub fn revoke_credit<BS: Blockstore>(
-        &mut self,
-        store: &BS,
-        from: Address,
-        to: Address,
-    ) -> anyhow::Result<(), ActorError> {
-        // Get the account
-        let mut accounts = self.accounts.hamt(store)?;
-        let mut from_account = accounts.get_or_err(&from)?;
-        let (tracked_result, approval) = from_account
-            .approvals_to
-            .hamt(store)?
-            .delete_and_flush_tracked(&to)?;
-        if approval.is_none() {
-            return Err(ActorError::not_found(format!(
-                "approval from {} to {} not found",
-                from, to
-            )));
-        }
-        from_account.approvals_to.save_tracked(tracked_result);
-
-        let mut to_account = accounts.get_or_err(&to)?;
-        let (tracked_result, approval) = to_account
-            .approvals_from
-            .hamt(store)?
-            .delete_and_flush_tracked(&from)?;
-        if approval.is_none() {
-            return Err(ActorError::not_found(format!(
-                "approval from {} to {} not found in 'to' account",
-                from, to
-            )));
-        }
-        to_account.approvals_from.save_tracked(tracked_result);
-
-        // Save accounts
-        accounts.set(&from, from_account)?;
-        accounts.set(&to, to_account)?;
-        self.accounts.save_tracked(accounts.flush_tracked()?);
-
-        debug!("revoked credits from {} to {}", from, to);
         Ok(())
     }
 
@@ -427,97 +119,6 @@ impl State {
     ) -> anyhow::Result<Option<Account>, ActorError> {
         let accounts = self.accounts.hamt(store)?;
         accounts.get(&from)
-    }
-
-    /// Returns a [`CreditApproval`] from the given address to the given address
-    /// or [`None`] if no approval exists.
-    pub fn get_credit_approval<BS: Blockstore>(
-        &self,
-        store: &BS,
-        from: Address,
-        to: Address,
-    ) -> anyhow::Result<Option<CreditApproval>, ActorError> {
-        let accounts = self.accounts.hamt(store)?;
-        let account = accounts
-            .get(&from)?
-            .ok_or(ActorError::not_found(format!("account {} not found", from)))?;
-        let approval = account.approvals_to.hamt(store)?.get(&to)?;
-        Ok(approval)
-    }
-
-    /// Returns the gas allowance for the given address, including an amount from a default sponsor.
-    /// An error returned from this method would be fatal, as it's called from the FVM executor.
-    pub fn get_gas_allowance<BS: Blockstore>(
-        &self,
-        store: &BS,
-        from: Address,
-        current_epoch: ChainEpoch,
-    ) -> anyhow::Result<GasAllowance, ActorError> {
-        // Get the account or return default allowance
-        let accounts = self.accounts.hamt(store)?;
-        let account = match accounts.get(&from)? {
-            None => return Ok(GasAllowance::default()),
-            Some(account) => account,
-        };
-        let mut allowance = GasAllowance {
-            amount: account.gas_allowance.clone(),
-            ..Default::default()
-        };
-        if let Some(credit_sponsor) = account.credit_sponsor {
-            let sponsor = match accounts.get(&credit_sponsor)? {
-                None => return Ok(allowance),
-                Some(account) => account,
-            };
-            let sponsored = sponsor
-                .approvals_to
-                .hamt(store)?
-                .get(&from)?
-                .and_then(|approval| {
-                    let expiry_valid = approval
-                        .expiry
-                        .map_or(true, |expiry| expiry > current_epoch);
-                    if !expiry_valid {
-                        return None;
-                    }
-                    let gas_allowance = sponsor.gas_allowance.clone();
-                    let used = approval.gas_fee_used.clone();
-                    let amount = approval
-                        .gas_fee_limit
-                        .clone()
-                        .map_or(gas_allowance.clone(), |limit| {
-                            (limit - used).min(gas_allowance)
-                        });
-                    Some(amount)
-                })
-                .unwrap_or(TokenAmount::zero());
-            allowance.sponsor = Some(credit_sponsor);
-            allowance.sponsored_amount = sponsored;
-        } else {
-            return Ok(allowance);
-        }
-        Ok(allowance)
-    }
-
-    pub fn set_account_sponsor<BS: Blockstore>(
-        &mut self,
-        config: &RecallConfig,
-        store: &BS,
-        from: Address,
-        sponsor: Option<Address>,
-        current_epoch: ChainEpoch,
-    ) -> anyhow::Result<(), ActorError> {
-        // Get or create a new account
-        let mut accounts = self.accounts.hamt(store)?;
-        let mut account = accounts.get_or_create(&from, || {
-            Account::new(store, current_epoch, config.blob_default_ttl)
-        })?;
-        account.credit_sponsor = sponsor;
-        // Save account
-        self.accounts
-            .save_tracked(accounts.set_and_flush_tracked(&from, account)?);
-
-        debug!("set credit sponsor for {} to {:?}", from, sponsor);
-        Ok(())
     }
 
     pub fn set_account_status<BS: Blockstore>(
@@ -652,33 +253,21 @@ impl State {
         size: u64,
         ttl: Option<ChainEpoch>,
         source: PublicKey,
-        tokens_received: TokenAmount,
+        value: TokenAmount,
     ) -> anyhow::Result<(Subscription, TokenAmount), ActorError> {
         // Get or create a new account
         let mut accounts = self.accounts.hamt(store)?;
-        let mut account = accounts.get_or_create(&subscriber, || {
-            Account::new(store, current_epoch, config.blob_default_ttl)
-        })?;
+        let mut caller = Caller::load_or_create(
+            store,
+            &accounts,
+            origin,
+            subscriber,
+            current_epoch,
+            config.blob_default_ttl,
+        )?;
+
         // Validate the TTL
-        let ttl = self.validate_ttl(config, ttl, &account)?;
-
-        let mut origin_approval =
-            if origin != subscriber {
-                // Look for an approval for origin from subscriber
-                let approval = account.approvals_to.hamt(store)?.get(&origin)?.ok_or(
-                    ActorError::forbidden(format!(
-                        "approval from {} to {} not found",
-                        subscriber, origin
-                    )),
-                )?;
-                Some((origin, approval))
-            } else {
-                None
-            };
-
-        let delegation = origin_approval
-            .as_mut()
-            .map(|(origin, approval)| CreditDelegation::new(*origin, approval));
+        let ttl = caller.validate_ttl_usage(config, ttl)?;
 
         // Capacity updates and required credit depend on whether the subscriber is already
         // subscribing to this blob
@@ -687,13 +276,12 @@ impl State {
         let mut new_account_capacity: u64 = 0;
         let credit_required: Credit;
         // Like cashback but for sending unspent tokens back
-        let tokens_unspent: TokenAmount;
+        let value_rebate: TokenAmount;
         // Get or create a new blob
         let mut blobs = self.blobs.hamt(store)?;
         let (sub, blob) = if let Some(mut blob) = blobs.get(&hash)? {
             let mut subscribers = blob.subscribers.hamt(store)?;
             let sub = if let Some(mut group) = subscribers.get(&subscriber)? {
-                let mut group_hamt = group.hamt(store)?;
                 let (group_expiry, new_group_expiry) =
                     group.max_expiries(store, &id, Some(expiry))?;
                 // If the subscriber has been debited after the group's max expiry, we need to
@@ -702,16 +290,16 @@ impl State {
                 // subscriber's state.
                 // However, they will get rerefunded during the next auto debit tick.
                 if let Some(group_expiry) = group_expiry {
-                    if account.last_debit_epoch > group_expiry {
+                    if caller.subscriber().last_debit_epoch > group_expiry {
                         // The refund extends up to the current epoch because we need to
                         // account for the charge that will happen below at the current epoch.
                         let return_credits = Credit::from_whole(
                             self.get_storage_cost(current_epoch - group_expiry, &size),
                         );
                         // Return over-debited credit
+                        caller.return_committed_credit(&return_credits);
                         self.credit_debited -= &return_credits;
                         self.credit_committed += &return_credits;
-                        account.credit_committed += &return_credits;
                         debug!("returned {} credits to {}", return_credits, subscriber);
                     }
                 }
@@ -724,16 +312,15 @@ impl State {
                 credit_required = Credit::from_whole(
                     self.get_storage_cost(new_group_expiry - group_expiry, &size),
                 );
-                tokens_unspent = ensure_credit_or_buy(
-                    &mut account.credit_free,
-                    &mut self.credit_sold,
+                value_rebate = self.use_or_buy_credit_for_caller(
+                    &mut caller,
+                    config,
                     &credit_required,
-                    &config.token_credit_rate,
-                    &tokens_received,
-                    &subscriber,
+                    &value,
                     current_epoch,
-                    &delegation,
                 )?;
+                // Add / update subscription
+                let mut group_hamt = group.hamt(store)?;
                 let sub = if let Some(mut sub) = group_hamt.get(&id)? {
                     // Update expiry index
                     if expiry != sub.expiry {
@@ -748,13 +335,14 @@ impl State {
                     sub.expiry = expiry;
                     // Overwrite source allows subscriber to retry resolving
                     sub.source = source;
-                    sub.delegate = delegation.as_ref().map(|d| d.origin);
+                    sub.delegate = caller.delegate_address();
                     sub.failed = false;
+                    group.save_tracked(group_hamt.set_and_flush_tracked(&id, sub.clone())?);
+
                     debug!(
                         "updated subscription to blob {} for {} (key: {})",
                         hash, subscriber, id
                     );
-                    group.save_tracked(group_hamt.set_and_flush_tracked(&id, sub.clone())?);
                     sub
                 } else {
                     // Add new subscription
@@ -762,14 +350,10 @@ impl State {
                         added: current_epoch,
                         expiry,
                         source,
-                        delegate: delegation.as_ref().map(|d| d.origin),
+                        delegate: caller.delegate_address(),
                         failed: false,
                     };
                     group.save_tracked(group_hamt.set_and_flush_tracked(&id, sub.clone())?);
-                    debug!(
-                        "created new subscription to blob {} for {} (key: {})",
-                        hash, subscriber, id
-                    );
                     // Update expiry index
                     self.expiries.update_index(
                         store,
@@ -778,12 +362,15 @@ impl State {
                         &id,
                         vec![ExpiryUpdate::Add(expiry)],
                     )?;
+
+                    debug!(
+                        "created new subscription to blob {} for {} (key: {})",
+                        hash, subscriber, id
+                    );
                     sub
                 };
-
                 blob.subscribers
                     .save_tracked(subscribers.set_and_flush_tracked(&subscriber, group)?);
-
                 sub
             } else {
                 new_account_capacity = size;
@@ -791,37 +378,28 @@ impl State {
                 // However, we still need to reserve the full required credit from the new
                 // subscriber, as the existing account(s) may decide to change the expiry or cancel.
                 credit_required = Credit::from_whole(self.get_storage_cost(ttl, &size));
-                tokens_unspent = ensure_credit_or_buy(
-                    &mut account.credit_free,
-                    &mut self.credit_sold,
+                value_rebate = self.use_or_buy_credit_for_caller(
+                    &mut caller,
+                    config,
                     &credit_required,
-                    &config.token_credit_rate,
-                    &tokens_received,
-                    &subscriber,
+                    &value,
                     current_epoch,
-                    &delegation,
                 )?;
                 // Add new subscription
                 let sub = Subscription {
                     added: current_epoch,
                     expiry,
                     source,
-                    delegate: delegation.as_ref().map(|d| d.origin),
+                    delegate: caller.delegate_address(),
                     failed: false,
                 };
-
                 let mut subscribers = blob.subscribers.hamt(store)?;
                 let mut subscription_group = SubscriptionGroup::new(store)?;
                 let mut subscription_group_hamt = subscription_group.hamt(store)?;
                 subscription_group
                     .save_tracked(subscription_group_hamt.set_and_flush_tracked(&id, sub.clone())?);
-
                 blob.subscribers.save_tracked(
                     subscribers.set_and_flush_tracked(&subscriber, subscription_group)?,
-                );
-                debug!(
-                    "created new subscription to blob {} for {} (key: {})",
-                    hash, subscriber, id
                 );
                 // Update expiry index
                 self.expiries.update_index(
@@ -831,8 +409,14 @@ impl State {
                     &id,
                     vec![ExpiryUpdate::Add(expiry)],
                 )?;
+
+                debug!(
+                    "created new subscription to blob {} for {} (key: {})",
+                    hash, subscriber, id
+                );
                 sub
             };
+            // Update blob status
             if !matches!(blob.status, BlobStatus::Resolved) {
                 // It's pending or failed, reset to added status
                 blob.status = BlobStatus::Added;
@@ -854,48 +438,35 @@ impl State {
             }
             new_capacity = size;
             credit_required = Credit::from_whole(self.get_storage_cost(ttl, &size));
-            tokens_unspent = ensure_credit_or_buy(
-                &mut account.credit_free,
-                &mut self.credit_sold,
+            value_rebate = self.use_or_buy_credit_for_caller(
+                &mut caller,
+                config,
                 &credit_required,
-                &config.token_credit_rate,
-                &tokens_received,
-                &subscriber,
+                &value,
                 current_epoch,
-                &delegation,
             )?;
             // Create new blob
             let sub = Subscription {
                 added: current_epoch,
                 expiry,
                 source,
-                delegate: delegation.as_ref().map(|d| d.origin),
+                delegate: caller.delegate_address(),
                 failed: false,
             };
-
             let blob_subscribers = BlobSubscribers::new(store)?;
             let mut subscribers = blob_subscribers.hamt(store)?;
-
             let mut blob = Blob {
                 size: size.to_u64().unwrap(),
                 metadata_hash,
                 subscribers: blob_subscribers,
                 status: BlobStatus::Added,
             };
-
             let mut subscription_group = SubscriptionGroup::new(store)?;
             let mut subscription_group_hamt = subscription_group.hamt(store)?;
             subscription_group
                 .save_tracked(subscription_group_hamt.set_and_flush_tracked(&id, sub.clone())?);
-
             blob.subscribers
                 .save_tracked(subscribers.set_and_flush_tracked(&subscriber, subscription_group)?);
-
-            debug!("created new blob {}", hash);
-            debug!(
-                "created new subscription to blob {} for {} (key: {})",
-                hash, subscriber, id
-            );
             // Update expiry index
             self.expiries.update_index(
                 store,
@@ -907,6 +478,12 @@ impl State {
             // Add the source to the added queue
             self.added
                 .upsert(store, hash, (subscriber, id, source), blob.size)?;
+
+            debug!("created new blob {}", hash);
+            debug!(
+                "created new subscription to blob {} for {} (key: {})",
+                hash, subscriber, id
+            );
             (sub, blob)
         };
         // Account capacity is changing, debit for existing usage
@@ -929,7 +506,7 @@ impl State {
         account.credit_free -= &credit_required;
         // Update credit approval
         if let Some(delegation) = delegation {
-            let origin = delegation.origin;
+            let origin = delegation.to;
             let mut origin_account = accounts.get_or_err(&origin)?;
             let mut origin_approval = origin_account
                 .approvals_from
@@ -975,11 +552,11 @@ impl State {
                 subscriber
             );
         }
-        Ok((sub, tokens_unspent))
+        Ok((sub, value_rebate))
     }
 
-    fn get_storage_cost(&self, ttl: i64, size: &u64) -> BigInt {
-        ttl * BigInt::from(*size)
+    fn get_storage_cost(&self, duration: i64, size: &u64) -> BigInt {
+        duration * BigInt::from(*size)
     }
 
     pub fn get_blob<BS: Blockstore>(
@@ -1215,7 +792,7 @@ impl State {
                 if let Some(delegation) = delegation {
                     delegation.approval.credit_used -= &reclaim_credits;
 
-                    let origin = delegation.origin;
+                    let origin = delegation.to;
                     let mut origin_account = accounts.get_or_err(&origin)?;
                     let mut origin_approval = origin_account
                         .approvals_from
@@ -1343,17 +920,17 @@ impl State {
                 }
             }
             Some(delegation) => {
-                if origin != delegation.origin && origin != subscriber {
+                if origin != delegation.to && origin != subscriber {
                     return Err(ActorError::forbidden(format!(
                         "origin {} is not delegate origin {} or subscriber {} for blob {}",
-                        origin, delegation.origin, subscriber, hash
+                        origin, delegation.to, subscriber, hash
                     )));
                 }
                 if let Some(expiry) = delegation.approval.expiry {
                     if expiry <= current_epoch {
                         return Err(ActorError::forbidden(format!(
                             "approval from {} to {} expired",
-                            subscriber, delegation.origin
+                            subscriber, delegation.to
                         )));
                     }
                 }
@@ -1429,7 +1006,7 @@ impl State {
                     if let Some(delegation) = delegation {
                         delegation.approval.credit_used -= &reclaim_credits;
 
-                        let origin = delegation.origin;
+                        let origin = delegation.to;
                         let mut origin_account = accounts.get_or_err(&origin)?;
                         let mut origin_approval = origin_account
                             .approvals_from
@@ -1506,16 +1083,6 @@ impl State {
         accounts.set(&subscriber, account)?;
         self.accounts.save_tracked(accounts.flush_tracked()?);
         Ok((delete_blob, size))
-    }
-
-    /// Return available capacity as a difference between `blob_capacity_total` and `capacity_used`.
-    fn capacity_available(&self, blob_capacity_total: u64) -> u64 {
-        // Prevent underflow. We only care if free capacity is > 0 anyway.
-        if blob_capacity_total > self.capacity_used {
-            blob_capacity_total - self.capacity_used
-        } else {
-            0
-        }
     }
 
     /// Adjusts all subscriptions for `account` according to its max TTL.
@@ -1633,153 +1200,6 @@ impl State {
     }
 }
 
-/// Check if `subscriber` has enough credits, including delegated credits.
-fn ensure_credit(
-    subscriber: &Address,
-    current_epoch: ChainEpoch,
-    credit_free: &Credit,
-    credit_required: &Credit,
-    delegation: &Option<CreditDelegation>,
-) -> anyhow::Result<(), ActorError> {
-    ensure_enough_credits(subscriber, credit_free, credit_required)?;
-    ensure_delegated_credit(subscriber, current_epoch, credit_required, delegation)
-}
-
-/// Check if `subscriber` owns enough free credits.
-fn ensure_enough_credits(
-    subscriber: &Address,
-    credit_free: &Credit,
-    credit_required: &Credit,
-) -> anyhow::Result<(), ActorError> {
-    if credit_free >= credit_required {
-        Ok(())
-    } else {
-        Err(ActorError::insufficient_funds(format!(
-            "account {} has insufficient credit (available: {}; required: {})",
-            subscriber, credit_free, credit_required
-        )))
-    }
-}
-
-#[allow(clippy::too_many_arguments)]
-fn ensure_credit_or_buy(
-    account_credit_free: &mut Credit,
-    state_credit_sold: &mut Credit,
-    credit_required: &Credit,
-    token_credit_rate: &TokenCreditRate,
-    tokens_received: &TokenAmount,
-    subscriber: &Address,
-    current_epoch: ChainEpoch,
-    delegate: &Option<CreditDelegation>,
-) -> anyhow::Result<TokenAmount, ActorError> {
-    let tokens_received_non_zero = !tokens_received.is_zero();
-    let has_delegation = delegate.is_some();
-    match (tokens_received_non_zero, has_delegation) {
-        (true, true) => Err(ActorError::illegal_argument(format!(
-            "cannot buy credits inline for {}",
-            subscriber,
-        ))),
-        (true, false) => {
-            // Try buying credits for self
-            let not_enough_credits = *account_credit_free < *credit_required;
-            if not_enough_credits {
-                let credits_needed: Credit = credit_required - &*account_credit_free;
-                let tokens_needed = &credits_needed / token_credit_rate;
-                if tokens_needed <= *tokens_received {
-                    let tokens_to_rebate = tokens_received - tokens_needed;
-                    *state_credit_sold += &credits_needed;
-                    *account_credit_free += &credits_needed;
-                    Ok(tokens_to_rebate)
-                } else {
-                    Err(ActorError::insufficient_funds(format!(
-                        "account {} sent insufficient tokens (received: {}; required: {})",
-                        subscriber, tokens_received, tokens_needed
-                    )))
-                }
-            } else {
-                Ok(TokenAmount::zero())
-            }
-        }
-        (false, true) => {
-            ensure_credit(
-                subscriber,
-                current_epoch,
-                account_credit_free,
-                credit_required,
-                delegate,
-            )?;
-            Ok(TokenAmount::zero())
-        }
-        (false, false) => {
-            ensure_credit(
-                subscriber,
-                current_epoch,
-                account_credit_free,
-                credit_required,
-                delegate,
-            )?;
-            Ok(TokenAmount::zero())
-        }
-    }
-}
-
-fn ensure_delegated_credit(
-    subscriber: &Address,
-    current_epoch: ChainEpoch,
-    credit_required: &Credit,
-    delegation: &Option<CreditDelegation>,
-) -> anyhow::Result<(), ActorError> {
-    if let Some(delegation) = delegation {
-        if let Some(limit) = &delegation.approval.credit_limit {
-            let unused = &(limit - &delegation.approval.credit_used);
-            if unused < credit_required {
-                return Err(ActorError::insufficient_funds(format!(
-                    "approval from {} to {} has insufficient credit (available: {}; required: {})",
-                    subscriber, delegation.origin, unused, credit_required
-                )));
-            }
-        }
-
-        if let Some(expiry) = delegation.approval.expiry {
-            if expiry <= current_epoch {
-                return Err(ActorError::forbidden(format!(
-                    "approval from {} to {} expired",
-                    subscriber, delegation.origin
-                )));
-            }
-        }
-    }
-    Ok(())
-}
-
-fn ensure_gas_limit(
-    subscriber: &Address,
-    current_epoch: ChainEpoch,
-    gas_required: &TokenAmount,
-    delegation: &Option<CreditDelegation>,
-) -> anyhow::Result<(), ActorError> {
-    if let Some(delegation) = delegation {
-        if let Some(limit) = &delegation.approval.gas_fee_limit {
-            let unused = &(limit - &delegation.approval.gas_fee_used);
-            if unused < gas_required {
-                return Err(ActorError::insufficient_funds(format!(
-                    "approval from {} to {} has insufficient credit (available: {}; required: {})",
-                    subscriber, delegation.origin, unused, gas_required
-                )));
-            }
-        }
-        if let Some(expiry) = delegation.approval.expiry {
-            if expiry <= current_epoch {
-                return Err(ActorError::forbidden(format!(
-                    "approval from {} to {} expired",
-                    subscriber, delegation.origin
-                )));
-            }
-        }
-    }
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1826,333 +1246,6 @@ mod tests {
         assert_eq!(subscriber_approval.credit_used, origin_approval.credit_used);
     }
 
-    fn check_approvals_match(
-        state: &State,
-        store: &MemoryBlockstore,
-        from: Address,
-        to: Address,
-        expected: CreditApproval,
-    ) {
-        let from_account = state.get_account(&store, from).unwrap().unwrap();
-        assert_eq!(
-            from_account
-                .approvals_to
-                .hamt(store)
-                .unwrap()
-                .get(&to)
-                .unwrap()
-                .unwrap(),
-            expected
-        );
-        let to_account = state.get_account(&store, to).unwrap().unwrap();
-        assert_eq!(
-            to_account
-                .approvals_from
-                .hamt(store)
-                .unwrap()
-                .get(&from)
-                .unwrap()
-                .unwrap(),
-            expected
-        );
-    }
-
-    #[test]
-    fn test_buy_credit_success() {
-        setup_logs();
-        let config = RecallConfig::default();
-        let store = MemoryBlockstore::default();
-        let mut state = State::new(&store).unwrap();
-        let to = new_address();
-        let amount = TokenAmount::from_whole(1);
-
-        let res = state.buy_credit(&config, &store, to, amount.clone(), 1);
-        assert!(res.is_ok());
-        let account = res.unwrap();
-        let credit_sold = amount.clone() * &config.token_credit_rate;
-        assert_eq!(account.credit_free, credit_sold);
-        assert_eq!(account.gas_allowance, amount);
-        assert_eq!(state.credit_sold, credit_sold);
-        let account_back = state.get_account(&store, to).unwrap().unwrap();
-        assert_eq!(account, account_back);
-    }
-
-    #[test]
-    fn test_buy_credit_negative_amount() {
-        setup_logs();
-        let config = RecallConfig::default();
-        let store = MemoryBlockstore::default();
-        let mut state = State::new(&store).unwrap();
-        let recipient = new_address();
-        let amount = TokenAmount::from_whole(-1);
-
-        let res = state.buy_credit(&config, &store, recipient, amount, 1);
-        assert!(res.is_err());
-        assert_eq!(res.err().unwrap().msg(), "token amount must be positive");
-    }
-
-    #[test]
-    fn test_buy_credit_at_capacity() {
-        setup_logs();
-        let config = RecallConfig::default();
-        let store = MemoryBlockstore::default();
-        let mut state = State::new(&store).unwrap();
-        let recipient = new_address();
-        let amount = TokenAmount::from_whole(1);
-
-        state.capacity_used = config.blob_capacity;
-        let res = state.buy_credit(&config, &store, recipient, amount, 1);
-        assert!(res.is_err());
-        assert_eq!(
-            res.err().unwrap().msg(),
-            "credits not available (subnet has reached storage capacity)"
-        );
-    }
-
-    #[test]
-    fn test_approve_credit_success() {
-        setup_logs();
-        let store = MemoryBlockstore::default();
-        let mut state = State::new(&store).unwrap();
-        let from = new_address();
-        let to = new_address();
-        let current_epoch = 1;
-
-        let config = RecallConfig::default();
-
-        // No limit or expiry
-        let res = state.approve_credit(&config, &store, from, to, current_epoch, None, None, None);
-        assert!(res.is_ok());
-        let approval = res.unwrap();
-        assert_eq!(approval.credit_limit, None);
-        assert_eq!(approval.gas_fee_limit, None);
-        assert_eq!(approval.expiry, None);
-        check_approvals_match(&state, &store, from, to, approval);
-
-        // Add credit limit
-        let limit = 1_000_000_000_000_000_000u64;
-        let res = state.approve_credit(
-            &config,
-            &store,
-            from,
-            to,
-            current_epoch,
-            Some(Credit::from_whole(limit)),
-            None,
-            None,
-        );
-        assert!(res.is_ok());
-        let approval = res.unwrap();
-        assert_eq!(approval.credit_limit, Some(Credit::from_whole(limit)));
-        assert_eq!(approval.gas_fee_limit, None);
-        assert_eq!(approval.expiry, None);
-        check_approvals_match(&state, &store, from, to, approval);
-
-        // Add gas fee limit
-        let limit = 1_000_000_000_000_000_000u64;
-        let res = state.approve_credit(
-            &config,
-            &store,
-            from,
-            to,
-            current_epoch,
-            None,
-            Some(TokenAmount::from_atto(limit)),
-            None,
-        );
-        assert!(res.is_ok());
-        let approval = res.unwrap();
-        assert_eq!(approval.credit_limit, None);
-        assert_eq!(approval.gas_fee_limit, Some(TokenAmount::from_atto(limit)));
-        assert_eq!(approval.expiry, None);
-        check_approvals_match(&state, &store, from, to, approval);
-
-        // Add ttl
-        let ttl = ChainEpoch::from(config.blob_min_ttl);
-        let res = state.approve_credit(
-            &config,
-            &store,
-            from,
-            to,
-            current_epoch,
-            Some(Credit::from_whole(limit)),
-            None,
-            Some(ttl),
-        );
-        assert!(res.is_ok());
-        let approval = res.unwrap();
-        assert_eq!(approval.credit_limit, Some(Credit::from_whole(limit)));
-        assert_eq!(approval.gas_fee_limit, None);
-        assert_eq!(approval.expiry, Some(ttl + current_epoch));
-        check_approvals_match(&state, &store, from, to, approval);
-    }
-
-    #[test]
-    fn test_approve_credit_invalid_ttl() {
-        setup_logs();
-        let store = MemoryBlockstore::default();
-        let mut state = State::new(&store).unwrap();
-        let from = new_address();
-        let to = new_address();
-        let current_epoch = 1;
-
-        let config = RecallConfig::default();
-        let ttl = ChainEpoch::from(config.blob_min_ttl - 1);
-        let res = state.approve_credit(
-            &config,
-            &store,
-            from,
-            to,
-            current_epoch,
-            None,
-            None,
-            Some(ttl),
-        );
-        assert!(res.is_err());
-        assert_eq!(
-            res.err().unwrap().msg(),
-            format!("minimum approval TTL is {}", config.blob_min_ttl)
-        );
-    }
-
-    #[test]
-    fn test_approve_credit_overflowing_ttl() {
-        setup_logs();
-        let store = MemoryBlockstore::default();
-        let mut state = State::new(&store).unwrap();
-        let from = new_address();
-        let to = new_address();
-        let current_epoch = 1;
-
-        let config = RecallConfig::default();
-
-        let res = state.approve_credit(
-            &config,
-            &store,
-            from,
-            to,
-            current_epoch,
-            None,
-            None,
-            Some(ChainEpoch::MAX),
-        );
-        assert!(res.is_ok());
-        let approval = res.unwrap();
-        assert_eq!(approval.expiry, Some(i64::MAX));
-    }
-
-    #[test]
-    fn test_approve_credit_insufficient_credit() {
-        setup_logs();
-        let config = RecallConfig::default();
-        let store = MemoryBlockstore::default();
-        let mut state = State::new(&store).unwrap();
-        let from = new_address();
-        let to = new_address();
-        let current_epoch = 1;
-
-        let amount = TokenAmount::from_whole(10);
-        state
-            .buy_credit(&config, &store, from, amount.clone(), current_epoch)
-            .unwrap();
-        let res = state.approve_credit(&config, &store, from, to, current_epoch, None, None, None);
-        assert!(res.is_ok());
-
-        // Add a blob
-        let (hash, size) = new_hash(1024);
-        let res = state.add_blob(
-            &config,
-            &store,
-            to,
-            from,
-            current_epoch,
-            hash,
-            new_metadata_hash(),
-            SubscriptionId::default(),
-            size,
-            None,
-            new_pk(),
-            TokenAmount::zero(),
-        );
-        assert!(res.is_ok());
-
-        // Check approval
-        let account = state.get_account(&store, from).unwrap().unwrap();
-        let approval = account
-            .approvals_to
-            .hamt(&store)
-            .unwrap()
-            .get(&to)
-            .unwrap()
-            .unwrap();
-        assert_eq!(account.credit_committed, approval.credit_used);
-
-        // Try to update approval with a limit below what's already been committed
-        let limit = 1_000u64;
-        let res = state.approve_credit(
-            &config,
-            &store,
-            from,
-            to,
-            current_epoch,
-            Some(Credit::from_whole(limit)),
-            None,
-            None,
-        );
-        assert!(res.is_err());
-        assert_eq!(
-            res.err().unwrap().msg(),
-            format!(
-                "limit cannot be less than amount of already used credits ({})",
-                approval.credit_used
-            )
-        );
-    }
-
-    #[test]
-    fn test_revoke_credit_success() {
-        setup_logs();
-        let store = MemoryBlockstore::default();
-        let mut state = State::new(&store).unwrap();
-        let from = new_address();
-        let to = new_address();
-        let current_epoch = 1;
-
-        let config = RecallConfig::default();
-        let res = state.approve_credit(&config, &store, from, to, current_epoch, None, None, None);
-        assert!(res.is_ok());
-
-        // Check the account approvals
-        let from_account = state.get_account(&store, from).unwrap().unwrap();
-        assert_eq!(from_account.approvals_to.len(), 1);
-        let to_account = state.get_account(&store, to).unwrap().unwrap();
-        assert_eq!(to_account.approvals_from.len(), 1);
-
-        // Remove the approval
-        let res = state.revoke_credit(&store, from, to);
-        assert!(res.is_ok());
-        let from_account = state.get_account(&store, from).unwrap().unwrap();
-        assert_eq!(from_account.approvals_to.len(), 0);
-        let to_account = state.get_account(&store, to).unwrap().unwrap();
-        assert_eq!(to_account.approvals_from.len(), 0);
-    }
-
-    #[test]
-    fn test_revoke_credit_account_not_found() {
-        setup_logs();
-        let store = MemoryBlockstore::default();
-        let mut state = State::new(&store).unwrap();
-        let from = new_address();
-        let to = new_address();
-
-        let res = state.revoke_credit(&store, from, to);
-        assert!(res.is_err());
-        assert_eq!(
-            res.err().unwrap().msg(),
-            format!("{} not found in accounts", from)
-        );
-    }
-
     #[test]
     fn test_debit_accounts_delete_from_disc() {
         setup_logs();
@@ -2163,7 +1256,7 @@ mod tests {
         let current_epoch = ChainEpoch::from(1);
         let token_amount = TokenAmount::from_whole(10);
         state
-            .buy_credit(&config, &store, origin, token_amount.clone(), current_epoch)
+            .buy_credit(&store, &config, origin, token_amount.clone(), current_epoch)
             .unwrap();
         debit_accounts_delete_from_disc(
             &config,
@@ -2189,8 +1282,8 @@ mod tests {
         let token_amount = TokenAmount::from_whole(10);
         state
             .buy_credit(
-                &config,
                 &store,
+                &config,
                 subscriber,
                 token_amount.clone(),
                 current_epoch,
@@ -2430,7 +1523,7 @@ mod tests {
         let current_epoch = ChainEpoch::from(1);
         let token_amount = TokenAmount::from_whole(10);
         state
-            .buy_credit(&config, &store, origin, token_amount.clone(), current_epoch)
+            .buy_credit(&store, &config, origin, token_amount.clone(), current_epoch)
             .unwrap();
         add_blob_refund(
             &config,
@@ -2456,8 +1549,8 @@ mod tests {
         let token_amount = TokenAmount::from_whole(10);
         state
             .buy_credit(
-                &config,
                 &store,
+                &config,
                 subscriber,
                 token_amount.clone(),
                 current_epoch,
@@ -2679,7 +1772,7 @@ mod tests {
         let current_epoch = ChainEpoch::from(1);
         let token_amount = TokenAmount::from_whole(10);
         state
-            .buy_credit(&config, &store, origin, token_amount.clone(), current_epoch)
+            .buy_credit(&store, &config, origin, token_amount.clone(), current_epoch)
             .unwrap();
         add_blob_same_hash_same_account(
             &config,
@@ -2705,8 +1798,8 @@ mod tests {
         let token_amount = TokenAmount::from_whole(10);
         state
             .buy_credit(
-                &config,
                 &store,
+                &config,
                 subscriber,
                 token_amount.clone(),
                 current_epoch,
@@ -3092,7 +2185,7 @@ mod tests {
         let current_epoch = ChainEpoch::from(1);
         let amount = TokenAmount::from_whole(10);
         state
-            .buy_credit(&config, &store, subscriber, amount.clone(), current_epoch)
+            .buy_credit(&store, &config, subscriber, amount.clone(), current_epoch)
             .unwrap();
 
         // Add a blob
@@ -3141,7 +2234,7 @@ mod tests {
         let current_epoch = ChainEpoch::from(1);
         let amount = TokenAmount::from_whole(1000000);
         state
-            .buy_credit(&config, &store, subscriber, amount.clone(), current_epoch)
+            .buy_credit(&store, &config, subscriber, amount.clone(), current_epoch)
             .unwrap();
 
         let res = state.set_account_status(
@@ -3183,7 +2276,7 @@ mod tests {
         let current_epoch = ChainEpoch::from(1);
         let amount = TokenAmount::from_whole(10);
         state
-            .buy_credit(&config, &store, subscriber, amount.clone(), current_epoch)
+            .buy_credit(&store, &config, subscriber, amount.clone(), current_epoch)
             .unwrap();
 
         // Add a blob
@@ -3246,7 +2339,7 @@ mod tests {
         let current_epoch = ChainEpoch::from(1);
         let amount = TokenAmount::from_whole(10);
         state
-            .buy_credit(&config, &store, subscriber, amount.clone(), current_epoch)
+            .buy_credit(&store, &config, subscriber, amount.clone(), current_epoch)
             .unwrap();
         let credit_amount = amount * &config.token_credit_rate;
 
@@ -3323,7 +2416,7 @@ mod tests {
         let current_epoch = ChainEpoch::from(1);
         let amount = TokenAmount::from_whole(10);
         state
-            .buy_credit(&config, &store, subscriber, amount.clone(), current_epoch)
+            .buy_credit(&store, &config, subscriber, amount.clone(), current_epoch)
             .unwrap();
         let mut credit_amount = amount.clone() * &config.token_credit_rate;
 
@@ -3459,7 +2552,7 @@ mod tests {
         let current_epoch = ChainEpoch::from(1);
         let token_amount = TokenAmount::from_whole(10);
         state
-            .buy_credit(&config, &store, origin, token_amount.clone(), current_epoch)
+            .buy_credit(&store, &config, origin, token_amount.clone(), current_epoch)
             .unwrap();
         delete_blob_refund(
             &config,
@@ -3485,8 +2578,8 @@ mod tests {
         let token_amount = TokenAmount::from_whole(10);
         state
             .buy_credit(
-                &config,
                 &store,
+                &config,
                 subscriber,
                 token_amount.clone(),
                 current_epoch,
@@ -3769,7 +2862,7 @@ mod tests {
             let amount = TokenAmount::from_whole(10);
 
             state
-                .buy_credit(&config, &store, subscriber, amount.clone(), current_epoch)
+                .buy_credit(&store, &config, subscriber, amount.clone(), current_epoch)
                 .unwrap();
             state
                 .set_account_status(
@@ -3991,7 +3084,7 @@ mod tests {
             // Setup account with credits and TTL status
             let token = TokenAmount::from_whole(1000);
             state
-                .buy_credit(&config, &store, addr, token, current_epoch)
+                .buy_credit(&store, &config, addr, token, current_epoch)
                 .unwrap();
 
             // Set extended TTL status to allow adding all blobs
@@ -4177,8 +3270,8 @@ mod tests {
             // Setup account with credits and Extended TTL status to allow adding all blobs
             state
                 .buy_credit(
-                    &config,
                     &store,
+                    &config,
                     addr,
                     TokenAmount::from_whole(1000),
                     current_epoch,
@@ -4304,8 +3397,8 @@ mod tests {
         // Setup accounts with credits and Extended TTL status to allow adding all blobs
         state
             .buy_credit(
-                &config,
                 &store,
+                &config,
                 account1,
                 TokenAmount::from_whole(1000),
                 current_epoch,
@@ -4313,8 +3406,8 @@ mod tests {
             .unwrap();
         state
             .buy_credit(
-                &config,
                 &store,
+                &config,
                 account2,
                 TokenAmount::from_whole(1000),
                 current_epoch,
@@ -4493,7 +3586,7 @@ mod tests {
             for _ in 0..count {
                 let user = new_address();
                 state
-                    .buy_credit(config, &store, user, credit_tokens.clone(), 0)
+                    .buy_credit(&store, config, user, credit_tokens.clone(), 0)
                     .unwrap();
                 users.push(user);
             }
@@ -4725,8 +3818,8 @@ mod tests {
             // Buy credits for each account
             state
                 .buy_credit(
-                    &config,
                     &store,
+                    &config,
                     address,
                     token_amount.clone(),
                     current_epoch,
@@ -4763,7 +3856,7 @@ mod tests {
             )
             .unwrap();
         assert!(deletes2.is_empty());
-        assert!(state.next_debit_addr.is_none()); // State should be cleared after all accounts processed
+        assert!(state.next_debit_addr.is_none()); // The state should be cleared after all accounts processed
 
         // Verify all accounts were processed
         let reader = state.accounts.hamt(&store).unwrap();
@@ -4792,8 +3885,8 @@ mod tests {
             let token_amount = TokenAmount::from_whole(10);
             state
                 .buy_credit(
-                    &config,
                     &store,
+                    &config,
                     address,
                     token_amount.clone(),
                     current_epoch,

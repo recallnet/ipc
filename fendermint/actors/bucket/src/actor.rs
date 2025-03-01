@@ -1099,10 +1099,10 @@ mod tests {
             // We do not care what is inside credit approval. We only care if it is present.
             IpldBlock::serialize_cbor::<Option<CreditApproval>>(&Some(CreditApproval {
                 credit_limit: None,
-                gas_fee_limit: None,
+                gas_allowance_limit: None,
                 expiry: None,
                 credit_used: TokenAmount::from_whole(0),
-                gas_fee_used: TokenAmount::from_whole(0),
+                gas_allowance_used: TokenAmount::from_whole(0),
             }))
             .unwrap(),
             ExitCode::OK,

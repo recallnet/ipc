@@ -403,10 +403,10 @@ mod tests {
         // Set up valid credit approval from the Timehub owner to the address that will perform the push
         let approval = CreditApproval {
             credit_limit: None,
-            gas_fee_limit: None,
+            gas_allowance_limit: None,
             expiry: None,
             credit_used: Default::default(),
-            gas_fee_used: Default::default(),
+            gas_allowance_used: Default::default(),
         };
         rt.expect_send(
             BLOBS_ACTOR_ADDR,
@@ -458,10 +458,10 @@ mod tests {
 
         let approval = CreditApproval {
             credit_limit: None,
-            gas_fee_limit: None,
+            gas_allowance_limit: None,
             expiry: Some(epoch1),
             credit_used: Default::default(),
-            gas_fee_used: Default::default(),
+            gas_allowance_used: Default::default(),
         };
         rt.expect_send(
             BLOBS_ACTOR_ADDR,
@@ -514,10 +514,10 @@ mod tests {
 
         let expired_approval = CreditApproval {
             credit_limit: None,
-            gas_fee_limit: None,
+            gas_allowance_limit: None,
             expiry: Some(epoch0),
             credit_used: Default::default(),
-            gas_fee_used: Default::default(),
+            gas_allowance_used: Default::default(),
         };
         rt.expect_send(
             BLOBS_ACTOR_ADDR,

@@ -25,10 +25,10 @@ impl BlobsState {
         Ok(Self { root, size: 0 })
     }
 
-    pub fn hamt<BS: Blockstore>(
+    pub fn hamt<'a, BS: Blockstore>(
         &self,
         store: BS,
-    ) -> Result<hamt::map::Hamt<BS, Hash, Blob>, ActorError> {
+    ) -> Result<hamt::map::Hamt<'a, BS, Hash, Blob>, ActorError> {
         self.root.hamt(store, self.size)
     }
 
@@ -73,10 +73,10 @@ impl BlobsProgressCollection {
     }
 
     /// Returns the underlying [`hamt::map::Hamt`].
-    pub fn hamt<BS: Blockstore>(
+    pub fn hamt<'a, BS: Blockstore>(
         &self,
         store: BS,
-    ) -> Result<hamt::map::Hamt<BS, Hash, BlobSourceSet>, ActorError> {
+    ) -> Result<hamt::map::Hamt<'a, BS, Hash, BlobSourceSet>, ActorError> {
         self.root.hamt(store, self.size)
     }
 

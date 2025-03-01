@@ -22,10 +22,10 @@ impl AccountsState {
         Ok(Self { root, size: 0 })
     }
 
-    pub fn hamt<BS: Blockstore>(
+    pub fn hamt<'a, BS: Blockstore>(
         &self,
         store: BS,
-    ) -> Result<hamt::map::Hamt<BS, Address, Account>, ActorError> {
+    ) -> Result<hamt::map::Hamt<'a, BS, Address, Account>, ActorError> {
         self.root.hamt(store, self.size)
     }
 
