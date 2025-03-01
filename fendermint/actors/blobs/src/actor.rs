@@ -16,10 +16,11 @@ use fendermint_actor_blobs_shared::state::{
     Subscription, SubscriptionId,
 };
 use fendermint_actor_blobs_shared::Method;
-use fendermint_actor_machine::events::emit_evm_event;
-use fendermint_actor_machine::util::{
-    require_addr_is_origin_or_caller, to_delegated_address, to_id_address,
-    to_id_and_delegated_address, token_to_biguint,
+use fendermint_actor_machine::caller::CallerOption;
+use fendermint_actor_machine::{
+    caller::Caller,
+    events::emit_evm_event,
+    util::{to_delegated_address, token_to_biguint},
 };
 use fendermint_actor_recall_config_shared::{get_config, require_caller_is_admin};
 use fil_actors_runtime::{
@@ -38,7 +39,11 @@ use recall_sol_facade::{
     gas::{gas_sponsor_set, gas_sponsor_unset},
 };
 
-use crate::{State, BLOBS_ACTOR_NAME};
+use crate::{
+    caller::DelegationOptions,
+    state::{AddBlobStateParams, DeleteBlobStateParams, FinalizeBlobStateParams, State},
+    BLOBS_ACTOR_NAME,
+};
 
 #[cfg(feature = "fil-actor")]
 fil_actors_runtime::wasm_trampoline!(BlobsActor);
@@ -59,7 +64,7 @@ pub struct BlobsActor;
 type BlobRequest = (Hash, u64, HashSet<(Address, SubscriptionId, PublicKey)>);
 
 impl BlobsActor {
-    /// Creates a new `[BlobsActor]` state.
+    /// Creates a new [`BlobsActor`] state.
     ///
     /// This is only used in tests. This actor is created manually at genesis.
     fn constructor(rt: &impl Runtime) -> Result<(), ActorError> {
@@ -80,21 +85,20 @@ impl BlobsActor {
 
     /// Buy credit with token.
     ///
-    /// The recipient address must be delegated (only delegated addresses can own credit).
+    /// The `to` address must be delegated (only delegated addresses can own credit).
     fn buy_credit(rt: &impl Runtime, params: BuyCreditParams) -> Result<AccountInfo, ActorError> {
         rt.validate_immediate_caller_accept_any()?;
 
-        let (id_addr, delegated_addr) = to_id_and_delegated_address(rt, params.0)?;
-
+        let caller = Caller::new_delegated(rt, params.0, None, CallerOption::Auth)?;
         let config = get_config(rt)?;
 
         let mut credit_amount = Credit::zero();
         let account = rt.transaction(|st: &mut State, rt| {
             let pre_buy = st.credit_sold.clone();
             let account = st.buy_credit(
-                &config,
                 rt.store(),
-                id_addr,
+                &config,
+                caller.state_address(),
                 rt.message().value_received(),
                 rt.curr_epoch(),
             )?;
@@ -104,7 +108,10 @@ impl BlobsActor {
 
         emit_evm_event(
             rt,
-            credit_purchased(delegated_addr, token_to_biguint(Some(credit_amount))),
+            credit_purchased(
+                caller.event_address(),
+                token_to_biguint(Some(credit_amount)),
+            ),
         )?;
 
         AccountInfo::from(account, rt)
@@ -114,6 +121,7 @@ impl BlobsActor {
     ///
     /// The allowance update is applied to `sponsor` if it exists.
     /// The `from` address must have an approval from `sponsor`.
+    /// The `from` address can be any actor, including those without delegated addresses.
     /// This method is called by the recall executor, and as such, cannot fail.
     fn update_gas_allowance(
         rt: &impl Runtime,
@@ -121,19 +129,13 @@ impl BlobsActor {
     ) -> Result<(), ActorError> {
         rt.validate_immediate_caller_is(std::iter::once(&SYSTEM_ACTOR_ADDR))?;
 
-        let from = to_id_address(rt, params.from, false)?;
-
-        let sponsor = if let Some(sponsor) = params.sponsor {
-            Some(to_id_address(rt, sponsor, false)?)
-        } else {
-            None
-        };
+        let caller = Caller::new(rt, params.from, params.sponsor, CallerOption::None)?;
 
         rt.transaction(|st: &mut State, rt| {
             st.update_gas_allowance(
                 rt.store(),
-                from,
-                sponsor,
+                caller.state_address(),
+                caller.sponsor_state_address(),
                 params.add_amount,
                 rt.curr_epoch(),
             )
@@ -145,6 +147,7 @@ impl BlobsActor {
     /// The `from` address must be delegated (only delegated addresses can own credit).
     /// The `from` address must be the message origin or caller.
     /// The `to` address must be delegated (only delegated addresses can use credit).
+    /// The `to` address will be created if it does not exist.
     /// TODO: Remove the `caller_allowlist` parameter.
     fn approve_credit(
         rt: &impl Runtime,
@@ -152,69 +155,47 @@ impl BlobsActor {
     ) -> Result<CreditApproval, ActorError> {
         rt.validate_immediate_caller_accept_any()?;
 
-        let (from_id_addr, from_delegated_addr) = to_id_and_delegated_address(rt, params.from)?;
-        require_addr_is_origin_or_caller(rt, from_id_addr)?;
-
+        let from_caller = Caller::new_delegated(rt, params.from, None, CallerOption::Auth)?;
+        let to_caller = Caller::new_delegated(rt, params.to, None, CallerOption::Create)?;
         let config = get_config(rt)?;
 
-        let (approval, to_delegated_addr) = match to_id_and_delegated_address(rt, params.to) {
-            Ok((to_id_addr, to_delegated_addr)) => rt.transaction(|st: &mut State, rt| {
-                let approval = st.approve_credit(
+        let approval = rt.transaction(|st: &mut State, rt| {
+            let approval = st.approve_credit(
+                &config,
+                rt.store(),
+                from_caller.state_address(),
+                to_caller.state_address(),
+                DelegationOptions {
+                    credit_limit: params.credit_limit,
+                    gas_fee_limit: params.gas_fee_limit,
+                    ttl: params.ttl,
+                },
+                rt.curr_epoch(),
+            );
+
+            // For convenience, set the approvee's sponsor to the approver if it was created
+            if to_caller.created() {
+                st.set_account_sponsor(
                     &config,
                     rt.store(),
-                    from_id_addr,
-                    to_id_addr,
+                    to_caller.state_address(),
+                    Some(from_caller.state_address()),
                     rt.curr_epoch(),
-                    params.credit_limit,
-                    params.gas_fee_limit,
-                    params.ttl,
                 )?;
-                Ok((approval, to_delegated_addr))
-            }),
-            Err(e) if e.exit_code() == ExitCode::USR_NOT_FOUND => {
-                // We send zero tokens to create the account in the FVM
-                extract_send_result(rt.send_simple(
-                    &params.to,
-                    METHOD_SEND,
-                    None,
-                    TokenAmount::zero(),
-                ))?;
-                let (to_id_addr, to_delegated_addr) = to_id_and_delegated_address(rt, params.to)?;
-                let approval = rt.transaction(|st: &mut State, rt| {
-                    let approval = st.approve_credit(
-                        &config,
-                        rt.store(),
-                        from_id_addr,
-                        to_id_addr,
-                        rt.curr_epoch(),
-                        params.credit_limit,
-                        params.gas_fee_limit,
-                        params.ttl,
-                    );
-                    st.set_account_sponsor(
-                        &config,
-                        rt.store(),
-                        to_id_addr,
-                        Some(from_id_addr),
-                        rt.curr_epoch(),
-                    )?;
-                    approval
-                })?;
-                Ok((approval, to_delegated_addr))
             }
-            Err(e) => Err(e),
-        }?;
+            approval
+        })?;
 
         let event_credit_limit = token_to_biguint(approval.credit_limit.clone());
-        let event_fas_fee_limit = token_to_biguint(approval.gas_fee_limit.clone());
+        let event_gas_fee_limit = token_to_biguint(approval.gas_allowance_limit.clone());
         let event_expiry = approval.expiry.unwrap_or_default() as u64;
         emit_evm_event(
             rt,
             credit_approved(
-                from_delegated_addr,
-                to_delegated_addr,
+                from_caller.event_address(),
+                to_caller.event_address(),
                 event_credit_limit,
-                event_fas_fee_limit,
+                event_gas_fee_limit,
                 event_expiry,
             ),
         )?;
@@ -230,15 +211,21 @@ impl BlobsActor {
     fn revoke_credit(rt: &impl Runtime, params: RevokeCreditParams) -> Result<(), ActorError> {
         rt.validate_immediate_caller_accept_any()?;
 
-        let (from_id_addr, from_delegated_addr) = to_id_and_delegated_address(rt, params.from)?;
-        require_addr_is_origin_or_caller(rt, from_id_addr)?;
-        let (to_id_addr, to_delegated_addr) = to_id_and_delegated_address(rt, params.to)?;
+        let from_caller = Caller::new_delegated(rt, params.from, None, CallerOption::Auth)?;
+        let to_caller = Caller::new_delegated(rt, params.to, None, CallerOption::None)?;
 
         rt.transaction(|st: &mut State, rt| {
-            st.revoke_credit(rt.store(), from_id_addr, to_id_addr)
+            st.revoke_credit(
+                rt.store(),
+                from_caller.state_address(),
+                to_caller.state_address(),
+            )
         })?;
 
-        emit_evm_event(rt, credit_revoked(from_delegated_addr, to_delegated_addr))?;
+        emit_evm_event(
+            rt,
+            credit_revoked(from_caller.event_address(), to_caller.event_address()),
+        )?;
 
         Ok(())
     }
@@ -252,22 +239,20 @@ impl BlobsActor {
     fn set_account_sponsor(rt: &impl Runtime, params: SetSponsorParams) -> Result<(), ActorError> {
         rt.validate_immediate_caller_accept_any()?;
 
-        let from = to_id_address(rt, params.from, true)?;
-        require_addr_is_origin_or_caller(rt, from)?;
-        let (sponsor_id_addr, sponsor_delegated_addr) = if let Some(sponsor) = params.sponsor {
-            let addrs = to_id_and_delegated_address(rt, sponsor)?;
-            (Some(addrs.0), Some(addrs.1))
-        } else {
-            (None, None)
-        };
-
+        let caller = Caller::new_delegated(rt, params.from, params.sponsor, CallerOption::Auth)?;
         let config = get_config(rt)?;
 
         rt.transaction(|st: &mut State, rt| {
-            st.set_account_sponsor(&config, rt.store(), from, sponsor_id_addr, rt.curr_epoch())
+            st.set_account_sponsor(
+                &config,
+                rt.store(),
+                caller.state_address(),
+                caller.sponsor_state_address(),
+                rt.curr_epoch(),
+            )
         })?;
 
-        if let Some(sponsor) = sponsor_delegated_addr {
+        if let Some(sponsor) = caller.sponsor_address() {
             emit_evm_event(rt, gas_sponsor_set(sponsor))?;
         } else {
             emit_evm_event(rt, gas_sponsor_unset())?;
@@ -277,21 +262,22 @@ impl BlobsActor {
     }
 
     /// Sets the account status for an address.
+    ///
+    /// The `subscriber` address must be delegated (only delegated addresses can use credit).
     fn set_account_status(
         rt: &impl Runtime,
         params: SetAccountStatusParams,
     ) -> Result<(), ActorError> {
         require_caller_is_admin(rt)?;
 
-        let subscriber = to_id_address(rt, params.subscriber, true)?;
-
+        let caller = Caller::new_delegated(rt, params.subscriber, None, CallerOption::None)?;
         let config = get_config(rt)?;
 
         rt.transaction(|st: &mut State, rt| {
             st.set_account_status(
-                &config,
                 rt.store(),
-                subscriber,
+                &config,
+                caller.state_address(),
                 params.status,
                 rt.curr_epoch(),
             )
@@ -299,20 +285,17 @@ impl BlobsActor {
     }
 
     /// Returns the account for an address.
-    ///
-    /// Only delegated addresses can own or use credit, but we don't need to waste gas enforcing
-    /// that condition here.
     fn get_account(
         rt: &impl Runtime,
         params: GetAccountParams,
     ) -> Result<Option<AccountInfo>, ActorError> {
         rt.validate_immediate_caller_accept_any()?;
 
-        let from = to_id_address(rt, params.0, false)?;
+        let caller = Caller::new(rt, params.0, None, CallerOption::None)?;
 
         let account = rt
             .state::<State>()?
-            .get_account(rt.store(), from)?
+            .get_account(rt.store(), caller.state_address())?
             .map(|mut account| {
                 // Resolve the credit sponsor
                 account.credit_sponsor = account
@@ -327,38 +310,35 @@ impl BlobsActor {
     }
 
     /// Returns the credit approval from one account to another if it exists.
-    ///
-    /// Only delegated addresses can own or use credit, but we don't need to waste gas enforcing
-    /// that condition here.
     fn get_credit_approval(
         rt: &impl Runtime,
         params: GetCreditApprovalParams,
     ) -> Result<Option<CreditApproval>, ActorError> {
         rt.validate_immediate_caller_accept_any()?;
 
-        let from = to_id_address(rt, params.from, false)?;
-        let to = to_id_address(rt, params.to, false)?;
+        let from_caller = Caller::new(rt, params.from, None, CallerOption::None)?;
+        let to_caller = Caller::new(rt, params.to, None, CallerOption::None)?;
 
-        let approval = rt
-            .state::<State>()?
-            .get_credit_approval(rt.store(), from, to)?;
+        let approval = rt.state::<State>()?.get_credit_approval(
+            rt.store(),
+            from_caller.state_address(),
+            to_caller.state_address(),
+        )?;
 
         Ok(approval)
     }
 
     /// Returns the gas allowance from a credit purchase for an address.
     ///
-    /// Only delegated addresses can own or use credit, but we don't need to waste gas enforcing
-    /// that condition here.
-    /// TODO: Gas allowance methods need unit tests.
+    /// This method is called by the recall executor, and as such, cannot fail.
     fn get_gas_allowance(
         rt: &impl Runtime,
         params: GetGasAllowanceParams,
     ) -> Result<GasAllowance, ActorError> {
         rt.validate_immediate_caller_is(std::iter::once(&SYSTEM_ACTOR_ADDR))?;
 
-        let from = match to_id_address(rt, params.0, false) {
-            Ok(from) => from,
+        let from_caller = match Caller::new(rt, params.0, None, CallerOption::None) {
+            Ok(caller) => caller,
             Err(e) => {
                 return if e.exit_code() == ExitCode::USR_FORBIDDEN {
                     // Disallowed actor type (this is called by all txns so we can't error)
@@ -369,42 +349,44 @@ impl BlobsActor {
             }
         };
 
-        let allowance =
-            rt.state::<State>()?
-                .get_gas_allowance(rt.store(), from, rt.curr_epoch())?;
+        let allowance = rt.state::<State>()?.get_gas_allowance(
+            rt.store(),
+            from_caller.state_address(),
+            rt.curr_epoch(),
+        )?;
 
         Ok(allowance)
     }
 
-    /// Debits all accounts for current blob usage.
+    /// Debits accounts for current blob usage.
     ///
     /// This is called by the system actor every X blocks, where X is set in the recall config actor.
-    /// TODO: Take a start key and page limit to avoid out-of-gas errors.
     fn debit_accounts(rt: &impl Runtime) -> Result<(), ActorError> {
         rt.validate_immediate_caller_is(std::iter::once(&SYSTEM_ACTOR_ADDR))?;
+
         let config = get_config(rt)?;
+
         let mut credit_debited = Credit::zero();
-        let (deletes, num_accounts) = rt.transaction(|st: &mut State, rt| {
+        let (deletes, num_accounts, more_accounts) = rt.transaction(|st: &mut State, rt| {
             let initial_credit_debited = st.credit_debited.clone();
-            let deletes = st.debit_accounts(
-                rt.store(),
-                rt.curr_epoch(),
-                config.blob_delete_batch_size,
-                config.account_debit_batch_size,
-            )?;
+            let (deletes, more_accounts) =
+                st.debit_accounts(rt.store(), &config, rt.curr_epoch())?;
             credit_debited = &st.credit_debited - initial_credit_debited;
             let num_accounts = st.accounts.len();
-            Ok((deletes, num_accounts))
+            Ok((deletes, num_accounts, more_accounts))
         })?;
 
         for hash in deletes {
             delete_from_disc(hash)?;
         }
 
-        // TODO: Wire more_accounts param when pagination work is done.
         emit_evm_event(
             rt,
-            credit_debited_event(token_to_biguint(Some(credit_debited)), num_accounts, false),
+            credit_debited_event(
+                token_to_biguint(Some(credit_debited)),
+                num_accounts,
+                more_accounts,
+            ),
         )?;
 
         Ok(())
@@ -416,55 +398,49 @@ impl BlobsActor {
     /// their existing subscriptions.
     ///
     /// The `sponsor` will be the subscriber (the account responsible for payment), if it exists
-    /// and there is an approval from `sponsor` to the message `origin` or `caller`.    
+    /// and there is an approval from `sponsor` to `from`.    
     ///
-    /// Only delegated addresses can own or use credit.
+    /// The `from` address must be delegated (only delegated addresses can use credit).
+    /// The `sponsor` address must be delegated (only delegated addresses can use credit).
     fn add_blob(rt: &impl Runtime, params: AddBlobParams) -> Result<Subscription, ActorError> {
         rt.validate_immediate_caller_accept_any()?;
 
-        let (from_id_addr, from_delegated_addr) = to_id_and_delegated_address(rt, params.from)?;
-        require_addr_is_origin_or_caller(rt, from_id_addr)?;
-        let (subscriber_id_addr, subscriber_delegated_addr) = if let Some(sponsor) = params.sponsor
-        {
-            to_id_and_delegated_address(rt, sponsor)?
-        } else {
-            (from_id_addr, from_delegated_addr)
-        };
-
-        let tokens_received = rt.message().value_received();
-
+        let caller = Caller::new_delegated(rt, params.from, params.sponsor, CallerOption::Auth)?;
+        let token_amount = rt.message().value_received();
         let config = get_config(rt)?;
 
         let mut capacity_used = 0;
-        let (sub, tokens_unspent) = rt.transaction(|st: &mut State, rt| {
+        let (sub, token_rebate) = rt.transaction(|st: &mut State, rt| {
             let initial_capacity_used = st.capacity_used;
             let res = st.add_blob(
-                &config,
                 rt.store(),
-                from_id_addr,
-                subscriber_id_addr,
-                rt.curr_epoch(),
-                params.hash,
-                params.metadata_hash,
-                params.id,
-                params.size,
-                params.ttl,
-                params.source,
-                tokens_received,
+                &config,
+                caller.state_address(),
+                caller.sponsor_state_address(),
+                AddBlobStateParams::from_actor_params(
+                    params.clone(),
+                    rt.curr_epoch(),
+                    token_amount,
+                ),
             )?;
             capacity_used = st.capacity_used - initial_capacity_used;
             Ok(res)
         })?;
 
         // Send back unspent tokens
-        if !tokens_unspent.is_zero() {
-            extract_send_result(rt.send_simple(&from_id_addr, METHOD_SEND, None, tokens_unspent))?;
+        if !token_rebate.is_zero() {
+            extract_send_result(rt.send_simple(
+                &caller.state_address(),
+                METHOD_SEND,
+                None,
+                token_rebate,
+            ))?;
         }
 
         emit_evm_event(
             rt,
             blob_added(
-                subscriber_delegated_addr,
+                caller.event_address(),
                 &params.hash.0,
                 params.size,
                 sub.expiry as u64,
@@ -488,9 +464,13 @@ impl BlobsActor {
         params: GetBlobStatusParams,
     ) -> Result<Option<BlobStatus>, ActorError> {
         rt.validate_immediate_caller_accept_any()?;
-        let subscriber = to_id_address(rt, params.subscriber, false)?;
-        rt.state::<State>()?
-            .get_blob_status(rt.store(), subscriber, params.hash, params.id)
+        let caller = Caller::new(rt, params.subscriber, None, CallerOption::None)?;
+        rt.state::<State>()?.get_blob_status(
+            rt.store(),
+            caller.state_address(),
+            params.hash,
+            params.id,
+        )
     }
 
     /// Returns a list of [`BlobRequest`]s that are currenlty in the [`BlobStatus::Added`] state.
@@ -521,16 +501,17 @@ impl BlobsActor {
     }
 
     /// Sets a blob to the [`BlobStatus::Pending`] state.
+    ///
+    /// The `subscriber` address must be delegated (only delegated addresses can use credit).
     fn set_blob_pending(rt: &impl Runtime, params: SetBlobPendingParams) -> Result<(), ActorError> {
         rt.validate_immediate_caller_is(std::iter::once(&SYSTEM_ACTOR_ADDR))?;
 
-        let (subscriber_id_addr, subscriber_delegated_addr) =
-            to_id_and_delegated_address(rt, params.subscriber)?;
+        let caller = Caller::new_delegated(rt, params.subscriber, None, CallerOption::None)?;
 
         rt.transaction(|st: &mut State, rt| {
             st.set_blob_pending(
                 rt.store(),
-                subscriber_id_addr,
+                caller.state_address(),
                 params.hash,
                 params.size,
                 params.id,
@@ -540,7 +521,7 @@ impl BlobsActor {
 
         emit_evm_event(
             rt,
-            blob_pending(subscriber_delegated_addr, &params.hash.0, &params.source.0),
+            blob_pending(caller.event_address(), &params.hash.0, &params.source.0),
         )
     }
 
@@ -549,61 +530,48 @@ impl BlobsActor {
     /// This is the final protocol step to add a blob, which is controlled by validator consensus.
     /// The [`BlobStatus::Resolved`] state means that a quorum of validators was able to download the blob.
     /// The [`BlobStatus::Failed`] state means that a quorum of validators was not able to download the blob.
+    ///
+    /// The `subscriber` address must be delegated (only delegated addresses can use credit).
     fn finalize_blob(rt: &impl Runtime, params: FinalizeBlobParams) -> Result<(), ActorError> {
         rt.validate_immediate_caller_is(std::iter::once(&SYSTEM_ACTOR_ADDR))?;
 
-        let (subscriber_id_addr, subscriber_delegated_addr) =
-            to_id_and_delegated_address(rt, params.subscriber)?;
+        let caller = Caller::new_delegated(rt, params.subscriber, None, CallerOption::None)?;
         let event_resolved = matches!(params.status, BlobStatus::Resolved);
-
-        let config = get_config(rt)?;
 
         rt.transaction(|st: &mut State, rt| {
             st.finalize_blob(
-                &config,
                 rt.store(),
-                subscriber_id_addr,
-                rt.curr_epoch(),
-                params.hash,
-                params.id,
-                params.status,
+                caller.state_address(),
+                FinalizeBlobStateParams::from_actor_params(params.clone(), rt.curr_epoch()),
             )
         })?;
 
         emit_evm_event(
             rt,
-            blob_finalized(subscriber_delegated_addr, &params.hash.0, event_resolved),
+            blob_finalized(caller.event_address(), &params.hash.0, event_resolved),
         )
     }
 
     /// Deletes a blob subscription.
     ///
     /// The `sponsor` will be the subscriber (the account responsible for payment), if it exists
-    /// and there is an approval from `sponsor` to the message `origin` or `caller`.    
+    /// and there is an approval from `sponsor` to `from`.    
     ///
-    /// Only delegated addresses can own or use credit.
+    /// The `from` address must be delegated (only delegated addresses can use credit).
+    /// The `sponsor` address must be delegated (only delegated addresses can use credit).
     fn delete_blob(rt: &impl Runtime, params: DeleteBlobParams) -> Result<(), ActorError> {
         rt.validate_immediate_caller_accept_any()?;
 
-        let (from_id_addr, from_delegated_addr) = to_id_and_delegated_address(rt, params.from)?;
-        require_addr_is_origin_or_caller(rt, from_id_addr)?;
-        let (subscriber_id_addr, subscriber_delegated_addr) = if let Some(sponsor) = params.sponsor
-        {
-            to_id_and_delegated_address(rt, sponsor)?
-        } else {
-            (from_id_addr, from_delegated_addr)
-        };
+        let caller = Caller::new_delegated(rt, params.from, params.sponsor, CallerOption::Auth)?;
 
         let mut capacity_released = 0;
         let (delete, size) = rt.transaction(|st: &mut State, rt| {
             let initial_capacity_used = st.capacity_used;
             let res = st.delete_blob(
                 rt.store(),
-                from_id_addr,
-                subscriber_id_addr,
-                rt.curr_epoch(),
-                params.hash,
-                params.id,
+                caller.state_address(),
+                caller.sponsor_state_address(),
+                DeleteBlobStateParams::from_actor_params(params.clone(), rt.curr_epoch()),
             )?;
             capacity_released = initial_capacity_used - st.capacity_used;
             Ok(res)
@@ -616,7 +584,7 @@ impl BlobsActor {
         emit_evm_event(
             rt,
             blob_deleted(
-                subscriber_delegated_addr,
+                caller.event_address(),
                 &params.hash.0,
                 size,
                 capacity_released,
@@ -632,24 +600,18 @@ impl BlobsActor {
     /// and is useful for some blob workflows like a replacing a key in a bucket actor.
     ///
     /// The `sponsor` will be the subscriber (the account responsible for payment), if it exists
-    /// and there is an approval from `sponsor` to the message `origin` or `caller`.    
+    /// and there is an approval from `sponsor` to `from`.    
     ///
-    /// Only delegated addresses can own or use credit.
+    /// The `from` address must be delegated (only delegated addresses can use credit).
+    /// The `sponsor` address must be delegated (only delegated addresses can use credit).
     fn overwrite_blob(
         rt: &impl Runtime,
         params: OverwriteBlobParams,
     ) -> Result<Subscription, ActorError> {
         rt.validate_immediate_caller_accept_any()?;
 
-        let (from_id_addr, from_delegated_addr) = to_id_and_delegated_address(rt, params.add.from)?;
-        require_addr_is_origin_or_caller(rt, from_id_addr)?;
-        let (subscriber_id_addr, subscriber_delegated_addr) =
-            if let Some(sponsor) = params.add.sponsor {
-                to_id_and_delegated_address(rt, sponsor)?
-            } else {
-                (from_id_addr, from_delegated_addr)
-            };
-
+        let caller =
+            Caller::new_delegated(rt, params.add.from, params.add.sponsor, CallerOption::Auth)?;
         let config = get_config(rt)?;
 
         // Determine if we need to delete an existing blob before adding the new one
@@ -668,11 +630,13 @@ impl BlobsActor {
             let (delete, delete_size) = if overwrite {
                 st.delete_blob(
                     rt.store(),
-                    from_id_addr,
-                    subscriber_id_addr,
-                    rt.curr_epoch(),
-                    params.old_hash,
-                    add_params.id.clone(),
+                    caller.state_address(),
+                    caller.sponsor_state_address(),
+                    DeleteBlobStateParams {
+                        hash: params.old_hash,
+                        id: add_params.id.clone(),
+                        epoch: rt.curr_epoch(),
+                    },
                 )?
             } else {
                 (false, 0)
@@ -681,18 +645,15 @@ impl BlobsActor {
 
             let initial_capacity_used = st.capacity_used;
             let (subscription, _) = st.add_blob(
-                &config,
                 rt.store(),
-                from_id_addr,
-                subscriber_id_addr,
-                rt.curr_epoch(),
-                add_params.hash,
-                add_params.metadata_hash,
-                add_params.id,
-                add_params.size,
-                add_params.ttl,
-                add_params.source,
-                TokenAmount::zero(),
+                &config,
+                caller.state_address(),
+                caller.sponsor_state_address(),
+                AddBlobStateParams::from_actor_params(
+                    add_params,
+                    rt.curr_epoch(),
+                    TokenAmount::zero(),
+                ),
             )?;
             capacity_used = st.capacity_used - initial_capacity_used;
 
@@ -707,7 +668,7 @@ impl BlobsActor {
             emit_evm_event(
                 rt,
                 blob_deleted(
-                    subscriber_delegated_addr,
+                    caller.event_address(),
                     &params.old_hash.0,
                     delete_size,
                     capacity_released,
@@ -717,7 +678,7 @@ impl BlobsActor {
         emit_evm_event(
             rt,
             blob_added(
-                subscriber_delegated_addr,
+                caller.event_address(),
                 &add_hash.0,
                 add_size,
                 sub.expiry as u64,
@@ -733,21 +694,22 @@ impl BlobsActor {
     /// This is used in conjunction with `set_account_status` when reducing an account's maximum
     /// allowed blob TTL.
     /// Returns the number of subscriptions processed and the next key to continue iteration.
+    ///
+    /// The `subscriber` address must be delegated (only delegated addresses can use credit).
     fn trim_blob_expiries(
         rt: &impl Runtime,
         params: TrimBlobExpiriesParams,
     ) -> Result<(u32, Option<Hash>), ActorError> {
         require_caller_is_admin(rt)?;
 
-        let subscriber = to_id_address(rt, params.subscriber, true)?;
-
+        let caller = Caller::new_delegated(rt, params.subscriber, None, CallerOption::None)?;
         let config = get_config(rt)?;
 
         let (processed, next_key, deleted_blobs) = rt.transaction(|st: &mut State, rt| {
             st.trim_blob_expiries(
                 &config,
                 rt.store(),
-                subscriber,
+                caller.state_address(),
                 rt.curr_epoch(),
                 params.starting_hash,
                 params.limit,
@@ -762,7 +724,7 @@ impl BlobsActor {
     }
 
     /// Fallback method for unimplemented method numbers.
-    pub fn fallback(
+    fn fallback(
         rt: &impl Runtime,
         method: MethodNum,
         _: Option<IpldBlock>,
@@ -839,7 +801,7 @@ impl ActorCode for BlobsActor {
 mod tests {
     use super::*;
 
-    use fendermint_actor_blobs_testing::{new_hash, new_pk};
+    use fendermint_actor_blobs_testing::{new_hash, new_pk, setup_logs};
     use fendermint_actor_machine::events::to_actor_event;
     use fendermint_actor_recall_config_shared::{RecallConfig, RECALL_CONFIG_ACTOR_ADDR};
     use fil_actors_evm_shared::address::EthAddress;
@@ -935,6 +897,7 @@ mod tests {
 
     #[test]
     fn test_buy_credit() {
+        setup_logs();
         let rt = construct_and_verify();
 
         // TODO(bcalza): Choose a rate different than default
@@ -1017,6 +980,7 @@ mod tests {
 
     #[test]
     fn test_approve_credit() {
+        setup_logs();
         let rt = construct_and_verify();
 
         // Credit owner
@@ -1127,6 +1091,7 @@ mod tests {
 
     #[test]
     fn test_approve_credit_to_new_account() {
+        setup_logs();
         let rt = construct_and_verify();
 
         // Credit owner
@@ -1146,7 +1111,6 @@ mod tests {
         let receiver_f4_eth_addr = Address::new_delegated(10, &receiver_eth_addr.0).unwrap();
 
         rt.expect_validate_caller_any();
-        expect_get_config(&rt);
         rt.expect_send_simple(
             receiver_f4_eth_addr,
             METHOD_SEND,
@@ -1180,6 +1144,7 @@ mod tests {
 
     #[test]
     fn test_revoke_credit() {
+        setup_logs();
         let rt = construct_and_verify();
 
         // Credit owner
@@ -1294,6 +1259,7 @@ mod tests {
 
     #[test]
     fn test_add_blob() {
+        setup_logs();
         let rt = construct_and_verify();
 
         let token_credit_rate = BigInt::from(1000000000000000000u64);
@@ -1313,6 +1279,7 @@ mod tests {
         rt.expect_validate_caller_any();
         let hash = new_hash(1024);
         let add_params = AddBlobParams {
+            from: id_addr,
             sponsor: None,
             source: new_pk(),
             hash: hash.0,
@@ -1320,7 +1287,6 @@ mod tests {
             id: SubscriptionId::default(),
             size: hash.1,
             ttl: Some(3600),
-            from: id_addr,
         };
         expect_get_config(&rt);
         let result = rt.call::<BlobsActor>(
@@ -1348,6 +1314,7 @@ mod tests {
         rt.verify();
 
         // Try with sufficient balance
+        rt.set_received(TokenAmount::zero());
         rt.set_epoch(ChainEpoch::from(5));
         rt.expect_validate_caller_any();
         expect_get_config(&rt);
@@ -1369,6 +1336,7 @@ mod tests {
 
     #[test]
     fn test_add_blob_inline_buy() {
+        setup_logs();
         let rt = construct_and_verify();
 
         let id_addr = Address::new_id(110);
@@ -1386,6 +1354,7 @@ mod tests {
         rt.expect_validate_caller_any();
         let hash = new_hash(1024);
         let add_params = AddBlobParams {
+            from: id_addr,
             sponsor: None,
             source: new_pk(),
             hash: hash.0,
@@ -1393,7 +1362,6 @@ mod tests {
             id: SubscriptionId::default(),
             size: hash.1,
             ttl: Some(3600),
-            from: id_addr,
         };
         let tokens_sent = TokenAmount::from_whole(1);
         rt.set_received(tokens_sent.clone());
@@ -1422,6 +1390,7 @@ mod tests {
         rt.set_received(TokenAmount::zero());
         let hash = new_hash(1024);
         let add_params = AddBlobParams {
+            from: id_addr,
             sponsor: None,
             hash: hash.0,
             metadata_hash: new_hash(1024).0,
@@ -1429,7 +1398,6 @@ mod tests {
             id: SubscriptionId::default(),
             size: hash.1,
             ttl: Some(3600),
-            from: id_addr,
         };
         expect_get_config(&rt);
         let response = rt.call::<BlobsActor>(
@@ -1446,6 +1414,7 @@ mod tests {
         rt.expect_validate_caller_any();
         let hash = new_hash(1024);
         let add_params = AddBlobParams {
+            from: id_addr,
             sponsor: None,
             hash: hash.0,
             metadata_hash: new_hash(1024).0,
@@ -1453,7 +1422,6 @@ mod tests {
             id: SubscriptionId::default(),
             size: hash.1,
             ttl: Some(3600),
-            from: id_addr,
         };
         expect_get_config(&rt);
         expect_emitted_add_event(&rt, 0, &add_params, f4_eth_addr, add_params.size);
@@ -1467,6 +1435,7 @@ mod tests {
 
     #[test]
     fn test_add_blob_with_sponsor() {
+        setup_logs();
         let rt = construct_and_verify();
 
         let token_credit_rate = BigInt::from(1000000000000000000u64);
@@ -1487,15 +1456,6 @@ mod tests {
         let spender_f4_eth_addr = Address::new_delegated(10, &spender_eth_addr.0).unwrap();
         rt.set_delegated_address(spender_id_addr.id().unwrap(), spender_f4_eth_addr);
         rt.set_address_actor_type(spender_id_addr, *ETHACCOUNT_ACTOR_CODE_ID);
-
-        // Proxy EVM contract on behalf of the credit owner
-        let proxy_id_addr = Address::new_id(112);
-        let proxy_eth_addr = EthAddress(hex_literal::hex!(
-            "CAFEB0BA00000000000000000000000000000002"
-        ));
-        let proxy_f4_eth_addr = Address::new_delegated(10, &proxy_eth_addr.0).unwrap();
-        rt.set_delegated_address(proxy_id_addr.id().unwrap(), proxy_f4_eth_addr);
-        rt.set_address_actor_type(proxy_id_addr, *EVM_ACTOR_CODE_ID);
 
         // Sponsor buys credit
         let tokens = 1;
@@ -1550,6 +1510,7 @@ mod tests {
         rt.set_received(TokenAmount::zero());
         let hash = new_hash(1024);
         let add_params = AddBlobParams {
+            from: spender_id_addr,
             sponsor: Some(sponsor_id_addr),
             hash: hash.0,
             metadata_hash: new_hash(1024).0,
@@ -1557,7 +1518,6 @@ mod tests {
             id: SubscriptionId::default(),
             size: hash.1,
             ttl: Some(3600),
-            from: spender_id_addr,
         };
         expect_get_config(&rt);
         expect_emitted_add_event(&rt, 0, &add_params, sponsor_f4_eth_addr, add_params.size);
@@ -1568,13 +1528,16 @@ mod tests {
         assert!(response.is_ok());
         rt.verify();
 
-        // Try sending non-zero -> cannot buy for a sponsor
+        // Try sending non-zero -> cannot buy for a sponsor, tokens are sent back
         rt.set_origin(spender_id_addr);
         rt.set_caller(*ETHACCOUNT_ACTOR_CODE_ID, spender_id_addr);
         rt.expect_validate_caller_any();
-        rt.set_received(TokenAmount::from_whole(1));
+        let received = TokenAmount::from_whole(1);
+        rt.set_received(received.clone());
+        rt.set_balance(received.clone());
         let hash = new_hash(1024);
         let add_params = AddBlobParams {
+            from: spender_id_addr,
             sponsor: Some(sponsor_id_addr),
             hash: hash.0,
             metadata_hash: new_hash(1024).0,
@@ -1582,14 +1545,22 @@ mod tests {
             id: SubscriptionId::default(),
             size: hash.1,
             ttl: Some(3600),
-            from: spender_id_addr,
         };
         expect_get_config(&rt);
+        expect_emitted_add_event(&rt, 0, &add_params, sponsor_f4_eth_addr, add_params.size);
+        rt.expect_send_simple(
+            spender_id_addr,
+            METHOD_SEND,
+            None,
+            received,
+            None,
+            ExitCode::OK,
+        );
         let response = rt.call::<BlobsActor>(
             Method::AddBlob as u64,
             IpldBlock::serialize_cbor(&add_params).unwrap(),
         );
-        assert!(response.is_err());
+        assert!(response.is_ok());
         rt.verify();
     }
 }

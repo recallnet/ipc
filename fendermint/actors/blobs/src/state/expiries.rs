@@ -7,19 +7,65 @@ use fendermint_actor_blobs_shared::state::SubscriptionId;
 use fil_actors_runtime::ActorError;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::tuple::*;
+use fvm_ipld_encoding::RawBytes;
 use fvm_shared::address::Address;
 use fvm_shared::clock::ChainEpoch;
 use recall_ipld::amt::vec::TrackedFlushResult;
+use recall_ipld::hamt::MapKey;
 use recall_ipld::{amt, hamt};
+use std::fmt::Display;
 
-use crate::state::ExpiryKey;
+/// Key used to namespace subscriptions in the expiry index.
+#[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize_tuple, Deserialize_tuple)]
+pub struct ExpiryKey {
+    /// Key hash.
+    pub hash: Hash,
+    /// Key subscription ID.
+    pub id: SubscriptionId,
+}
+
+impl Display for ExpiryKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "ExpiryKey(hash: {}, id: {})", self.hash, self.id)
+    }
+}
+
+impl MapKey for ExpiryKey {
+    fn from_bytes(b: &[u8]) -> Result<Self, String> {
+        let raw_bytes = RawBytes::from(b.to_vec());
+        fil_actors_runtime::cbor::deserialize(&raw_bytes, "ExpiryKey")
+            .map_err(|e| format!("Failed to deserialize ExpiryKey {}", e))
+    }
+
+    fn to_bytes(&self) -> Result<Vec<u8>, String> {
+        let raw_bytes = fil_actors_runtime::cbor::serialize(self, "ExpiryKey")
+            .map_err(|e| format!("Failed to serialize ExpiryKey {}", e))?;
+        Ok(raw_bytes.to_vec())
+    }
+}
+
+impl ExpiryKey {
+    /// Create a new expiry key.
+    pub fn new(hash: Hash, id: &SubscriptionId) -> Self {
+        Self {
+            hash,
+            id: id.clone(),
+        }
+    }
+}
 
 type PerChainEpochRoot = hamt::Root<Address, hamt::Root<ExpiryKey, ()>>;
 
+/// AMT wrapper for expiry index state.
 #[derive(Debug, Clone, Serialize_tuple, Deserialize_tuple)]
 pub struct ExpiriesState {
+    /// The AMT root.
     pub root: amt::Root<PerChainEpochRoot>,
-    pub next_idx: Option<u64>,
+    /// Index marker for pagination.
+    /// When present, iteration starts from this index.
+    /// Otherwise, iteration begins from the first entry.
+    /// Used for efficient traversal during blob expiration.
+    next_index: Option<u64>,
 }
 
 impl ExpiriesState {
@@ -43,14 +89,14 @@ impl ExpiriesState {
         let root = amt::Root::<PerChainEpochRoot>::new(store)?;
         Ok(Self {
             root,
-            next_idx: None,
+            next_index: None,
         })
     }
 
-    pub fn amt<BS: Blockstore>(
+    pub fn amt<'a, BS: Blockstore>(
         &self,
         store: BS,
-    ) -> Result<amt::vec::Amt<BS, PerChainEpochRoot>, ActorError> {
+    ) -> Result<amt::vec::Amt<'a, BS, PerChainEpochRoot>, ActorError> {
         self.root.amt(store)
     }
 
@@ -74,7 +120,7 @@ impl ExpiriesState {
     {
         let expiries = self.amt(&store)?;
         let (count, next_idx) = expiries.for_each_while_ranged(
-            self.next_idx,
+            self.next_index,
             batch_size,
             |index, per_chain_epoch_root| {
                 if index > epoch as u64 {
@@ -88,13 +134,15 @@ impl ExpiriesState {
                 Ok(true)
             },
         )?;
-        self.next_idx = batch_size.and(next_idx);
-        log::info!(
-            "finished deleting {} blobs, next_idx: {:?}, current_epoch: {}",
+        self.next_index = batch_size.and(next_idx);
+
+        log::debug!(
+            "walked {} blobs, next_index: {:?}, stop_epoch: {}",
             count,
-            self.next_idx,
+            self.next_index,
             epoch
         );
+
         Ok(())
     }
 
@@ -177,8 +225,11 @@ impl ExpiriesState {
     }
 }
 
+/// Helper enum for expiry updates.
 pub enum ExpiryUpdate {
+    /// Entry to add.
     Add(ChainEpoch),
+    /// Entry to remove.
     Remove(ChainEpoch),
 }
 
@@ -274,7 +325,7 @@ mod tests {
                     Ok(())
                 })
                 .unwrap();
-            done = state.next_idx.is_none();
+            done = state.next_index.is_none();
         }
 
         // Should get all epochs in order, despite gaps
@@ -340,7 +391,7 @@ mod tests {
             .unwrap();
 
         // Process remaining epochs
-        while state.next_idx.is_some() {
+        while state.next_index.is_some() {
             state
                 .foreach_up_to_epoch(&store, 150, Some(2), |epoch, _, _| {
                     processed.push(epoch);
@@ -379,7 +430,7 @@ mod tests {
 
         let mut processed = vec![];
 
-        // Process first two expiries (110,120)
+        // Process the first two expiries (110,120)
         state
             .foreach_up_to_epoch(&store, 150, Some(2), |epoch, _, _| {
                 processed.push(epoch);
@@ -404,7 +455,7 @@ mod tests {
             .unwrap();
 
         // Process remaining epochs - should see updated expiry
-        while state.next_idx.is_some() {
+        while state.next_index.is_some() {
             state
                 .foreach_up_to_epoch(&store, 150, Some(2), |epoch, _, _| {
                     processed.push(epoch);
@@ -493,7 +544,7 @@ mod tests {
                     Ok(())
                 })
                 .unwrap();
-            done = state.next_idx.is_none();
+            done = state.next_index.is_none();
         }
 
         // Should get all entries, with multiple entries per epoch

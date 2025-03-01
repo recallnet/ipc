@@ -797,10 +797,10 @@ mod tests {
             BLOBS_ACTOR_ADDR,
             BlobMethod::DeleteBlob as MethodNum,
             IpldBlock::serialize_cbor(&DeleteBlobParams {
+                from: origin,
                 sponsor: Some(origin),
                 hash: add_params.hash,
                 id: sub_id,
-                from: origin,
             })
             .unwrap(),
             TokenAmount::from_whole(0),
@@ -1099,10 +1099,10 @@ mod tests {
             // We do not care what is inside credit approval. We only care if it is present.
             IpldBlock::serialize_cbor::<Option<CreditApproval>>(&Some(CreditApproval {
                 credit_limit: None,
-                gas_fee_limit: None,
+                gas_allowance_limit: None,
                 expiry: None,
                 credit_used: TokenAmount::from_whole(0),
-                gas_fee_used: TokenAmount::from_whole(0),
+                gas_allowance_used: TokenAmount::from_whole(0),
             }))
             .unwrap(),
             ExitCode::OK,

@@ -106,6 +106,8 @@ pub struct GetGasAllowanceParams(pub Address);
 /// Params for adding a blob.
 #[derive(Clone, Debug, Serialize_tuple, Deserialize_tuple)]
 pub struct AddBlobParams {
+    /// Address of the entity adding the blob.
+    pub from: Address,
     /// Optional sponsor address.
     /// Origin or caller must still have a delegation from sponsor.
     pub sponsor: Option<Address>,
@@ -122,8 +124,6 @@ pub struct AddBlobParams {
     /// Blob time-to-live epochs.
     /// If not specified, the current default TTL from the config actor is used.
     pub ttl: Option<ChainEpoch>,
-    /// Address of the entity adding the blob.
-    pub from: Address,
 }
 
 /// Params for getting a blob.
@@ -185,6 +185,8 @@ pub struct FinalizeBlobParams {
 /// Params for deleting a blob.
 #[derive(Clone, Debug, Serialize_tuple, Deserialize_tuple)]
 pub struct DeleteBlobParams {
+    /// Account address that initiated the deletion.
+    pub from: Address,
     /// Optional sponsor address.
     /// Origin or caller must still have a delegation from sponsor.
     /// Must be used if the caller is the delegate who added the blob.
@@ -193,8 +195,6 @@ pub struct DeleteBlobParams {
     pub hash: Hash,
     /// Identifier used to differentiate blob additions for the same subscriber.
     pub id: SubscriptionId,
-    /// Account address that initiated the deletion.
-    pub from: Address,
 }
 
 /// Params for overwriting a blob, i.e., deleting one and adding another.
