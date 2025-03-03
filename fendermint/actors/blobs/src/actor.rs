@@ -775,6 +775,19 @@ impl BlobsActor {
                 let capacity_used = Self::get_account(rt, GetAccountParams(address))?.map(|account| account.capacity_used);
                 let capacity_used_result = capacity_used.unwrap_or(u64::default()); // In EVM if nothing found, return zero
                 blobs::getStorageUsage::abi_encode_result(capacity_used_result)
+            },
+            blobs::getStorageStats::SELECTOR => {
+                let stats = Self::get_stats(rt)?;
+                blobs::getStorageStats::abi_encode_result(blobs::StorageStats {
+                    capacityFree: stats.capacity_free,
+                    capacityUsed: stats.capacity_used,
+                    numBlobs: stats.num_blobs,
+                    numResolving: stats.num_resolving,
+                    numAccounts: stats.num_accounts,
+                    bytesResolving: stats.bytes_resolving,
+                    numAdded: stats.num_added,
+                    bytesAdded: stats.bytes_added,
+                })
             }
             _ => return Err(ActorError::illegal_argument(format!("Can not find method for selector {:?}", selector))),
         };
