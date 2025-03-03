@@ -31,6 +31,7 @@ use fil_actors_runtime::{
 use fvm_ipld_encoding::ipld_block::IpldBlock;
 use fvm_shared::{address::Address, econ::TokenAmount, error::ExitCode, MethodNum, METHOD_SEND};
 use num_traits::Zero;
+use fil_actors_evm_shared::address::EthAddress;
 use recall_sol_facade::{blobs::{blob_added, blob_deleted, blob_finalized, blob_pending}, credit::{
     credit_approved, credit_debited as credit_debited_event, credit_purchased, credit_revoked,
 }, gas::{gas_sponsor_set, gas_sponsor_unset}, blobs};
@@ -767,6 +768,13 @@ impl BlobsActor {
             blobs::getPendingBlobsCount::SELECTOR => {
                 let stats = Self::get_stats(rt)?;
                 blobs::getPendingBlobsCount::abi_encode_result(stats.num_resolving)
+            },
+            blobs::getStorageUsage::SELECTOR => {
+                let input_parameters = blobs::getStorageUsage::abi_decode_input(&params.input_data)?;
+                let address = Address::from(EthAddress(input_parameters.addr.0.0));
+                let capacity_used = Self::get_account(rt, GetAccountParams(address))?.map(|account| account.capacity_used);
+                let capacity_used_result = capacity_used.unwrap_or(u64::default()); // In EVM if nothing found, return zero
+                blobs::getStorageUsage::abi_encode_result(capacity_used_result)
             }
             _ => return Err(ActorError::illegal_argument(format!("Can not find method for selector {:?}", selector))),
         };
