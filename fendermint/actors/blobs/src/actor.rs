@@ -761,24 +761,24 @@ impl BlobsActor {
     fn invoke_contract(rt: &impl Runtime, params: InvokeContractParams) -> Result<InvokeContractReturn, ActorError> {
         let selector = params.selector()?;
         let bytes = match selector {
-            blobs::getPendingBytesCount::SELECTOR => {
+            blobs::get_pending_bytes_count::SELECTOR => {
                 let stats = Self::get_stats(rt)?;
-                blobs::getPendingBytesCount::abi_encode_result(stats.bytes_resolving)
-            },
-            blobs::getPendingBlobsCount::SELECTOR => {
+                blobs::get_pending_bytes_count::abi_encode_result(stats.bytes_resolving)
+            }
+            blobs::get_pending_blobs_count::SELECTOR => {
                 let stats = Self::get_stats(rt)?;
-                blobs::getPendingBlobsCount::abi_encode_result(stats.num_resolving)
-            },
-            blobs::getStorageUsage::SELECTOR => {
-                let input_parameters = blobs::getStorageUsage::abi_decode_input(&params.input_data)?;
+                blobs::get_pending_blobs_count::abi_encode_result(stats.num_resolving)
+            }
+            blobs::get_storage_usage::SELECTOR => {
+                let input_parameters = blobs::get_storage_usage::abi_decode_input(&params.input_data)?;
                 let address = Address::from(EthAddress(input_parameters.addr.0.0));
                 let capacity_used = Self::get_account(rt, GetAccountParams(address))?.map(|account| account.capacity_used);
                 let capacity_used_result = capacity_used.unwrap_or(u64::default()); // In EVM if nothing found, return zero
-                blobs::getStorageUsage::abi_encode_result(capacity_used_result)
-            },
-            blobs::getStorageStats::SELECTOR => {
+                blobs::get_storage_usage::abi_encode_result(capacity_used_result)
+            }
+            blobs::get_storage_stats::SELECTOR => {
                 let stats = Self::get_stats(rt)?;
-                blobs::getStorageStats::abi_encode_result(blobs::StorageStats {
+                blobs::get_storage_stats::abi_encode_result(blobs::StorageStats {
                     capacityFree: stats.capacity_free,
                     capacityUsed: stats.capacity_used,
                     numBlobs: stats.num_blobs,
