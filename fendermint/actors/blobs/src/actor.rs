@@ -763,6 +763,10 @@ impl BlobsActor {
             blobs::getPendingBytesCount::SELECTOR => {
                 let stats = Self::get_stats(rt)?;
                 blobs::getPendingBytesCount::abi_encode_result(stats.bytes_resolving)
+            },
+            blobs::getPendingBlobsCount::SELECTOR => {
+                let stats = Self::get_stats(rt)?;
+                blobs::getPendingBlobsCount::abi_encode_result(stats.num_resolving)
             }
             _ => return Err(ActorError::illegal_argument(format!("Can not find method for selector {:?}", selector))),
         };
