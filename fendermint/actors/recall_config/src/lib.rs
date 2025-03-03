@@ -90,12 +90,6 @@ impl Actor {
     fn set_config(rt: &impl Runtime, params: SetConfigParams) -> Result<(), ActorError> {
         let admin_exists = Self::ensure_update_allowed(rt)?;
 
-        if !params.token_credit_rate.rate().is_positive() {
-            return Err(actor_error!(
-                illegal_argument,
-                "token credit rate must be positive"
-            ));
-        }
         if params.blob_capacity == 0 {
             return Err(actor_error!(
                 illegal_argument,
@@ -152,9 +146,7 @@ impl Actor {
                 params.blob_capacity,
                 params
                     .token_credit_rate
-                    .rate()
-                    .to_biguint()
-                    .unwrap_or_default(),
+                    .rate().clone(),
                 params.blob_credit_debit_interval as u64,
                 params.blob_min_ttl as u64,
                 params.blob_default_ttl as u64,

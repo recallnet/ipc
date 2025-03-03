@@ -9,7 +9,7 @@ use std::ops::{Div, Mul};
 use fil_actors_runtime::ActorError;
 use fvm_ipld_encoding::tuple::*;
 use fvm_shared::address::Address;
-use fvm_shared::bigint::BigInt;
+use fvm_shared::bigint::{BigInt, BigUint, ToBigInt};
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::econ::TokenAmount;
 use recall_ipld::hamt::MapKey;
@@ -22,17 +22,17 @@ pub type Credit = TokenAmount;
 /// TokenCreditRate determines how much atto credits can be bought by a certain amount of RECALL.
 #[derive(Clone, Default, Debug, serde::Serialize, serde::Deserialize, Eq, PartialEq)]
 pub struct TokenCreditRate {
-    rate: BigInt,
+    rate: BigUint,
 }
 
 impl TokenCreditRate {
     pub const RATIO: u128 = 10u128.pow(18);
 
-    pub fn from(rate: impl Into<BigInt>) -> Self {
+    pub fn from(rate: impl Into<BigUint>) -> Self {
         Self { rate: rate.into() }
     }
 
-    pub fn rate(&self) -> &BigInt {
+    pub fn rate(&self) -> &BigUint {
         &self.rate
     }
 }
@@ -47,7 +47,8 @@ impl Mul<&TokenCreditRate> for TokenAmount {
     type Output = Credit;
 
     fn mul(self, rate: &TokenCreditRate) -> Self::Output {
-        (self * &rate.rate).div_floor(TokenCreditRate::RATIO)
+        let a: BigInt = rate.clone().rate.into();
+        (self * &rate.rate.to_bigint().unwrap()).div_floor(TokenCreditRate::RATIO)
     }
 }
 

@@ -35,6 +35,7 @@ use fil_actors_evm_shared::address::EthAddress;
 use recall_sol_facade::{blobs::{blob_added, blob_deleted, blob_finalized, blob_pending}, credit::{
     credit_approved, credit_debited as credit_debited_event, credit_purchased, credit_revoked,
 }, gas::{gas_sponsor_set, gas_sponsor_unset}, blobs};
+use recall_sol_facade::primitives::U256;
 use recall_sol_facade::types::{InvokeContractParams, InvokeContractReturn};
 use crate::{State, BLOBS_ACTOR_NAME};
 
@@ -102,7 +103,7 @@ impl BlobsActor {
 
         emit_evm_event(
             rt,
-            credit_purchased(delegated_addr, token_to_biguint(Some(credit_amount))),
+            credit_purchased(delegated_addr, token_to_biguint(credit_amount)),
         )?;
 
         Ok(account)
@@ -203,8 +204,8 @@ impl BlobsActor {
             Err(e) => Err(e),
         }?;
 
-        let event_credit_limit = token_to_biguint(approval.credit_limit.clone());
-        let event_fas_fee_limit = token_to_biguint(approval.gas_fee_limit.clone());
+        let event_credit_limit = token_to_biguint(approval.credit_limit.clone().unwrap_or_default());
+        let event_fas_fee_limit = token_to_biguint(approval.gas_fee_limit.clone().unwrap_or_default());
         let event_expiry = approval.expiry.unwrap_or_default() as u64;
         emit_evm_event(
             rt,
@@ -400,7 +401,7 @@ impl BlobsActor {
         // TODO: Wire more_accounts param when pagination work is done.
         emit_evm_event(
             rt,
-            credit_debited_event(token_to_biguint(Some(credit_debited)), num_accounts, false),
+            credit_debited_event(token_to_biguint(credit_debited), num_accounts, false),
         )?;
 
         Ok(())
@@ -778,7 +779,7 @@ impl BlobsActor {
             }
             blobs::get_storage_stats::SELECTOR => {
                 let stats = Self::get_stats(rt)?;
-                blobs::get_storage_stats::abi_encode_result(blobs::StorageStats {
+                blobs::get_storage_stats::abi_encode_result(blobs::get_storage_stats::StorageStats {
                     capacityFree: stats.capacity_free,
                     capacityUsed: stats.capacity_used,
                     numBlobs: stats.num_blobs,
@@ -787,6 +788,24 @@ impl BlobsActor {
                     bytesResolving: stats.bytes_resolving,
                     numAdded: stats.num_added,
                     bytesAdded: stats.bytes_added,
+                })
+            }
+            blobs::get_subnet_stats::SELECTOR => {
+                let stats = Self::get_stats(rt)?;
+                blobs::get_subnet_stats::abi_encode_result(blobs::get_subnet_stats::SubnetStats {
+                    balance: token_to_biguint(rt.current_balance()),
+                    capacity_free: stats.capacity_free,
+                    capacity_used: stats.capacity_used,
+                    credit_sold: token_to_biguint(stats.credit_sold),
+                    credit_committed: token_to_biguint(stats.credit_committed),
+                    credit_debited: token_to_biguint(stats.credit_debited),
+                    token_credit_rate: stats.token_credit_rate.rate().clone(),
+                    num_accounts: stats.num_accounts,
+                    num_blobs: stats.num_blobs,
+                    num_added: stats.num_added,
+                    bytes_added: stats.bytes_added,
+                    num_resolving: stats.num_resolving,
+                    bytes_resolving: stats.bytes_resolving
                 })
             }
             _ => return Err(ActorError::illegal_argument(format!("Can not find method for selector {:?}", selector))),
@@ -941,7 +960,7 @@ mod tests {
         amount: TokenAmount,
     ) {
         let event =
-            to_actor_event(credit_purchased(params.0, token_to_biguint(Some(amount))).unwrap())
+            to_actor_event(credit_purchased(params.0, token_to_biguint(amount)).unwrap())
                 .unwrap();
         rt.expect_emitted_event(event);
     }
@@ -954,8 +973,8 @@ mod tests {
         gas_fee_limit: Option<TokenAmount>,
         expiry: ChainEpoch,
     ) {
-        let credit_limit = token_to_biguint(credit_limit);
-        let gas_fee_limit = token_to_biguint(gas_fee_limit);
+        let credit_limit = token_to_biguint(credit_limit.unwrap_or_default());
+        let gas_fee_limit = token_to_biguint(gas_fee_limit.unwrap_or_default());
         let event = to_actor_event(
             credit_approved(from, to, credit_limit, gas_fee_limit, expiry as u64).unwrap(),
         )
