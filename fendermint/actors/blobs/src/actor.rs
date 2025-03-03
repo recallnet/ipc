@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::collections::{HashMap, HashSet};
-use std::io::Read;
 use std::str::FromStr;
 
 use fendermint_actor_blobs_shared::params::{
