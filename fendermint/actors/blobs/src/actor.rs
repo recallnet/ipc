@@ -802,6 +802,15 @@ impl BlobsActor {
                 let stats = Self::get_stats(rt)?;
                 call.returns(&stats)
             }
+            blobs::Calls::getBlob(call) => {
+                let blob_hash: Hash = call.blobHash.clone().try_into().map_err(|e| {
+                    actor_error!(serialization, format!("invalid hash value {}", e))
+                })?;
+                let blob = Self::get_blob(rt, GetBlobParams(blob_hash))?;
+                call.try_returns(&blob).map_err(|e| {
+                    actor_error!(serialization, format!("failed to abi encode response: {}", e))
+                })?
+            }
         };
         Ok(InvokeContractReturn { output_data, })
     }
