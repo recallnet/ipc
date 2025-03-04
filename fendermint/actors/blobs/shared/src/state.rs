@@ -47,7 +47,6 @@ impl Mul<&TokenCreditRate> for TokenAmount {
     type Output = Credit;
 
     fn mul(self, rate: &TokenCreditRate) -> Self::Output {
-        let a: BigInt = rate.clone().rate.into();
         (self * &rate.rate.to_bigint().unwrap()).div_floor(TokenCreditRate::RATIO)
     }
 }
@@ -211,6 +210,12 @@ impl From<u64> for Hash {
 #[serde(transparent)]
 pub struct PublicKey(pub [u8; 32]);
 
+impl Into<String> for PublicKey {
+    fn into(self) -> String {
+        data_encoding::BASE32_NOPAD.encode(&self.0)
+    }
+}
+
 /// The stored representation of a blob.
 #[derive(Clone, PartialEq, Debug, Default, Serialize_tuple, Deserialize_tuple)]
 pub struct Blob {
@@ -263,6 +268,12 @@ impl SubscriptionId {
         Ok(Self {
             inner: value.to_string(),
         })
+    }
+}
+
+impl Into<String> for SubscriptionId {
+    fn into(self) -> String {
+        self.inner
     }
 }
 

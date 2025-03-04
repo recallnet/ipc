@@ -10409,6 +10409,7 @@ dependencies = [
  "alloy-sol-macro-input",
  "alloy-sol-types",
  "anyhow",
+ "data-encoding",
  "dunce",
  "eyre",
  "fil_actors_runtime",

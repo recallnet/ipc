@@ -35,7 +35,6 @@ use fil_actors_evm_shared::address::EthAddress;
 use recall_sol_facade::{blobs::{blob_added, blob_deleted, blob_finalized, blob_pending}, credit::{
     credit_approved, credit_debited as credit_debited_event, credit_purchased, credit_revoked,
 }, gas::{gas_sponsor_set, gas_sponsor_unset}, blobs};
-use recall_sol_facade::primitives::U256;
 use recall_sol_facade::types::{InvokeContractParams, InvokeContractReturn};
 use crate::{State, BLOBS_ACTOR_NAME};
 
@@ -807,6 +806,25 @@ impl BlobsActor {
                     num_resolving: stats.num_resolving,
                     bytes_resolving: stats.bytes_resolving
                 })
+            }
+            blobs::get_added_blobs::SELECTOR => {
+                let input = blobs::get_added_blobs::abi_decode_input(&params.input_data)?;
+                let blob_requests = Self::get_added_blobs(rt, GetAddedBlobsParams(input.size))?;
+                let blob_tuples = blob_requests.iter().map(|blob_request| {
+                    blobs::get_added_blobs::BlobTuple {
+                        blob_hash: &blob_request.0.0,
+                        source_info: blob_request.1.iter().map(|item| {
+                            blobs::get_added_blobs::BlobSourceInfo {
+                                subscriber: item.0.clone(),
+                                subscription_id: item.1.clone().into(),
+                                source: &item.2.0,
+                            }
+                        }).collect(),
+                    }
+                }).collect::<Vec<_>>();
+                blobs::get_added_blobs::abi_encode_result(blob_tuples).map_err(|err| {
+                    actor_error!(serialization, format!("failed to encode added blobs: {}", err))
+                })?
             }
             _ => return Err(ActorError::illegal_argument(format!("Can not find method for selector {:?}", selector))),
         };
