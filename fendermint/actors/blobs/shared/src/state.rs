@@ -232,6 +232,15 @@ impl Into<String> for PublicKey {
     }
 }
 
+impl TryFrom<&str> for PublicKey {
+    type Error = anyhow::Error;
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        let mut res = [0u8; 32];
+        data_encoding::BASE32_NOPAD.decode_mut(value.as_bytes(), &mut res).map_err(|_| anyhow::anyhow!("invalid hash"))?;
+        Ok(Self(res))
+    }
+}
+
 /// The stored representation of a blob.
 #[derive(Clone, PartialEq, Debug, Default, Serialize_tuple, Deserialize_tuple)]
 pub struct Blob {

@@ -24,6 +24,7 @@ use fil_actors_runtime::{
 };
 use fvm_ipld_encoding::ipld_block::IpldBlock;
 use fvm_shared::{address::Address, econ::TokenAmount, error::ExitCode, MethodNum, METHOD_SEND};
+use fvm_shared::clock::ChainEpoch;
 use num_traits::Zero;
 use recall_sol_facade::{blobs::{blob_added, blob_deleted, blob_finalized, blob_pending}, credit::{
     credit_approved, credit_debited as credit_debited_event, credit_purchased, credit_revoked,
@@ -810,6 +811,34 @@ impl BlobsActor {
                 call.try_returns(&blob).map_err(|e| {
                     actor_error!(serialization, format!("failed to abi encode response: {}", e))
                 })?
+            }
+            blobs::Calls::addBlob(call) => {
+                let sponsor = call.params.sponsor.into_eth_address();
+                let sponsor: Option<Address> = if sponsor.is_null() { None } else { Some(sponsor.into()) };
+                let source: PublicKey = PublicKey::try_from(call.params.source.as_str()).map_err(|e| {
+                    actor_error!(serialization, format!("invalid source value {}", e))
+                })?;;
+                let hash: Hash = call.params.source.clone().try_into().map_err(|e| {
+                    actor_error!(serialization, format!("invalid hash value {}", e))
+                })?;
+                let metadata_hash: Hash = call.params.metadataHash.clone().try_into().map_err(|e| {
+                    actor_error!(serialization, format!("invalid hash value {}", e))
+                })?;
+                let subscription_id: SubscriptionId = call.params.subscriptionId.clone().try_into()?;
+                let size =  call.params.size;
+                let ttl = if call.params.ttl.is_zero() { None } else { Some(call.params.ttl as ChainEpoch) };
+                let from: Address = call.params.from.into_eth_address().into();
+                Self::add_blob(rt, AddBlobParams {
+                    sponsor,
+                    source,
+                    hash,
+                    metadata_hash,
+                    id: subscription_id,
+                    size,
+                    ttl,
+                    from
+                })?;
+                call.returns(&())
             }
         };
         Ok(InvokeContractReturn { output_data, })
