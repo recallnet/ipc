@@ -811,10 +811,10 @@ impl BlobsActor {
                 let input = blobs::get_added_blobs::abi_decode_input(&params.input_data)?;
                 let blob_requests = Self::get_added_blobs(rt, GetAddedBlobsParams(input.size))?;
                 let blob_tuples = blob_requests.iter().map(|blob_request| {
-                    blobs::get_added_blobs::BlobTuple {
+                    blobs::BlobTuple {
                         blob_hash: &blob_request.0.0,
                         source_info: blob_request.1.iter().map(|item| {
-                            blobs::get_added_blobs::BlobSourceInfo {
+                            blobs::BlobSourceInfo {
                                 subscriber: item.0.clone(),
                                 subscription_id: item.1.clone().into(),
                                 source: &item.2.0,
@@ -823,6 +823,25 @@ impl BlobsActor {
                     }
                 }).collect::<Vec<_>>();
                 blobs::get_added_blobs::abi_encode_result(blob_tuples).map_err(|err| {
+                    actor_error!(serialization, format!("failed to encode added blobs: {}", err))
+                })?
+            }
+            blobs::get_pending_blobs::SELECTOR => {
+                let input = blobs::get_pending_blobs::abi_decode_input(&params.input_data)?;
+                let blob_requests = Self::get_pending_blobs(rt, GetPendingBlobsParams(input.size))?;
+                let blob_tuples = blob_requests.iter().map(|blob_request| {
+                    blobs::BlobTuple {
+                        blob_hash: &blob_request.0.0,
+                        source_info: blob_request.1.iter().map(|item| {
+                            blobs::BlobSourceInfo {
+                                subscriber: item.0.clone(),
+                                subscription_id: item.1.clone().into(),
+                                source: &item.2.0,
+                            }
+                        }).collect(),
+                    }
+                }).collect::<Vec<_>>();
+                blobs::get_pending_blobs::abi_encode_result(blob_tuples).map_err(|err| {
                     actor_error!(serialization, format!("failed to encode added blobs: {}", err))
                 })?
             }
