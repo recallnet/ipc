@@ -10412,6 +10412,7 @@ dependencies = [
  "data-encoding",
  "dunce",
  "eyre",
+ "fendermint_actor_blobs_shared",
  "fil_actors_runtime",
  "fvm_ipld_encoding",
  "fvm_shared",

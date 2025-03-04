@@ -461,7 +461,7 @@ impl BlobsActor {
             rt,
             blob_added(
                 subscriber_delegated_addr,
-                &params.hash.0,
+                params.hash,
                 params.size,
                 sub.expiry as u64,
                 capacity_used,
@@ -537,7 +537,7 @@ impl BlobsActor {
 
         emit_evm_event(
             rt,
-            blob_pending(subscriber_delegated_addr, &params.hash.0, &params.source.0),
+            blob_pending(subscriber_delegated_addr, params.hash, params.source),
         )
     }
 
@@ -569,7 +569,7 @@ impl BlobsActor {
 
         emit_evm_event(
             rt,
-            blob_finalized(subscriber_delegated_addr, &params.hash.0, event_resolved),
+            blob_finalized(subscriber_delegated_addr, params.hash, event_resolved),
         )
     }
 
@@ -614,7 +614,7 @@ impl BlobsActor {
             rt,
             blob_deleted(
                 subscriber_delegated_addr,
-                &params.hash.0,
+                params.hash,
                 size,
                 capacity_released,
             ),
@@ -705,7 +705,7 @@ impl BlobsActor {
                 rt,
                 blob_deleted(
                     subscriber_delegated_addr,
-                    &params.old_hash.0,
+                    params.old_hash,
                     delete_size,
                     capacity_released,
                 ),
@@ -715,7 +715,7 @@ impl BlobsActor {
             rt,
             blob_added(
                 subscriber_delegated_addr,
-                &add_hash.0,
+                add_hash,
                 add_size,
                 sub.expiry as u64,
                 capacity_used,
@@ -1054,7 +1054,7 @@ mod tests {
         let event = to_actor_event(
             blob_added(
                 subscriber,
-                &params.hash.0,
+                params.hash,
                 params.size,
                 (params.ttl.unwrap_or(86400) + current_epoch) as u64,
                 used,
