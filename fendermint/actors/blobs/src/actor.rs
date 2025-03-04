@@ -845,6 +845,26 @@ impl BlobsActor {
                     actor_error!(serialization, format!("failed to encode added blobs: {}", err))
                 })?
             }
+            blobs::get_blob_status::SELECTOR => {
+                let input = blobs::get_blob_status::abi_decode_input(&params.input_data)?;
+                let subscription_id: SubscriptionId = input.subscription_id.try_into()?;
+                let address = input.subscriber;
+                let blob_hash = Hash::try_from(input.blob_hash.as_str()).map_err(|e| {
+                    ActorError::illegal_argument(format!("Can not decode blob hash {:?}", e))
+                })?;
+                let blob_status = Self::get_blob_status(rt, GetBlobStatusParams {
+                    subscriber: address.into(),
+                    hash: blob_hash,
+                    id: subscription_id,
+                })?.unwrap_or(BlobStatus::Failed);
+                let blob_status_enum: u8 = match blob_status {
+                    BlobStatus::Added => 0,
+                    BlobStatus::Pending => 1,
+                    BlobStatus::Resolved => 2,
+                    BlobStatus::Failed => 3,
+                };
+                blobs::get_blob_status::abi_encode_result(blob_status_enum)
+            }
             _ => return Err(ActorError::illegal_argument(format!("Can not find method for selector {:?}", selector))),
         };
         Ok(InvokeContractReturn { output_data: bytes })

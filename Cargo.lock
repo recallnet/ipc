@@ -10415,6 +10415,7 @@ dependencies = [
  "fil_actors_runtime",
  "fvm_ipld_encoding",
  "fvm_shared",
+ "ipc-types",
  "prettyplease",
  "proc-macro2",
  "quote",
