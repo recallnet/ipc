@@ -5,13 +5,7 @@
 use std::collections::{HashMap, HashSet};
 use std::str::FromStr;
 
-use fendermint_actor_blobs_shared::params::{
-    AddBlobParams, ApproveCreditParams, BuyCreditParams, DeleteBlobParams, FinalizeBlobParams,
-    GetAccountParams, GetAddedBlobsParams, GetBlobParams, GetBlobStatusParams,
-    GetCreditApprovalParams, GetGasAllowanceParams, GetPendingBlobsParams, GetStatsReturn,
-    OverwriteBlobParams, RevokeCreditParams, SetAccountStatusParams, SetBlobPendingParams,
-    SetSponsorParams, TrimBlobExpiriesParams, UpdateGasAllowanceParams,
-};
+use fendermint_actor_blobs_shared::params::{AddBlobParams, ApproveCreditParams, BlobRequest, BuyCreditParams, DeleteBlobParams, FinalizeBlobParams, GetAccountParams, GetAddedBlobsParams, GetBlobParams, GetBlobStatusParams, GetCreditApprovalParams, GetGasAllowanceParams, GetPendingBlobsParams, GetStatsReturn, OverwriteBlobParams, RevokeCreditParams, SetAccountStatusParams, SetBlobPendingParams, SetSponsorParams, TrimBlobExpiriesParams, UpdateGasAllowanceParams};
 use fendermint_actor_blobs_shared::state::{
     Account, Blob, BlobStatus, Credit, CreditApproval, GasAllowance, Hash, PublicKey, Subscription,
     SubscriptionId,
@@ -31,11 +25,10 @@ use fil_actors_runtime::{
 use fvm_ipld_encoding::ipld_block::IpldBlock;
 use fvm_shared::{address::Address, econ::TokenAmount, error::ExitCode, MethodNum, METHOD_SEND};
 use num_traits::Zero;
-use fil_actors_evm_shared::address::EthAddress;
 use recall_sol_facade::{blobs::{blob_added, blob_deleted, blob_finalized, blob_pending}, credit::{
     credit_approved, credit_debited as credit_debited_event, credit_purchased, credit_revoked,
 }, gas::{gas_sponsor_set, gas_sponsor_unset}, blobs};
-use recall_sol_facade::types::{InvokeContractParams, InvokeContractReturn};
+use recall_sol_facade::types::{InvokeContractParams, InvokeContractReturn, TryAbiEncodeReturns, AbiEncodeReturns};
 use crate::{State, BLOBS_ACTOR_NAME};
 
 #[cfg(feature = "fil-actor")]
@@ -51,10 +44,6 @@ fil_actors_runtime::wasm_trampoline!(BlobsActor);
 /// For simplicity, this actor currently manages both blobs and credit.
 /// A future version of the protocol will likely separate them in some way.
 pub struct BlobsActor;
-
-/// The return type used when fetching "added" or "pending" blobs.
-/// See `get_added_blobs` and `get_pending_blobs` for more information.
-type BlobRequest = (Hash, HashSet<(Address, SubscriptionId, PublicKey)>);
 
 impl BlobsActor {
     /// Creates a new `[BlobsActor]` state.
@@ -759,115 +748,62 @@ impl BlobsActor {
     }
 
     fn invoke_contract(rt: &impl Runtime, params: InvokeContractParams) -> Result<InvokeContractReturn, ActorError> {
-        let selector = params.selector()?;
-        let bytes = match selector {
-            blobs::get_pending_bytes_count::SELECTOR => {
-                let stats = Self::get_stats(rt)?;
-                blobs::get_pending_bytes_count::abi_encode_result(stats.bytes_resolving)
-            }
-            blobs::get_pending_blobs_count::SELECTOR => {
-                let stats = Self::get_stats(rt)?;
-                blobs::get_pending_blobs_count::abi_encode_result(stats.num_resolving)
-            }
-            blobs::get_storage_usage::SELECTOR => {
-                let input_parameters = blobs::get_storage_usage::abi_decode_input(&params.input_data)?;
-                let address = Address::from(EthAddress(input_parameters.addr.0.0));
-                let capacity_used = Self::get_account(rt, GetAccountParams(address))?.map(|account| account.capacity_used);
-                let capacity_used_result = capacity_used.unwrap_or(u64::default()); // In EVM if nothing found, return zero
-                blobs::get_storage_usage::abi_encode_result(capacity_used_result)
-            }
-            blobs::get_storage_stats::SELECTOR => {
-                let stats = Self::get_stats(rt)?;
-                blobs::get_storage_stats::abi_encode_result(blobs::get_storage_stats::StorageStats {
-                    capacityFree: stats.capacity_free,
-                    capacityUsed: stats.capacity_used,
-                    numBlobs: stats.num_blobs,
-                    numResolving: stats.num_resolving,
-                    numAccounts: stats.num_accounts,
-                    bytesResolving: stats.bytes_resolving,
-                    numAdded: stats.num_added,
-                    bytesAdded: stats.bytes_added,
-                })
-            }
-            blobs::get_subnet_stats::SELECTOR => {
-                let stats = Self::get_stats(rt)?;
-                blobs::get_subnet_stats::abi_encode_result(blobs::get_subnet_stats::SubnetStats {
-                    balance: token_to_biguint(rt.current_balance()),
-                    capacity_free: stats.capacity_free,
-                    capacity_used: stats.capacity_used,
-                    credit_sold: token_to_biguint(stats.credit_sold),
-                    credit_committed: token_to_biguint(stats.credit_committed),
-                    credit_debited: token_to_biguint(stats.credit_debited),
-                    token_credit_rate: stats.token_credit_rate.rate().clone(),
-                    num_accounts: stats.num_accounts,
-                    num_blobs: stats.num_blobs,
-                    num_added: stats.num_added,
-                    bytes_added: stats.bytes_added,
-                    num_resolving: stats.num_resolving,
-                    bytes_resolving: stats.bytes_resolving
-                })
-            }
-            blobs::get_added_blobs::SELECTOR => {
-                let input = blobs::get_added_blobs::abi_decode_input(&params.input_data)?;
-                let blob_requests = Self::get_added_blobs(rt, GetAddedBlobsParams(input.size))?;
-                let blob_tuples = blob_requests.iter().map(|blob_request| {
-                    blobs::BlobTuple {
-                        blob_hash: &blob_request.0.0,
-                        source_info: blob_request.1.iter().map(|item| {
-                            blobs::BlobSourceInfo {
-                                subscriber: item.0.clone(),
-                                subscription_id: item.1.clone().into(),
-                                source: &item.2.0,
-                            }
-                        }).collect(),
-                    }
-                }).collect::<Vec<_>>();
-                blobs::get_added_blobs::abi_encode_result(blob_tuples).map_err(|err| {
-                    actor_error!(serialization, format!("failed to encode added blobs: {}", err))
+        use blobs::{IntoEthAddress};
+
+        let call = blobs::parse_input(&params.input_data.clone())?;
+
+        let output_data = match call {
+            blobs::Calls::getAddedBlobs(call) => {
+                let size = call.size;
+                let blob_requests = Self::get_added_blobs(rt, GetAddedBlobsParams(size))?;
+                call.try_returns(&blob_requests).map_err(|e| {
+                    actor_error!(serialization, format!("failed to abi encode response: {}", e))
                 })?
             }
-            blobs::get_pending_blobs::SELECTOR => {
-                let input = blobs::get_pending_blobs::abi_decode_input(&params.input_data)?;
-                let blob_requests = Self::get_pending_blobs(rt, GetPendingBlobsParams(input.size))?;
-                let blob_tuples = blob_requests.iter().map(|blob_request| {
-                    blobs::BlobTuple {
-                        blob_hash: &blob_request.0.0,
-                        source_info: blob_request.1.iter().map(|item| {
-                            blobs::BlobSourceInfo {
-                                subscriber: item.0.clone(),
-                                subscription_id: item.1.clone().into(),
-                                source: &item.2.0,
-                            }
-                        }).collect(),
-                    }
-                }).collect::<Vec<_>>();
-                blobs::get_pending_blobs::abi_encode_result(blob_tuples).map_err(|err| {
-                    actor_error!(serialization, format!("failed to encode added blobs: {}", err))
-                })?
-            }
-            blobs::get_blob_status::SELECTOR => {
-                let input = blobs::get_blob_status::abi_decode_input(&params.input_data)?;
-                let subscription_id: SubscriptionId = input.subscription_id.try_into()?;
-                let address = input.subscriber;
-                let blob_hash = Hash::try_from(input.blob_hash.as_str()).map_err(|e| {
-                    ActorError::illegal_argument(format!("Can not decode blob hash {:?}", e))
+            blobs::Calls::getBlobStatus(call) => {
+                let subscriber = call.subscriber.into_eth_address();
+                let blob_hash: Hash = call.blobHash.clone().try_into().map_err(|e| {
+                    actor_error!(serialization, format!("invalid hash value {}", e))
                 })?;
+                let subscription_id: SubscriptionId = call.subscriptionId.clone().try_into()?;
                 let blob_status = Self::get_blob_status(rt, GetBlobStatusParams {
-                    subscriber: address.into(),
+                    subscriber: subscriber.into(),
                     hash: blob_hash,
                     id: subscription_id,
-                })?.unwrap_or(BlobStatus::Failed);
-                let blob_status_enum: u8 = match blob_status {
-                    BlobStatus::Added => 0,
-                    BlobStatus::Pending => 1,
-                    BlobStatus::Resolved => 2,
-                    BlobStatus::Failed => 3,
-                };
-                blobs::get_blob_status::abi_encode_result(blob_status_enum)
+                })?;
+                call.returns(&blob_status)
             }
-            _ => return Err(ActorError::illegal_argument(format!("Can not find method for selector {:?}", selector))),
+            blobs::Calls::getPendingBlobs(call) => {
+                let size = call.size;
+                let blob_requests = Self::get_pending_blobs(rt, GetPendingBlobsParams(size))?;
+                call.try_returns(&blob_requests).map_err(|e| {
+                    actor_error!(serialization, format!("failed to abi encode response: {}", e))
+                })?
+            }
+            blobs::Calls::getPendingBlobsCount(call) => {
+                let stats = Self::get_stats(rt)?;
+                call.returns(&stats.num_resolving)
+            }
+            blobs::Calls::getPendingBytesCount(call) => {
+                let stats = Self::get_stats(rt)?;
+                call.returns(&stats.bytes_resolving)
+            }
+            blobs::Calls::getStorageStats(call) => {
+                let stats = Self::get_stats(rt)?;
+                call.returns(&stats)
+            }
+            blobs::Calls::getStorageUsage(call) => {
+                let address: Address = call.addr.into_eth_address().into();
+                let account = Self::get_account(rt, GetAccountParams(address))?;
+                let capacity_used = account.map(|a| a.capacity_used);
+                call.returns(&capacity_used)
+            }
+            blobs::Calls::getSubnetStats(call) => {
+                let stats = Self::get_stats(rt)?;
+                call.returns(&stats)
+            }
         };
-        Ok(InvokeContractReturn { output_data: bytes })
+        Ok(InvokeContractReturn { output_data, })
     }
 
     /// Fallback method for unimplemented method numbers.

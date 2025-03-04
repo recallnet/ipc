@@ -205,6 +205,22 @@ impl From<u64> for Hash {
     }
 }
 
+impl TryInto<Hash> for String {
+    type Error = anyhow::Error;
+
+    fn try_into(self) -> Result<Hash, Self::Error> {
+        let mut res = [0u8; 32];
+        data_encoding::BASE32_NOPAD.decode_mut(self.as_bytes(), &mut res).map_err(|_| anyhow::anyhow!("invalid hash"))?;
+        Ok(Hash(res))
+    }
+}
+
+impl Into<String> for Hash {
+    fn into(self) -> String {
+        data_encoding::BASE32_NOPAD.encode(&self.0)
+    }
+}
+
 /// Iroh node public key.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]

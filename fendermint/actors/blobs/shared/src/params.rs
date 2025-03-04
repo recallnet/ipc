@@ -13,6 +13,10 @@ use crate::state::{
     BlobStatus, Credit, Hash, PublicKey, SubscriptionId, TokenCreditRate, TtlStatus,
 };
 
+/// The return type used when fetching "added" or "pending" blobs.
+/// See `get_added_blobs` and `get_pending_blobs` for more information.
+pub type BlobRequest = (Hash, HashSet<(Address, SubscriptionId, PublicKey)>);
+
 /// Params for buying credits.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
