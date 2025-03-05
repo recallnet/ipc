@@ -844,7 +844,6 @@ impl BlobsActor {
             blobs::Calls::deleteBlob(call) => {
                 let subscriber: EthAddress = call.subscriber.into_eth_address();
                 let subscriber: Option<Address> = if subscriber.is_null() { None } else { Some(subscriber.into()) };
-
                 let hash: Hash = call.blobHash.clone().try_into().map_err(|e| {
                     actor_error!(serialization, format!("invalid hash value {}", e))
                 })?;
@@ -855,6 +854,41 @@ impl BlobsActor {
                     hash,
                     id: subscription_id,
                     from
+                })?;
+                call.returns(&())
+            }
+            blobs::Calls::overwriteBlob(call) => {
+                let old_hash: Hash = call.oldHash.clone().try_into().map_err(|e| {
+                    actor_error!(serialization, format!("invalid hash value {}", e))
+                })?;
+                let sponsor: EthAddress = call.params.sponsor.into_eth_address();
+                let sponsor: Option<Address> = if sponsor.is_null() { None } else { Some(sponsor.into()) };
+                let source: PublicKey = PublicKey::try_from(call.params.source.as_str()).map_err(|e| {
+                    actor_error!(serialization, format!("invalid source value {}", e))
+                })?;
+                let hash: Hash = call.params.source.clone().try_into().map_err(|e| {
+                    actor_error!(serialization, format!("invalid hash value {}", e))
+                })?;
+                let metadata_hash: Hash = call.params.metadataHash.clone().try_into().map_err(|e| {
+                    actor_error!(serialization, format!("invalid hash value {}", e))
+                })?;
+                let subscription_id: SubscriptionId = call.params.subscriptionId.clone().try_into()?;
+                let size =  call.params.size;
+                let ttl = if call.params.ttl.is_zero() { None } else { Some(call.params.ttl as ChainEpoch) };
+                let from: Address = call.params.from.into_eth_address().into();
+
+                Self::overwrite_blob(rt, OverwriteBlobParams {
+                    old_hash,
+                    add: AddBlobParams {
+                        sponsor,
+                        source,
+                        hash,
+                        metadata_hash,
+                        id: subscription_id,
+                        size,
+                        ttl,
+                        from,
+                    },
                 })?;
                 call.returns(&())
             }
