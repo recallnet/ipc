@@ -28,7 +28,7 @@ use num_traits::Zero;
 use recall_sol_facade::{blobs::{blob_added, blob_deleted, blob_finalized, blob_pending}, credit::{
     credit_approved, credit_debited as credit_debited_event, credit_purchased, credit_revoked,
 }, gas::{gas_sponsor_set, gas_sponsor_unset}, blobs, credit};
-use recall_sol_facade::types::{InvokeContractParams, InvokeContractReturn, TryAbiEncodeReturns, AbiEncodeReturns, InputData};
+use recall_sol_facade::types::{InvokeContractParams, InvokeContractReturn, TryAbiEncodeReturns, AbiEncodeReturns, InputData, IntoEthAddress};
 use crate::{State, BLOBS_ACTOR_NAME};
 
 #[cfg(feature = "fil-actor")]
@@ -748,8 +748,6 @@ impl BlobsActor {
     }
 
     fn invoke_contract(rt: &impl Runtime, params: InvokeContractParams) -> Result<InvokeContractReturn, ActorError> {
-        use blobs::{IntoEthAddress};
-
         let input_data: InputData = params.try_into()?;
         if blobs::can_handle(&input_data) {
             let output_data = match blobs::parse_input(&input_data)? {

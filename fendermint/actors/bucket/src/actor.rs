@@ -22,7 +22,7 @@ use fvm_ipld_hamt::BytesKey;
 use fvm_shared::address::Address;
 use fendermint_actor_bucket_shared::AddParams;
 use recall_sol_facade::bucket::{object_added, object_deleted, object_metadata_updated};
-use recall_sol_facade::types::{InputData, InvokeContractParams, InvokeContractReturn};
+use recall_sol_facade::types::{InputData, InvokeContractParams, InvokeContractReturn, AbiEncodeReturns, TryAbiEncodeReturns};
 use recall_sol_facade::{bucket as BucketFacade};
 use crate::shared::{
     DeleteParams, GetParams, ListObjectsReturn, ListParams, Method, Object,
@@ -277,7 +277,9 @@ impl Actor {
         if BucketFacade::can_handle(&input_data) {
             let output_data = match BucketFacade::parse_input(&input_data)? {
                 BucketFacade::Calls::addObject_0(call) => {
-                    todo!()
+                    let params: AddParams = call.clone().try_into()?;
+                    Self::add_object(rt, params)?;
+                    call.returns(())
                 }
                 BucketFacade::Calls::addObject_1(call) => {
                     todo!()
