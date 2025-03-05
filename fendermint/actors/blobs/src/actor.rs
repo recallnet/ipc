@@ -7,7 +7,7 @@ use std::str::FromStr;
 
 use fendermint_actor_blobs_shared::params::{AddBlobParams, ApproveCreditParams, BlobRequest, BuyCreditParams, DeleteBlobParams, FinalizeBlobParams, GetAccountParams, GetAddedBlobsParams, GetBlobParams, GetBlobStatusParams, GetCreditApprovalParams, GetGasAllowanceParams, GetPendingBlobsParams, GetStatsReturn, OverwriteBlobParams, RevokeCreditParams, SetAccountStatusParams, SetBlobPendingParams, SetSponsorParams, TrimBlobExpiriesParams, UpdateGasAllowanceParams};
 use fendermint_actor_blobs_shared::state::{
-    Account, Blob, BlobStatus, Credit, CreditApproval, GasAllowance, Hash, PublicKey, Subscription,
+    Account, Blob, BlobStatus, Credit, CreditApproval, GasAllowance, Hash, Subscription,
     SubscriptionId,
 };
 use fendermint_actor_blobs_shared::Method;
@@ -761,16 +761,8 @@ impl BlobsActor {
                     call.try_returns(blob_requests)?
                 }
                 blobs::Calls::getBlobStatus(call) => {
-                    let subscriber = call.subscriber.into_eth_address();
-                    let blob_hash: Hash = call.blobHash.clone().try_into().map_err(|e| {
-                        actor_error!(serialization, format!("invalid hash value {}", e))
-                    })?;
-                    let subscription_id: SubscriptionId = call.subscriptionId.clone().try_into()?;
-                    let blob_status = Self::get_blob_status(rt, GetBlobStatusParams {
-                        subscriber: subscriber.into(),
-                        hash: blob_hash,
-                        id: subscription_id,
-                    })?;
+                    let params: GetBlobStatusParams = call.clone().try_into()?;
+                    let blob_status = Self::get_blob_status(rt, params)?;
                     call.returns(blob_status)
                 }
                 blobs::Calls::getPendingBlobs(call) => {
@@ -791,8 +783,7 @@ impl BlobsActor {
                     call.returns(stats)
                 }
                 blobs::Calls::getStorageUsage(call) => {
-                    let address: Address = call.addr.into_eth_address().into();
-                    let account = Self::get_account(rt, GetAccountParams(address))?;
+                    let account = Self::get_account(rt, call.clone().into())?;
                     let capacity_used = account.map(|a| a.capacity_used);
                     call.returns(capacity_used)
                 }
@@ -801,89 +792,23 @@ impl BlobsActor {
                     call.returns(stats)
                 }
                 blobs::Calls::getBlob(call) => {
-                    let blob_hash: Hash = call.blobHash.clone().try_into().map_err(|e| {
-                        actor_error!(serialization, format!("invalid hash value {}", e))
-                    })?;
-                    let blob = Self::get_blob(rt, GetBlobParams(blob_hash))?;
+                    let params: GetBlobParams = call.clone().try_into()?;
+                    let blob = Self::get_blob(rt, params)?;
                     call.try_returns(blob)?
                 }
                 blobs::Calls::addBlob(call) => {
-                    let sponsor: EthAddress = call.params.sponsor.into_eth_address();
-                    let sponsor: Option<Address> = if sponsor.is_null() { None } else { Some(sponsor.into()) };
-                    let source: PublicKey = PublicKey::try_from(call.params.source.as_str()).map_err(|e| {
-                        actor_error!(serialization, format!("invalid source value {}", e))
-                    })?;
-                    let hash: Hash = call.params.source.clone().try_into().map_err(|e| {
-                        actor_error!(serialization, format!("invalid hash value {}", e))
-                    })?;
-                    let metadata_hash: Hash = call.params.metadataHash.clone().try_into().map_err(|e| {
-                        actor_error!(serialization, format!("invalid hash value {}", e))
-                    })?;
-                    let subscription_id: SubscriptionId = call.params.subscriptionId.clone().try_into()?;
-                    let size =  call.params.size;
-                    let ttl = if call.params.ttl.is_zero() { None } else { Some(call.params.ttl as ChainEpoch) };
-                    let from: Address = call.params.from.into_eth_address().into();
-                    Self::add_blob(rt, AddBlobParams {
-                        sponsor,
-                        source,
-                        hash,
-                        metadata_hash,
-                        id: subscription_id,
-                        size,
-                        ttl,
-                        from
-                    })?;
+                    let params: AddBlobParams = call.clone().try_into()?;
+                    Self::add_blob(rt, params)?;
                     call.returns(())
                 }
                 blobs::Calls::deleteBlob(call) => {
-                    let subscriber: EthAddress = call.subscriber.into_eth_address();
-                    let subscriber: Option<Address> = if subscriber.is_null() { None } else { Some(subscriber.into()) };
-                    let hash: Hash = call.blobHash.clone().try_into().map_err(|e| {
-                        actor_error!(serialization, format!("invalid hash value {}", e))
-                    })?;
-                    let subscription_id: SubscriptionId = call.subscriptionId.clone().try_into()?;
-                    let from: Address = call.from.into_eth_address().into();
-                    Self::delete_blob(rt, DeleteBlobParams {
-                        sponsor: subscriber,
-                        hash,
-                        id: subscription_id,
-                        from
-                    })?;
+                    let params: DeleteBlobParams = call.clone().try_into()?;
+                    Self::delete_blob(rt, params)?;
                     call.returns(())
                 }
                 blobs::Calls::overwriteBlob(call) => {
-                    let old_hash: Hash = call.oldHash.clone().try_into().map_err(|e| {
-                        actor_error!(serialization, format!("invalid hash value {}", e))
-                    })?;
-                    let sponsor: EthAddress = call.params.sponsor.into_eth_address();
-                    let sponsor: Option<Address> = if sponsor.is_null() { None } else { Some(sponsor.into()) };
-                    let source: PublicKey = PublicKey::try_from(call.params.source.as_str()).map_err(|e| {
-                        actor_error!(serialization, format!("invalid source value {}", e))
-                    })?;
-                    let hash: Hash = call.params.source.clone().try_into().map_err(|e| {
-                        actor_error!(serialization, format!("invalid hash value {}", e))
-                    })?;
-                    let metadata_hash: Hash = call.params.metadataHash.clone().try_into().map_err(|e| {
-                        actor_error!(serialization, format!("invalid hash value {}", e))
-                    })?;
-                    let subscription_id: SubscriptionId = call.params.subscriptionId.clone().try_into()?;
-                    let size =  call.params.size;
-                    let ttl = if call.params.ttl.is_zero() { None } else { Some(call.params.ttl as ChainEpoch) };
-                    let from: Address = call.params.from.into_eth_address().into();
-
-                    Self::overwrite_blob(rt, OverwriteBlobParams {
-                        old_hash,
-                        add: AddBlobParams {
-                            sponsor,
-                            source,
-                            hash,
-                            metadata_hash,
-                            id: subscription_id,
-                            size,
-                            ttl,
-                            from,
-                        },
-                    })?;
+                    let params: OverwriteBlobParams = call.clone().try_into()?;
+                    Self::overwrite_blob(rt, params)?;
                     call.returns(())
                 }
             };
