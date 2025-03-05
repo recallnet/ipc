@@ -20,11 +20,12 @@ use fil_actors_runtime::{
 };
 use fvm_ipld_hamt::BytesKey;
 use fvm_shared::address::Address;
+use fendermint_actor_bucket_shared::AddParams;
 use recall_sol_facade::bucket::{object_added, object_deleted, object_metadata_updated};
 use recall_sol_facade::types::{InputData, InvokeContractParams, InvokeContractReturn};
 use recall_sol_facade::{bucket as BucketFacade};
 use crate::shared::{
-    AddParams, DeleteParams, GetParams, ListObjectsReturn, ListParams, Method, Object,
+    DeleteParams, GetParams, ListObjectsReturn, ListParams, Method, Object,
     BUCKET_ACTOR_NAME,
 };
 use crate::state::{ObjectState, State};
@@ -325,7 +326,6 @@ impl Actor {
         } else {
             Err(actor_error!(illegal_argument, "invalid call".to_string()))
         }
-        todo!()
     }
 }
 

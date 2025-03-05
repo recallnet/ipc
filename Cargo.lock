@@ -3571,6 +3571,7 @@ dependencies = [
  "cid",
  "fendermint_actor_blobs_shared",
  "fendermint_actor_blobs_testing",
+ "fendermint_actor_bucket_shared",
  "fendermint_actor_machine",
  "fil_actors_evm_shared",
  "fil_actors_runtime",
@@ -3585,6 +3586,23 @@ dependencies = [
  "quickcheck",
  "quickcheck_macros",
  "recall_sol_facade",
+ "serde",
+]
+
+[[package]]
+name = "fendermint_actor_bucket_shared"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "data-encoding",
+ "fendermint_actor_blobs_shared",
+ "fil_actors_runtime",
+ "frc42_dispatch",
+ "fvm_ipld_encoding",
+ "fvm_shared",
+ "num-derive 0.3.3",
+ "num-traits",
+ "recall_ipld",
  "serde",
 ]
 
@@ -10413,6 +10431,7 @@ dependencies = [
  "dunce",
  "eyre",
  "fendermint_actor_blobs_shared",
+ "fendermint_actor_bucket_shared",
  "fil_actors_evm_shared",
  "fil_actors_runtime",
  "fvm_ipld_encoding",
