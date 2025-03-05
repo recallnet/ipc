@@ -753,12 +753,9 @@ impl BlobsActor {
         use blobs::{IntoEthAddress};
 
         let input_data: InputData = params.try_into()?;
-        let optional_call = blobs::parse_input(input_data); // FIXME SU Not happy about that
-        if optional_call.is_none() {
-            return Err(actor_error!(illegal_argument, "nope".to_string()))
-        }
+        let blobs_call = blobs::parse_input(input_data).ok_or(actor_error!(illegal_argument, "invalid call".to_string()))?;
 
-        let output_data = match optional_call.unwrap() { // FIXME SU Not happy about that
+        let output_data = match blobs_call {
             blobs::Calls::getAddedBlobs(call) => {
                 let size = call.size;
                 let blob_requests = Self::get_added_blobs(rt, GetAddedBlobsParams(size))?;
