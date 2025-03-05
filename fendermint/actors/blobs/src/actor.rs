@@ -895,7 +895,7 @@ impl BlobsActor {
             };
             Ok(InvokeContractReturn { output_data, })
         } else if credit::can_handle(&input_data) {
-            match credit::parse_input(&input_data)? {
+            let output_data = match credit::parse_input(&input_data)? {
                 credit::Calls::setAccountSponsor(call) => {
                     let from: Address = call.from.into_eth_address().into();
                     let sponsor: EthAddress = call.sponsor.into_eth_address();
@@ -905,10 +905,10 @@ impl BlobsActor {
                         from,
                         sponsor,
                     })?;
-                    let output_data = call.returns(());
-                    return Ok(InvokeContractReturn { output_data, });
+                    call.returns(())
                 }
-            }
+            };
+            Ok(InvokeContractReturn { output_data, })
         } else {
             Err(actor_error!(illegal_argument, "invalid call".to_string()))
         }
