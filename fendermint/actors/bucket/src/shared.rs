@@ -57,21 +57,6 @@ pub struct ListParams {
     pub limit: u64,
 }
 
-/// The stored representation of an object in the bucket.
-#[derive(Clone, Debug, PartialEq, Serialize_tuple, Deserialize_tuple)]
-pub struct Object {
-    /// The object blake3 hash.
-    pub hash: Hash,
-    /// Blake3 hash of the metadata to use for object recovery.
-    pub recovery_hash: Hash,
-    /// The object size.
-    pub size: u64,
-    /// Expiry block.
-    pub expiry: ChainEpoch,
-    /// User-defined object metadata (e.g., last modified timestamp, etc.).
-    pub metadata: HashMap<String, String>,
-}
-
 /// A list of objects and their common prefixes.
 #[derive(Default, Debug, Serialize_tuple, Deserialize_tuple)]
 pub struct ListObjectsReturn {
