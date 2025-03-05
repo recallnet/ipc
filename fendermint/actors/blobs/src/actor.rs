@@ -1128,6 +1128,8 @@ impl ActorCode for BlobsActor {
 
         // Metrics methods
         GetStats => get_stats,
+
+        // EVM interop
         InvokeContract => invoke_contract,
         _ => fallback,
     }

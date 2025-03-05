@@ -21,7 +21,8 @@ use fil_actors_runtime::{
 use fvm_ipld_hamt::BytesKey;
 use fvm_shared::address::Address;
 use recall_sol_facade::bucket::{object_added, object_deleted, object_metadata_updated};
-
+use recall_sol_facade::types::{InputData, InvokeContractParams, InvokeContractReturn};
+use recall_sol_facade::{bucket as BucketFacade};
 use crate::shared::{
     AddParams, DeleteParams, GetParams, ListObjectsReturn, ListParams, Method, Object,
     BUCKET_ACTOR_NAME,
@@ -268,6 +269,64 @@ impl Actor {
 
         Ok(())
     }
+
+    fn invoke_contract(rt: &impl Runtime, params: InvokeContractParams) -> Result<InvokeContractReturn, ActorError> {
+        let input_data: InputData = params.try_into()?;
+
+        if BucketFacade::can_handle(&input_data) {
+            let output_data = match BucketFacade::parse_input(&input_data)? {
+                BucketFacade::Calls::addObject_0(call) => {
+                    todo!()
+                }
+                BucketFacade::Calls::addObject_1(call) => {
+                    todo!()
+                }
+                BucketFacade::Calls::createBucket_0(call) => {
+                    todo!()
+                }
+                BucketFacade::Calls::createBucket_1(call) => {
+                    todo!()
+                }
+                BucketFacade::Calls::createBucket_2(call) => {
+                    todo!()
+                }
+                BucketFacade::Calls::deleteObject(call) => {
+                    todo!()
+                }
+                BucketFacade::Calls::getObject(call) => {
+                    todo!()
+                }
+                BucketFacade::Calls::listBuckets_0(call) => {
+                    todo!()
+                }
+                BucketFacade::Calls::listBuckets_1(call) => {
+                    todo!()
+                }
+                BucketFacade::Calls::queryObjects_0(call) => {
+                    todo!()
+                }
+                BucketFacade::Calls::queryObjects_1(call) => {
+                    todo!()
+                }
+                BucketFacade::Calls::queryObjects_2(call) => {
+                    todo!()
+                }
+                BucketFacade::Calls::queryObjects_3(call) => {
+                    todo!()
+                }
+                BucketFacade::Calls::queryObjects_4(call) => {
+                    todo!()
+                }
+                BucketFacade::Calls::updateObjectMetadata(call) => {
+                    todo!()
+                }
+            };
+            Ok(InvokeContractReturn { output_data, })
+        } else {
+            Err(actor_error!(illegal_argument, "invalid call".to_string()))
+        }
+        todo!()
+    }
 }
 
 /// Returns a blob subscription ID specific to this machine and object key.
@@ -388,6 +447,10 @@ impl ActorCode for Actor {
         GetObject => get_object,
         ListObjects => list_objects,
         UpdateObjectMetadata => update_object_metadata,
+
+        // EVM interop
+        InvokeContract => invoke_contract,
+
         _ => fallback,
     }
 }
