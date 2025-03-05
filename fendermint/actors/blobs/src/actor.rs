@@ -1009,6 +1009,40 @@ impl BlobsActor {
                     Self::buy_credit(rt, BuyCreditParams(recipient))?;
                     call.returns(())
                 }
+                credit::Calls::revokeCredit_0(call) => {
+                    // function revokeCredit(address from, address to) external;
+                    let from: Address = call.from.into_eth_address().into();
+                    let to: Address = call.to.into_eth_address().into();
+                    Self::revoke_credit(rt, RevokeCreditParams{
+                        from,
+                        to,
+                        for_caller: None,
+                    })?;
+                    call.returns(())
+                }
+                credit::Calls::revokeCredit_1(call) => {
+                    // function revokeCredit(address to) external;
+                    let from = rt.message().caller();
+                    let to: Address = call.to.into_eth_address().into();
+                    Self::revoke_credit(rt, RevokeCreditParams {
+                        from,
+                        to,
+                        for_caller: None,
+                    })?;
+                    call.returns(())
+                }
+                credit::Calls::revokeCredit_2(call) => {
+                    // function revokeCredit(address from, address to, address caller) external;
+                    let from: Address = call.from.into_eth_address().into();
+                    let to: Address = call.to.into_eth_address().into();
+                    let caller: Address = call.caller.into_eth_address().into();
+                    Self::revoke_credit(rt, RevokeCreditParams {
+                        from,
+                        to,
+                        for_caller: Some(caller),
+                    })?;
+                    call.returns(())
+                }
             };
             Ok(InvokeContractReturn { output_data, })
         } else {
