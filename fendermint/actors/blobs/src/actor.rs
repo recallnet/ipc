@@ -2,7 +2,7 @@
 // Copyright 2021-2023 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::str::FromStr;
 
 use fendermint_actor_blobs_shared::params::{AddBlobParams, ApproveCreditParams, BlobRequest, BuyCreditParams, DeleteBlobParams, FinalizeBlobParams, GetAccountParams, GetAddedBlobsParams, GetBlobParams, GetBlobStatusParams, GetCreditApprovalParams, GetGasAllowanceParams, GetPendingBlobsParams, GetStatsReturn, OverwriteBlobParams, RevokeCreditParams, SetAccountStatusParams, SetBlobPendingParams, SetSponsorParams, TrimBlobExpiriesParams, UpdateGasAllowanceParams};
@@ -26,6 +26,7 @@ use fvm_ipld_encoding::ipld_block::IpldBlock;
 use fvm_shared::{address::Address, econ::TokenAmount, error::ExitCode, MethodNum, METHOD_SEND};
 use fvm_shared::clock::ChainEpoch;
 use num_traits::Zero;
+use fil_actors_evm_shared::address::EthAddress;
 use recall_sol_facade::{blobs::{blob_added, blob_deleted, blob_finalized, blob_pending}, credit::{
     credit_approved, credit_debited as credit_debited_event, credit_purchased, credit_revoked,
 }, gas::{gas_sponsor_set, gas_sponsor_unset}, blobs};
@@ -813,11 +814,11 @@ impl BlobsActor {
                 })?
             }
             blobs::Calls::addBlob(call) => {
-                let sponsor = call.params.sponsor.into_eth_address();
+                let sponsor: EthAddress = call.params.sponsor.into_eth_address();
                 let sponsor: Option<Address> = if sponsor.is_null() { None } else { Some(sponsor.into()) };
                 let source: PublicKey = PublicKey::try_from(call.params.source.as_str()).map_err(|e| {
                     actor_error!(serialization, format!("invalid source value {}", e))
-                })?;;
+                })?;
                 let hash: Hash = call.params.source.clone().try_into().map_err(|e| {
                     actor_error!(serialization, format!("invalid hash value {}", e))
                 })?;
@@ -836,6 +837,23 @@ impl BlobsActor {
                     id: subscription_id,
                     size,
                     ttl,
+                    from
+                })?;
+                call.returns(&())
+            }
+            blobs::Calls::deleteBlob(call) => {
+                let subscriber: EthAddress = call.subscriber.into_eth_address();
+                let subscriber: Option<Address> = if subscriber.is_null() { None } else { Some(subscriber.into()) };
+
+                let hash: Hash = call.blobHash.clone().try_into().map_err(|e| {
+                    actor_error!(serialization, format!("invalid hash value {}", e))
+                })?;
+                let subscription_id: SubscriptionId = call.subscriptionId.clone().try_into()?;
+                let from: Address = call.from.into_eth_address().into();
+                Self::delete_blob(rt, DeleteBlobParams {
+                    sponsor: subscriber,
+                    hash,
+                    id: subscription_id,
                     from
                 })?;
                 call.returns(&())
