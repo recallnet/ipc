@@ -907,6 +907,14 @@ impl BlobsActor {
                     })?;
                     call.returns(())
                 }
+                credit::Calls::getAccount(call) => {
+                    let sponsor: EthAddress = call.addr.into_eth_address();
+                    let sponsor: Address = sponsor.into();
+                    let account = Self::get_account(rt, GetAccountParams(sponsor))?;
+                    call.try_returns(account).map_err(|e| { // FIXME SU Generalize that
+                        actor_error!(serialization, format!("failed to abi encode response: {}", e))
+                    })?
+                }
             };
             Ok(InvokeContractReturn { output_data, })
         } else {
