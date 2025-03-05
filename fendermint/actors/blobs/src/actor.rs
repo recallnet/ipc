@@ -758,7 +758,7 @@ impl BlobsActor {
             blobs::Calls::getAddedBlobs(call) => {
                 let size = call.size;
                 let blob_requests = Self::get_added_blobs(rt, GetAddedBlobsParams(size))?;
-                call.try_returns(&blob_requests).map_err(|e| {
+                call.try_returns(blob_requests).map_err(|e| {
                     actor_error!(serialization, format!("failed to abi encode response: {}", e))
                 })?
             }
@@ -773,43 +773,43 @@ impl BlobsActor {
                     hash: blob_hash,
                     id: subscription_id,
                 })?;
-                call.returns(&blob_status)
+                call.returns(blob_status)
             }
             blobs::Calls::getPendingBlobs(call) => {
                 let size = call.size;
                 let blob_requests = Self::get_pending_blobs(rt, GetPendingBlobsParams(size))?;
-                call.try_returns(&blob_requests).map_err(|e| {
+                call.try_returns(blob_requests).map_err(|e| {
                     actor_error!(serialization, format!("failed to abi encode response: {}", e))
                 })?
             }
             blobs::Calls::getPendingBlobsCount(call) => {
                 let stats = Self::get_stats(rt)?;
-                call.returns(&stats.num_resolving)
+                call.returns(stats.num_resolving)
             }
             blobs::Calls::getPendingBytesCount(call) => {
                 let stats = Self::get_stats(rt)?;
-                call.returns(&stats.bytes_resolving)
+                call.returns(stats.bytes_resolving)
             }
             blobs::Calls::getStorageStats(call) => {
                 let stats = Self::get_stats(rt)?;
-                call.returns(&stats)
+                call.returns(stats)
             }
             blobs::Calls::getStorageUsage(call) => {
                 let address: Address = call.addr.into_eth_address().into();
                 let account = Self::get_account(rt, GetAccountParams(address))?;
                 let capacity_used = account.map(|a| a.capacity_used);
-                call.returns(&capacity_used)
+                call.returns(capacity_used)
             }
             blobs::Calls::getSubnetStats(call) => {
                 let stats = Self::get_stats(rt)?;
-                call.returns(&stats)
+                call.returns(stats)
             }
             blobs::Calls::getBlob(call) => {
                 let blob_hash: Hash = call.blobHash.clone().try_into().map_err(|e| {
                     actor_error!(serialization, format!("invalid hash value {}", e))
                 })?;
                 let blob = Self::get_blob(rt, GetBlobParams(blob_hash))?;
-                call.try_returns(&blob).map_err(|e| {
+                call.try_returns(blob).map_err(|e| {
                     actor_error!(serialization, format!("failed to abi encode response: {}", e))
                 })?
             }
@@ -839,7 +839,7 @@ impl BlobsActor {
                     ttl,
                     from
                 })?;
-                call.returns(&())
+                call.returns(())
             }
             blobs::Calls::deleteBlob(call) => {
                 let subscriber: EthAddress = call.subscriber.into_eth_address();
@@ -855,7 +855,7 @@ impl BlobsActor {
                     id: subscription_id,
                     from
                 })?;
-                call.returns(&())
+                call.returns(())
             }
             blobs::Calls::overwriteBlob(call) => {
                 let old_hash: Hash = call.oldHash.clone().try_into().map_err(|e| {
@@ -890,7 +890,7 @@ impl BlobsActor {
                         from,
                     },
                 })?;
-                call.returns(&())
+                call.returns(())
             }
         };
         Ok(InvokeContractReturn { output_data, })
