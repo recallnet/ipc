@@ -997,6 +997,18 @@ impl BlobsActor {
                     })?;
                     call.returns(())
                 }
+                credit::Calls::buyCredit_0(call) => {
+                    // function buyCredit() external payable;
+                    let recipient = rt.message().caller();
+                    Self::buy_credit(rt, BuyCreditParams(recipient))?;
+                    call.returns(())
+                }
+                credit::Calls::buyCredit_1(call) => {
+                    // function buyCredit(address recipient) external payable;
+                    let recipient: Address = call.recipient.into_eth_address().into();
+                    Self::buy_credit(rt, BuyCreditParams(recipient))?;
+                    call.returns(())
+                }
             };
             Ok(InvokeContractReturn { output_data, })
         } else {
