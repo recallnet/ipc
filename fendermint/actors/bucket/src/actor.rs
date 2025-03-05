@@ -298,12 +298,6 @@ impl Actor {
                     let object = Self::get_object(rt, GetParams(key))?;
                     call.returns(object)
                 }
-                BucketFacade::Calls::listBuckets_0(call) => {
-                    todo!()
-                }
-                BucketFacade::Calls::listBuckets_1(call) => {
-                    todo!()
-                }
                 BucketFacade::Calls::queryObjects_0(call) => {
                     todo!()
                 }
