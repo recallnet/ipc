@@ -20,12 +20,12 @@ use fil_actors_runtime::{
 };
 use fvm_ipld_hamt::BytesKey;
 use fvm_shared::address::Address;
-use fendermint_actor_bucket_shared::{AddParams, DeleteParams, Object};
+use fendermint_actor_bucket_shared::{AddParams, DeleteParams, Object, ListParams};
 use recall_sol_facade::bucket::{object_added, object_deleted, object_metadata_updated};
 use recall_sol_facade::types::{InputData, InvokeContractParams, InvokeContractReturn, AbiEncodeReturns, TryAbiEncodeReturns};
 use recall_sol_facade::{bucket as BucketFacade};
 use crate::shared::{
-    GetParams, ListObjectsReturn, ListParams, Method,
+    GetParams, ListObjectsReturn, Method,
     BUCKET_ACTOR_NAME,
 };
 use crate::state::{ObjectState, State};
@@ -299,6 +299,8 @@ impl Actor {
                     call.returns(object)
                 }
                 BucketFacade::Calls::queryObjects_0(call) => {
+                    let params: ListParams = call.clone().into();
+                    let k = Self::list_objects(rt, params)?;
                     todo!()
                 }
                 BucketFacade::Calls::queryObjects_1(call) => {

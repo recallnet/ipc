@@ -42,21 +42,6 @@ pub enum Method {
 #[serde(transparent)]
 pub struct GetParams(#[serde(with = "strict_bytes")] pub Vec<u8>);
 
-/// Params for listing objects.
-#[derive(Default, Debug, Serialize_tuple, Deserialize_tuple)]
-pub struct ListParams {
-    /// The prefix to filter objects by.
-    #[serde(with = "strict_bytes")]
-    pub prefix: Vec<u8>,
-    /// The delimiter used to define object hierarchy.
-    #[serde(with = "strict_bytes")]
-    pub delimiter: Vec<u8>,
-    /// The key to start listing objects from.
-    pub start_key: Option<Vec<u8>>,
-    /// The maximum number of objects to list.
-    pub limit: u64,
-}
-
 /// A list of objects and their common prefixes.
 #[derive(Default, Debug, Serialize_tuple, Deserialize_tuple)]
 pub struct ListObjectsReturn {

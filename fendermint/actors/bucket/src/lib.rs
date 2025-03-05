@@ -7,3 +7,4 @@ mod shared;
 mod state;
 
 pub use shared::*;
+pub use fendermint_actor_bucket_shared::*;

@@ -53,3 +53,18 @@ pub struct Object {
     /// User-defined object metadata (e.g., last modified timestamp, etc.).
     pub metadata: HashMap<String, String>,
 }
+
+/// Params for listing objects.
+#[derive(Default, Debug, Serialize_tuple, Deserialize_tuple)]
+pub struct ListParams {
+    /// The prefix to filter objects by.
+    #[serde(with = "strict_bytes")]
+    pub prefix: Vec<u8>,
+    /// The delimiter used to define object hierarchy.
+    #[serde(with = "strict_bytes")]
+    pub delimiter: Vec<u8>,
+    /// The key to start listing objects from.
+    pub start_key: Option<Vec<u8>>,
+    /// The maximum number of objects to list.
+    pub limit: u64,
+}
