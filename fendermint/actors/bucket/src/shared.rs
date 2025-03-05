@@ -37,16 +37,6 @@ pub enum Method {
     InvokeContract = frc42_dispatch::method_hash!("InvokeEVM"),
 }
 
-/// Params for deleting an object.
-#[derive(Clone, Debug, Serialize_tuple, Deserialize_tuple)]
-pub struct DeleteParams {
-    /// Key of the object to delete from a bucket.
-    #[serde(with = "strict_bytes")]
-    pub key: Vec<u8>,
-    /// Account address that initiated the call
-    pub from: Address,
-}
-
 /// Params for getting an object.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]

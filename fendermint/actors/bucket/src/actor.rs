@@ -20,12 +20,12 @@ use fil_actors_runtime::{
 };
 use fvm_ipld_hamt::BytesKey;
 use fvm_shared::address::Address;
-use fendermint_actor_bucket_shared::AddParams;
+use fendermint_actor_bucket_shared::{AddParams, DeleteParams};
 use recall_sol_facade::bucket::{object_added, object_deleted, object_metadata_updated};
 use recall_sol_facade::types::{InputData, InvokeContractParams, InvokeContractReturn, AbiEncodeReturns, TryAbiEncodeReturns};
 use recall_sol_facade::{bucket as BucketFacade};
 use crate::shared::{
-    DeleteParams, GetParams, ListObjectsReturn, ListParams, Method, Object,
+    GetParams, ListObjectsReturn, ListParams, Method, Object,
     BUCKET_ACTOR_NAME,
 };
 use crate::state::{ObjectState, State};
@@ -288,19 +288,14 @@ impl Actor {
                     Self::add_object(rt, params)?;
                     call.returns(())
                 }
-                BucketFacade::Calls::createBucket_0(call) => {
-                    todo!()
-                }
-                BucketFacade::Calls::createBucket_1(call) => {
-                    todo!()
-                }
-                BucketFacade::Calls::createBucket_2(call) => {
-                    todo!()
-                }
                 BucketFacade::Calls::deleteObject(call) => {
-                    todo!()
+                    let params: DeleteParams = call.clone().try_into()?;
+                    Self::delete_object(rt, params)?;
+                    call.returns(())
                 }
                 BucketFacade::Calls::getObject(call) => {
+                    let key = call.key.into_bytes();
+                    let k = Self::get_object(rt, GetParams(key))?;
                     todo!()
                 }
                 BucketFacade::Calls::listBuckets_0(call) => {
