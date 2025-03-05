@@ -29,7 +29,7 @@ use num_traits::Zero;
 use fil_actors_evm_shared::address::EthAddress;
 use recall_sol_facade::{blobs::{blob_added, blob_deleted, blob_finalized, blob_pending}, credit::{
     credit_approved, credit_debited as credit_debited_event, credit_purchased, credit_revoked,
-}, gas::{gas_sponsor_set, gas_sponsor_unset}, blobs};
+}, gas::{gas_sponsor_set, gas_sponsor_unset}, blobs, credit};
 use recall_sol_facade::types::{InvokeContractParams, InvokeContractReturn, TryAbiEncodeReturns, AbiEncodeReturns, InputData};
 use crate::{State, BLOBS_ACTOR_NAME};
 
@@ -894,6 +894,21 @@ impl BlobsActor {
                 }
             };
             Ok(InvokeContractReturn { output_data, })
+        } else if credit::can_handle(&input_data) {
+            match credit::parse_input(&input_data)? {
+                credit::Calls::setAccountSponsor(call) => {
+                    let from: Address = call.from.into_eth_address().into();
+                    let sponsor: EthAddress = call.sponsor.into_eth_address();
+                    let sponsor: Option<Address> = if sponsor.is_null() { None } else { Some(sponsor.into()) };
+
+                    Self::set_account_sponsor(rt, SetSponsorParams {
+                        from,
+                        sponsor,
+                    })?;
+                    let output_data = call.returns(());
+                    return Ok(InvokeContractReturn { output_data, });
+                }
+            }
         } else {
             Err(actor_error!(illegal_argument, "invalid call".to_string()))
         }
