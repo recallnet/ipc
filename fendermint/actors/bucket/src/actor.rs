@@ -277,12 +277,16 @@ impl Actor {
         if BucketFacade::can_handle(&input_data) {
             let output_data = match BucketFacade::parse_input(&input_data)? {
                 BucketFacade::Calls::addObject_0(call) => {
+                    // function addObject(AddObjectParams memory addObjectParams) external;
                     let params: AddParams = call.clone().try_into()?;
                     Self::add_object(rt, params)?;
                     call.returns(())
                 }
                 BucketFacade::Calls::addObject_1(call) => {
-                    todo!()
+                    // function addObject(string memory source, string memory key, string memory blobHash, string memory recoveryHash, uint64 size, address from) external;
+                    let params: AddParams = call.clone().try_into()?;
+                    Self::add_object(rt, params)?;
+                    call.returns(())
                 }
                 BucketFacade::Calls::createBucket_0(call) => {
                     todo!()
