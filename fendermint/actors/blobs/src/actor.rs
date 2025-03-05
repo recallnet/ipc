@@ -2,7 +2,7 @@
 // Copyright 2021-2023 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::str::FromStr;
 
 use fendermint_actor_blobs_shared::params::{AddBlobParams, ApproveCreditParams, BlobRequest, BuyCreditParams, DeleteBlobParams, FinalizeBlobParams, GetAccountParams, GetAddedBlobsParams, GetBlobParams, GetBlobStatusParams, GetCreditApprovalParams, GetGasAllowanceParams, GetPendingBlobsParams, GetStatsReturn, OverwriteBlobParams, RevokeCreditParams, SetAccountStatusParams, SetBlobPendingParams, SetSponsorParams, TrimBlobExpiriesParams, UpdateGasAllowanceParams};
@@ -24,13 +24,11 @@ use fil_actors_runtime::{
 };
 use fvm_ipld_encoding::ipld_block::IpldBlock;
 use fvm_shared::{address::Address, econ::TokenAmount, error::ExitCode, MethodNum, METHOD_SEND};
-use fvm_shared::clock::ChainEpoch;
 use num_traits::Zero;
-use fil_actors_evm_shared::address::EthAddress;
 use recall_sol_facade::{blobs::{blob_added, blob_deleted, blob_finalized, blob_pending}, credit::{
     credit_approved, credit_debited as credit_debited_event, credit_purchased, credit_revoked,
 }, gas::{gas_sponsor_set, gas_sponsor_unset}, blobs, credit};
-use recall_sol_facade::types::{InvokeContractParams, InvokeContractReturn, TryAbiEncodeReturns, AbiEncodeReturns, InputData, BigUintWrapper};
+use recall_sol_facade::types::{InvokeContractParams, InvokeContractReturn, TryAbiEncodeReturns, AbiEncodeReturns, InputData};
 use crate::{State, BLOBS_ACTOR_NAME};
 
 #[cfg(feature = "fil-actor")]
@@ -816,20 +814,13 @@ impl BlobsActor {
         } else if credit::can_handle(&input_data) {
             let output_data = match credit::parse_input(&input_data)? {
                 credit::Calls::setAccountSponsor(call) => {
-                    let from: Address = call.from.into_eth_address().into();
-                    let sponsor: EthAddress = call.sponsor.into_eth_address();
-                    let sponsor: Option<Address> = if sponsor.is_null() { None } else { Some(sponsor.into()) };
-
-                    Self::set_account_sponsor(rt, SetSponsorParams {
-                        from,
-                        sponsor,
-                    })?;
+                    let params: SetSponsorParams = call.clone().into();
+                    Self::set_account_sponsor(rt, params)?;
                     call.returns(())
                 }
                 credit::Calls::getAccount(call) => {
-                    let sponsor: EthAddress = call.addr.into_eth_address();
-                    let sponsor: Address = sponsor.into();
-                    let account = Self::get_account(rt, GetAccountParams(sponsor))?;
+                    let params: GetAccountParams = call.clone().into();
+                    let account = Self::get_account(rt, params)?;
                     call.try_returns(account)?
                 }
                 credit::Calls::getCreditStats(call) => {
@@ -837,9 +828,8 @@ impl BlobsActor {
                     call.try_returns(stats)?
                 }
                 credit::Calls::getCreditApproval(call) => {
-                    let from: Address = call.from.into_eth_address().into();
-                    let to: Address = call.to.into_eth_address().into();
-                    let credit_approval = Self::get_credit_approval(rt, GetCreditApprovalParams { from, to })?;
+                    let params: GetCreditApprovalParams = call.clone().into();
+                    let credit_approval = Self::get_credit_approval(rt, params)?;
                     call.try_returns(credit_approval)?
                 }
                 credit::Calls::getCreditBalance(call) => {
@@ -863,49 +853,20 @@ impl BlobsActor {
                 }
                 credit::Calls::approveCredit_1(call) => {
                     // function approveCredit(address from, address to, address[] memory caller) external;
-                    let from: Address = call.from.into_eth_address().into();
-                    let to: Address = call.to.into_eth_address().into();
-                    let caller_allowlist: HashSet<Address> = HashSet::from_iter(call.caller.iter().map(|address| <EthAddress as Into<Address>>::into(address.into_eth_address())));
-                    Self::approve_credit(rt, ApproveCreditParams {
-                        from,
-                        to,
-                        caller_allowlist: Some(caller_allowlist),
-                        credit_limit: None,
-                        gas_fee_limit: None,
-                        ttl: None
-                    })?;
+                    let params: ApproveCreditParams = call.clone().into();
+                    Self::approve_credit(rt, params)?;
                     call.returns(())
                 }
                 credit::Calls::approveCredit_2(call) => {
                     // function approveCredit(address from, address to, address[] memory caller, uint256 creditLimit, uint256 gasFeeLimit, uint64 ttl) external;
-                    let from: Address = call.from.into_eth_address().into();
-                    let to: Address = call.to.into_eth_address().into();
-                    let caller_allowlist: HashSet<Address> = HashSet::from_iter(call.caller.iter().map(|address| <EthAddress as Into<Address>>::into(address.into_eth_address())));
-                    let credit_limit: Credit = BigUintWrapper::from(call.creditLimit).into();
-                    let gas_fee_limit: TokenAmount = BigUintWrapper::from(call.gasFeeLimit).into();
-                    let ttl = call.ttl;
-                    Self::approve_credit(rt, ApproveCreditParams {
-                        from,
-                        to,
-                        caller_allowlist: Some(caller_allowlist),
-                        credit_limit: Some(credit_limit),
-                        gas_fee_limit: Some(gas_fee_limit),
-                        ttl: Some(ttl as ChainEpoch)
-                    })?;
+                    let params: ApproveCreditParams = call.clone().into();
+                    Self::approve_credit(rt, params)?;
                     call.returns(())
                 }
                 credit::Calls::approveCredit_3(call) => {
                     // function approveCredit(address from, address to) external;
-                    let from: Address = call.from.into_eth_address().into();
-                    let to: Address = call.to.into_eth_address().into();
-                    Self::approve_credit(rt, ApproveCreditParams {
-                        from,
-                        to,
-                        caller_allowlist: None,
-                        credit_limit: None,
-                        gas_fee_limit: None,
-                        ttl: None
-                    })?;
+                    let params: ApproveCreditParams = call.clone().into();
+                    Self::approve_credit(rt, params)?;
                     call.returns(())
                 }
                 credit::Calls::buyCredit_0(call) => {
@@ -922,13 +883,8 @@ impl BlobsActor {
                 }
                 credit::Calls::revokeCredit_0(call) => {
                     // function revokeCredit(address from, address to) external;
-                    let from: Address = call.from.into_eth_address().into();
-                    let to: Address = call.to.into_eth_address().into();
-                    Self::revoke_credit(rt, RevokeCreditParams{
-                        from,
-                        to,
-                        for_caller: None,
-                    })?;
+                    let params: RevokeCreditParams = call.clone().into();
+                    Self::revoke_credit(rt, params)?;
                     call.returns(())
                 }
                 credit::Calls::revokeCredit_1(call) => {
@@ -944,14 +900,8 @@ impl BlobsActor {
                 }
                 credit::Calls::revokeCredit_2(call) => {
                     // function revokeCredit(address from, address to, address caller) external;
-                    let from: Address = call.from.into_eth_address().into();
-                    let to: Address = call.to.into_eth_address().into();
-                    let caller: Address = call.caller.into_eth_address().into();
-                    Self::revoke_credit(rt, RevokeCreditParams {
-                        from,
-                        to,
-                        for_caller: Some(caller),
-                    })?;
+                    let params: RevokeCreditParams = call.clone().into();
+                    Self::revoke_credit(rt, params)?;
                     call.returns(())
                 }
             };
