@@ -915,6 +915,12 @@ impl BlobsActor {
                         actor_error!(serialization, format!("failed to abi encode response: {}", e))
                     })?
                 }
+                credit::Calls::getCreditStats(call) => {
+                    let stats = Self::get_stats(rt)?;
+                    call.try_returns(stats).map_err(|e| { // FIXME SU Generalize that
+                        actor_error!(serialization, format!("failed to abi encode response: {}", e))
+                    })?
+                }
             };
             Ok(InvokeContractReturn { output_data, })
         } else {
