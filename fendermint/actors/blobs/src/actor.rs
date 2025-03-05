@@ -30,7 +30,7 @@ use fil_actors_evm_shared::address::EthAddress;
 use recall_sol_facade::{blobs::{blob_added, blob_deleted, blob_finalized, blob_pending}, credit::{
     credit_approved, credit_debited as credit_debited_event, credit_purchased, credit_revoked,
 }, gas::{gas_sponsor_set, gas_sponsor_unset}, blobs};
-use recall_sol_facade::types::{InvokeContractParams, InvokeContractReturn, TryAbiEncodeReturns, AbiEncodeReturns};
+use recall_sol_facade::types::{InvokeContractParams, InvokeContractReturn, TryAbiEncodeReturns, AbiEncodeReturns, InputData};
 use crate::{State, BLOBS_ACTOR_NAME};
 
 #[cfg(feature = "fil-actor")]
@@ -752,9 +752,13 @@ impl BlobsActor {
     fn invoke_contract(rt: &impl Runtime, params: InvokeContractParams) -> Result<InvokeContractReturn, ActorError> {
         use blobs::{IntoEthAddress};
 
-        let call = blobs::parse_input(&params.input_data.clone())?;
+        let input_data: InputData = params.try_into()?;
+        let optional_call = blobs::parse_input(input_data); // FIXME SU Not happy about that
+        if optional_call.is_none() {
+            return Err(actor_error!(illegal_argument, "nope".to_string()))
+        }
 
-        let output_data = match call {
+        let output_data = match optional_call.unwrap() { // FIXME SU Not happy about that
             blobs::Calls::getAddedBlobs(call) => {
                 let size = call.size;
                 let blob_requests = Self::get_added_blobs(rt, GetAddedBlobsParams(size))?;
