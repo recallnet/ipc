@@ -2,7 +2,7 @@
 // Copyright 2021-2023 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::str::FromStr;
 
 use fendermint_actor_blobs_shared::params::{AddBlobParams, ApproveCreditParams, BlobRequest, BuyCreditParams, DeleteBlobParams, FinalizeBlobParams, GetAccountParams, GetAddedBlobsParams, GetBlobParams, GetBlobStatusParams, GetCreditApprovalParams, GetGasAllowanceParams, GetPendingBlobsParams, GetStatsReturn, OverwriteBlobParams, RevokeCreditParams, SetAccountStatusParams, SetBlobPendingParams, SetSponsorParams, TrimBlobExpiriesParams, UpdateGasAllowanceParams};
@@ -30,7 +30,7 @@ use fil_actors_evm_shared::address::EthAddress;
 use recall_sol_facade::{blobs::{blob_added, blob_deleted, blob_finalized, blob_pending}, credit::{
     credit_approved, credit_debited as credit_debited_event, credit_purchased, credit_revoked,
 }, gas::{gas_sponsor_set, gas_sponsor_unset}, blobs, credit};
-use recall_sol_facade::types::{InvokeContractParams, InvokeContractReturn, TryAbiEncodeReturns, AbiEncodeReturns, InputData};
+use recall_sol_facade::types::{InvokeContractParams, InvokeContractReturn, TryAbiEncodeReturns, AbiEncodeReturns, InputData, BigUintWrapper};
 use crate::{State, BLOBS_ACTOR_NAME};
 
 #[cfg(feature = "fil-actor")]
@@ -935,6 +935,67 @@ impl BlobsActor {
                     call.try_returns(account).map_err(|e| { // FIXME SU Generalize that
                         actor_error!(serialization, format!("failed to abi encode response: {}", e))
                     })?
+                }
+                credit::Calls::approveCredit_0(call) => {
+                    // function approveCredit(address to) external
+                    let from: Address = rt.message().caller();
+                    let to: Address = call.to.into_eth_address().into();
+                    Self::approve_credit(rt, ApproveCreditParams {
+                        from,
+                        to,
+                        caller_allowlist: None,
+                        credit_limit: None,
+                        gas_fee_limit: None,
+                        ttl: None
+                    })?;
+                    call.returns(())
+                }
+                credit::Calls::approveCredit_1(call) => {
+                    // function approveCredit(address from, address to, address[] memory caller) external;
+                    let from: Address = call.from.into_eth_address().into();
+                    let to: Address = call.to.into_eth_address().into();
+                    let caller_allowlist: HashSet<Address> = HashSet::from_iter(call.caller.iter().map(|address| <EthAddress as Into<Address>>::into(address.into_eth_address())));
+                    Self::approve_credit(rt, ApproveCreditParams {
+                        from,
+                        to,
+                        caller_allowlist: Some(caller_allowlist),
+                        credit_limit: None,
+                        gas_fee_limit: None,
+                        ttl: None
+                    })?;
+                    call.returns(())
+                }
+                credit::Calls::approveCredit_2(call) => {
+                    // function approveCredit(address from, address to, address[] memory caller, uint256 creditLimit, uint256 gasFeeLimit, uint64 ttl) external;
+                    let from: Address = call.from.into_eth_address().into();
+                    let to: Address = call.to.into_eth_address().into();
+                    let caller_allowlist: HashSet<Address> = HashSet::from_iter(call.caller.iter().map(|address| <EthAddress as Into<Address>>::into(address.into_eth_address())));
+                    let credit_limit: Credit = BigUintWrapper::from(call.creditLimit).into();
+                    let gas_fee_limit: TokenAmount = BigUintWrapper::from(call.gasFeeLimit).into();
+                    let ttl = call.ttl;
+                    Self::approve_credit(rt, ApproveCreditParams {
+                        from,
+                        to,
+                        caller_allowlist: Some(caller_allowlist),
+                        credit_limit: Some(credit_limit),
+                        gas_fee_limit: Some(gas_fee_limit),
+                        ttl: Some(ttl as ChainEpoch)
+                    })?;
+                    call.returns(())
+                }
+                credit::Calls::approveCredit_3(call) => {
+                    // function approveCredit(address from, address to) external;
+                    let from: Address = call.from.into_eth_address().into();
+                    let to: Address = call.to.into_eth_address().into();
+                    Self::approve_credit(rt, ApproveCreditParams {
+                        from,
+                        to,
+                        caller_allowlist: None,
+                        credit_limit: None,
+                        gas_fee_limit: None,
+                        ttl: None
+                    })?;
+                    call.returns(())
                 }
             };
             Ok(InvokeContractReturn { output_data, })
