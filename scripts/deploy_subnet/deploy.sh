@@ -901,9 +901,9 @@ Subnet registry:           0x74539671a1d2f1c8f200826baba665179f53a1b7
 EOF
 
 if [[ $local_deploy = true ]]; then
-  echo "Subnet blob manager:    ${BLOB_MANAGER_ADDRESS}"
-  echo "Subnet bucket manager:  ${BUCKET_MANAGER_ADDRESS}"
-  echo "Subnet credit manager:  ${CREDIT_MANAGER_ADDRESS}"
+  echo "Subnet blob manager:       ${BLOB_MANAGER_ADDRESS}"
+  echo "Subnet bucket manager:     ${BUCKET_MANAGER_ADDRESS}"
+  echo "Subnet credit manager:     ${CREDIT_MANAGER_ADDRESS}"
   echo
   echo "Account balances:"
   addr=$(jq .[3].address < "${IPC_CONFIG_FOLDER}"/evm_keystore.json | tr -d '"')
@@ -912,7 +912,7 @@ if [[ $local_deploy = true ]]; then
   subnet_native=$(cast balance --rpc-url http://localhost:"${ETHAPI_HOST_PORTS[0]}" --ether "${addr}" | awk '{printf "%.2f", $1}')
   echo "Parent native: ${parent_native%.*} ETH"
   echo "Parent RECALL:   ${parent_recall%.*} RECALL"
-  echo "Subnet native: ${subnet_native%.*} RECALL"
+  echo "Subnet native:  ${subnet_native%.*} RECALL"
   # get credit balance (i.e., to help verify the credit purchases above worked)
   account_info_output=$(cast call --rpc-url http://localhost:"${ETHAPI_HOST_PORTS[0]}" $CREDIT_MANAGER_ADDRESS "getAccount(address)" "${addr}")
   account_info=$(cast abi-decode "getAccount(address)((uint64,uint256,uint256,address,uint64,(address,(uint256,uint256,uint64,uint256,uint256))[],(address,(uint256,uint256,uint64,uint256,uint256))[],uint64,uint256))" "$account_info_output")
