@@ -14,7 +14,7 @@ use fvm_shared::clock::ChainEpoch;
 use num_derive::FromPrimitive;
 use serde::{Deserialize, Serialize};
 
-pub use crate::state::{ObjectState, State};
+pub use crate::state::State;
 
 pub const BUCKET_ACTOR_NAME: &str = "bucket";
 pub const MAX_METADATA_ENTRIES: u32 = 20;
@@ -41,17 +41,6 @@ pub enum Method {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct GetParams(#[serde(with = "strict_bytes")] pub Vec<u8>);
-
-/// A list of objects and their common prefixes.
-#[derive(Default, Debug, Serialize_tuple, Deserialize_tuple)]
-pub struct ListObjectsReturn {
-    /// List of key-values matching the list query.
-    pub objects: Vec<(Vec<u8>, ObjectState)>,
-    /// When a delimiter is used in the list query, this contains common key prefixes.
-    pub common_prefixes: Vec<Vec<u8>>,
-    /// Next key to use for paginating when there are more objects to list.
-    pub next_key: Option<Vec<u8>>,
-}
 
 #[derive(Clone, Debug, Serialize_tuple, Deserialize_tuple)]
 pub struct UpdateObjectMetadataParams {

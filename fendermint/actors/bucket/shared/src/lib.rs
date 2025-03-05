@@ -3,6 +3,7 @@ use fvm_ipld_encoding::{strict_bytes, tuple::*};
 use fvm_shared::address::Address;
 use fvm_shared::clock::ChainEpoch;
 use fendermint_actor_blobs_shared::state::{Hash, PublicKey};
+use serde::{Deserialize, Serialize};
 
 /// Params for adding an object.
 #[derive(Clone, Debug, Serialize_tuple, Deserialize_tuple)]
@@ -67,4 +68,26 @@ pub struct ListParams {
     pub start_key: Option<Vec<u8>>,
     /// The maximum number of objects to list.
     pub limit: u64,
+}
+
+/// A list of objects and their common prefixes.
+#[derive(Default, Debug, Serialize_tuple, Deserialize_tuple)]
+pub struct ListObjectsReturn {
+    /// List of key-values matching the list query.
+    pub objects: Vec<(Vec<u8>, ObjectState)>,
+    /// When a delimiter is used in the list query, this contains common key prefixes.
+    pub common_prefixes: Vec<Vec<u8>>,
+    /// Next key to use for paginating when there are more objects to list.
+    pub next_key: Option<Vec<u8>>,
+}
+
+/// The stored representation of an object in the bucket.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ObjectState {
+    /// The object blake3 hash.
+    pub hash: Hash,
+    /// The object size.
+    pub size: u64,
+    /// User-defined object metadata (e.g., last modified timestamp, etc.).
+    pub metadata: HashMap<String, String>,
 }

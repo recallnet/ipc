@@ -14,6 +14,7 @@ use fvm_ipld_encoding::tuple::*;
 use fvm_ipld_hamt::{BytesKey, Config, Hamt};
 use fvm_shared::address::Address;
 use serde::{Deserialize, Serialize};
+use fendermint_actor_bucket_shared::ObjectState;
 
 const MAX_LIST_LIMIT: usize = 1000;
 
@@ -86,17 +87,6 @@ impl MachineState for State {
     fn metadata(&self) -> HashMap<String, String> {
         self.metadata.clone()
     }
-}
-
-/// The stored representation of an object in the bucket.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct ObjectState {
-    /// The object blake3 hash.
-    pub hash: Hash,
-    /// The object size.
-    pub size: u64,
-    /// User-defined object metadata (e.g., last modified timestamp, etc.).
-    pub metadata: HashMap<String, String>,
 }
 
 /// A list of objects and their common prefixes.
@@ -221,14 +211,18 @@ mod tests {
     use quickcheck_macros::quickcheck;
     use std::str::FromStr;
 
-    impl Arbitrary for ObjectState {
+    /// Avoids declaring Arbitrary in shared crate
+    #[derive(Clone, Debug)]
+    struct ObjectStateArbitrary(pub ObjectState);
+
+    impl Arbitrary for ObjectStateArbitrary {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
             let hash = new_hash(u16::arbitrary(g) as usize);
-            ObjectState {
+            ObjectStateArbitrary(ObjectState {
                 hash: hash.0,
                 size: u64::arbitrary(g),
                 metadata: HashMap::arbitrary(g),
-            }
+            })
         }
     }
 
@@ -344,7 +338,8 @@ mod tests {
     }
 
     #[quickcheck]
-    fn test_delete(object: ObjectState) {
+    fn test_delete(object_state_arbitrary: ObjectStateArbitrary) {
+        let object = object_state_arbitrary.0;
         let store = MemoryBlockstore::default();
         let mut state = State::new(&store, Address::new_id(100), HashMap::new()).unwrap();
         let key = BytesKey(vec![1, 2, 3]);
@@ -366,7 +361,8 @@ mod tests {
     }
 
     #[quickcheck]
-    fn test_get(object: ObjectState) {
+    fn test_get(object_state_arbitrary: ObjectStateArbitrary) {
+        let object = object_state_arbitrary.0;
         let store = MemoryBlockstore::default();
         let mut state = State::new(&store, Address::new_id(100), HashMap::new()).unwrap();
         let key = BytesKey(vec![1, 2, 3]);
