@@ -921,6 +921,14 @@ impl BlobsActor {
                         actor_error!(serialization, format!("failed to abi encode response: {}", e))
                     })?
                 }
+                credit::Calls::getCreditApproval(call) => {
+                    let from: Address = call.from.into_eth_address().into();
+                    let to: Address = call.to.into_eth_address().into();
+                    let credit_approval = Self::get_credit_approval(rt, GetCreditApprovalParams { from, to })?;
+                    call.try_returns(credit_approval).map_err(|e| { // FIXME SU Generalize that
+                        actor_error!(serialization, format!("failed to abi encode response: {}", e))
+                    })?
+                }
             };
             Ok(InvokeContractReturn { output_data, })
         } else {
