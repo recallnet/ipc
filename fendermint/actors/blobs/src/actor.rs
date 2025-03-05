@@ -758,9 +758,7 @@ impl BlobsActor {
                 blobs::Calls::getAddedBlobs(call) => {
                     let size = call.size;
                     let blob_requests = Self::get_added_blobs(rt, GetAddedBlobsParams(size))?;
-                    call.try_returns(blob_requests).map_err(|e| {
-                        actor_error!(serialization, format!("failed to abi encode response: {}", e))
-                    })?
+                    call.try_returns(blob_requests)?
                 }
                 blobs::Calls::getBlobStatus(call) => {
                     let subscriber = call.subscriber.into_eth_address();
@@ -778,9 +776,7 @@ impl BlobsActor {
                 blobs::Calls::getPendingBlobs(call) => {
                     let size = call.size;
                     let blob_requests = Self::get_pending_blobs(rt, GetPendingBlobsParams(size))?;
-                    call.try_returns(blob_requests).map_err(|e| {
-                        actor_error!(serialization, format!("failed to abi encode response: {}", e))
-                    })?
+                    call.try_returns(blob_requests)?
                 }
                 blobs::Calls::getPendingBlobsCount(call) => {
                     let stats = Self::get_stats(rt)?;
@@ -809,9 +805,7 @@ impl BlobsActor {
                         actor_error!(serialization, format!("invalid hash value {}", e))
                     })?;
                     let blob = Self::get_blob(rt, GetBlobParams(blob_hash))?;
-                    call.try_returns(blob).map_err(|e| {
-                        actor_error!(serialization, format!("failed to abi encode response: {}", e))
-                    })?
+                    call.try_returns(blob)?
                 }
                 blobs::Calls::addBlob(call) => {
                     let sponsor: EthAddress = call.params.sponsor.into_eth_address();
@@ -911,30 +905,22 @@ impl BlobsActor {
                     let sponsor: EthAddress = call.addr.into_eth_address();
                     let sponsor: Address = sponsor.into();
                     let account = Self::get_account(rt, GetAccountParams(sponsor))?;
-                    call.try_returns(account).map_err(|e| { // FIXME SU Generalize that
-                        actor_error!(serialization, format!("failed to abi encode response: {}", e))
-                    })?
+                    call.try_returns(account)?
                 }
                 credit::Calls::getCreditStats(call) => {
                     let stats = Self::get_stats(rt)?;
-                    call.try_returns(stats).map_err(|e| { // FIXME SU Generalize that
-                        actor_error!(serialization, format!("failed to abi encode response: {}", e))
-                    })?
+                    call.try_returns(stats)?
                 }
                 credit::Calls::getCreditApproval(call) => {
                     let from: Address = call.from.into_eth_address().into();
                     let to: Address = call.to.into_eth_address().into();
                     let credit_approval = Self::get_credit_approval(rt, GetCreditApprovalParams { from, to })?;
-                    call.try_returns(credit_approval).map_err(|e| { // FIXME SU Generalize that
-                        actor_error!(serialization, format!("failed to abi encode response: {}", e))
-                    })?
+                    call.try_returns(credit_approval)?
                 }
                 credit::Calls::getCreditBalance(call) => {
                     let address: Address = call.addr.into_eth_address().into();
                     let account = Self::get_account(rt, GetAccountParams(address))?;
-                    call.try_returns(account).map_err(|e| { // FIXME SU Generalize that
-                        actor_error!(serialization, format!("failed to abi encode response: {}", e))
-                    })?
+                    call.try_returns(account)?
                 }
                 credit::Calls::approveCredit_0(call) => {
                     // function approveCredit(address to) external
