@@ -8,10 +8,7 @@ use fendermint_actor_blobs_shared::{
     add_blob, delete_blob, get_blob, has_credit_approval, overwrite_blob,
     state::{Blob, BlobStatus, SubscriptionId},
 };
-use fendermint_actor_machine::{
-    util::{require_addr_is_origin_or_caller, to_id_address},
-    MachineActor,
-};
+use fendermint_actor_machine::MachineActor;
 use fil_actors_runtime::{
     actor_dispatch, actor_error,
     runtime::{ActorCode, Runtime},
@@ -20,7 +17,7 @@ use fil_actors_runtime::{
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_hamt::BytesKey;
 use fvm_shared::address::Address;
-use recall_actor_sdk::emit_evm_event;
+use recall_actor_sdk::{emit_evm_event, require_addr_is_origin_or_caller, to_id_address};
 use recall_sol_facade::bucket::{object_added, object_deleted, object_metadata_updated};
 
 use crate::shared::{

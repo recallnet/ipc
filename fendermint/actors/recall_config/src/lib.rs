@@ -3,9 +3,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use fendermint_actor_blobs_shared::state::TokenCreditRate;
-use fendermint_actor_machine::{
-    util::{to_delegated_address, to_id_and_delegated_address},
-};
 use fendermint_actor_recall_config_shared::{
     Method, RecallConfig, SetAdminParams, SetConfigParams,
 };
@@ -18,7 +15,7 @@ use fvm_ipld_encoding::tuple::*;
 use fvm_shared::bigint::BigUint;
 use fvm_shared::{address::Address, clock::ChainEpoch};
 use num_traits::Zero;
-use recall_actor_sdk::emit_evm_event;
+use recall_actor_sdk::{emit_evm_event, to_delegated_address, to_id_and_delegated_address};
 use recall_sol_facade::config::{config_admin_set, config_set};
 
 #[cfg(feature = "fil-actor")]
