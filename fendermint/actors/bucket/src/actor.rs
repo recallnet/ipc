@@ -17,8 +17,7 @@ use fil_actors_runtime::{
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_hamt::BytesKey;
 use fvm_shared::address::Address;
-use recall_actor_sdk::{emit_evm_event, emit_evm_event2, require_addr_is_origin_or_caller, to_id_address};
-use recall_sol_facade::bucket::{object_deleted};
+use recall_actor_sdk::{emit_evm_event2, require_addr_is_origin_or_caller, to_id_address};
 
 use crate::shared::{
     AddParams, DeleteParams, GetParams, ListObjectsReturn, ListParams, Method, Object,
@@ -29,7 +28,7 @@ use crate::{
     UpdateObjectMetadataParams, MAX_METADATA_ENTRIES, MAX_METADATA_KEY_SIZE,
     MAX_METADATA_VALUE_SIZE,
 };
-use crate::sol_facade::{ObjectAdded, ObjectMetadataUpdated};
+use crate::sol_facade::{ObjectAdded, ObjectDeleted, ObjectMetadataUpdated};
 
 #[cfg(feature = "fil-actor")]
 fil_actors_runtime::wasm_trampoline!(Actor);
@@ -140,7 +139,7 @@ impl Actor {
 
         rt.transaction(|st: &mut State, rt| st.delete(rt.store(), &key))?;
 
-        emit_evm_event(rt, object_deleted(key.0, &object.hash.0))?;
+        emit_evm_event2(rt, ObjectDeleted::new(&key, &object.hash))?;
 
         Ok(())
     }
@@ -476,7 +475,7 @@ mod tests {
     }
 
     fn expect_emitted_delete_event(rt: &MockRuntime, params: &DeleteParams, hash: Hash) {
-        let event = to_actor_event(object_deleted(params.key.clone(), &hash.0).unwrap()).unwrap();
+        let event = to_actor_event2(ObjectDeleted::new(&params.key, &hash)).unwrap();
         rt.expect_emitted_event(event);
     }
 

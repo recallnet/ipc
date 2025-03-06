@@ -46,3 +46,22 @@ impl<'a> TryIntoEVMEvent for ObjectMetadataUpdated<'a> {
         }))
     }
 }
+
+pub struct ObjectDeleted<'a> {
+    pub key: &'a Vec<u8>,
+    pub blob_hash: &'a Hash,
+}
+impl<'a> ObjectDeleted<'a> {
+    pub fn new(key: &'a Vec<u8>, blob_hash: &'a Hash) -> Self {
+        Self { key, blob_hash }
+    }
+}
+impl TryIntoEVMEvent for ObjectDeleted<'_> {
+    type Target = sol::Event;
+    fn try_into_evm_event(self) -> Result<Self::Target, Error> {
+        Ok(sol::Event::ObjectDeleted(sol::ObjectDeleted {
+            key: self.key.clone().into(),
+            blobHash: self.blob_hash.0.into(),
+        }))
+    }
+}
