@@ -75,7 +75,7 @@ pub fn to_id_address(
 
 pub trait TryIntoEVMEvent {
     type Target: IntoLogData;
-    fn try_into_evm_event(self) -> Result<Self::Target, ActorError>;
+    fn try_into_evm_event(self) -> Result<Self::Target, anyhow::Error>;
 }
 
 /// The event key prefix for the Ethereum log topics.
@@ -117,6 +117,16 @@ pub fn emit_evm_event<T: IntoLogData>(
     let event =
         event.map_err(|e| actor_error!(illegal_argument; "failed to build evm event: {}", e))?;
     let actor_event = to_actor_event(event)?;
+    rt.emit_event(&actor_event)
+}
+
+pub fn to_actor_event2<T: TryIntoEVMEvent>(event: T) -> Result<ActorEvent, ActorError> {
+    let event = event.try_into_evm_event().map_err(|e| actor_error!(illegal_argument; "failed to build evm event: {}", e))?;
+    to_actor_event(event)
+}
+
+pub fn emit_evm_event2<T: TryIntoEVMEvent>(rt: &impl Runtime, event: T) -> Result<(), ActorError> {
+    let actor_event = to_actor_event2(event)?;
     rt.emit_event(&actor_event)
 }
 
