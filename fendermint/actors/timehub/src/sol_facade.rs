@@ -4,7 +4,7 @@ use recall_actor_sdk::TryIntoEVMEvent;
 use recall_sol_facade::primitives::U256;
 use recall_sol_facade::timehub as sol;
 
-pub struct EventPushed {
+pub(crate) struct EventPushed {
     index: u64,
     timestamp: u64,
     cid: Cid
