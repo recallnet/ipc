@@ -3506,6 +3506,7 @@ dependencies = [
  "num-derive 0.3.3",
  "num-traits",
  "rand",
+ "recall_actor_sdk",
  "recall_ipld",
  "recall_sol_facade",
  "serde",
@@ -3586,6 +3587,7 @@ dependencies = [
  "num-traits",
  "quickcheck",
  "quickcheck_macros",
+ "recall_actor_sdk",
  "recall_ipld",
  "recall_sol_facade",
  "serde",
@@ -3662,6 +3664,7 @@ dependencies = [
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding",
  "fvm_shared",
+ "recall_actor_sdk",
  "recall_sol_facade",
  "serde",
 ]
@@ -3679,6 +3682,7 @@ dependencies = [
  "fvm_shared",
  "hex-literal 0.4.1",
  "num-traits",
+ "recall_actor_sdk",
  "recall_sol_facade",
  "serde",
 ]
@@ -3715,6 +3719,7 @@ dependencies = [
  "hex-literal 0.4.1",
  "num-derive 0.3.3",
  "num-traits",
+ "recall_actor_sdk",
  "recall_sol_facade",
  "serde",
  "tracing",
@@ -10345,9 +10350,12 @@ dependencies = [
 name = "recall_actor_sdk"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "fil_actors_runtime",
  "fvm_sdk",
  "fvm_shared",
  "num-traits",
+ "recall_sol_facade",
 ]
 
 [[package]]

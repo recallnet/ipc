@@ -5,7 +5,6 @@
 use cid::Cid;
 use fendermint_actor_blobs_shared::has_credit_approval;
 use fendermint_actor_machine::{
-    events::emit_evm_event,
     util::{require_addr_is_origin_or_caller, to_id_address},
     MachineActor,
 };
@@ -16,7 +15,7 @@ use fil_actors_runtime::{
 };
 use recall_sol_facade::timehub::event_pushed;
 use tracing::debug;
-
+use recall_actor_sdk::emit_evm_event;
 use crate::{Leaf, Method, PushParams, PushReturn, State, TIMEHUB_ACTOR_NAME};
 
 #[cfg(feature = "fil-actor")]
@@ -136,7 +135,7 @@ mod tests {
         params::GetCreditApprovalParams, state::CreditApproval, Method as BlobMethod,
         BLOBS_ACTOR_ADDR,
     };
-    use fendermint_actor_machine::{events::to_actor_event, ConstructorParams, InitParams, Kind};
+    use fendermint_actor_machine::{ConstructorParams, InitParams, Kind};
     use fil_actors_evm_shared::address::EthAddress;
     use fil_actors_runtime::{
         runtime::MessageInfo,
@@ -151,6 +150,7 @@ mod tests {
         address::Address, clock::ChainEpoch, econ::TokenAmount, error::ExitCode, sys::SendFlags,
         MethodNum,
     };
+    use recall_actor_sdk::to_actor_event;
     use recall_sol_facade::machine::{machine_created, machine_initialized};
 
     pub fn construct_runtime(actor_address: Address, owner_id_addr: Address) -> MockRuntime {

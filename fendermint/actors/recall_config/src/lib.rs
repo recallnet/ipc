@@ -4,7 +4,6 @@
 
 use fendermint_actor_blobs_shared::state::TokenCreditRate;
 use fendermint_actor_machine::{
-    events::emit_evm_event,
     util::{to_delegated_address, to_id_and_delegated_address},
 };
 use fendermint_actor_recall_config_shared::{
@@ -19,6 +18,7 @@ use fvm_ipld_encoding::tuple::*;
 use fvm_shared::bigint::BigUint;
 use fvm_shared::{address::Address, clock::ChainEpoch};
 use num_traits::Zero;
+use recall_actor_sdk::emit_evm_event;
 use recall_sol_facade::config::{config_admin_set, config_set};
 
 #[cfg(feature = "fil-actor")]
@@ -227,7 +227,6 @@ impl ActorCode for Actor {
 mod tests {
     use super::*;
 
-    use fendermint_actor_machine::events::to_actor_event;
     use fendermint_actor_recall_config_shared::{RecallConfig, RECALL_CONFIG_ACTOR_ID};
     use fil_actors_evm_shared::address::EthAddress;
     use fil_actors_runtime::test_utils::{
@@ -235,6 +234,7 @@ mod tests {
     };
     use fvm_ipld_encoding::ipld_block::IpldBlock;
     use fvm_shared::error::ExitCode;
+    use recall_actor_sdk::to_actor_event;
 
     pub fn construct_and_verify(
         blob_capacity: u64,

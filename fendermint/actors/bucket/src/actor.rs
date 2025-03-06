@@ -9,7 +9,6 @@ use fendermint_actor_blobs_shared::{
     state::{Blob, BlobStatus, SubscriptionId},
 };
 use fendermint_actor_machine::{
-    events::emit_evm_event,
     util::{require_addr_is_origin_or_caller, to_id_address},
     MachineActor,
 };
@@ -21,6 +20,7 @@ use fil_actors_runtime::{
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_hamt::BytesKey;
 use fvm_shared::address::Address;
+use recall_actor_sdk::emit_evm_event;
 use recall_sol_facade::bucket::{object_added, object_deleted, object_metadata_updated};
 
 use crate::shared::{
@@ -405,7 +405,7 @@ mod tests {
         Method as BlobMethod, BLOBS_ACTOR_ADDR,
     };
     use fendermint_actor_blobs_testing::{new_hash, new_pk, setup_logs};
-    use fendermint_actor_machine::{events::to_actor_event, ConstructorParams, InitParams, Kind};
+    use fendermint_actor_machine::{ConstructorParams, InitParams, Kind};
     use fil_actors_evm_shared::address::EthAddress;
     use fil_actors_runtime::runtime::Runtime;
     use fil_actors_runtime::test_utils::{
@@ -416,6 +416,7 @@ mod tests {
     use fvm_shared::{
         clock::ChainEpoch, econ::TokenAmount, error::ExitCode, sys::SendFlags, MethodNum,
     };
+    use recall_actor_sdk::to_actor_event;
     use recall_sol_facade::machine::{machine_created, machine_initialized};
 
     fn get_runtime() -> (MockRuntime, Address) {

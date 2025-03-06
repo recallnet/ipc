@@ -8,7 +8,6 @@ use crate::shared::{
     State, BLOB_READER_ACTOR_NAME,
 };
 use fendermint_actor_blobs_shared::state::Hash;
-use fendermint_actor_machine::events::emit_evm_event;
 use fil_actors_runtime::{
     actor_dispatch, actor_error,
     runtime::{ActorCode, Runtime},
@@ -16,6 +15,7 @@ use fil_actors_runtime::{
 };
 use fvm_ipld_encoding::ipld_block::IpldBlock;
 use fvm_shared::MethodNum;
+use recall_actor_sdk::emit_evm_event;
 use recall_sol_facade::blob_reader::{
     read_request_closed, read_request_opened, read_request_pending,
 };
@@ -140,7 +140,6 @@ impl ActorCode for ReadReqActor {
 mod tests {
     use super::*;
 
-    use fendermint_actor_machine::events::to_actor_event;
     use fil_actors_evm_shared::address::EthAddress;
     use fil_actors_runtime::test_utils::{
         expect_empty, MockRuntime, ETHACCOUNT_ACTOR_CODE_ID, SYSTEM_ACTOR_CODE_ID,
@@ -148,6 +147,7 @@ mod tests {
     use fvm_ipld_encoding::ipld_block::IpldBlock;
     use fvm_shared::address::Address;
     use rand::RngCore;
+    use recall_actor_sdk::to_actor_event;
 
     pub fn new_hash(size: usize) -> (Hash, u64) {
         let mut rng = rand::thread_rng();

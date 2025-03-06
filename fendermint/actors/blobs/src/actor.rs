@@ -16,7 +16,6 @@ use fendermint_actor_blobs_shared::state::{
     Subscription, SubscriptionId,
 };
 use fendermint_actor_blobs_shared::Method;
-use fendermint_actor_machine::events::emit_evm_event;
 use fendermint_actor_machine::util::{
     require_addr_is_origin_or_caller, to_delegated_address, to_id_address,
     to_id_and_delegated_address, token_to_biguint,
@@ -30,6 +29,7 @@ use fil_actors_runtime::{
 use fvm_ipld_encoding::ipld_block::IpldBlock;
 use fvm_shared::{address::Address, econ::TokenAmount, error::ExitCode, MethodNum, METHOD_SEND};
 use num_traits::Zero;
+use recall_actor_sdk::emit_evm_event;
 use recall_sol_facade::{
     blobs::{blob_added, blob_deleted, blob_finalized, blob_pending},
     credit::{
@@ -839,7 +839,6 @@ mod tests {
     use super::*;
 
     use fendermint_actor_blobs_testing::{new_hash, new_pk};
-    use fendermint_actor_machine::events::to_actor_event;
     use fendermint_actor_recall_config_shared::{RecallConfig, RECALL_CONFIG_ACTOR_ADDR};
     use fil_actors_evm_shared::address::EthAddress;
     use fil_actors_runtime::test_utils::{
@@ -847,6 +846,7 @@ mod tests {
         SYSTEM_ACTOR_CODE_ID,
     };
     use fvm_shared::{bigint::BigInt, clock::ChainEpoch, sys::SendFlags};
+    use recall_actor_sdk::to_actor_event;
 
     pub fn construct_and_verify() -> MockRuntime {
         let rt = MockRuntime {

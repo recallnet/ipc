@@ -15,11 +15,9 @@ pub use fvm_shared::METHOD_CONSTRUCTOR;
 use fvm_shared::{address::Address, MethodNum};
 use recall_sol_facade::machine::{machine_created, machine_initialized};
 use serde::{de::DeserializeOwned, Serialize};
-
-use crate::events::emit_evm_event;
+use recall_actor_sdk::emit_evm_event;
 use crate::util::{to_delegated_address, to_id_address, to_id_and_delegated_address};
 
-pub mod events;
 pub mod util;
 
 /// Params for creating a machine.
