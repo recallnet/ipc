@@ -26,3 +26,23 @@ impl TryIntoEVMEvent for ObjectAdded<'_> {
         }))
     }
 }
+
+pub struct ObjectMetadataUpdated<'a> {
+    pub key: &'a Vec<u8>,
+    pub metadata: &'a HashMap<String, String>,
+}
+impl<'a> ObjectMetadataUpdated<'a> {
+    pub fn new(key: &'a Vec<u8>, metadata: &'a HashMap<String, String>) -> Self {
+        Self { key, metadata }
+    }
+}
+impl<'a> TryIntoEVMEvent for ObjectMetadataUpdated<'a> {
+    type Target = sol::Event;
+    fn try_into_evm_event(self) -> Result<Self::Target, Error> {
+        let metadata = fvm_ipld_encoding::to_vec(self.metadata)?;
+        Ok(sol::Event::ObjectMetadataUpdated(sol::ObjectMetadataUpdated {
+            key: self.key.clone().into(),
+            metadata: metadata.into(),
+        }))
+    }
+}
