@@ -11,7 +11,7 @@ use fil_actors_runtime::{
     ActorError,
 };
 use tracing::debug;
-use recall_actor_sdk::{emit_evm_event2, require_addr_is_origin_or_caller, to_id_address};
+use recall_actor_sdk::{emit_evm_event, require_addr_is_origin_or_caller, to_id_address};
 use crate::{Leaf, Method, PushParams, PushReturn, State, TIMEHUB_ACTOR_NAME};
 use crate::sol_facade::EventPushed;
 
@@ -55,7 +55,7 @@ impl TimehubActor {
 
         let ret = rt.transaction(|st: &mut State, rt| st.push(rt.store(), data))?;
 
-        emit_evm_event2(rt, EventPushed::new(ret.index, timestamp, cid))?;
+        emit_evm_event(rt, EventPushed::new(ret.index, timestamp, cid))?;
 
         Ok(ret)
     }
@@ -148,7 +148,7 @@ mod tests {
         address::Address, clock::ChainEpoch, econ::TokenAmount, error::ExitCode, sys::SendFlags,
         MethodNum,
     };
-    use recall_actor_sdk::to_actor_event2;
+    use recall_actor_sdk::to_actor_event;
     use crate::sol_facade::EventPushed;
 
     pub fn construct_runtime(actor_address: Address, owner_id_addr: Address) -> MockRuntime {
@@ -166,7 +166,7 @@ mod tests {
         rt.set_caller(*INIT_ACTOR_CODE_ID, INIT_ACTOR_ADDR);
         rt.expect_validate_caller_addr(vec![INIT_ACTOR_ADDR]);
         let metadata = HashMap::new();
-        let event = to_actor_event2(MachineCreated::new(Kind::Timehub, owner_delegated_addr, &metadata)).unwrap();
+        let event = to_actor_event(MachineCreated::new(Kind::Timehub, owner_delegated_addr, &metadata)).unwrap();
         rt.expect_emitted_event(event);
         let result = rt
             .call::<TimehubActor>(
@@ -183,7 +183,7 @@ mod tests {
 
         rt.set_caller(*ADM_ACTOR_CODE_ID, ADM_ACTOR_ADDR);
         rt.expect_validate_caller_addr(vec![ADM_ACTOR_ADDR]);
-        let event = to_actor_event2(MachineInitialized::new(Kind::Timehub, actor_address)).unwrap();
+        let event = to_actor_event(MachineInitialized::new(Kind::Timehub, actor_address)).unwrap();
         rt.expect_emitted_event(event);
         let actor_init = rt
             .call::<TimehubActor>(
@@ -239,7 +239,7 @@ mod tests {
             cid_bytes: cid.to_bytes(),
             from: rt.caller(),
         };
-        let event = to_actor_event2(EventPushed::new(expected_index, timestamp, cid)).unwrap();
+        let event = to_actor_event(EventPushed::new(expected_index, timestamp, cid)).unwrap();
         rt.expect_emitted_event(event);
         rt.call::<TimehubActor>(
             Method::Push as u64,

@@ -15,7 +15,7 @@ use fvm_ipld_encoding::tuple::*;
 use fvm_shared::bigint::BigUint;
 use fvm_shared::{address::Address, clock::ChainEpoch};
 use num_traits::Zero;
-use recall_actor_sdk::{emit_evm_event2, to_delegated_address, to_id_and_delegated_address};
+use recall_actor_sdk::{emit_evm_event, to_delegated_address, to_id_and_delegated_address};
 use crate::sol_facade::{ConfigAdminSet, ConfigSet};
 
 mod sol_facade;
@@ -75,7 +75,7 @@ impl Actor {
             Ok(())
         })?;
 
-        emit_evm_event2(rt, ConfigAdminSet::new(admin_delegated_addr))?;
+        emit_evm_event(rt, ConfigAdminSet::new(admin_delegated_addr))?;
 
         Ok(())
     }
@@ -160,9 +160,9 @@ impl Actor {
         })?;
 
         if let Some(admin) = admin_delegated_addr {
-            emit_evm_event2(rt, ConfigAdminSet::new(admin))?;
+            emit_evm_event(rt, ConfigAdminSet::new(admin))?;
         }
-        emit_evm_event2(rt, ConfigSet {
+        emit_evm_event(rt, ConfigSet {
             blob_capacity: params.blob_capacity,
             token_credit_rate: params.token_credit_rate,
             blob_credit_debit_interval: params.blob_credit_debit_interval,
@@ -230,7 +230,7 @@ mod tests {
     };
     use fvm_ipld_encoding::ipld_block::IpldBlock;
     use fvm_shared::error::ExitCode;
-    use recall_actor_sdk::to_actor_event2;
+    use recall_actor_sdk::to_actor_event;
 
     pub fn construct_and_verify(
         blob_capacity: u64,
@@ -300,7 +300,7 @@ mod tests {
 
         rt.set_caller(*ETHACCOUNT_ACTOR_CODE_ID, id_addr);
         rt.expect_validate_caller_any();
-        let event = to_actor_event2(ConfigAdminSet::new(f4_eth_addr)).unwrap();
+        let event = to_actor_event(ConfigAdminSet::new(f4_eth_addr)).unwrap();
         rt.expect_emitted_event(event);
         let result = rt.call::<Actor>(
             Method::SetAdmin as u64,
@@ -330,7 +330,7 @@ mod tests {
 
         rt.set_caller(*ETHACCOUNT_ACTOR_CODE_ID, id_addr); // current admin
         rt.expect_validate_caller_addr(vec![id_addr]);
-        let event = to_actor_event2(ConfigAdminSet::new(new_f4_eth_addr)).unwrap();
+        let event = to_actor_event(ConfigAdminSet::new(new_f4_eth_addr)).unwrap();
         rt.expect_emitted_event(event);
         let result = rt.call::<Actor>(
             Method::SetAdmin as u64,
@@ -364,7 +364,7 @@ mod tests {
 
         rt.set_caller(*ETHACCOUNT_ACTOR_CODE_ID, id_addr);
         rt.expect_validate_caller_any();
-        let event = to_actor_event2(ConfigAdminSet::new(f4_eth_addr)).unwrap();
+        let event = to_actor_event(ConfigAdminSet::new(f4_eth_addr)).unwrap();
         rt.expect_emitted_event(event);
         let result = rt.call::<Actor>(
             Method::SetAdmin as u64,
@@ -408,7 +408,7 @@ mod tests {
         rt.set_caller(*ETHACCOUNT_ACTOR_CODE_ID, id_addr);
         rt.expect_validate_caller_any();
 
-        let admin_event = to_actor_event2(ConfigAdminSet::new(f4_eth_addr)).unwrap();
+        let admin_event = to_actor_event(ConfigAdminSet::new(f4_eth_addr)).unwrap();
         rt.expect_emitted_event(admin_event);
 
         let config = RecallConfig {
@@ -420,7 +420,7 @@ mod tests {
             blob_delete_batch_size: 100,
             account_debit_batch_size: 100,
         };
-        let config_event = to_actor_event2(ConfigSet {
+        let config_event = to_actor_event(ConfigSet {
             blob_capacity: config.blob_capacity,
             token_credit_rate: config.token_credit_rate.clone(),
             blob_credit_debit_interval: config.blob_credit_debit_interval,

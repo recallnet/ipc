@@ -25,7 +25,7 @@ use fil_actors_runtime::{
 use fvm_ipld_encoding::ipld_block::IpldBlock;
 use fvm_shared::{address::Address, econ::TokenAmount, error::ExitCode, MethodNum, METHOD_SEND};
 use num_traits::Zero;
-use recall_actor_sdk::{emit_evm_event2, require_addr_is_origin_or_caller, to_delegated_address, to_id_address, to_id_and_delegated_address};
+use recall_actor_sdk::{emit_evm_event, require_addr_is_origin_or_caller, to_delegated_address, to_id_address, to_id_and_delegated_address};
 
 use crate::{State, BLOBS_ACTOR_NAME};
 use crate::sol_facade::blobs::{BlobAdded, BlobDeleted, BlobFinalized, BlobPending};
@@ -94,7 +94,7 @@ impl BlobsActor {
             Ok(account)
         })?;
 
-        emit_evm_event2(rt, CreditPurchased::new(delegated_addr, credit_amount))?;
+        emit_evm_event(rt, CreditPurchased::new(delegated_addr, credit_amount))?;
 
         AccountInfo::from(account, rt, to_delegated_address)
     }
@@ -194,7 +194,7 @@ impl BlobsActor {
             Err(e) => Err(e),
         }?;
 
-        emit_evm_event2(rt, CreditApproved {
+        emit_evm_event(rt, CreditApproved {
             from: from_delegated_addr,
             to: to_delegated_addr,
             credit_limit: approval.credit_limit.clone(),
@@ -221,7 +221,7 @@ impl BlobsActor {
             st.revoke_credit(rt.store(), from_id_addr, to_id_addr)
         })?;
 
-        emit_evm_event2(rt, CreditRevoked::new(from_delegated_addr, to_delegated_addr))?;
+        emit_evm_event(rt, CreditRevoked::new(from_delegated_addr, to_delegated_addr))?;
 
         Ok(())
     }
@@ -251,9 +251,9 @@ impl BlobsActor {
         })?;
 
         if let Some(sponsor) = sponsor_delegated_addr {
-            emit_evm_event2(rt, GasSponsorSet::mew(sponsor))?;
+            emit_evm_event(rt, GasSponsorSet::mew(sponsor))?;
         } else {
-            emit_evm_event2(rt, GasSponsorUnset::new())?;
+            emit_evm_event(rt, GasSponsorUnset::new())?;
         }
 
         Ok(())
@@ -385,7 +385,7 @@ impl BlobsActor {
         }
 
         // TODO: Wire more_accounts param when pagination work is done.
-        emit_evm_event2(rt, CreditDebited {
+        emit_evm_event(rt, CreditDebited {
             amount: credit_debited,
             num_accounts,
             more_accounts: false,
@@ -445,7 +445,7 @@ impl BlobsActor {
             extract_send_result(rt.send_simple(&from_id_addr, METHOD_SEND, None, tokens_unspent))?;
         }
 
-        emit_evm_event2(rt, BlobAdded {
+        emit_evm_event(rt, BlobAdded {
             subscriber: subscriber_delegated_addr,
             hash: &params.hash,
             size: params.size,
@@ -518,7 +518,7 @@ impl BlobsActor {
             )
         })?;
 
-        emit_evm_event2(rt, BlobPending {
+        emit_evm_event(rt, BlobPending {
             subscriber: subscriber_delegated_addr,
             hash: &params.hash,
             source: &params.source,
@@ -551,7 +551,7 @@ impl BlobsActor {
             )
         })?;
 
-        emit_evm_event2(rt, BlobFinalized {
+        emit_evm_event(rt, BlobFinalized {
             subscriber: subscriber_delegated_addr,
             hash: &params.hash,
             resolved: event_resolved,
@@ -595,7 +595,7 @@ impl BlobsActor {
             delete_from_disc(params.hash)?;
         }
 
-        emit_evm_event2(rt, BlobDeleted {
+        emit_evm_event(rt, BlobDeleted {
             subscriber: subscriber_delegated_addr,
             hash: &params.hash,
             size,
@@ -683,14 +683,14 @@ impl BlobsActor {
         }
 
         if overwrite {
-            emit_evm_event2(rt, BlobDeleted {
+            emit_evm_event(rt, BlobDeleted {
                 subscriber: subscriber_delegated_addr,
                 hash: &params.old_hash,
                 size: delete_size,
                 bytes_released: capacity_released,
             })?;
         }
-        emit_evm_event2(rt, BlobAdded {
+        emit_evm_event(rt, BlobAdded {
             subscriber: subscriber_delegated_addr,
             hash: &add_hash,
             size: add_size,
@@ -820,7 +820,7 @@ mod tests {
         SYSTEM_ACTOR_CODE_ID,
     };
     use fvm_shared::{bigint::BigInt, clock::ChainEpoch, sys::SendFlags};
-    use recall_actor_sdk::{to_actor_event2};
+    use recall_actor_sdk::{to_actor_event};
 
     pub fn construct_and_verify() -> MockRuntime {
         let rt = MockRuntime {
@@ -857,7 +857,7 @@ mod tests {
         params: &BuyCreditParams,
         amount: TokenAmount,
     ) {
-        let event = to_actor_event2(CreditPurchased::new(params.0, amount)).unwrap();
+        let event = to_actor_event(CreditPurchased::new(params.0, amount)).unwrap();
         rt.expect_emitted_event(event);
     }
 
@@ -869,7 +869,7 @@ mod tests {
         gas_fee_limit: Option<TokenAmount>,
         expiry: ChainEpoch,
     ) {
-        let event = to_actor_event2(CreditApproved {
+        let event = to_actor_event(CreditApproved {
             from,
             to,
             credit_limit,
@@ -880,7 +880,7 @@ mod tests {
     }
 
     fn expect_emitted_revoke_event(rt: &MockRuntime, from: Address, to: Address) {
-        let event = to_actor_event2(CreditRevoked::new(from, to)).unwrap();
+        let event = to_actor_event(CreditRevoked::new(from, to)).unwrap();
         rt.expect_emitted_event(event);
     }
 
@@ -891,7 +891,7 @@ mod tests {
         subscriber: Address,
         used: u64,
     ) {
-        let event = to_actor_event2(BlobAdded {
+        let event = to_actor_event(BlobAdded {
             subscriber,
             hash: &params.hash,
             size: params.size,
