@@ -17,8 +17,8 @@ use fil_actors_runtime::{
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_hamt::BytesKey;
 use fvm_shared::address::Address;
-use recall_actor_sdk::{emit_evm_event, require_addr_is_origin_or_caller, to_id_address};
-use recall_sol_facade::bucket::{object_added, object_deleted, object_metadata_updated};
+use recall_actor_sdk::{emit_evm_event, emit_evm_event2, require_addr_is_origin_or_caller, to_id_address};
+use recall_sol_facade::bucket::{object_deleted, object_metadata_updated};
 
 use crate::shared::{
     AddParams, DeleteParams, GetParams, ListObjectsReturn, ListParams, Method, Object,
@@ -29,6 +29,7 @@ use crate::{
     UpdateObjectMetadataParams, MAX_METADATA_ENTRIES, MAX_METADATA_KEY_SIZE,
     MAX_METADATA_VALUE_SIZE,
 };
+use crate::sol_facade::ObjectAdded;
 
 #[cfg(feature = "fil-actor")]
 fil_actors_runtime::wasm_trampoline!(Actor);
@@ -103,10 +104,7 @@ impl Actor {
             )
         })?;
 
-        emit_evm_event(
-            rt,
-            object_added(params.key, &params.hash.0, &params.metadata),
-        )?;
+        emit_evm_event2(rt, ObjectAdded::new(&params.key, &params.hash, &params.metadata))?;
 
         Ok(Object {
             hash: params.hash,
@@ -473,10 +471,7 @@ mod tests {
     }
 
     fn expect_emitted_add_event(rt: &MockRuntime, params: &AddParams) {
-        let event = to_actor_event(
-            object_added(params.key.clone(), &params.hash.0, &params.metadata).unwrap(),
-        )
-        .unwrap();
+        let event = to_actor_event2(ObjectAdded::new(&params.key, &params.hash, &params.metadata)).unwrap();
         rt.expect_emitted_event(event);
     }
 
