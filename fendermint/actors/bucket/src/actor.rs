@@ -411,7 +411,7 @@ mod tests {
         clock::ChainEpoch, econ::TokenAmount, error::ExitCode, sys::SendFlags, MethodNum,
     };
     use fendermint_actor_machine::sol_facade::{MachineCreated, MachineInitialized};
-    use recall_actor_sdk::{to_actor_event, to_actor_event2};
+    use recall_actor_sdk::to_actor_event2;
 
     fn get_runtime() -> (MockRuntime, Address) {
         let origin_id_addr = Address::new_id(110);

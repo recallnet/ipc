@@ -142,7 +142,7 @@ mod tests {
     use fvm_ipld_encoding::ipld_block::IpldBlock;
     use fvm_shared::address::Address;
     use rand::RngCore;
-    use recall_actor_sdk::{to_actor_event, to_actor_event2};
+    use recall_actor_sdk::to_actor_event2;
     use crate::sol_facade::ReadRequestClosed;
 
     pub fn new_hash(size: usize) -> (Hash, u64) {

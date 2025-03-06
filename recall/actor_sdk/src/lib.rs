@@ -85,7 +85,8 @@ const EVENT_TOPIC_KEY_PREFIX: &str = "t";
 const EVENT_DATA_KEY: &str = "d";
 
 /// Returns an [`ActorEvent`] from an EVM event.
-pub fn to_actor_event<T: IntoLogData>(event: T) -> Result<ActorEvent, ActorError> {
+pub fn to_actor_event2<T: TryIntoEVMEvent>(event: T) -> Result<ActorEvent, ActorError> {
+    let event = event.try_into_evm_event().map_err(|e| actor_error!(illegal_argument; "failed to build evm event: {}", e))?;
     let log = event.to_log_data();
     let num_entries = log.topics().len() + 1; // +1 for log data
 
@@ -110,21 +111,6 @@ pub fn to_actor_event<T: IntoLogData>(event: T) -> Result<ActorEvent, ActorError
 }
 
 /// Emits an [`ActorEvent`] from an EVM event.
-pub fn emit_evm_event<T: IntoLogData>(
-    rt: &impl Runtime,
-    event: anyhow::Result<T>,
-) -> Result<(), ActorError> {
-    let event =
-        event.map_err(|e| actor_error!(illegal_argument; "failed to build evm event: {}", e))?;
-    let actor_event = to_actor_event(event)?;
-    rt.emit_event(&actor_event)
-}
-
-pub fn to_actor_event2<T: TryIntoEVMEvent>(event: T) -> Result<ActorEvent, ActorError> {
-    let event = event.try_into_evm_event().map_err(|e| actor_error!(illegal_argument; "failed to build evm event: {}", e))?;
-    to_actor_event(event)
-}
-
 pub fn emit_evm_event2<T: TryIntoEVMEvent>(rt: &impl Runtime, event: T) -> Result<(), ActorError> {
     let actor_event = to_actor_event2(event)?;
     rt.emit_event(&actor_event)
