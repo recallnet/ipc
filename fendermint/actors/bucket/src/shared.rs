@@ -2,9 +2,6 @@
 // Copyright 2021-2023 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::collections::HashMap;
-
-use fendermint_actor_blobs_shared::state::{Hash, PublicKey};
 use fendermint_actor_machine::{
     GET_ADDRESS_METHOD, GET_METADATA_METHOD, INIT_METHOD, METHOD_CONSTRUCTOR,
 };
@@ -41,3 +38,5 @@ pub enum Method {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct GetParams(#[serde(with = "strict_bytes")] pub Vec<u8>);
+
+// FIXME SU This should be moved to bucket shared crate

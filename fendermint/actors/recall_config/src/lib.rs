@@ -94,7 +94,7 @@ impl Actor {
             return Err(actor_error!(
                 illegal_argument,
                 "token credit rate cannot be zero"
-            ))
+            ));
         }
         if params.blob_capacity == 0 {
             return Err(actor_error!(
@@ -150,9 +150,7 @@ impl Actor {
             rt,
             config_set(
                 params.blob_capacity,
-                params
-                    .token_credit_rate
-                    .rate().clone(),
+                params.token_credit_rate.rate().clone(),
                 params.blob_credit_debit_interval as u64,
                 params.blob_min_ttl as u64,
                 params.blob_default_ttl as u64,
@@ -258,13 +256,7 @@ mod tests {
 
     #[test]
     fn test_get_initial_admin() {
-        let rt = construct_and_verify(
-            1024,
-            TokenCreditRate::from(5 as usize),
-            3600,
-            3600,
-            3600,
-        );
+        let rt = construct_and_verify(1024, TokenCreditRate::from(5 as usize), 3600, 3600, 3600);
 
         rt.expect_validate_caller_any();
         let admin = rt
@@ -280,13 +272,7 @@ mod tests {
 
     #[test]
     fn test_set_admin() {
-        let rt = construct_and_verify(
-            1024,
-            TokenCreditRate::from(5 as usize),
-            3600,
-            3600,
-            3600,
-        );
+        let rt = construct_and_verify(1024, TokenCreditRate::from(5 as usize), 3600, 3600, 3600);
 
         let id_addr = Address::new_id(110);
         let eth_addr = EthAddress(hex_literal::hex!(
@@ -352,13 +338,7 @@ mod tests {
 
     #[test]
     fn test_set_admin_unauthorized() {
-        let rt = construct_and_verify(
-            1024,
-            TokenCreditRate::from(5 as usize),
-            3600,
-            3600,
-            3600,
-        );
+        let rt = construct_and_verify(1024, TokenCreditRate::from(5 as usize), 3600, 3600, 3600);
 
         let id_addr = Address::new_id(110);
         let eth_addr = EthAddress(hex_literal::hex!(
@@ -403,13 +383,7 @@ mod tests {
 
     #[test]
     fn test_set_config() {
-        let rt = construct_and_verify(
-            1024,
-            TokenCreditRate::from(5 as usize),
-            3600,
-            3600,
-            3600,
-        );
+        let rt = construct_and_verify(1024, TokenCreditRate::from(5 as usize), 3600, 3600, 3600);
 
         let id_addr = Address::new_id(110);
         let eth_addr = EthAddress(hex_literal::hex!(
@@ -432,9 +406,7 @@ mod tests {
         let event = to_actor_event(
             config_set(
                 params.blob_capacity,
-                params
-                    .token_credit_rate
-                    .rate().clone(),
+                params.token_credit_rate.rate().clone(),
                 params.blob_credit_debit_interval as u64,
                 params.blob_min_ttl as u64,
                 params.blob_default_ttl as u64,
@@ -569,13 +541,7 @@ mod tests {
             },
         ];
 
-        let rt = construct_and_verify(
-            1024,
-            TokenCreditRate::from(5 as usize),
-            3600,
-            3600,
-            3600,
-        );
+        let rt = construct_and_verify(1024, TokenCreditRate::from(5 as usize), 3600, 3600, 3600);
 
         let id_addr = Address::new_id(110);
         let eth_addr = EthAddress(hex_literal::hex!(
@@ -604,13 +570,7 @@ mod tests {
 
     #[test]
     fn test_get_config() {
-        let rt = construct_and_verify(
-            1024,
-            TokenCreditRate::from(5 as usize),
-            3600,
-            3600,
-            3600,
-        );
+        let rt = construct_and_verify(1024, TokenCreditRate::from(5 as usize), 3600, 3600, 3600);
 
         rt.expect_validate_caller_any();
         let recall_config = rt

@@ -1,3 +1,7 @@
+// Copyright 2022-2024 Protocol Labs
+// Copyright 2022-2024 Recall Contributors
+// SPDX-License-Identifier: Apache-2.0, MIT
+
 use std::collections::HashMap;
 use fvm_ipld_encoding::{strict_bytes, tuple::*};
 use fvm_shared::address::Address;
