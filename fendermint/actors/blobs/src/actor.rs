@@ -34,7 +34,7 @@ use recall_sol_facade::{
 };
 
 use crate::{State, BLOBS_ACTOR_NAME};
-use crate::sol_facade::{GasSponsorSet, GasSponsorUnset};
+use crate::sol_facade::gas::{GasSponsorSet, GasSponsorUnset};
 
 #[cfg(feature = "fil-actor")]
 fil_actors_runtime::wasm_trampoline!(BlobsActor);

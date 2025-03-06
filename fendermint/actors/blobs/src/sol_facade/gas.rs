@@ -4,7 +4,7 @@ use recall_actor_sdk::TryIntoEVMEvent;
 use recall_sol_facade::gas as sol_gas;
 use recall_sol_facade::types::H160;
 
-pub(crate) struct GasSponsorSet {
+pub struct GasSponsorSet {
     sponsor: Address,
 }
 impl GasSponsorSet {
@@ -22,7 +22,7 @@ impl TryIntoEVMEvent for GasSponsorSet {
     }
 }
 
-pub(crate) struct GasSponsorUnset {}
+pub struct GasSponsorUnset {}
 impl GasSponsorUnset {
     pub fn new() -> Self {
         Self {}
