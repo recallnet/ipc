@@ -42,7 +42,7 @@ impl TryIntoEVMEvent for ReadRequestPending<'_> {
     type Target = sol::Event;
     fn try_into_evm_event(self) -> Result<Self::Target, anyhow::Error> {
         Ok(sol::Event::ReadRequestPending(sol::ReadRequestPending {
-            id: self.id.into(),
+            id: self.id.0.into(),
         }))
     }
 }
@@ -59,7 +59,7 @@ impl TryIntoEVMEvent for ReadRequestClosed<'_> {
     type Target = sol::Event;
     fn try_into_evm_event(self) -> Result<Self::Target, anyhow::Error> {
         Ok(sol::Event::ReadRequestClosed(sol::ReadRequestClosed {
-            id: self.id.into(),
+            id: self.id.0.into(),
         }))
     }
 }

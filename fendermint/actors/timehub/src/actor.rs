@@ -11,7 +11,7 @@ use fil_actors_runtime::{
     ActorError,
 };
 use tracing::debug;
-use recall_actor_sdk::{emit_evm_event, emit_evm_event2, require_addr_is_origin_or_caller, to_id_address};
+use recall_actor_sdk::{emit_evm_event2, require_addr_is_origin_or_caller, to_id_address};
 use crate::{Leaf, Method, PushParams, PushReturn, State, TIMEHUB_ACTOR_NAME};
 use crate::sol_facade::EventPushed;
 
@@ -148,7 +148,7 @@ mod tests {
         address::Address, clock::ChainEpoch, econ::TokenAmount, error::ExitCode, sys::SendFlags,
         MethodNum,
     };
-    use recall_actor_sdk::{to_actor_event, to_actor_event2};
+    use recall_actor_sdk::to_actor_event2;
     use crate::sol_facade::EventPushed;
 
     pub fn construct_runtime(actor_address: Address, owner_id_addr: Address) -> MockRuntime {
