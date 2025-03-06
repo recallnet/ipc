@@ -17,7 +17,7 @@ use fil_actors_runtime::{
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_hamt::BytesKey;
 use fvm_shared::address::Address;
-use recall_actor_sdk::{emit_evm_event2, require_addr_is_origin_or_caller, to_id_address};
+use recall_actor_sdk::{emit_evm_event, require_addr_is_origin_or_caller, to_id_address};
 
 use crate::shared::{
     AddParams, DeleteParams, GetParams, ListObjectsReturn, ListParams, Method, Object,
@@ -103,7 +103,7 @@ impl Actor {
             )
         })?;
 
-        emit_evm_event2(rt, ObjectAdded::new(&params.key, &params.hash, &params.metadata))?;
+        emit_evm_event(rt, ObjectAdded::new(&params.key, &params.hash, &params.metadata))?;
 
         Ok(Object {
             hash: params.hash,
@@ -139,7 +139,7 @@ impl Actor {
 
         rt.transaction(|st: &mut State, rt| st.delete(rt.store(), &key))?;
 
-        emit_evm_event2(rt, ObjectDeleted::new(&key, &object.hash))?;
+        emit_evm_event(rt, ObjectDeleted::new(&key, &object.hash))?;
 
         Ok(())
     }
@@ -259,7 +259,7 @@ impl Actor {
             Ok(object.metadata)
         })?;
 
-        emit_evm_event2(rt, ObjectMetadataUpdated::new(&params.key, &metadata))?;
+        emit_evm_event(rt, ObjectMetadataUpdated::new(&params.key, &metadata))?;
 
         Ok(())
     }
@@ -411,7 +411,7 @@ mod tests {
         clock::ChainEpoch, econ::TokenAmount, error::ExitCode, sys::SendFlags, MethodNum,
     };
     use fendermint_actor_machine::sol_facade::{MachineCreated, MachineInitialized};
-    use recall_actor_sdk::to_actor_event2;
+    use recall_actor_sdk::to_actor_event;
 
     fn get_runtime() -> (MockRuntime, Address) {
         let origin_id_addr = Address::new_id(110);
@@ -437,7 +437,7 @@ mod tests {
         rt.set_caller(*INIT_ACTOR_CODE_ID, INIT_ACTOR_ADDR);
         rt.expect_validate_caller_addr(vec![INIT_ACTOR_ADDR]);
         let metadata = HashMap::new();
-        let event = to_actor_event2(MachineCreated::new(Kind::Bucket, owner_delegated_addr, &metadata)).unwrap();
+        let event = to_actor_event(MachineCreated::new(Kind::Bucket, owner_delegated_addr, &metadata)).unwrap();
         rt.expect_emitted_event(event);
         let actor_construction = rt
             .call::<Actor>(
@@ -454,7 +454,7 @@ mod tests {
 
         rt.set_caller(*ADM_ACTOR_CODE_ID, ADM_ACTOR_ADDR);
         rt.expect_validate_caller_addr(vec![ADM_ACTOR_ADDR]);
-        let event = to_actor_event2(MachineInitialized::new(Kind::Bucket, buck_addr)).unwrap();
+        let event = to_actor_event(MachineInitialized::new(Kind::Bucket, buck_addr)).unwrap();
         rt.expect_emitted_event(event);
         let actor_init = rt
             .call::<Actor>(
@@ -470,12 +470,12 @@ mod tests {
     }
 
     fn expect_emitted_add_event(rt: &MockRuntime, params: &AddParams) {
-        let event = to_actor_event2(ObjectAdded::new(&params.key, &params.hash, &params.metadata)).unwrap();
+        let event = to_actor_event(ObjectAdded::new(&params.key, &params.hash, &params.metadata)).unwrap();
         rt.expect_emitted_event(event);
     }
 
     fn expect_emitted_delete_event(rt: &MockRuntime, params: &DeleteParams, hash: Hash) {
-        let event = to_actor_event2(ObjectDeleted::new(&params.key, &hash)).unwrap();
+        let event = to_actor_event(ObjectDeleted::new(&params.key, &hash)).unwrap();
         rt.expect_emitted_event(event);
     }
 
@@ -1010,7 +1010,7 @@ mod tests {
             ]),
         };
         rt.expect_validate_caller_any();
-        let event = to_actor_event2(ObjectMetadataUpdated {
+        let event = to_actor_event(ObjectMetadataUpdated {
             key: &add_params.key,
             metadata: &HashMap::from([("foo".into(), "zar".into()), ("foo3".into(), "bar".into())]),
         }).unwrap();
@@ -1092,7 +1092,7 @@ mod tests {
             ExitCode::OK,
             None,
         );
-        let event = to_actor_event2(ObjectMetadataUpdated {
+        let event = to_actor_event(ObjectMetadataUpdated {
             key: &alien_update.key,
             metadata: &HashMap::from([("foo".into(), "zar".into()), ("foo3".into(), "bar".into())])
         }).unwrap();
