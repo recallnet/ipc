@@ -27,10 +27,11 @@ use fvm_shared::{address::Address, econ::TokenAmount, error::ExitCode, MethodNum
 use num_traits::Zero;
 use recall_actor_sdk::{emit_evm_event, emit_evm_event2, require_addr_is_origin_or_caller, to_delegated_address, to_id_address, to_id_and_delegated_address};
 use recall_sol_facade::{
-    blobs::{blob_added, blob_deleted, blob_finalized, blob_pending},
+    blobs::{blob_deleted, blob_finalized, blob_pending},
 };
 
 use crate::{State, BLOBS_ACTOR_NAME};
+use crate::sol_facade::blobs::BlobAdded;
 use crate::sol_facade::credit::{CreditApproved, CreditDebited, CreditPurchased, CreditRevoked};
 use crate::sol_facade::gas::{GasSponsorSet, GasSponsorUnset};
 
@@ -447,16 +448,13 @@ impl BlobsActor {
             extract_send_result(rt.send_simple(&from_id_addr, METHOD_SEND, None, tokens_unspent))?;
         }
 
-        emit_evm_event(
-            rt,
-            blob_added(
-                subscriber_delegated_addr,
-                &params.hash.0,
-                params.size,
-                sub.expiry as u64,
-                capacity_used,
-            ),
-        )?;
+        emit_evm_event2(rt, BlobAdded {
+            subscriber: subscriber_delegated_addr,
+            hash: &params.hash,
+            size: params.size,
+            expiry: sub.expiry,
+            bytes_used: capacity_used,
+        })?;
 
         Ok(sub)
     }
@@ -699,16 +697,13 @@ impl BlobsActor {
                 ),
             )?;
         }
-        emit_evm_event(
-            rt,
-            blob_added(
-                subscriber_delegated_addr,
-                &add_hash.0,
-                add_size,
-                sub.expiry as u64,
-                capacity_used,
-            ),
-        )?;
+        emit_evm_event2(rt, BlobAdded {
+            subscriber: subscriber_delegated_addr,
+            hash: &add_hash,
+            size: add_size,
+            expiry: sub.expiry,
+            bytes_used: capacity_used,
+        })?;
 
         Ok(sub)
     }
@@ -832,7 +827,7 @@ mod tests {
         SYSTEM_ACTOR_CODE_ID,
     };
     use fvm_shared::{bigint::BigInt, clock::ChainEpoch, sys::SendFlags};
-    use recall_actor_sdk::{to_actor_event, to_actor_event2};
+    use recall_actor_sdk::{to_actor_event2};
 
     pub fn construct_and_verify() -> MockRuntime {
         let rt = MockRuntime {
@@ -903,17 +898,13 @@ mod tests {
         subscriber: Address,
         used: u64,
     ) {
-        let event = to_actor_event(
-            blob_added(
-                subscriber,
-                &params.hash.0,
-                params.size,
-                (params.ttl.unwrap_or(86400) + current_epoch) as u64,
-                used,
-            )
-            .unwrap(),
-        )
-        .unwrap();
+        let event = to_actor_event2(BlobAdded {
+            subscriber,
+            hash: &params.hash,
+            size: params.size,
+            expiry: params.ttl.unwrap_or(86400) + current_epoch,
+            bytes_used: used,
+        }).unwrap();
         rt.expect_emitted_event(event);
     }
 
