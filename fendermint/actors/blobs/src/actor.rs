@@ -29,12 +29,12 @@ use recall_actor_sdk::{emit_evm_event, emit_evm_event2, require_addr_is_origin_o
 use recall_sol_facade::{
     blobs::{blob_added, blob_deleted, blob_finalized, blob_pending},
     credit::{
-        credit_debited as credit_debited_event, credit_revoked,
+        credit_debited as credit_debited_event,
     },
 };
 
 use crate::{State, BLOBS_ACTOR_NAME};
-use crate::sol_facade::credit::{CreditApproved, CreditPurchased};
+use crate::sol_facade::credit::{CreditApproved, CreditPurchased, CreditRevoked};
 use crate::sol_facade::gas::{GasSponsorSet, GasSponsorUnset};
 
 #[cfg(feature = "fil-actor")]
@@ -226,7 +226,7 @@ impl BlobsActor {
             st.revoke_credit(rt.store(), from_id_addr, to_id_addr)
         })?;
 
-        emit_evm_event(rt, credit_revoked(from_delegated_addr, to_delegated_addr))?;
+        emit_evm_event2(rt, CreditRevoked::new(from_delegated_addr, to_delegated_addr))?;
 
         Ok(())
     }
@@ -894,7 +894,7 @@ mod tests {
     }
 
     fn expect_emitted_revoke_event(rt: &MockRuntime, from: Address, to: Address) {
-        let event = to_actor_event(credit_revoked(from, to).unwrap()).unwrap();
+        let event = to_actor_event2(CreditRevoked::new(from, to)).unwrap();
         rt.expect_emitted_event(event);
     }
 
