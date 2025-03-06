@@ -2,11 +2,11 @@
 // Copyright 2022-2024 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::collections::HashMap;
 use anyhow::Error;
 use fendermint_actor_blobs_shared::state::Hash;
 use recall_actor_sdk::TryIntoEVMEvent;
 use recall_sol_facade::bucket as sol;
+use std::collections::HashMap;
 
 pub struct ObjectAdded<'a> {
     pub key: &'a Vec<u8>,
@@ -14,8 +14,16 @@ pub struct ObjectAdded<'a> {
     pub metadata: &'a HashMap<String, String>,
 }
 impl<'a> ObjectAdded<'a> {
-    pub fn new(key: &'a Vec<u8>, blob_hash: &'a Hash, metadata: &'a HashMap<String, String>) -> Self {
-        Self { key, blob_hash, metadata }
+    pub fn new(
+        key: &'a Vec<u8>,
+        blob_hash: &'a Hash,
+        metadata: &'a HashMap<String, String>
+    ) -> Self {
+        Self {
+            key,
+            blob_hash,
+            metadata,
+        }
     }
 }
 impl TryIntoEVMEvent for ObjectAdded<'_> {
@@ -44,10 +52,12 @@ impl<'a> TryIntoEVMEvent for ObjectMetadataUpdated<'a> {
     type Target = sol::Event;
     fn try_into_evm_event(self) -> Result<Self::Target, Error> {
         let metadata = fvm_ipld_encoding::to_vec(self.metadata)?;
-        Ok(sol::Event::ObjectMetadataUpdated(sol::ObjectMetadataUpdated {
-            key: self.key.clone().into(),
-            metadata: metadata.into(),
-        }))
+        Ok(sol::Event::ObjectMetadataUpdated(
+            sol::ObjectMetadataUpdated {
+                key: self.key.clone().into(),
+                metadata: metadata.into(),
+            },
+        ))
     }
 }
 

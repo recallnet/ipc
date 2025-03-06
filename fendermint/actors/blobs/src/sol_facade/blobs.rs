@@ -3,11 +3,11 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use anyhow::Error;
-use recall_sol_facade::blobs as sol;
+use fendermint_actor_blobs_shared::state::{Hash, PublicKey};
 use fvm_shared::address::Address;
 use fvm_shared::clock::ChainEpoch;
-use fendermint_actor_blobs_shared::state::{Hash, PublicKey};
 use recall_actor_sdk::TryIntoEVMEvent;
+use recall_sol_facade::blobs as sol;
 use recall_sol_facade::primitives::U256;
 use recall_sol_facade::types::H160;
 
@@ -37,7 +37,7 @@ impl TryIntoEVMEvent for BlobAdded<'_> {
 pub struct BlobPending<'a> {
     pub subscriber: Address,
     pub hash: &'a Hash,
-    pub source: &'a PublicKey
+    pub source: &'a PublicKey,
 }
 impl TryIntoEVMEvent for BlobPending<'_> {
     type Target = sol::Event;

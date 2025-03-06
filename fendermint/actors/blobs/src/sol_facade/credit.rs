@@ -7,13 +7,13 @@ use fvm_shared::address::Address;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::econ::TokenAmount;
 use recall_actor_sdk::{token_to_biguint, TryIntoEVMEvent};
-use recall_sol_facade::types::{BigUintWrapper, H160};
 use recall_sol_facade::credit as sol;
 use recall_sol_facade::primitives::U256;
+use recall_sol_facade::types::{BigUintWrapper, H160};
 
 pub struct CreditPurchased {
     from: Address,
-    amount: TokenAmount
+    amount: TokenAmount,
 }
 impl CreditPurchased {
     pub fn new(from: Address, amount: TokenAmount) -> Self {
@@ -37,7 +37,7 @@ pub struct CreditApproved {
     pub to: Address,
     pub credit_limit: Option<TokenAmount>,
     pub gas_fee_limit: Option<TokenAmount>,
-    pub expiry: Option<ChainEpoch>
+    pub expiry: Option<ChainEpoch>,
 }
 impl TryIntoEVMEvent for CreditApproved {
     type Target = sol::Event;

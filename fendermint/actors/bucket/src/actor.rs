@@ -19,6 +19,7 @@ use fvm_ipld_hamt::BytesKey;
 use fvm_shared::address::Address;
 use recall_actor_sdk::{emit_evm_event, require_addr_is_origin_or_caller, to_id_address};
 
+use crate::sol_facade::{ObjectAdded, ObjectDeleted, ObjectMetadataUpdated};
 use crate::shared::{
     AddParams, DeleteParams, GetParams, ListObjectsReturn, ListParams, Method, Object,
     BUCKET_ACTOR_NAME,
@@ -26,9 +27,9 @@ use crate::shared::{
 use crate::state::{ObjectState, State};
 use crate::{
     UpdateObjectMetadataParams, MAX_METADATA_ENTRIES, MAX_METADATA_KEY_SIZE,
+
     MAX_METADATA_VALUE_SIZE,
 };
-use crate::sol_facade::{ObjectAdded, ObjectDeleted, ObjectMetadataUpdated};
 
 #[cfg(feature = "fil-actor")]
 fil_actors_runtime::wasm_trampoline!(Actor);
@@ -103,7 +104,10 @@ impl Actor {
             )
         })?;
 
-        emit_evm_event(rt, ObjectAdded::new(&params.key, &params.hash, &params.metadata))?;
+        emit_evm_event(
+            rt,
+            ObjectAdded::new(&params.key, &params.hash, &params.metadata),
+        )?;
 
         Ok(Object {
             hash: params.hash,
@@ -399,6 +403,7 @@ mod tests {
         Method as BlobMethod, BLOBS_ACTOR_ADDR,
     };
     use fendermint_actor_blobs_testing::{new_hash, new_pk, setup_logs};
+    use fendermint_actor_machine::sol_facade::{MachineCreated, MachineInitialized};
     use fendermint_actor_machine::{ConstructorParams, InitParams, Kind};
     use fil_actors_evm_shared::address::EthAddress;
     use fil_actors_runtime::runtime::Runtime;
@@ -410,7 +415,6 @@ mod tests {
     use fvm_shared::{
         clock::ChainEpoch, econ::TokenAmount, error::ExitCode, sys::SendFlags, MethodNum,
     };
-    use fendermint_actor_machine::sol_facade::{MachineCreated, MachineInitialized};
     use recall_actor_sdk::to_actor_event;
 
     fn get_runtime() -> (MockRuntime, Address) {
@@ -437,7 +441,12 @@ mod tests {
         rt.set_caller(*INIT_ACTOR_CODE_ID, INIT_ACTOR_ADDR);
         rt.expect_validate_caller_addr(vec![INIT_ACTOR_ADDR]);
         let metadata = HashMap::new();
-        let event = to_actor_event(MachineCreated::new(Kind::Bucket, owner_delegated_addr, &metadata)).unwrap();
+        let event = to_actor_event(MachineCreated::new(
+            Kind::Bucket,
+            owner_delegated_addr,
+            &metadata,
+        ))
+        .unwrap();
         rt.expect_emitted_event(event);
         let actor_construction = rt
             .call::<Actor>(
@@ -470,7 +479,12 @@ mod tests {
     }
 
     fn expect_emitted_add_event(rt: &MockRuntime, params: &AddParams) {
-        let event = to_actor_event(ObjectAdded::new(&params.key, &params.hash, &params.metadata)).unwrap();
+        let event = to_actor_event(ObjectAdded::new(
+            &params.key,
+            &params.hash,
+            &params.metadata,
+        ))
+        .unwrap();
         rt.expect_emitted_event(event);
     }
 
@@ -1013,7 +1027,8 @@ mod tests {
         let event = to_actor_event(ObjectMetadataUpdated {
             key: &add_params.key,
             metadata: &HashMap::from([("foo".into(), "zar".into()), ("foo3".into(), "bar".into())]),
-        }).unwrap();
+        })
+        .unwrap();
         rt.expect_emitted_event(event);
         let result = rt.call::<Actor>(
             Method::UpdateObjectMetadata as u64,
@@ -1094,7 +1109,7 @@ mod tests {
         );
         let event = to_actor_event(ObjectMetadataUpdated {
             key: &alien_update.key,
-            metadata: &HashMap::from([("foo".into(), "zar".into()), ("foo3".into(), "bar".into())])
+            metadata: &HashMap::from([("foo".into(), "zar".into()), ("foo3".into(), "bar".into())]),
         }).unwrap();
         rt.expect_emitted_event(event);
         let result = rt.call::<Actor>(
