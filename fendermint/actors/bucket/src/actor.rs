@@ -19,15 +19,14 @@ use fvm_ipld_hamt::BytesKey;
 use fvm_shared::address::Address;
 use recall_actor_sdk::{emit_evm_event, require_addr_is_origin_or_caller, to_id_address};
 
-use crate::sol_facade::{ObjectAdded, ObjectDeleted, ObjectMetadataUpdated};
 use crate::shared::{
     AddParams, DeleteParams, GetParams, ListObjectsReturn, ListParams, Method, Object,
     BUCKET_ACTOR_NAME,
 };
+use crate::sol_facade::{ObjectAdded, ObjectDeleted, ObjectMetadataUpdated};
 use crate::state::{ObjectState, State};
 use crate::{
     UpdateObjectMetadataParams, MAX_METADATA_ENTRIES, MAX_METADATA_KEY_SIZE,
-
     MAX_METADATA_VALUE_SIZE,
 };
 
@@ -1110,7 +1109,8 @@ mod tests {
         let event = to_actor_event(ObjectMetadataUpdated {
             key: &alien_update.key,
             metadata: &HashMap::from([("foo".into(), "zar".into()), ("foo3".into(), "bar".into())]),
-        }).unwrap();
+        })
+        .unwrap();
         rt.expect_emitted_event(event);
         let result = rt.call::<Actor>(
             Method::UpdateObjectMetadata as u64,

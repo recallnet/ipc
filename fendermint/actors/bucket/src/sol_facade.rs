@@ -17,7 +17,7 @@ impl<'a> ObjectAdded<'a> {
     pub fn new(
         key: &'a Vec<u8>,
         blob_hash: &'a Hash,
-        metadata: &'a HashMap<String, String>
+        metadata: &'a HashMap<String, String>,
     ) -> Self {
         Self {
             key,

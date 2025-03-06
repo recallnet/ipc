@@ -2,9 +2,9 @@
 // Copyright 2022-2024 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use fendermint_actor_blobs_shared::state::Hash;
 use fvm_shared::address::Address;
 use fvm_shared::MethodNum;
-use fendermint_actor_blobs_shared::state::Hash;
 use recall_actor_sdk::TryIntoEVMEvent;
 use recall_sol_facade::blob_reader as sol;
 use recall_sol_facade::primitives::U256;
@@ -37,7 +37,7 @@ impl TryIntoEVMEvent for ReadRequestOpened<'_> {
 pub struct ReadRequestPending<'a> {
     pub id: &'a Hash,
 }
-impl <'a> ReadRequestPending<'a> {
+impl<'a> ReadRequestPending<'a> {
     pub fn new(id: &'a Hash) -> Self {
         Self { id }
     }
@@ -54,7 +54,7 @@ impl TryIntoEVMEvent for ReadRequestPending<'_> {
 pub struct ReadRequestClosed<'a> {
     pub id: &'a Hash,
 }
-impl <'a> ReadRequestClosed<'a> {
+impl<'a> ReadRequestClosed<'a> {
     pub fn new(id: &'a Hash) -> Self {
         Self { id }
     }
