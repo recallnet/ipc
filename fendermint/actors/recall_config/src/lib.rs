@@ -16,6 +16,7 @@ use fvm_shared::bigint::BigUint;
 use fvm_shared::{address::Address, clock::ChainEpoch};
 use num_traits::Zero;
 use recall_actor_sdk::{emit_evm_event, to_delegated_address, to_id_and_delegated_address};
+
 use crate::sol_facade::{ConfigAdminSet, ConfigSet};
 
 mod sol_facade;
@@ -162,15 +163,18 @@ impl Actor {
         if let Some(admin) = admin_delegated_addr {
             emit_evm_event(rt, ConfigAdminSet::new(admin))?;
         }
-        emit_evm_event(rt, ConfigSet {
-            blob_capacity: params.blob_capacity,
-            token_credit_rate: params.token_credit_rate,
-            blob_credit_debit_interval: params.blob_credit_debit_interval,
-            blob_min_ttl: params.blob_min_ttl,
-            blob_default_ttl: params.blob_default_ttl,
-            blob_delete_batch_size: params.blob_delete_batch_size,
-            account_debit_batch_size: params.account_debit_batch_size,
-        })?;
+        emit_evm_event(
+            rt,
+            ConfigSet {
+                blob_capacity: params.blob_capacity,
+                token_credit_rate: params.token_credit_rate,
+                blob_credit_debit_interval: params.blob_credit_debit_interval,
+                blob_min_ttl: params.blob_min_ttl,
+                blob_default_ttl: params.blob_default_ttl,
+                blob_delete_batch_size: params.blob_delete_batch_size,
+                account_debit_batch_size: params.account_debit_batch_size,
+            },
+        )?;
 
         Ok(())
     }
@@ -427,8 +431,9 @@ mod tests {
             blob_min_ttl: config.blob_min_ttl,
             blob_default_ttl: config.blob_default_ttl,
             blob_delete_batch_size: config.blob_delete_batch_size,
-            account_debit_batch_size: config.account_debit_batch_size
-        }).unwrap();
+            account_debit_batch_size: config.account_debit_batch_size,
+        })
+        .unwrap();
         rt.expect_emitted_event(config_event);
 
         let result = rt.call::<Actor>(

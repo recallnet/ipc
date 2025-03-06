@@ -8,14 +8,18 @@ use recall_actor_sdk::TryIntoEVMEvent;
 use recall_sol_facade::primitives::U256;
 use recall_sol_facade::timehub as sol;
 
-pub(crate) struct EventPushed {
+pub struct EventPushed {
     index: u64,
     timestamp: u64,
-    cid: Cid
+    cid: Cid,
 }
 impl EventPushed {
     pub fn new(index: u64, timestamp: u64, cid: Cid) -> Self {
-        Self { index, timestamp, cid }
+        Self {
+            index,
+            timestamp,
+            cid,
+        }
     }
 }
 impl TryIntoEVMEvent for EventPushed {

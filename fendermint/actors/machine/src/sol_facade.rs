@@ -2,12 +2,12 @@
 // Copyright 2022-2024 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::collections::HashMap;
-use fvm_shared::address::Address;
 use fil_actor_adm::Kind;
+use fvm_shared::address::Address;
 use recall_actor_sdk::TryIntoEVMEvent;
-use recall_sol_facade::{machine as sol};
+use recall_sol_facade::machine as sol;
 use recall_sol_facade::types::H160;
+use std::collections::HashMap;
 
 pub struct MachineCreated<'a> {
     kind: Kind,
@@ -16,7 +16,11 @@ pub struct MachineCreated<'a> {
 }
 impl<'a> MachineCreated<'a> {
     pub fn new(kind: Kind, owner: Address, metadata: &'a HashMap<String, String>) -> Self {
-        Self { kind, owner, metadata }
+        Self {
+            kind,
+            owner,
+            metadata,
+        }
     }
 }
 impl<'a> TryIntoEVMEvent for MachineCreated<'a> {
@@ -38,18 +42,19 @@ pub struct MachineInitialized {
 }
 impl MachineInitialized {
     pub fn new(kind: Kind, machine_address: Address) -> Self {
-        Self { kind, machine_address }
+        Self {
+            kind,
+            machine_address,
+        }
     }
 }
 impl TryIntoEVMEvent for MachineInitialized {
     type Target = sol::Event;
     fn try_into_evm_event(self) -> Result<Self::Target, anyhow::Error> {
         let machine_address: H160 = self.machine_address.try_into()?;
-        Ok(sol::Event::MachineInitialized(
-            sol::MachineInitialized {
-                kind: self.kind as u8,
-                machineAddress: machine_address.into(),
-            },
-        ))
+        Ok(sol::Event::MachineInitialized(sol::MachineInitialized {
+            kind: self.kind as u8,
+            machineAddress: machine_address.into(),
+        }))
     }
 }
