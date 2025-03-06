@@ -41,17 +41,3 @@ pub enum Method {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct GetParams(#[serde(with = "strict_bytes")] pub Vec<u8>);
-
-#[derive(Clone, Debug, Serialize_tuple, Deserialize_tuple)]
-pub struct UpdateObjectMetadataParams {
-    /// Object key.
-    #[serde(with = "strict_bytes")]
-    pub key: Vec<u8>,
-    /// Object metadata to be inserted/updated/deleted.
-    ///
-    /// If a key-value is present, we'll update the entry (or insert if it does not exist)
-    /// If only the key is present, we will delete the metadata entry
-    pub metadata: HashMap<String, Option<String>>,
-    /// Account address that initiated the call
-    pub from: Address,
-}

@@ -289,11 +289,13 @@ impl Actor {
                     call.returns(())
                 }
                 BucketFacade::Calls::deleteObject(call) => {
+                    // function deleteObject(string memory key, address from) external;
                     let params: DeleteParams = call.clone().try_into()?;
                     Self::delete_object(rt, params)?;
                     call.returns(())
                 }
                 BucketFacade::Calls::getObject(call) => {
+                    // function getObject(string memory key) external view returns (ObjectValue memory);
                     let key = call.key.clone().into_bytes();
                     let object = Self::get_object(rt, GetParams(key))?;
                     call.returns(object)
@@ -329,7 +331,10 @@ impl Actor {
                     call.try_returns(list)?
                 }
                 BucketFacade::Calls::updateObjectMetadata(call) => {
-                    todo!()
+                    // function updateObjectMetadata(string memory key, KeyValue[] memory metadata, address from) external;
+                    let params: UpdateObjectMetadataParams = call.clone().into();
+                    Self::update_object_metadata(rt, params)?;
+                    call.returns(())
                 }
             };
             Ok(InvokeContractReturn { output_data, })
