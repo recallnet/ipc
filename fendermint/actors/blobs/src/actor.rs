@@ -25,12 +25,15 @@ use fil_actors_runtime::{
 use fvm_ipld_encoding::ipld_block::IpldBlock;
 use fvm_shared::{address::Address, econ::TokenAmount, error::ExitCode, MethodNum, METHOD_SEND};
 use num_traits::Zero;
-use recall_actor_sdk::{emit_evm_event, require_addr_is_origin_or_caller, to_delegated_address, to_id_address, to_id_and_delegated_address};
+use recall_actor_sdk::{
+    emit_evm_event, require_addr_is_origin_or_caller, to_delegated_address, to_id_address,
+    to_id_and_delegated_address,
+};
 
-use crate::{State, BLOBS_ACTOR_NAME};
 use crate::sol_facade::blobs::{BlobAdded, BlobDeleted, BlobFinalized, BlobPending};
 use crate::sol_facade::credit::{CreditApproved, CreditDebited, CreditPurchased, CreditRevoked};
 use crate::sol_facade::gas::{GasSponsorSet, GasSponsorUnset};
+use crate::{State, BLOBS_ACTOR_NAME};
 
 #[cfg(feature = "fil-actor")]
 fil_actors_runtime::wasm_trampoline!(BlobsActor);
@@ -194,13 +197,16 @@ impl BlobsActor {
             Err(e) => Err(e),
         }?;
 
-        emit_evm_event(rt, CreditApproved {
-            from: from_delegated_addr,
-            to: to_delegated_addr,
-            credit_limit: approval.credit_limit.clone(),
-            gas_fee_limit: approval.gas_fee_limit.clone(),
-            expiry: approval.expiry,
-        })?;
+        emit_evm_event(
+            rt,
+            CreditApproved {
+                from: from_delegated_addr,
+                to: to_delegated_addr,
+                credit_limit: approval.credit_limit.clone(),
+                gas_fee_limit: approval.gas_fee_limit.clone(),
+                expiry: approval.expiry,
+            },
+        )?;
 
         Ok(approval)
     }
@@ -221,7 +227,10 @@ impl BlobsActor {
             st.revoke_credit(rt.store(), from_id_addr, to_id_addr)
         })?;
 
-        emit_evm_event(rt, CreditRevoked::new(from_delegated_addr, to_delegated_addr))?;
+        emit_evm_event(
+            rt,
+            CreditRevoked::new(from_delegated_addr, to_delegated_addr),
+        )?;
 
         Ok(())
     }
@@ -385,11 +394,14 @@ impl BlobsActor {
         }
 
         // TODO: Wire more_accounts param when pagination work is done.
-        emit_evm_event(rt, CreditDebited {
-            amount: credit_debited,
-            num_accounts,
-            more_accounts: false,
-        })?;
+        emit_evm_event(
+            rt,
+            CreditDebited {
+                amount: credit_debited,
+                num_accounts,
+                more_accounts: false,
+            },
+        )?;
 
         Ok(())
     }
@@ -445,13 +457,16 @@ impl BlobsActor {
             extract_send_result(rt.send_simple(&from_id_addr, METHOD_SEND, None, tokens_unspent))?;
         }
 
-        emit_evm_event(rt, BlobAdded {
-            subscriber: subscriber_delegated_addr,
-            hash: &params.hash,
-            size: params.size,
-            expiry: sub.expiry,
-            bytes_used: capacity_used,
-        })?;
+        emit_evm_event(
+            rt,
+            BlobAdded {
+                subscriber: subscriber_delegated_addr,
+                hash: &params.hash,
+                size: params.size,
+                expiry: sub.expiry,
+                bytes_used: capacity_used,
+            },
+        )?;
 
         Ok(sub)
     }
@@ -518,11 +533,14 @@ impl BlobsActor {
             )
         })?;
 
-        emit_evm_event(rt, BlobPending {
-            subscriber: subscriber_delegated_addr,
-            hash: &params.hash,
-            source: &params.source,
-        })
+        emit_evm_event(
+            rt,
+            BlobPending {
+                subscriber: subscriber_delegated_addr,
+                hash: &params.hash,
+                source: &params.source,
+            },
+        )
     }
 
     /// Finalizes a blob to the [`BlobStatus::Resolved`] or [`BlobStatus::Failed`] state.
@@ -551,11 +569,14 @@ impl BlobsActor {
             )
         })?;
 
-        emit_evm_event(rt, BlobFinalized {
-            subscriber: subscriber_delegated_addr,
-            hash: &params.hash,
-            resolved: event_resolved,
-        })
+        emit_evm_event(
+            rt,
+            BlobFinalized {
+                subscriber: subscriber_delegated_addr,
+                hash: &params.hash,
+                resolved: event_resolved,
+            },
+        )
     }
 
     /// Deletes a blob subscription.
@@ -595,12 +616,15 @@ impl BlobsActor {
             delete_from_disc(params.hash)?;
         }
 
-        emit_evm_event(rt, BlobDeleted {
-            subscriber: subscriber_delegated_addr,
-            hash: &params.hash,
-            size,
-            bytes_released: capacity_released,
-        })?;
+        emit_evm_event(
+            rt,
+            BlobDeleted {
+                subscriber: subscriber_delegated_addr,
+                hash: &params.hash,
+                size,
+                bytes_released: capacity_released,
+            },
+        )?;
 
         Ok(())
     }
@@ -683,20 +707,26 @@ impl BlobsActor {
         }
 
         if overwrite {
-            emit_evm_event(rt, BlobDeleted {
-                subscriber: subscriber_delegated_addr,
-                hash: &params.old_hash,
-                size: delete_size,
-                bytes_released: capacity_released,
-            })?;
+            emit_evm_event(
+                rt,
+                BlobDeleted {
+                    subscriber: subscriber_delegated_addr,
+                    hash: &params.old_hash,
+                    size: delete_size,
+                    bytes_released: capacity_released,
+                },
+            )?;
         }
-        emit_evm_event(rt, BlobAdded {
-            subscriber: subscriber_delegated_addr,
-            hash: &add_hash,
-            size: add_size,
-            expiry: sub.expiry,
-            bytes_used: capacity_used,
-        })?;
+        emit_evm_event(
+            rt,
+            BlobAdded {
+                subscriber: subscriber_delegated_addr,
+                hash: &add_hash,
+                size: add_size,
+                expiry: sub.expiry,
+                bytes_used: capacity_used,
+            },
+        )?;
 
         Ok(sub)
     }

@@ -2,11 +2,6 @@
 // Copyright 2021-2023 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::shared::{
-    CloseReadRequestParams, GetOpenReadRequestsParams, GetReadRequestStatusParams, Method,
-    OpenReadRequestParams, OpenReadRequestTuple, ReadRequestStatus, SetReadRequestPendingParams,
-    State, BLOB_READER_ACTOR_NAME,
-};
 use fendermint_actor_blobs_shared::state::Hash;
 use fil_actors_runtime::{
     actor_dispatch, actor_error,
@@ -15,7 +10,13 @@ use fil_actors_runtime::{
 };
 use fvm_ipld_encoding::ipld_block::IpldBlock;
 use fvm_shared::MethodNum;
-use recall_actor_sdk::{emit_evm_event};
+use recall_actor_sdk::emit_evm_event;
+
+use crate::shared::{
+    CloseReadRequestParams, GetOpenReadRequestsParams, GetReadRequestStatusParams, Method,
+    OpenReadRequestParams, OpenReadRequestTuple, ReadRequestStatus, SetReadRequestPendingParams,
+    State, BLOB_READER_ACTOR_NAME,
+};
 use crate::sol_facade::{ReadRequestClosed, ReadRequestOpened, ReadRequestPending};
 
 #[cfg(feature = "fil-actor")]
@@ -47,14 +48,17 @@ impl ReadReqActor {
             )
         })?;
 
-        emit_evm_event(rt, ReadRequestOpened {
-            id: &id,
-            blob_hash: &params.hash,
-            read_offset: params.offset.into(),
-            read_length: params.len.into(),
-            callback: params.callback_addr,
-            method_num: params.callback_method,
-        })?;
+        emit_evm_event(
+            rt,
+            ReadRequestOpened {
+                id: &id,
+                blob_hash: &params.hash,
+                read_offset: params.offset.into(),
+                read_length: params.len.into(),
+                callback: params.callback_addr,
+                method_num: params.callback_method,
+            },
+        )?;
 
         Ok(id)
     }
@@ -134,6 +138,7 @@ impl ActorCode for ReadReqActor {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::sol_facade::ReadRequestClosed;
 
     use fil_actors_evm_shared::address::EthAddress;
     use fil_actors_runtime::test_utils::{
@@ -143,7 +148,6 @@ mod tests {
     use fvm_shared::address::Address;
     use rand::RngCore;
     use recall_actor_sdk::to_actor_event;
-    use crate::sol_facade::ReadRequestClosed;
 
     pub fn new_hash(size: usize) -> (Hash, u64) {
         let mut rng = rand::thread_rng();
@@ -178,8 +182,9 @@ mod tests {
             read_offset: params.offset.into(),
             read_length: params.len.into(),
             callback: params.callback_addr,
-            method_num: params.callback_method
-        }).unwrap();
+            method_num: params.callback_method,
+        })
+        .unwrap();
         rt.expect_emitted_event(event);
     }
 
