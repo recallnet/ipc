@@ -672,7 +672,7 @@ pub fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox)> {
 async fn download_blob(iroh: Iroh, hash: Hash, node_addr: NodeAddr) -> anyhow::Result<()> {
     // Use an explicit tag so we can keep track of it
     // TODO: this needs to be tagged with a "user id"
-    let tag = iroh::blobs::Tag(format!("stored-{hash}").into());
+    let tag = iroh::blobs::Tag(format!("stored-seq-{hash}").into());
     let res = iroh
         .blobs()
         .download_with_opts(

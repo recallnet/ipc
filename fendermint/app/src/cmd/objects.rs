@@ -23,7 +23,7 @@ use fvm_shared::{
 };
 use ipc_api::ethers_address_to_fil_address;
 use iroh::{
-    blobs::{hashseq::HashSeq, util::SetTagOption, Hash, HashAndFormat},
+    blobs::{hashseq::HashSeq, util::SetTagOption, Hash},
     client::blobs::BlobStatus,
     net::NodeAddr,
 };
@@ -33,6 +33,7 @@ use prometheus::{register_histogram, register_int_counter, Histogram, IntCounter
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tracing::info;
+use uuid::Uuid;
 use warp::{
     filters::multipart::Part,
     http::{HeaderMap, HeaderValue, StatusCode},
@@ -318,6 +319,8 @@ async fn handle_object_upload(
         }));
     }
 
+    let upload_id = Uuid::new_v4();
+
     // Handle the two upload cases
     let hash = match (parser.source, parser.data_part) {
         // Case 1: Source node provided - download from the source
@@ -331,7 +334,7 @@ async fn handle_object_upload(
                 }
             };
 
-            let tag = iroh::blobs::Tag(format!("temp-{hash}").into());
+            let tag = iroh::blobs::Tag(format!("temp-{hash}-{upload_id}").into());
             let progress = iroh
                 .blobs()
                 .download_with_opts(
@@ -394,7 +397,7 @@ async fn handle_object_upload(
             })?;
 
             let hash = *temp_tag.hash();
-            let new_tag = iroh::blobs::Tag(format!("temp-{hash}").into());
+            let new_tag = iroh::blobs::Tag(format!("temp-{hash}-{upload_id}").into());
             batch.persist_to(temp_tag, new_tag).await.map_err(|e| {
                 Rejection::from(BadRequest {
                     message: format!("failed to persist blob: {}", e),
@@ -443,7 +446,7 @@ async fn handle_object_upload(
         })
     })?;
 
-    let hash_seq_hash = tag_entangled_data(&iroh, &ent, &metadata_hash)
+    let hash_seq_hash = tag_entangled_data(&iroh, &ent, &metadata_hash, upload_id)
         .await
         .map_err(|e| {
             Rejection::from(BadRequest {
@@ -465,9 +468,10 @@ async fn tag_entangled_data(
     iroh: &iroh::client::Iroh,
     ent: &Entangler<EntanglerIrohStorage>,
     metadata_hash: &String,
+    upload_id: Uuid,
 ) -> Result<Hash, anyhow::Error> {
     // entangler tags: ent-{hash}
-    // uploaded tags: temp-{hash}
+    // uploaded tags: temp-{hash}-{upload_id}
     // hash seq tags: temp-seq-{hash-seq-hash}
 
     let metadata = ent.download_metadata(metadata_hash).await?;
@@ -491,7 +495,7 @@ async fn tag_entangled_data(
     let temp_tag = batch.add_bytes(hash_seq).await?;
 
     let hash_seq_hash = *temp_tag.hash();
-    // this tag will be replaced later by the validator to "stored-{hash_seq_hash}"
+    // this tag will be replaced later by the validator to "stored-seq-{hash_seq_hash}"
     let hash_seq_tag = iroh::blobs::Tag(format!("temp-seq-{hash_seq_hash}").into());
     batch.persist_to(temp_tag, hash_seq_tag).await?;
 
@@ -504,7 +508,7 @@ async fn tag_entangled_data(
     }
 
     // remove upload tags
-    let orig_tag = iroh::blobs::Tag(format!("temp-{orig_hash}").into());
+    let orig_tag = iroh::blobs::Tag(format!("temp-{orig_hash}-{upload_id}").into());
     iroh.tags().delete(orig_tag).await?;
 
     // remove entangled metadata
