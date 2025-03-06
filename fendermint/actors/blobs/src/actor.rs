@@ -25,13 +25,10 @@ use fil_actors_runtime::{
 use fvm_ipld_encoding::ipld_block::IpldBlock;
 use fvm_shared::{address::Address, econ::TokenAmount, error::ExitCode, MethodNum, METHOD_SEND};
 use num_traits::Zero;
-use recall_actor_sdk::{emit_evm_event, emit_evm_event2, require_addr_is_origin_or_caller, to_delegated_address, to_id_address, to_id_and_delegated_address};
-use recall_sol_facade::{
-    blobs::{blob_deleted, blob_finalized, blob_pending},
-};
+use recall_actor_sdk::{emit_evm_event2, require_addr_is_origin_or_caller, to_delegated_address, to_id_address, to_id_and_delegated_address};
 
 use crate::{State, BLOBS_ACTOR_NAME};
-use crate::sol_facade::blobs::BlobAdded;
+use crate::sol_facade::blobs::{BlobAdded, BlobDeleted, BlobFinalized, BlobPending};
 use crate::sol_facade::credit::{CreditApproved, CreditDebited, CreditPurchased, CreditRevoked};
 use crate::sol_facade::gas::{GasSponsorSet, GasSponsorUnset};
 
@@ -521,10 +518,11 @@ impl BlobsActor {
             )
         })?;
 
-        emit_evm_event(
-            rt,
-            blob_pending(subscriber_delegated_addr, &params.hash.0, &params.source.0),
-        )
+        emit_evm_event2(rt, BlobPending {
+            subscriber: subscriber_delegated_addr,
+            hash: &params.hash,
+            source: &params.source,
+        })
     }
 
     /// Finalizes a blob to the [`BlobStatus::Resolved`] or [`BlobStatus::Failed`] state.
@@ -553,10 +551,11 @@ impl BlobsActor {
             )
         })?;
 
-        emit_evm_event(
-            rt,
-            blob_finalized(subscriber_delegated_addr, &params.hash.0, event_resolved),
-        )
+        emit_evm_event2(rt, BlobFinalized {
+            subscriber: subscriber_delegated_addr,
+            hash: &params.hash,
+            resolved: event_resolved,
+        })
     }
 
     /// Deletes a blob subscription.
@@ -596,15 +595,12 @@ impl BlobsActor {
             delete_from_disc(params.hash)?;
         }
 
-        emit_evm_event(
-            rt,
-            blob_deleted(
-                subscriber_delegated_addr,
-                &params.hash.0,
-                size,
-                capacity_released,
-            ),
-        )?;
+        emit_evm_event2(rt, BlobDeleted {
+            subscriber: subscriber_delegated_addr,
+            hash: &params.hash,
+            size,
+            bytes_released: capacity_released,
+        })?;
 
         Ok(())
     }
@@ -687,15 +683,12 @@ impl BlobsActor {
         }
 
         if overwrite {
-            emit_evm_event(
-                rt,
-                blob_deleted(
-                    subscriber_delegated_addr,
-                    &params.old_hash.0,
-                    delete_size,
-                    capacity_released,
-                ),
-            )?;
+            emit_evm_event2(rt, BlobDeleted {
+                subscriber: subscriber_delegated_addr,
+                hash: &params.old_hash,
+                size: delete_size,
+                bytes_released: capacity_released,
+            })?;
         }
         emit_evm_event2(rt, BlobAdded {
             subscriber: subscriber_delegated_addr,
