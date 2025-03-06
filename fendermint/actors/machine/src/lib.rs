@@ -56,7 +56,10 @@ pub trait MachineActor {
         let state = Self::State::new(rt.store(), id_addr, params.metadata)?;
         rt.create(&state)?;
 
-        emit_evm_event(rt, MachineCreated::new(state.kind(), delegated_addr, &state.metadata()))
+        emit_evm_event(
+            rt,
+            MachineCreated::new(state.kind(), delegated_addr, &state.metadata()),
+        )
     }
 
     /// Initializes the machine with its ID address.

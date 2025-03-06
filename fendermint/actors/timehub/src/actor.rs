@@ -10,10 +10,11 @@ use fil_actors_runtime::{
     runtime::{ActorCode, Runtime},
     ActorError,
 };
-use tracing::debug;
 use recall_actor_sdk::{emit_evm_event, require_addr_is_origin_or_caller, to_id_address};
-use crate::{Leaf, Method, PushParams, PushReturn, State, TIMEHUB_ACTOR_NAME};
+use tracing::debug;
+
 use crate::sol_facade::EventPushed;
+use crate::{Leaf, Method, PushParams, PushReturn, State, TIMEHUB_ACTOR_NAME};
 
 #[cfg(feature = "fil-actor")]
 fil_actors_runtime::wasm_trampoline!(TimehubActor);
@@ -124,6 +125,7 @@ impl ActorCode for TimehubActor {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::sol_facade::EventPushed;
 
     use std::collections::HashMap;
     use std::str::FromStr;
@@ -132,8 +134,8 @@ mod tests {
         params::GetCreditApprovalParams, state::CreditApproval, Method as BlobMethod,
         BLOBS_ACTOR_ADDR,
     };
-    use fendermint_actor_machine::{ConstructorParams, InitParams, Kind};
     use fendermint_actor_machine::sol_facade::{MachineCreated, MachineInitialized};
+    use fendermint_actor_machine::{ConstructorParams, InitParams, Kind};
     use fil_actors_evm_shared::address::EthAddress;
     use fil_actors_runtime::{
         runtime::MessageInfo,
@@ -149,7 +151,6 @@ mod tests {
         MethodNum,
     };
     use recall_actor_sdk::to_actor_event;
-    use crate::sol_facade::EventPushed;
 
     pub fn construct_runtime(actor_address: Address, owner_id_addr: Address) -> MockRuntime {
         let owner_eth_addr = EthAddress(hex_literal::hex!(
@@ -166,7 +167,12 @@ mod tests {
         rt.set_caller(*INIT_ACTOR_CODE_ID, INIT_ACTOR_ADDR);
         rt.expect_validate_caller_addr(vec![INIT_ACTOR_ADDR]);
         let metadata = HashMap::new();
-        let event = to_actor_event(MachineCreated::new(Kind::Timehub, owner_delegated_addr, &metadata)).unwrap();
+        let event = to_actor_event(MachineCreated::new(
+            Kind::Timehub,
+            owner_delegated_addr,
+            &metadata,
+        ))
+        .unwrap();
         rt.expect_emitted_event(event);
         let result = rt
             .call::<TimehubActor>(
@@ -239,7 +245,12 @@ mod tests {
             cid_bytes: cid.to_bytes(),
             from: rt.caller(),
         };
-        let event = to_actor_event(EventPushed::new(expected_index, timestamp, cid)).unwrap();
+        let event = to_actor_event(EventPushed {
+            index: expected_index,
+            timestamp,
+            cid,
+        })
+        .unwrap();
         rt.expect_emitted_event(event);
         rt.call::<TimehubActor>(
             Method::Push as u64,
