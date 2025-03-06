@@ -413,8 +413,8 @@ mod tests {
     use fvm_shared::{
         clock::ChainEpoch, econ::TokenAmount, error::ExitCode, sys::SendFlags, MethodNum,
     };
-    use recall_actor_sdk::to_actor_event;
-    use recall_sol_facade::machine::{machine_created, machine_initialized};
+    use fendermint_actor_machine::sol_facade::{MachineCreated, MachineInitialized};
+    use recall_actor_sdk::{to_actor_event, to_actor_event2};
 
     fn get_runtime() -> (MockRuntime, Address) {
         let origin_id_addr = Address::new_id(110);
@@ -440,10 +440,7 @@ mod tests {
         rt.set_caller(*INIT_ACTOR_CODE_ID, INIT_ACTOR_ADDR);
         rt.expect_validate_caller_addr(vec![INIT_ACTOR_ADDR]);
         let metadata = HashMap::new();
-        let event = to_actor_event(
-            machine_created(Kind::Bucket as u8, owner_delegated_addr, &metadata).unwrap(),
-        )
-        .unwrap();
+        let event = to_actor_event2(MachineCreated::new(Kind::Bucket, owner_delegated_addr, &metadata)).unwrap();
         rt.expect_emitted_event(event);
         let actor_construction = rt
             .call::<Actor>(
@@ -460,8 +457,7 @@ mod tests {
 
         rt.set_caller(*ADM_ACTOR_CODE_ID, ADM_ACTOR_ADDR);
         rt.expect_validate_caller_addr(vec![ADM_ACTOR_ADDR]);
-        let event =
-            to_actor_event(machine_initialized(Kind::Bucket as u8, buck_addr).unwrap()).unwrap();
+        let event = to_actor_event2(MachineInitialized::new(Kind::Bucket, buck_addr)).unwrap();
         rt.expect_emitted_event(event);
         let actor_init = rt
             .call::<Actor>(

@@ -133,6 +133,7 @@ mod tests {
         BLOBS_ACTOR_ADDR,
     };
     use fendermint_actor_machine::{ConstructorParams, InitParams, Kind};
+    use fendermint_actor_machine::sol_facade::{MachineCreated, MachineInitialized};
     use fil_actors_evm_shared::address::EthAddress;
     use fil_actors_runtime::{
         runtime::MessageInfo,
@@ -147,8 +148,7 @@ mod tests {
         address::Address, clock::ChainEpoch, econ::TokenAmount, error::ExitCode, sys::SendFlags,
         MethodNum,
     };
-    use recall_actor_sdk::to_actor_event;
-    use recall_sol_facade::machine::{machine_created, machine_initialized};
+    use recall_actor_sdk::{to_actor_event, to_actor_event2};
 
     pub fn construct_runtime(actor_address: Address, owner_id_addr: Address) -> MockRuntime {
         let owner_eth_addr = EthAddress(hex_literal::hex!(
@@ -165,10 +165,7 @@ mod tests {
         rt.set_caller(*INIT_ACTOR_CODE_ID, INIT_ACTOR_ADDR);
         rt.expect_validate_caller_addr(vec![INIT_ACTOR_ADDR]);
         let metadata = HashMap::new();
-        let event = to_actor_event(
-            machine_created(Kind::Timehub as u8, owner_delegated_addr, &metadata).unwrap(),
-        )
-        .unwrap();
+        let event = to_actor_event2(MachineCreated::new(Kind::Timehub, owner_delegated_addr, &metadata)).unwrap();
         rt.expect_emitted_event(event);
         let result = rt
             .call::<TimehubActor>(
@@ -185,9 +182,7 @@ mod tests {
 
         rt.set_caller(*ADM_ACTOR_CODE_ID, ADM_ACTOR_ADDR);
         rt.expect_validate_caller_addr(vec![ADM_ACTOR_ADDR]);
-        let event =
-            to_actor_event(machine_initialized(Kind::Timehub as u8, actor_address).unwrap())
-                .unwrap();
+        let event = to_actor_event2(MachineInitialized::new(Kind::Timehub, actor_address)).unwrap();
         rt.expect_emitted_event(event);
         let actor_init = rt
             .call::<TimehubActor>(
