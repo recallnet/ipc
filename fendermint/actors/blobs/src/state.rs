@@ -1530,7 +1530,7 @@ impl State {
         subscriber: Address,
         current_epoch: ChainEpoch,
         starting_hash: Option<Hash>,
-        limit: Option<usize>,
+        limit: Option<u32>,
     ) -> anyhow::Result<(u32, Option<Hash>, Vec<Hash>), ActorError> {
         let new_ttl = self.get_account_max_ttl(config, store, subscriber)?;
         let mut deleted_blobs = Vec::new();
@@ -1550,7 +1550,7 @@ impl State {
 
         let (_, next_key) = blobs.for_each_ranged(
             starting_key.as_ref(),
-            limit,
+            limit.map(|l| l as usize),
             |hash, blob| -> Result<(), ActorError> {
                 let subscribers = blob.subscribers.hamt(store)?;
                 if let Some(group) = subscribers.get(&subscriber)? {
@@ -3958,7 +3958,7 @@ mod tests {
             name: &'static str,
             account_ttl: TtlStatus,
             expected_ttls: Vec<ChainEpoch>,
-            limit: Option<usize>, // None means process all at once
+            limit: Option<u32>, // None means process all at once
         }
 
         let test_cases = vec![
