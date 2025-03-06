@@ -2,10 +2,14 @@
 // Copyright 2022-2024 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use fvm_shared::address::Address;
+use fvm_shared::bigint::BigUint;
+use fvm_shared::econ::TokenAmount;
 use fvm_shared::error::ErrorNumber;
 use fvm_shared::event::{ActorEvent, Entry, Flags};
 use fvm_shared::IPLD_RAW;
 use fil_actors_runtime::{actor_error, ActorError};
+use fil_actors_runtime::runtime::builtins::Type;
 use fil_actors_runtime::runtime::Runtime;
 use recall_sol_facade::primitives::IntoLogData;
 
@@ -20,6 +24,53 @@ mod sys {
         module = "recall";
         pub fn hash_rm(hash_ptr: *const u8) -> Result<()>;
     }
+}
+
+/// Returns an error if the address does not match the message origin or caller.
+pub fn require_addr_is_origin_or_caller(
+    rt: &impl Runtime,
+    address: Address,
+) -> Result<(), ActorError> {
+    let address = to_id_address(rt, address, false)?;
+    if address == rt.message().origin() || address == rt.message().caller() {
+        return Ok(());
+    }
+    Err(ActorError::illegal_argument(format!(
+        "address {} does not match origin or caller",
+        address
+    )))
+}
+
+/// Resolves ID address of an actor.
+/// If `require_delegated` is `true`, the address must be of type
+/// EVM (a Solidity contract), EthAccount (an Ethereum-style EOA), or Placeholder (a yet to be
+/// determined EOA or Solidity contract).
+pub fn to_id_address(
+    rt: &impl Runtime,
+    address: Address,
+    require_delegated: bool,
+) -> Result<Address, ActorError> {
+    let actor_id = rt
+        .resolve_address(&address)
+        .ok_or(ActorError::not_found(format!(
+            "actor {} not found",
+            address
+        )))?;
+    if require_delegated {
+        let code_cid = rt.get_actor_code_cid(&actor_id).ok_or_else(|| {
+            ActorError::not_found(format!("actor {} code cid not found", address))
+        })?;
+        if !matches!(
+            rt.resolve_builtin_actor_type(&code_cid),
+            Some(Type::Placeholder | Type::EVM | Type::EthAccount)
+        ) {
+            return Err(ActorError::forbidden(format!(
+                "invalid address: address {} is not delegated",
+                address,
+            )));
+        }
+    }
+    Ok(Address::new_id(actor_id))
 }
 
 pub trait TryIntoEVMEvent {
@@ -67,4 +118,39 @@ pub fn emit_evm_event<T: IntoLogData>(
         event.map_err(|e| actor_error!(illegal_argument; "failed to build evm event: {}", e))?;
     let actor_event = to_actor_event(event)?;
     rt.emit_event(&actor_event)
+}
+
+/// Resolves an address to its ID address and external delegated address.
+pub fn to_id_and_delegated_address(
+    rt: &impl Runtime,
+    address: Address,
+) -> Result<(Address, Address), ActorError> {
+    let actor_id = rt
+        .resolve_address(&address)
+        .ok_or(ActorError::not_found(format!(
+            "actor {} not found",
+            address
+        )))?;
+    let delegated = rt
+        .lookup_delegated_address(actor_id)
+        .ok_or(ActorError::not_found(format!(
+            "invalid address: actor {} is not delegated",
+            address
+        )))?;
+    Ok((Address::new_id(actor_id), delegated))
+}
+
+/// Resolves an address to its external delegated address.
+pub fn to_delegated_address(rt: &impl Runtime, address: Address) -> Result<Address, ActorError> {
+    Ok(to_id_and_delegated_address(rt, address)?.1)
+}
+
+/// Returns the [`TokenAmount`] as a [`BigUint`].
+/// If the given amount is negative, the value returned will be zero.
+pub fn token_to_biguint(amount: Option<TokenAmount>) -> BigUint {
+    amount
+        .unwrap_or_default()
+        .atto()
+        .to_biguint()
+        .unwrap_or_default()
 }

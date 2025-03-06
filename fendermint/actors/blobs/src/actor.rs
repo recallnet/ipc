@@ -16,10 +16,6 @@ use fendermint_actor_blobs_shared::state::{
     Subscription, SubscriptionId,
 };
 use fendermint_actor_blobs_shared::Method;
-use fendermint_actor_machine::util::{
-    require_addr_is_origin_or_caller, to_delegated_address, to_id_address,
-    to_id_and_delegated_address, token_to_biguint,
-};
 use fendermint_actor_recall_config_shared::{get_config, require_caller_is_admin};
 use fil_actors_runtime::{
     actor_dispatch, actor_error, extract_send_result,
@@ -29,7 +25,7 @@ use fil_actors_runtime::{
 use fvm_ipld_encoding::ipld_block::IpldBlock;
 use fvm_shared::{address::Address, econ::TokenAmount, error::ExitCode, MethodNum, METHOD_SEND};
 use num_traits::Zero;
-use recall_actor_sdk::emit_evm_event;
+use recall_actor_sdk::{emit_evm_event, require_addr_is_origin_or_caller, to_delegated_address, to_id_address, to_id_and_delegated_address, token_to_biguint};
 use recall_sol_facade::{
     blobs::{blob_added, blob_deleted, blob_finalized, blob_pending},
     credit::{
@@ -107,7 +103,7 @@ impl BlobsActor {
             credit_purchased(delegated_addr, token_to_biguint(Some(credit_amount))),
         )?;
 
-        AccountInfo::from(account, rt)
+        AccountInfo::from(account, rt, to_delegated_address)
     }
 
     /// Updates gas allowance for the `from` address.
@@ -320,7 +316,7 @@ impl BlobsActor {
                     .map(|sponsor| to_delegated_address(rt, sponsor))
                     .transpose()?;
 
-                AccountInfo::from(account, rt)
+                AccountInfo::from(account, rt, to_delegated_address)
             });
 
         account.transpose()

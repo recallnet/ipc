@@ -7,7 +7,6 @@ use std::fmt;
 use std::ops::{Div, Mul};
 use std::str::from_utf8;
 
-use fendermint_actor_machine::util::to_delegated_address;
 use fil_actors_runtime::runtime::Runtime;
 use fil_actors_runtime::ActorError;
 use fvm_ipld_blockstore::Blockstore;
@@ -585,7 +584,10 @@ pub struct AccountInfo {
 }
 
 impl AccountInfo {
-    pub fn from(account: Account, rt: &impl Runtime) -> Result<Self, ActorError> {
+    pub fn from<F, K: Runtime>(account: Account, rt: &K, to_delegated_address: F) -> Result<Self, ActorError>
+    where
+        F: Fn(&K, Address) -> Result<Address, ActorError>
+    {
         let mut approvals_to = HashMap::new();
         account
             .approvals_to
