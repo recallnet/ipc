@@ -15,9 +15,8 @@ use fvm_ipld_encoding::tuple::*;
 use fvm_shared::bigint::BigUint;
 use fvm_shared::{address::Address, clock::ChainEpoch};
 use num_traits::Zero;
-use recall_actor_sdk::{emit_evm_event, emit_evm_event2, to_delegated_address, to_id_and_delegated_address};
-use recall_sol_facade::config::{config_set};
-use crate::sol_facade::ConfigAdminSet;
+use recall_actor_sdk::{emit_evm_event2, to_delegated_address, to_id_and_delegated_address};
+use crate::sol_facade::{ConfigAdminSet, ConfigSet};
 
 mod sol_facade;
 
@@ -163,18 +162,15 @@ impl Actor {
         if let Some(admin) = admin_delegated_addr {
             emit_evm_event2(rt, ConfigAdminSet::new(admin))?;
         }
-        emit_evm_event(
-            rt,
-            config_set(
-                params.blob_capacity,
-                params.token_credit_rate.rate().clone(),
-                params.blob_credit_debit_interval as u64,
-                params.blob_min_ttl as u64,
-                params.blob_default_ttl as u64,
-                params.blob_delete_batch_size,
-                params.account_debit_batch_size,
-            ),
-        )?;
+        emit_evm_event2(rt, ConfigSet {
+            blob_capacity: params.blob_capacity,
+            token_credit_rate: params.token_credit_rate,
+            blob_credit_debit_interval: params.blob_credit_debit_interval,
+            blob_min_ttl: params.blob_min_ttl,
+            blob_default_ttl: params.blob_default_ttl,
+            blob_delete_batch_size: params.blob_delete_batch_size,
+            account_debit_batch_size: params.account_debit_batch_size,
+        })?;
 
         Ok(())
     }
@@ -234,7 +230,7 @@ mod tests {
     };
     use fvm_ipld_encoding::ipld_block::IpldBlock;
     use fvm_shared::error::ExitCode;
-    use recall_actor_sdk::{to_actor_event, to_actor_event2};
+    use recall_actor_sdk::to_actor_event2;
 
     pub fn construct_and_verify(
         blob_capacity: u64,
@@ -424,19 +420,15 @@ mod tests {
             blob_delete_batch_size: 100,
             account_debit_batch_size: 100,
         };
-        let config_event = to_actor_event(
-            config_set(
-                config.blob_capacity,
-                config.token_credit_rate.rate().clone(),
-                config.blob_credit_debit_interval as u64,
-                config.blob_min_ttl as u64,
-                config.blob_default_ttl as u64,
-                config.blob_delete_batch_size,
-                config.account_debit_batch_size,
-            )
-            .unwrap(),
-        )
-        .unwrap();
+        let config_event = to_actor_event2(ConfigSet {
+            blob_capacity: config.blob_capacity,
+            token_credit_rate: config.token_credit_rate.clone(),
+            blob_credit_debit_interval: config.blob_credit_debit_interval,
+            blob_min_ttl: config.blob_min_ttl,
+            blob_default_ttl: config.blob_default_ttl,
+            blob_delete_batch_size: config.blob_delete_batch_size,
+            account_debit_batch_size: config.account_debit_batch_size
+        }).unwrap();
         rt.expect_emitted_event(config_event);
 
         let result = rt.call::<Actor>(
