@@ -18,7 +18,7 @@ use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_hamt::BytesKey;
 use fvm_shared::address::Address;
 use recall_actor_sdk::{emit_evm_event, emit_evm_event2, require_addr_is_origin_or_caller, to_id_address};
-use recall_sol_facade::bucket::{object_deleted, object_metadata_updated};
+use recall_sol_facade::bucket::{object_deleted};
 
 use crate::shared::{
     AddParams, DeleteParams, GetParams, ListObjectsReturn, ListParams, Method, Object,
@@ -29,7 +29,7 @@ use crate::{
     UpdateObjectMetadataParams, MAX_METADATA_ENTRIES, MAX_METADATA_KEY_SIZE,
     MAX_METADATA_VALUE_SIZE,
 };
-use crate::sol_facade::ObjectAdded;
+use crate::sol_facade::{ObjectAdded, ObjectMetadataUpdated};
 
 #[cfg(feature = "fil-actor")]
 fil_actors_runtime::wasm_trampoline!(Actor);
@@ -260,7 +260,7 @@ impl Actor {
             Ok(object.metadata)
         })?;
 
-        emit_evm_event(rt, object_metadata_updated(params.key, &metadata))?;
+        emit_evm_event2(rt, ObjectMetadataUpdated::new(&params.key, &metadata))?;
 
         Ok(())
     }
@@ -1011,14 +1011,10 @@ mod tests {
             ]),
         };
         rt.expect_validate_caller_any();
-        let event = to_actor_event(
-            object_metadata_updated(
-                add_params.key,
-                &HashMap::from([("foo".into(), "zar".into()), ("foo3".into(), "bar".into())]),
-            )
-            .unwrap(),
-        )
-        .unwrap();
+        let event = to_actor_event2(ObjectMetadataUpdated {
+            key: &add_params.key,
+            metadata: &HashMap::from([("foo".into(), "zar".into()), ("foo3".into(), "bar".into())]),
+        }).unwrap();
         rt.expect_emitted_event(event);
         let result = rt.call::<Actor>(
             Method::UpdateObjectMetadata as u64,
@@ -1097,14 +1093,10 @@ mod tests {
             ExitCode::OK,
             None,
         );
-        let event = to_actor_event(
-            object_metadata_updated(
-                alien_update.key.clone(),
-                &HashMap::from([("foo".into(), "zar".into()), ("foo3".into(), "bar".into())]),
-            )
-            .unwrap(),
-        )
-        .unwrap();
+        let event = to_actor_event2(ObjectMetadataUpdated {
+            key: &alien_update.key,
+            metadata: &HashMap::from([("foo".into(), "zar".into()), ("foo3".into(), "bar".into())])
+        }).unwrap();
         rt.expect_emitted_event(event);
         let result = rt.call::<Actor>(
             Method::UpdateObjectMetadata as u64,
