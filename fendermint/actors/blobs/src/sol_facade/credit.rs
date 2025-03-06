@@ -51,3 +51,24 @@ impl TryIntoEVMEvent for CreditApproved {
         }))
     }
 }
+
+pub struct CreditRevoked {
+    pub from: Address,
+    pub to: Address,
+}
+impl CreditRevoked {
+    pub fn new(from: Address, to: Address) -> Self {
+        Self { from, to }
+    }
+}
+impl TryIntoEVMEvent for CreditRevoked {
+    type Target = sol::Event;
+    fn try_into_evm_event(self) -> Result<sol::Event, Error> {
+        let from: H160 = self.from.try_into()?;
+        let to: H160 = self.to.try_into()?;
+        Ok(sol::Event::CreditRevoked(sol::CreditRevoked {
+            from: from.into(),
+            to: to.into(),
+        }))
+    }
+}
