@@ -29,11 +29,12 @@ use recall_actor_sdk::{emit_evm_event, emit_evm_event2, require_addr_is_origin_o
 use recall_sol_facade::{
     blobs::{blob_added, blob_deleted, blob_finalized, blob_pending},
     credit::{
-        credit_approved, credit_debited as credit_debited_event, credit_purchased, credit_revoked,
+        credit_debited as credit_debited_event, credit_revoked,
     },
 };
 
 use crate::{State, BLOBS_ACTOR_NAME};
+use crate::sol_facade::credit::{CreditApproved, CreditPurchased};
 use crate::sol_facade::gas::{GasSponsorSet, GasSponsorUnset};
 
 #[cfg(feature = "fil-actor")]
@@ -98,10 +99,7 @@ impl BlobsActor {
             Ok(account)
         })?;
 
-        emit_evm_event(
-            rt,
-            credit_purchased(delegated_addr, token_to_biguint(Some(credit_amount))),
-        )?;
+        emit_evm_event2(rt, CreditPurchased::new(delegated_addr, credit_amount))?;
 
         AccountInfo::from(account, rt, to_delegated_address)
     }
@@ -201,19 +199,13 @@ impl BlobsActor {
             Err(e) => Err(e),
         }?;
 
-        let event_credit_limit = token_to_biguint(approval.credit_limit.clone());
-        let event_fas_fee_limit = token_to_biguint(approval.gas_fee_limit.clone());
-        let event_expiry = approval.expiry.unwrap_or_default() as u64;
-        emit_evm_event(
-            rt,
-            credit_approved(
-                from_delegated_addr,
-                to_delegated_addr,
-                event_credit_limit,
-                event_fas_fee_limit,
-                event_expiry,
-            ),
-        )?;
+        emit_evm_event2(rt, CreditApproved {
+            from: from_delegated_addr,
+            to: to_delegated_addr,
+            credit_limit: approval.credit_limit.clone(),
+            gas_fee_limit: approval.gas_fee_limit.clone(),
+            expiry: approval.expiry,
+        })?;
 
         Ok(approval)
     }
@@ -842,7 +834,7 @@ mod tests {
         SYSTEM_ACTOR_CODE_ID,
     };
     use fvm_shared::{bigint::BigInt, clock::ChainEpoch, sys::SendFlags};
-    use recall_actor_sdk::to_actor_event;
+    use recall_actor_sdk::{to_actor_event, to_actor_event2};
 
     pub fn construct_and_verify() -> MockRuntime {
         let rt = MockRuntime {
@@ -879,9 +871,7 @@ mod tests {
         params: &BuyCreditParams,
         amount: TokenAmount,
     ) {
-        let event =
-            to_actor_event(credit_purchased(params.0, token_to_biguint(Some(amount))).unwrap())
-                .unwrap();
+        let event = to_actor_event2(CreditPurchased::new(params.0, amount)).unwrap();
         rt.expect_emitted_event(event);
     }
 
@@ -893,12 +883,13 @@ mod tests {
         gas_fee_limit: Option<TokenAmount>,
         expiry: ChainEpoch,
     ) {
-        let credit_limit = token_to_biguint(credit_limit);
-        let gas_fee_limit = token_to_biguint(gas_fee_limit);
-        let event = to_actor_event(
-            credit_approved(from, to, credit_limit, gas_fee_limit, expiry as u64).unwrap(),
-        )
-        .unwrap();
+        let event = to_actor_event2(CreditApproved {
+            from,
+            to,
+            credit_limit,
+            gas_fee_limit,
+            expiry: Some(expiry),
+        }).unwrap();
         rt.expect_emitted_event(event);
     }
 
