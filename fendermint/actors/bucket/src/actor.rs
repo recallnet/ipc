@@ -323,7 +323,10 @@ impl Actor {
                     call.try_returns(list)?
                 }
                 BucketFacade::Calls::queryObjects_4(call) => {
-                    todo!()
+                    // function queryObjects(string memory prefix, string memory delimiter) external view returns (Query memory);
+                    let params: ListParams = call.clone().into();
+                    let list = Self::list_objects(rt, params)?;
+                    call.try_returns(list)?
                 }
                 BucketFacade::Calls::updateObjectMetadata(call) => {
                     todo!()
