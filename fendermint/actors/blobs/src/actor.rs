@@ -25,16 +25,16 @@ use fil_actors_runtime::{
 use fvm_ipld_encoding::ipld_block::IpldBlock;
 use fvm_shared::{address::Address, econ::TokenAmount, error::ExitCode, MethodNum, METHOD_SEND};
 use num_traits::Zero;
-use recall_actor_sdk::{emit_evm_event, require_addr_is_origin_or_caller, to_delegated_address, to_id_address, to_id_and_delegated_address, token_to_biguint};
+use recall_actor_sdk::{emit_evm_event, emit_evm_event2, require_addr_is_origin_or_caller, to_delegated_address, to_id_address, to_id_and_delegated_address, token_to_biguint};
 use recall_sol_facade::{
     blobs::{blob_added, blob_deleted, blob_finalized, blob_pending},
     credit::{
         credit_approved, credit_debited as credit_debited_event, credit_purchased, credit_revoked,
     },
-    gas::{gas_sponsor_set, gas_sponsor_unset},
 };
 
 use crate::{State, BLOBS_ACTOR_NAME};
+use crate::sol_facade::{GasSponsorSet, GasSponsorUnset};
 
 #[cfg(feature = "fil-actor")]
 fil_actors_runtime::wasm_trampoline!(BlobsActor);
@@ -264,9 +264,9 @@ impl BlobsActor {
         })?;
 
         if let Some(sponsor) = sponsor_delegated_addr {
-            emit_evm_event(rt, gas_sponsor_set(sponsor))?;
+            emit_evm_event2(rt, GasSponsorSet::mew(sponsor))?;
         } else {
-            emit_evm_event(rt, gas_sponsor_unset())?;
+            emit_evm_event2(rt, GasSponsorUnset::new())?;
         }
 
         Ok(())
