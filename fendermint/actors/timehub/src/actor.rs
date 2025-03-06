@@ -10,10 +10,10 @@ use fil_actors_runtime::{
     runtime::{ActorCode, Runtime},
     ActorError,
 };
-use recall_sol_facade::timehub::event_pushed;
 use tracing::debug;
-use recall_actor_sdk::{emit_evm_event, require_addr_is_origin_or_caller, to_id_address};
+use recall_actor_sdk::{emit_evm_event, emit_evm_event2, require_addr_is_origin_or_caller, to_id_address};
 use crate::{Leaf, Method, PushParams, PushReturn, State, TIMEHUB_ACTOR_NAME};
+use crate::sol_facade::EventPushed;
 
 #[cfg(feature = "fil-actor")]
 fil_actors_runtime::wasm_trampoline!(TimehubActor);
@@ -55,7 +55,7 @@ impl TimehubActor {
 
         let ret = rt.transaction(|st: &mut State, rt| st.push(rt.store(), data))?;
 
-        emit_evm_event(rt, event_pushed(ret.index, timestamp, cid.to_bytes()))?;
+        emit_evm_event2(rt, EventPushed::new(ret.index, timestamp, cid))?;
 
         Ok(ret)
     }
@@ -149,6 +149,7 @@ mod tests {
         MethodNum,
     };
     use recall_actor_sdk::{to_actor_event, to_actor_event2};
+    use crate::sol_facade::EventPushed;
 
     pub fn construct_runtime(actor_address: Address, owner_id_addr: Address) -> MockRuntime {
         let owner_eth_addr = EthAddress(hex_literal::hex!(
@@ -238,10 +239,7 @@ mod tests {
             cid_bytes: cid.to_bytes(),
             from: rt.caller(),
         };
-        let event = to_actor_event(
-            event_pushed(expected_index, timestamp, push_params.cid_bytes.clone()).unwrap(),
-        )
-        .unwrap();
+        let event = to_actor_event2(EventPushed::new(expected_index, timestamp, cid)).unwrap();
         rt.expect_emitted_event(event);
         rt.call::<TimehubActor>(
             Method::Push as u64,
