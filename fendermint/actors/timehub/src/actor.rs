@@ -245,12 +245,7 @@ mod tests {
             cid_bytes: cid.to_bytes(),
             from: rt.caller(),
         };
-        let event = to_actor_event(EventPushed {
-            index: expected_index,
-            timestamp,
-            cid,
-        })
-        .unwrap();
+        let event = to_actor_event(EventPushed::new(expected_index, timestamp, cid)).unwrap();
         rt.expect_emitted_event(event);
         rt.call::<TimehubActor>(
             Method::Push as u64,

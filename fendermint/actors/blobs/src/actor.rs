@@ -820,7 +820,7 @@ mod tests {
         SYSTEM_ACTOR_CODE_ID,
     };
     use fvm_shared::{bigint::BigInt, clock::ChainEpoch, sys::SendFlags};
-    use recall_actor_sdk::{to_actor_event};
+    use recall_actor_sdk::to_actor_event;
 
     pub fn construct_and_verify() -> MockRuntime {
         let rt = MockRuntime {
@@ -875,7 +875,8 @@ mod tests {
             credit_limit,
             gas_fee_limit,
             expiry: Some(expiry),
-        }).unwrap();
+        })
+        .unwrap();
         rt.expect_emitted_event(event);
     }
 
@@ -897,7 +898,8 @@ mod tests {
             size: params.size,
             expiry: params.ttl.unwrap_or(86400) + current_epoch,
             bytes_used: used,
-        }).unwrap();
+        })
+        .unwrap();
         rt.expect_emitted_event(event);
     }
 

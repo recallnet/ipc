@@ -4,7 +4,7 @@
 
 mod actor;
 mod shared;
-mod state;
 mod sol_facade;
+mod state;
 
 pub use shared::*;
