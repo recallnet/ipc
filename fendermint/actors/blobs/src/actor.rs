@@ -25,16 +25,13 @@ use fil_actors_runtime::{
 use fvm_ipld_encoding::ipld_block::IpldBlock;
 use fvm_shared::{address::Address, econ::TokenAmount, error::ExitCode, MethodNum, METHOD_SEND};
 use num_traits::Zero;
-use recall_actor_sdk::{emit_evm_event, emit_evm_event2, require_addr_is_origin_or_caller, to_delegated_address, to_id_address, to_id_and_delegated_address, token_to_biguint};
+use recall_actor_sdk::{emit_evm_event, emit_evm_event2, require_addr_is_origin_or_caller, to_delegated_address, to_id_address, to_id_and_delegated_address};
 use recall_sol_facade::{
     blobs::{blob_added, blob_deleted, blob_finalized, blob_pending},
-    credit::{
-        credit_debited as credit_debited_event,
-    },
 };
 
 use crate::{State, BLOBS_ACTOR_NAME};
-use crate::sol_facade::credit::{CreditApproved, CreditPurchased, CreditRevoked};
+use crate::sol_facade::credit::{CreditApproved, CreditDebited, CreditPurchased, CreditRevoked};
 use crate::sol_facade::gas::{GasSponsorSet, GasSponsorUnset};
 
 #[cfg(feature = "fil-actor")]
@@ -390,10 +387,11 @@ impl BlobsActor {
         }
 
         // TODO: Wire more_accounts param when pagination work is done.
-        emit_evm_event(
-            rt,
-            credit_debited_event(token_to_biguint(Some(credit_debited)), num_accounts, false),
-        )?;
+        emit_evm_event2(rt, CreditDebited {
+            amount: credit_debited,
+            num_accounts,
+            more_accounts: false,
+        })?;
 
         Ok(())
     }

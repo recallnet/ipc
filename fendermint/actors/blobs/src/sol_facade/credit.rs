@@ -72,3 +72,20 @@ impl TryIntoEVMEvent for CreditRevoked {
         }))
     }
 }
+
+pub struct CreditDebited {
+    pub amount: TokenAmount,
+    pub num_accounts: u64,
+    pub more_accounts: bool,
+}
+impl TryIntoEVMEvent for CreditDebited {
+    type Target = sol::Event;
+    fn try_into_evm_event(self) -> Result<sol::Event, Error> {
+        let amount = token_to_biguint(Some(self.amount));
+        Ok(sol::Event::CreditDebited(sol::CreditDebited {
+            amount: BigUintWrapper(amount).into(),
+            numAccounts: U256::from(self.num_accounts),
+            moreAccounts: self.more_accounts,
+        }))
+    }
+}
