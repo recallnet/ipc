@@ -299,11 +299,14 @@ impl Actor {
                     call.returns(object)
                 }
                 BucketFacade::Calls::queryObjects_0(call) => {
+                    // function queryObjects(string memory prefix, string memory delimiter, string memory startKey, uint64 limit) external view returns (Query memory);
                     let params: ListParams = call.clone().into();
-                    let k = Self::list_objects(rt, params)?;
-                    todo!()
+                    let list = Self::list_objects(rt, params)?;
+                    call.try_returns(list)?
                 }
                 BucketFacade::Calls::queryObjects_1(call) => {
+                    // function queryObjects(string memory prefix, string memory delimiter, string memory startKey) external view returns (Query memory);
+                    let params: ListParams = call.clone().into();
                     todo!()
                 }
                 BucketFacade::Calls::queryObjects_2(call) => {
