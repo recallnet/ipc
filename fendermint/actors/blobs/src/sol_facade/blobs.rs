@@ -192,3 +192,15 @@ impl AbiCall for sol::getPendingBlobsCall {
         Ok(Self::abi_encode_returns(&(blob_tuples,)))
     }
 }
+
+impl AbiCall for sol::getPendingBlobsCountCall {
+    type Params = ();
+    type Returns = u64;
+    type Output = Vec<u8>;
+    fn params(&self) -> Self::Params {
+        ()
+    }
+    fn returns(&self, num_resolving: Self::Returns) -> Self::Output {
+        Self::abi_encode_returns(&(&num_resolving,))
+    }
+}

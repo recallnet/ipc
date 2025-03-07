@@ -772,7 +772,8 @@ impl BlobsActor {
                     call.returns(blob_requests)?
                 }
                 sol_blobs::Calls::getPendingBlobsCount(call) => {
-                    todo!()
+                    let stats = Self::get_stats(rt)?;
+                    call.returns(stats.num_resolving)
                 }
                 sol_blobs::Calls::getPendingBytesCount(call) => {
                     todo!()
@@ -893,6 +894,7 @@ mod tests {
         SYSTEM_ACTOR_CODE_ID,
     };
     use fvm_shared::{bigint::BigInt, clock::ChainEpoch, sys::SendFlags};
+    use fvm_shared::address::Address;
     use recall_actor_sdk::to_actor_event;
 
     pub fn construct_and_verify() -> MockRuntime {
