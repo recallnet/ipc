@@ -7,7 +7,7 @@ use fendermint_actor_blobs_shared::state::{Hash, PublicKey};
 use fvm_shared::address::Address;
 use fvm_shared::clock::ChainEpoch;
 use fil_actors_runtime::{actor_error, ActorError};
-use recall_actor_sdk::{InputData, TryIntoEVMEvent};
+use recall_actor_sdk::{handle_abi_input, InputData, TryIntoEVMEvent};
 use recall_sol_facade::blobs as sol;
 use recall_sol_facade::primitives::U256;
 use recall_sol_facade::types::{SolCall, SolInterface, H160};
@@ -95,19 +95,11 @@ impl TryIntoEVMEvent for BlobDeleted<'_> {
 }
 
 // ----- Calls ----- //
-
-pub fn can_handle(input_data: &InputData) -> bool {
-    Calls::valid_selector(input_data.selector())
-}
-
-pub fn parse_input(input: &InputData) -> Result<Calls, ActorError> {
-    Calls::abi_decode_raw(input.selector(), input.calldata(), true).map_err(|e| {
-        actor_error!(illegal_argument, format!("invalid call: {}", e))
-    })
-}
+handle_abi_input!(Calls);
 
 impl AbiEncodeReturns<u64> for sol::getPendingBlobsCountCall {
     fn returns(&self, value: u64) -> Vec<u8> {
         Self::abi_encode_returns(&(&value,))
     }
 }
+
