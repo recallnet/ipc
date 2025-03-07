@@ -314,21 +314,12 @@ impl AbiCall for sol::deleteBlobCall {
     }
 }
 
-pub struct SubscriberTraversed {
-    pub address: Address,
-    pub subscriptions: Vec<SubscriptionsTraversed>,
-}
-
-pub struct SubscriptionsTraversed {
-    pub subscription_id: SubscriptionId,
-    pub subscription: sol::Subscription,
-}
-
+/// Blob, but subscribers are ready for EVM.
 pub struct BlobTraversed {
     pub size: u64,
     pub metadata_hash: Hash,
     pub status: BlobStatus,
-    pub subscribers: Vec<SubscriberTraversed>
+    pub subscribers: Vec<sol::Subscriber>,
 }
 
 fn as_illegal_state<E: Display>(err: E) -> ActorError {
@@ -345,8 +336,8 @@ impl BlobTraversed {
             let subscriptions = subscription_group.iter().map(|entry| {
                 let (bytes_key, subscription) = entry.map_err(as_illegal_state)?;
                 let subscription_id = SubscriptionId::from_bytes(bytes_key.as_slice()).map_err(as_illegal_state)?;
-                let subscription = SubscriptionsTraversed {
-                    subscription_id,
+                let subscription = sol::SubscriptionGroup {
+                    subscriptionId: subscription_id.into(),
                     subscription: sol::Subscription {
                         added: subscription.added as u64,
                         expiry: subscription.expiry as u64,
@@ -357,9 +348,9 @@ impl BlobTraversed {
                 };
                 Ok(subscription)
             }).collect::<Result<Vec<_>, ActorError>>()?;
-            let subscriber_traversed = SubscriberTraversed {
-                address: subscriber,
-                subscriptions,
+            let subscriber_traversed = sol::Subscriber {
+                subscriber: H160::try_from(subscriber).map_err(as_illegal_state)?.into(),
+                subscriptionGroup: subscriptions,
             };
             Ok(subscriber_traversed)
         }).collect::<Result<Vec<_>, ActorError>>()?;
@@ -382,31 +373,12 @@ impl AbiCall for sol::getBlobCall {
         Ok(GetBlobParams(blob_hash))
     }
     fn returns(&self, blob: Self::Returns) -> Self::Output {
-        let facade_blob = if let Some(blob) = blob {
-            let subscribers = blob.subscribers.iter().map(|sub| {
-                let subscription_group = sub.subscriptions.iter().map(|sub| {
-                   Ok(sol::SubscriptionGroup {
-                       subscriptionId: sub.subscription_id.clone().into(),
-                       subscription: sol::Subscription {
-                           added: sub.subscription.added,
-                           expiry: sub.subscription.expiry,
-                           source:  Base32::from_slice(sub.subscription.source.as_ref()).encode(),
-                           // delegate: sub.subscription.delegate.map(|address| H160::try_from(address)).transpose()?.unwrap_or_default().into(),
-                           delegate: sub.subscription.delegate,
-                           failed: sub.subscription.failed,
-                       }
-                   })
-                }).collect::<Result<Vec<_>, anyhow::Error>>()?;
-                Ok(sol::Subscriber {
-                    subscriber: H160::try_from(sub.address)?.into(),
-                    subscriptionGroup: subscription_group,
-                })
-            }).collect::<Result<Vec<_>, AbiEncodeError>>()?;
+        let blob = if let Some(blob) = blob {
             sol::Blob {
                 size: blob.size,
                 metadataHash: Base32::from_slice(blob.metadata_hash.as_ref()).encode(),
                 status: blob_status_as_solidity_enum(blob.status),
-                subscribers: subscribers,
+                subscribers: blob.subscribers,
             }
         } else {
             sol::Blob {
@@ -416,7 +388,7 @@ impl AbiCall for sol::getBlobCall {
                 subscribers: Vec::default(),
             }
         };
-        Ok(Self::abi_encode_returns(&(facade_blob,)))
+        Ok(Self::abi_encode_returns(&(blob,)))
     }
 }
 
