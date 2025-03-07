@@ -10353,6 +10353,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "fil_actors_runtime",
+ "fvm_ipld_encoding",
  "fvm_sdk",
  "fvm_shared",
  "num-traits",
