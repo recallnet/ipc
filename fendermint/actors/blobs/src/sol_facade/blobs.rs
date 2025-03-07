@@ -8,7 +8,7 @@ use fvm_ipld_blockstore::Blockstore;
 use fendermint_actor_blobs_shared::state::{Blob, BlobRequest, BlobStatus, Hash, PublicKey, Subscription, SubscriptionId};
 use fvm_shared::address::Address;
 use fvm_shared::clock::ChainEpoch;
-use fendermint_actor_blobs_shared::params::{AddBlobParams, DeleteBlobParams, GetAddedBlobsParams, GetBlobParams, GetBlobStatusParams, GetPendingBlobsParams, GetStatsReturn};
+use fendermint_actor_blobs_shared::params::{AddBlobParams, DeleteBlobParams, GetAccountParams, GetAddedBlobsParams, GetBlobParams, GetBlobStatusParams, GetPendingBlobsParams, GetStatsReturn};
 use fil_actors_runtime::{actor_error, ActorError};
 use recall_actor_sdk::{TryIntoEVMEvent};
 use recall_sol_facade::blobs as sol;
@@ -389,6 +389,20 @@ impl AbiCall for sol::getBlobCall {
             }
         };
         Ok(Self::abi_encode_returns(&(blob,)))
+    }
+}
+
+impl AbiCall for sol::getStorageUsageCall {
+    type Params = Result<GetAccountParams, ActorError>;
+    type Returns = Option<u64>;
+    type Output = Vec<u8>;
+    fn params(&self) -> Self::Params {
+        let address: Address = H160::try_from(self.addr.as_slice()).and_then(|h160| h160.try_into()).map_err(as_illegal_state)?;
+        Ok(GetAccountParams(address))
+    }
+    fn returns(&self, capacity_used: Self::Returns) -> Self::Output {
+        let capacity_used = capacity_used.unwrap_or_default();
+        Self::abi_encode_returns(&(U256::from(capacity_used),))
     }
 }
 

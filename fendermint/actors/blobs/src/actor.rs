@@ -804,8 +804,11 @@ impl BlobsActor {
                     }).transpose()?;
                     call.returns(blob)?
                 }
-                sol_blobs::Calls::getStorageUsage(_) => {
-                    todo!()
+                sol_blobs::Calls::getStorageUsage(call) => {
+                    let params = call.params()?;
+                    let account = Self::get_account(rt, params)?;
+                    let capacity_used = account.map(|a| a.capacity_used);
+                    call.returns(capacity_used)
                 }
                 sol_blobs::Calls::getSubnetStats(_) => {
                     todo!()
