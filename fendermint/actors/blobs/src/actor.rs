@@ -9,7 +9,10 @@ use fendermint_actor_blobs_shared::params::{
     OverwriteBlobParams, RevokeCreditParams, SetAccountStatusParams, SetBlobPendingParams,
     SetSponsorParams, TrimBlobExpiriesParams, UpdateGasAllowanceParams,
 };
-use fendermint_actor_blobs_shared::state::{AccountInfo, Blob, BlobRequest, BlobStatus, Credit, CreditApproval, GasAllowance, Hash, Subscription, SubscriptionId};
+use fendermint_actor_blobs_shared::state::{
+    AccountInfo, Blob, BlobRequest, BlobStatus, Credit, CreditApproval, GasAllowance, Hash,
+    Subscription, SubscriptionId,
+};
 use fendermint_actor_blobs_shared::Method;
 use fendermint_actor_recall_config_shared::{get_config, require_caller_is_admin};
 use fil_actors_runtime::{
@@ -18,17 +21,20 @@ use fil_actors_runtime::{
     ActorError, FIRST_EXPORTED_METHOD_NUMBER, SYSTEM_ACTOR_ADDR,
 };
 use fvm_ipld_encoding::ipld_block::IpldBlock;
-use fvm_shared::{econ::TokenAmount, error::ExitCode, MethodNum, METHOD_SEND};
 use fvm_shared::address::Address;
+use fvm_shared::{econ::TokenAmount, error::ExitCode, MethodNum, METHOD_SEND};
 use num_traits::Zero;
-use recall_actor_sdk::{emit_evm_event, require_addr_is_origin_or_caller, to_delegated_address, to_id_address, to_id_and_delegated_address, InputData, InvokeContractParams, InvokeContractReturn};
+use recall_actor_sdk::{
+    emit_evm_event, require_addr_is_origin_or_caller, to_delegated_address, to_id_address,
+    to_id_and_delegated_address, InputData, InvokeContractParams, InvokeContractReturn,
+};
 use recall_ipld::hamt::MapKey;
 
-use crate::sol_facade::{blobs as sol_blobs, AbiCall};
+use crate::sol_facade::blobs::BlobTraversed;
 use crate::sol_facade::credit::{CreditApproved, CreditDebited, CreditPurchased, CreditRevoked};
 use crate::sol_facade::gas::{GasSponsorSet, GasSponsorUnset};
+use crate::sol_facade::{blobs as sol_blobs, AbiCall};
 use crate::{State, BLOBS_ACTOR_NAME};
-use crate::sol_facade::blobs::BlobTraversed;
 
 #[cfg(feature = "fil-actor")]
 fil_actors_runtime::wasm_trampoline!(BlobsActor);
@@ -755,14 +761,17 @@ impl BlobsActor {
         Ok((processed, next_key))
     }
 
-    fn invoke_contract(rt: &impl Runtime, params: InvokeContractParams) -> Result<InvokeContractReturn, ActorError> {
+    fn invoke_contract(
+        rt: &impl Runtime,
+        params: InvokeContractParams,
+    ) -> Result<InvokeContractReturn, ActorError> {
         let input_data: InputData = params.try_into()?;
         if sol_blobs::can_handle(&input_data) {
             let output_data = match sol_blobs::parse_input(&input_data)? {
                 sol_blobs::Calls::getAddedBlobs(call) => {
                     let blob_requests = Self::get_added_blobs(rt, call.params())?;
                     call.returns(blob_requests)?
-                },
+                }
                 sol_blobs::Calls::getBlobStatus(call) => {
                     let params = call.params()?;
                     let blob_status = Self::get_blob_status(rt, params)?;
@@ -798,9 +807,9 @@ impl BlobsActor {
                 sol_blobs::Calls::getBlob(call) => {
                     let params: GetBlobParams = call.params()?;
                     let blob = Self::get_blob(rt, params)?;
-                    let blob = blob.map(|blob| {
-                        BlobTraversed::from_store(rt.store(), blob)
-                    }).transpose()?;
+                    let blob = blob
+                        .map(|blob| BlobTraversed::from_store(rt.store(), blob))
+                        .transpose()?;
                     call.returns(blob)?
                 }
                 sol_blobs::Calls::getStorageUsage(call) => {
@@ -819,7 +828,7 @@ impl BlobsActor {
                     call.returns(())
                 }
             };
-            Ok(InvokeContractReturn { output_data, })
+            Ok(InvokeContractReturn { output_data })
         } else {
             Err(actor_error!(illegal_argument, "invalid call".to_string()))
         }
@@ -912,8 +921,8 @@ mod tests {
         expect_empty, MockRuntime, ETHACCOUNT_ACTOR_CODE_ID, EVM_ACTOR_CODE_ID,
         SYSTEM_ACTOR_CODE_ID,
     };
-    use fvm_shared::{bigint::BigInt, clock::ChainEpoch, sys::SendFlags};
     use fvm_shared::address::Address;
+    use fvm_shared::{bigint::BigInt, clock::ChainEpoch, sys::SendFlags};
     use recall_actor_sdk::to_actor_event;
 
     pub fn construct_and_verify() -> MockRuntime {
