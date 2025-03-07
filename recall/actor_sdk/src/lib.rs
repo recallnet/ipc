@@ -193,7 +193,7 @@ pub struct InvokeContractReturn {
 }
 
 #[macro_export]
-macro_rules! define_abi_encode {
+macro_rules! declare_abi_encode_returns {
     () => {
         pub trait AbiEncodeReturns<T>: recall_sol_facade::types::SolCall {
             fn returns(&self, value: T) -> Vec<u8>;

@@ -2,9 +2,9 @@
 // Copyright 2022-2024 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use recall_actor_sdk::define_abi_encode;
+use recall_actor_sdk::declare_abi_encode_returns;
 
-define_abi_encode!();
+declare_abi_encode_returns!();
 
 pub mod blobs;
 pub mod credit;
