@@ -6,7 +6,7 @@ use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::ops::{Div, Mul};
 use std::str::from_utf8;
-
+use anyhow::anyhow;
 use fil_actors_runtime::runtime::Runtime;
 use fil_actors_runtime::ActorError;
 use fvm_ipld_blockstore::Blockstore;
@@ -169,24 +169,30 @@ impl AsRef<[u8]> for Hash {
     }
 }
 
-impl TryInto<Hash> for &[u8] {
-    type Error = String;
+// impl TryInto<Hash> for &[u8] {
+//     type Error = String;
+//
+//     fn try_into(self) -> Result<Hash, Self::Error> {
+//         if self.len() == 32 {
+//             let mut array = [0u8; 32];
+//             array.copy_from_slice(self);
+//             Ok(Hash(array))
+//         } else {
+//             Err("hash slice must be exactly 32 bytes".into())
+//         }
+//     }
+// }
 
-    fn try_into(self) -> Result<Hash, Self::Error> {
-        if self.len() == 32 {
+impl TryFrom<&[u8]> for Hash {
+    type Error = String;
+    fn try_from(slice: &[u8]) -> Result<Self, Self::Error> {
+        if slice.len() == 32 {
             let mut array = [0u8; 32];
-            array.copy_from_slice(self);
+            array.copy_from_slice(slice);
             Ok(Hash(array))
         } else {
             Err("hash slice must be exactly 32 bytes".into())
         }
-    }
-}
-
-impl TryFrom<Vec<u8>> for Hash {
-    type Error = String;
-    fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
-        value.as_slice().try_into()
     }
 }
 
@@ -244,6 +250,19 @@ pub struct PublicKey(pub [u8; 32]);
 impl AsRef<[u8]> for PublicKey {
     fn as_ref(&self) -> &[u8] {
         &self.0[..]
+    }
+}
+
+impl TryFrom<&[u8]> for PublicKey {
+    type Error = anyhow::Error;
+    fn try_from(slice: &[u8]) -> Result<Self, Self::Error> {
+        if slice.len() == 32 {
+            let mut array = [0u8; 32];
+            array.copy_from_slice(slice);
+            Ok(PublicKey(array))
+        } else {
+            Err(anyhow!("hash slice must be exactly 32 bytes"))
+        }
     }
 }
 

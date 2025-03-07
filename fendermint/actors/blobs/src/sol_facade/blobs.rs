@@ -5,12 +5,13 @@
 use fendermint_actor_blobs_shared::state::{BlobRequest, BlobStatus, Hash, PublicKey, SubscriptionId};
 use fvm_shared::address::Address;
 use fvm_shared::clock::ChainEpoch;
-use fendermint_actor_blobs_shared::params::{GetAddedBlobsParams, GetBlobStatusParams, GetPendingBlobsParams, GetStatsReturn};
+use fendermint_actor_blobs_shared::params::{AddBlobParams, GetAddedBlobsParams, GetBlobStatusParams, GetPendingBlobsParams, GetStatsReturn};
 use fil_actors_runtime::{actor_error, ActorError};
 use recall_actor_sdk::{TryIntoEVMEvent};
 use recall_sol_facade::blobs as sol;
 use recall_sol_facade::primitives::U256;
-use recall_sol_facade::types::{base32, SolCall, SolInterface, H160};
+use recall_sol_facade::types::{base32, Base32, SolCall, SolInterface, H160};
+use num_traits::Zero;
 
 pub use recall_sol_facade::blobs::Calls;
 
@@ -143,18 +144,38 @@ impl AbiCall for sol::getAddedBlobsCall {
     }
 }
 
+fn try_decode_address<T: AsRef<[u8]>>(data: T) -> Result<Address, ActorError> {
+    H160::from_slice(data.as_ref()).try_into().map_err(|e| {
+        actor_error!(illegal_argument, format!("invalid address: {}", e))
+    })
+}
+
+fn try_decode_hash<T: AsRef<[u8]>>(data: T) -> Result<Hash, ActorError> {
+    Base32::decode(data.as_ref())
+        .and_then(|b| {
+            Hash::try_from(b.as_ref())
+                .map_err(anyhow::Error::msg)
+        }).map_err(|e| {
+        actor_error!(illegal_argument, format!("invalid hash: {}", e))
+    })
+}
+
+fn try_decode_public_key<T: AsRef<[u8]>>(data: T) -> Result<PublicKey, ActorError> {
+    Base32::decode(data.as_ref()).and_then(|b| {
+        PublicKey::try_from(b.as_ref())
+    }).map_err(|e| {
+        actor_error!(illegal_argument, format!("invalid public key: {}", e))
+    })
+}
+
 impl AbiCall for sol::getBlobStatusCall {
     type Params = Result<GetBlobStatusParams, ActorError>;
     type Returns = Option<BlobStatus>;
     type Output = Vec<u8>;
 
     fn params(&self) -> Self::Params {
-        let subscriber: Address = H160::from(self.subscriber).try_into().map_err(|_| {
-            actor_error!(illegal_argument, "invalid subscriber param".to_string())
-        })?;
-        let blob_hash: Hash = base32::decode(self.blobHash.as_bytes()).and_then(|vec| Hash::try_from(vec).map_err(anyhow::Error::msg)).map_err(|_| {
-            actor_error!(illegal_argument, "invalid hash param".to_string())
-        })?;
+        let subscriber: Address = try_decode_address(self.subscriber)?;
+        let blob_hash: Hash = try_decode_hash(self.blobHash.clone())?;
         let subscription_id: SubscriptionId = self.subscriptionId.clone().try_into()?;
         Ok(GetBlobStatusParams {
             subscriber: subscriber.into(),
@@ -238,3 +259,52 @@ impl AbiCall for sol::getStorageStatsCall {
         Self::abi_encode_returns(&(storage_stats,))
     }
 }
+
+impl AbiCall for sol::addBlobCall {
+    type Params = Result<AddBlobParams, ActorError>;
+    type Returns = ();
+    type Output = Vec<u8>;
+    fn params(&self) -> Self::Params {
+        let sponsor: H160 = H160::from(self.params.sponsor);
+        let sponsor: Option<Address> = if sponsor.is_null() {
+            None
+        } else {
+            let sponsor = sponsor.try_into().map_err(|e| {
+                actor_error!(illegal_argument, format!("invalid address: {}", e))
+            })?;
+            Some(sponsor)
+        };
+        let source = try_decode_public_key(self.params.source.clone())?;
+        let hash = try_decode_hash(self.params.blobHash.clone())?;
+        let metadata_hash = try_decode_hash(self.params.metadataHash.clone())?;
+        let subscription_id: SubscriptionId = self.params.subscriptionId.clone().try_into()?;
+        let size =  self.params.size;
+        let ttl = if self.params.ttl.is_zero() { None } else { Some(self.params.ttl as ChainEpoch) };
+        let from = try_decode_address(self.params.from)?;
+        Ok(AddBlobParams {
+            sponsor,
+            source,
+            hash,
+            metadata_hash,
+            id: subscription_id,
+            size,
+            ttl,
+            from
+        })
+    }
+    fn returns(&self, _: Self::Returns) -> Self::Output {
+        Self::abi_encode_returns(&())
+    }
+}
+
+// impl AbiCall for sol::addBlobCall {
+//     type Params = ();
+//     type Returns = ();
+//     type Output = ();
+//     fn params(&self) -> Self::Params {
+//         todo!()
+//     }
+//     fn returns(&self, returns: Self::Returns) -> Self::Output {
+//         todo!()
+//     }
+// }
