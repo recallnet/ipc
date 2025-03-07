@@ -220,9 +220,9 @@ impl TryFrom<&str> for Hash {
     }
 }
 
-impl Into<String> for Hash {
-    fn into(self) -> String {
-        data_encoding::BASE32_NOPAD.encode(&self.0)
+impl From<Hash> for String {
+    fn from(hash: Hash) -> String {
+        data_encoding::BASE32_NOPAD.encode(&hash.0)
     }
 }
 
@@ -277,9 +277,9 @@ impl TryFrom<&str> for PublicKey {
     }
 }
 
-impl Into<String> for PublicKey {
-    fn into(self) -> String {
-        data_encoding::BASE32_NOPAD.encode(&self.0)
+impl From<PublicKey> for String {
+    fn from(public_key: PublicKey) -> Self {
+        data_encoding::BASE32_NOPAD.encode(&public_key.0)
     }
 }
 
@@ -381,9 +381,9 @@ impl SubscriptionId {
     }
 }
 
-impl Into<String> for SubscriptionId {
-    fn into(self) -> String {
-        self.inner
+impl From<SubscriptionId> for String {
+    fn from(id: SubscriptionId) -> String {
+        id.inner
     }
 }
 
