@@ -814,11 +814,13 @@ impl BlobsActor {
                     let stats = Self::get_stats(rt)?;
                     call.returns(stats)
                 }
-                sol_blobs::Calls::overwriteBlob(_) => {
-                    todo!()
+                sol_blobs::Calls::overwriteBlob(call) => {
+                    let params = call.params()?;
+                    Self::overwrite_blob(rt, params)?;
+                    call.returns(())
                 }
             };
-            todo!()
+            Ok(InvokeContractReturn { output_data, })
         } else {
             Err(actor_error!(illegal_argument, "invalid call".to_string()))
         }

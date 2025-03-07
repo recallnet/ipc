@@ -8,7 +8,7 @@ use fvm_ipld_blockstore::Blockstore;
 use fendermint_actor_blobs_shared::state::{Blob, BlobRequest, BlobStatus, Hash, PublicKey, Subscription, SubscriptionId};
 use fvm_shared::address::Address;
 use fvm_shared::clock::ChainEpoch;
-use fendermint_actor_blobs_shared::params::{AddBlobParams, DeleteBlobParams, GetAccountParams, GetAddedBlobsParams, GetBlobParams, GetBlobStatusParams, GetPendingBlobsParams, GetStatsReturn};
+use fendermint_actor_blobs_shared::params::{AddBlobParams, DeleteBlobParams, GetAccountParams, GetAddedBlobsParams, GetBlobParams, GetBlobStatusParams, GetPendingBlobsParams, GetStatsReturn, OverwriteBlobParams};
 use fil_actors_runtime::{actor_error, ActorError};
 use recall_actor_sdk::{TryIntoEVMEvent};
 use recall_sol_facade::blobs as sol;
@@ -433,14 +433,35 @@ impl AbiCall for sol::getSubnetStatsCall {
     }
 }
 
-// impl AbiCall for sol::addBlobCall {
-//     type Params = ();
-//     type Returns = ();
-//     type Output = ();
-//     fn params(&self) -> Self::Params {
-//         todo!()
-//     }
-//     fn returns(&self, returns: Self::Returns) -> Self::Output {
-//         todo!()
-//     }
-// }
+impl AbiCall for sol::overwriteBlobCall {
+    type Params = Result<OverwriteBlobParams, ActorError>;
+    type Returns = ();
+    type Output = Vec<u8>;
+    fn params(&self) -> Self::Params {
+        let old_hash: Hash = try_decode_hash(self.oldHash.clone())?;
+        let sponsor = try_decode_option_address(self.params.sponsor)?;
+        let source: PublicKey = try_decode_public_key(self.params.source.clone())?;
+        let hash: Hash = try_decode_hash(self.params.blobHash.clone())?;
+        let metadata_hash: Hash = try_decode_hash(self.params.metadataHash.clone())?;
+        let subscription_id: SubscriptionId = self.params.subscriptionId.clone().try_into()?;
+        let size =  self.params.size;
+        let ttl = if self.params.ttl.is_zero() { None } else { Some(self.params.ttl as ChainEpoch) };
+        let from: Address = H160::try_from(self.params.from.as_slice()).and_then(|h160| h160.try_into()).map_err(as_illegal_state)?;
+        Ok(OverwriteBlobParams {
+            old_hash,
+            add: AddBlobParams {
+                sponsor,
+                source,
+                hash,
+                metadata_hash,
+                id: subscription_id,
+                size,
+                ttl,
+                from,
+            },
+        })
+    }
+    fn returns(&self, returns: Self::Returns) -> Self::Output {
+        Self::abi_encode_returns(&returns)
+    }
+}
