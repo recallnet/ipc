@@ -231,6 +231,12 @@ macro_rules! declare_abi_encode_returns {
             }
         }
 
+        impl From<anyhow::Error> for AbiEncodeError {
+            fn from(error: anyhow::Error) -> Self {
+                Self { message: format!("failed to abi encode response {}", error) }
+            }
+        }
+
         impl From<AbiEncodeError> for fil_actors_runtime::ActorError {
             fn from(error: AbiEncodeError) -> Self {
                 fil_actors_runtime::actor_error!(serialization, error.message)

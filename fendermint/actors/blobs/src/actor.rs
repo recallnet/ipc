@@ -23,7 +23,7 @@ use fvm_ipld_encoding::ipld_block::IpldBlock;
 use fvm_shared::{address::Address, econ::TokenAmount, error::ExitCode, MethodNum, METHOD_SEND};
 use num_traits::Zero;
 use recall_actor_sdk::{emit_evm_event, require_addr_is_origin_or_caller, to_delegated_address, to_id_address, to_id_and_delegated_address, InputData, InvokeContractParams, InvokeContractReturn};
-use crate::sol_facade::{blobs as sol_blobs, AbiEncodeReturns};
+use crate::sol_facade::{blobs as sol_blobs, AbiEncodeReturns, TryAbiEncodeReturns};
 use crate::sol_facade::credit::{CreditApproved, CreditDebited, CreditPurchased, CreditRevoked};
 use crate::sol_facade::gas::{GasSponsorSet, GasSponsorUnset};
 use crate::{State, BLOBS_ACTOR_NAME};
@@ -760,7 +760,7 @@ impl BlobsActor {
                 sol_blobs::Calls::getAddedBlobs(call) => {
                     let size = call.size;
                     let blob_requests = Self::get_added_blobs(rt, GetAddedBlobsParams(size))?;
-                    todo!()
+                    call.try_returns(blob_requests)?
                 },
                 sol_blobs::Calls::getBlobStatus(call) => {
                     todo!()
