@@ -13,7 +13,7 @@ use fil_actors_runtime::{actor_error, ActorError};
 use recall_actor_sdk::{TryIntoEVMEvent};
 use recall_sol_facade::blobs as sol;
 use recall_sol_facade::primitives::U256;
-use recall_sol_facade::types::{base32, Base32, SolCall, SolInterface, H160};
+use recall_sol_facade::types::{base32, Base32, BigUintWrapper, SolCall, SolInterface, H160};
 use num_traits::Zero;
 use recall_ipld::hamt::MapKey;
 pub use recall_sol_facade::blobs::Calls;
@@ -403,6 +403,33 @@ impl AbiCall for sol::getStorageUsageCall {
     fn returns(&self, capacity_used: Self::Returns) -> Self::Output {
         let capacity_used = capacity_used.unwrap_or_default();
         Self::abi_encode_returns(&(U256::from(capacity_used),))
+    }
+}
+
+impl AbiCall for sol::getSubnetStatsCall {
+    type Params = ();
+    type Returns = GetStatsReturn;
+    type Output = Vec<u8>;
+    fn params(&self) -> Self::Params {
+        ()
+    }
+    fn returns(&self, stats: Self::Returns) -> Self::Output {
+        let subnet_stats = sol::SubnetStats {
+            balance: BigUintWrapper::from(stats.balance).into(),
+            capacityFree: stats.capacity_free,
+            capacityUsed: stats.capacity_used,
+            creditSold: BigUintWrapper::from(stats.credit_sold).into(),
+            creditCommitted: BigUintWrapper::from(stats.credit_committed).into(),
+            creditDebited: BigUintWrapper::from(stats.credit_debited).into(),
+            tokenCreditRate: BigUintWrapper(stats.token_credit_rate.rate().clone()).into(),
+            numAccounts: stats.num_accounts,
+            numBlobs: stats.num_blobs,
+            numAdded: stats.num_added,
+            bytesAdded: stats.bytes_added,
+            numResolving: stats.num_resolving,
+            bytesResolving: stats.bytes_resolving,
+        };
+        Self::abi_encode_returns(&(subnet_stats,))
     }
 }
 

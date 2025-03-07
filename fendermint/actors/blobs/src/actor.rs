@@ -810,8 +810,9 @@ impl BlobsActor {
                     let capacity_used = account.map(|a| a.capacity_used);
                     call.returns(capacity_used)
                 }
-                sol_blobs::Calls::getSubnetStats(_) => {
-                    todo!()
+                sol_blobs::Calls::getSubnetStats(call) => {
+                    let stats = Self::get_stats(rt)?;
+                    call.returns(stats)
                 }
                 sol_blobs::Calls::overwriteBlob(_) => {
                     todo!()
