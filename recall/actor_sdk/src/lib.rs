@@ -193,6 +193,21 @@ pub struct InvokeContractReturn {
 }
 
 #[macro_export]
+macro_rules! handle_abi_input {
+    ($name:ident) => {
+        pub fn can_handle(input_data: &recall_actor_sdk::InputData) -> bool {
+            $name::valid_selector(input_data.selector())
+        }
+
+        pub fn parse_input(input: &recall_actor_sdk::InputData) -> Result<$name, fil_actors_runtime::ActorError> {
+            $name::abi_decode_raw(input.selector(), input.calldata(), true).map_err(|e| {
+                fil_actors_runtime::actor_error!(illegal_argument, format!("invalid call: {}", e))
+            })
+        }
+    };
+}
+
+#[macro_export]
 macro_rules! declare_abi_encode_returns {
     () => {
         pub trait AbiEncodeReturns<T>: recall_sol_facade::types::SolCall {
