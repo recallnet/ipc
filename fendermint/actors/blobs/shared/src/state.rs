@@ -2,7 +2,7 @@
 // Copyright 2021-2023 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::ops::{Div, Mul};
 use std::str::from_utf8;
@@ -21,6 +21,10 @@ use serde::{Deserialize, Serialize};
 /// Credit is counted the same way as tokens.
 /// The smallest indivisible unit is 1 atto, and 1 credit = 1e18 atto credits.
 pub type Credit = TokenAmount;
+
+/// The return type used when fetching "added" or "pending" blobs.
+/// See `get_added_blobs` and `get_pending_blobs` for more information.
+pub type BlobRequest = (Hash, HashSet<(Address, SubscriptionId, PublicKey)>);
 
 /// TokenCreditRate determines how much atto credits can be bought by a certain amount of RECALL.
 #[derive(Clone, Default, Debug, serde::Serialize, serde::Deserialize, Eq, PartialEq)]

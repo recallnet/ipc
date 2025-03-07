@@ -103,3 +103,29 @@ pub fn parse_input(input: &InputData) -> Result<Calls, ActorError> {
         actor_error!(illegal_argument, format!("invalid call: {}", e))
     })
 }
+//
+// use sol::{A, Foo};
+// pub use sol::foo;
+// pub use recall_sol_facade::types::SolCall;
+//
+// macro_rules! duplicate_trait {
+//     ($trait_name:ident) => {
+//         pub trait $trait_name {
+//             fn do_something(&self);
+//         }
+//     };
+// }
+// duplicate_trait!(Blah);
+//
+// impl Blah for A {
+//     fn do_something(&self) {
+//         todo!()
+//     }
+// }
+
+// impl TryAbiEncodeReturns<Vec<BlobRequest>> for IBlobsFacade::getAddedBlobsCall {
+//     fn try_returns(&self, blob_requests: Vec<BlobRequest>) -> Result<Vec<u8>, AbiEncodeError> {
+//         let blob_tuples = blob_requests_to_tuple(blob_requests)?;
+//         Ok(Self::abi_encode_returns(&(blob_tuples,)))
+//     }
+// }
