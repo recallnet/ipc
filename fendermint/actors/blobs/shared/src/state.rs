@@ -163,6 +163,12 @@ impl GasAllowance {
 #[serde(transparent)]
 pub struct Hash(pub [u8; 32]);
 
+impl AsRef<[u8]> for Hash {
+    fn as_ref(&self) -> &[u8] {
+        &self.0[..]
+    }
+}
+
 impl TryInto<Hash> for &[u8] {
     type Error = String;
 
@@ -227,6 +233,12 @@ impl From<u64> for Hash {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct PublicKey(pub [u8; 32]);
+
+impl AsRef<[u8]> for PublicKey {
+    fn as_ref(&self) -> &[u8] {
+        &self.0[..]
+    }
+}
 
 /// The stored representation of a blob.
 #[derive(Clone, PartialEq, Debug, Serialize_tuple, Deserialize_tuple)]
@@ -316,6 +328,12 @@ impl SubscriptionId {
         Ok(Self {
             inner: value.to_string(),
         })
+    }
+}
+
+impl Into<String> for SubscriptionId {
+    fn into(self) -> String {
+        self.inner
     }
 }
 
