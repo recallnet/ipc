@@ -6,10 +6,15 @@ use anyhow::Error;
 use fendermint_actor_blobs_shared::state::{Hash, PublicKey};
 use fvm_shared::address::Address;
 use fvm_shared::clock::ChainEpoch;
-use recall_actor_sdk::TryIntoEVMEvent;
+use fil_actors_runtime::{actor_error, ActorError};
+use recall_actor_sdk::{InputData, TryIntoEVMEvent};
 use recall_sol_facade::blobs as sol;
 use recall_sol_facade::primitives::U256;
-use recall_sol_facade::types::H160;
+use recall_sol_facade::types::{SolInterface, H160};
+
+pub use recall_sol_facade::blobs::Calls;
+
+// ----- Events ----- //
 
 pub struct BlobAdded<'a> {
     pub subscriber: Address,
@@ -85,4 +90,16 @@ impl TryIntoEVMEvent for BlobDeleted<'_> {
             bytesReleased: U256::from(self.bytes_released),
         }))
     }
+}
+
+// ----- Calls ----- //
+
+pub fn can_handle(input_data: &InputData) -> bool {
+    Calls::valid_selector(input_data.selector())
+}
+
+pub fn parse_input(input: &InputData) -> Result<Calls, ActorError> {
+    Calls::abi_decode_raw(input.selector(), input.calldata(), true).map_err(|e| {
+        actor_error!(illegal_argument, format!("invalid call: {}", e))
+    })
 }

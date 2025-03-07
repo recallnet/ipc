@@ -26,7 +26,6 @@ use fvm_ipld_encoding::ipld_block::IpldBlock;
 use fvm_shared::{address::Address, econ::TokenAmount, error::ExitCode, MethodNum, METHOD_SEND};
 use num_traits::Zero;
 use recall_actor_sdk::{emit_evm_event, require_addr_is_origin_or_caller, to_delegated_address, to_id_address, to_id_and_delegated_address, InputData, InvokeContractParams, InvokeContractReturn};
-
 use crate::sol_facade::blobs as sol_blobs;
 use crate::sol_facade::credit::{CreditApproved, CreditDebited, CreditPurchased, CreditRevoked};
 use crate::sol_facade::gas::{GasSponsorSet, GasSponsorUnset};
@@ -763,7 +762,51 @@ impl BlobsActor {
 
     fn invoke_contract(rt: &impl Runtime, params: InvokeContractParams) -> Result<InvokeContractReturn, ActorError> {
         let input_data: InputData = params.try_into()?;
-        todo!()
+        if sol_blobs::can_handle(&input_data) {
+            let output_data = match sol_blobs::parse_input(&input_data)? {
+                sol_blobs::Calls::getAddedBlobs(call) => {
+                    let size = call.size;
+                    let blob_requests = Self::get_added_blobs(rt, GetAddedBlobsParams(size))?;
+                    call.try_returns(blob_requests)?
+                },
+                sol_blobs::Calls::getBlobStatus(call) => {
+                    todo!()
+                }
+                sol_blobs::Calls::getPendingBlobs(call) => {
+                    todo!()
+                }
+                sol_blobs::Calls::getPendingBlobsCount(call) => {
+                    todo!()
+                }
+                sol_blobs::Calls::getPendingBytesCount(call) => {
+                    todo!()
+                }
+                sol_blobs::Calls::getStorageStats(call) => {
+                    todo!()
+                }
+                sol_blobs::Calls::addBlob(_) => {
+                    todo!()
+                }
+                sol_blobs::Calls::deleteBlob(_) => {
+                    todo!()
+                }
+                sol_blobs::Calls::getBlob(_) => {
+                    todo!()
+                }
+                sol_blobs::Calls::getStorageUsage(_) => {
+                    todo!()
+                }
+                sol_blobs::Calls::getSubnetStats(_) => {
+                    todo!()
+                }
+                sol_blobs::Calls::overwriteBlob(_) => {
+                    todo!()
+                }
+            };
+            todo!()
+        } else {
+            Err(actor_error!(illegal_argument, "invalid call".to_string()))
+        }
     }
 
     /// Fallback method for unimplemented method numbers.
