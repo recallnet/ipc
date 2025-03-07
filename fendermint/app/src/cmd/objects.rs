@@ -23,7 +23,7 @@ use fvm_shared::{
 };
 use ipc_api::ethers_address_to_fil_address;
 use iroh::{
-    blobs::{hashseq::HashSeq, provider::AddProgress, util::SetTagOption, Hash, HashAndFormat},
+    blobs::{hashseq::HashSeq, util::SetTagOption, Hash},
     client::blobs::BlobStatus,
     net::NodeAddr,
 };
@@ -33,6 +33,7 @@ use prometheus::{register_histogram, register_int_counter, Histogram, IntCounter
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tracing::info;
+use uuid::Uuid;
 use warp::{
     filters::multipart::Part,
     http::{HeaderMap, HeaderValue, StatusCode},
@@ -318,6 +319,8 @@ async fn handle_object_upload(
         }));
     }
 
+    let upload_id = Uuid::new_v4();
+
     // Handle the two upload cases
     let hash = match (parser.source, parser.data_part) {
         // Case 1: Source node provided - download from the source
@@ -330,6 +333,8 @@ async fn handle_object_upload(
                     }))
                 }
             };
+
+            let tag = iroh::blobs::Tag(format!("temp-{hash}-{upload_id}").into());
             let progress = iroh
                 .blobs()
                 .download_with_opts(
@@ -380,42 +385,41 @@ async fn handle_object_upload(
                     })
             });
 
-            let mut progress = iroh
-                .blobs()
-                .add_stream(stream, SetTagOption::Auto)
-                .await
-                .map_err(|e| {
-                    Rejection::from(BadRequest {
-                        message: format!("failed to store blob: {}", e),
-                    })
-                })?;
+            let batch = iroh.blobs().batch().await.map_err(|e| {
+                Rejection::from(BadRequest {
+                    message: format!("failed to store blob: {}", e),
+                })
+            })?;
+            let temp_tag = batch.add_stream(stream).await.map_err(|e| {
+                Rejection::from(BadRequest {
+                    message: format!("failed to store blob: {}", e),
+                })
+            })?;
 
-            let uploaded_hash = loop {
-                let Some(event) = progress.next().await else {
-                    return Err(Rejection::from(BadRequest {
-                        message: "Unexpected end while ingesting data".to_string(),
-                    }));
-                };
-                match event.map_err(|e| {
-                    Rejection::from(BadRequest {
-                        message: format!("failed to make progress: {}", e),
-                    })
-                })? {
-                    AddProgress::AllDone { hash, .. } => {
-                        break hash;
-                    }
-                    AddProgress::Abort(err) => {
-                        return Err(Rejection::from(BadRequest {
-                            message: format!("upload aborted: {}", err),
-                        }));
-                    }
-                    _ => continue,
-                }
+            let hash = *temp_tag.hash();
+            let new_tag = iroh::blobs::Tag(format!("temp-{hash}-{upload_id}").into());
+            batch.persist_to(temp_tag, new_tag).await.map_err(|e| {
+                Rejection::from(BadRequest {
+                    message: format!("failed to persist blob: {}", e),
+                })
+            })?;
+
+            drop(batch);
+
+            let status = iroh.blobs().status(hash).await.map_err(|e| {
+                Rejection::from(BadRequest {
+                    message: format!("failed to check blob status: {}", e),
+                })
+            })?;
+            let BlobStatus::Complete { size } = status else {
+                return Err(Rejection::from(BadRequest {
+                    message: "failed to store data".to_string(),
+                }));
             };
-            info!("stored uploaded blob {} (size: {})", uploaded_hash, size);
             COUNTER_BYTES_UPLOADED.inc_by(size);
+            info!("stored uploaded blob {} (size: {})", hash, size);
 
-            uploaded_hash
+            hash
         }
 
         (Some(_), Some(_)) => {
@@ -442,7 +446,7 @@ async fn handle_object_upload(
         })
     })?;
 
-    let hash_seq_hash = tag_entangled_data(&iroh, &ent, &metadata_hash)
+    let hash_seq_hash = tag_entangled_data(&iroh, &ent, &metadata_hash, upload_id)
         .await
         .map_err(|e| {
             Rejection::from(BadRequest {
@@ -464,52 +468,54 @@ async fn tag_entangled_data(
     iroh: &iroh::client::Iroh,
     ent: &Entangler<EntanglerIrohStorage>,
     metadata_hash: &String,
+    upload_id: Uuid,
 ) -> Result<Hash, anyhow::Error> {
+    // entangler tags: ent-{hash}
+    // uploaded tags: temp-{hash}-{upload_id}
+    // hash seq tags: temp-seq-{hash-seq-hash}
+
     let metadata = ent.download_metadata(metadata_hash).await?;
     let orig_hash = Hash::from_str(metadata.orig_hash.as_str())?;
-    // collect all hashes related to the blob
-    let mut hashes = vec![orig_hash.clone(), Hash::from_str(metadata_hash.as_str())?];
-    for (_, blob_hash) in metadata.parity_hashes {
-        hashes.push(Hash::from_str(blob_hash.as_str())?);
-    }
+    let metadata_hash = Hash::from_str(metadata_hash.as_str())?;
 
-    // iterate over all tags and find the ones that are related to the blob
-    let temp_tags: Vec<_> = iroh
-        .tags()
-        .list()
-        .await?
-        .try_filter_map(|tag| {
-            let cloned_hashes = hashes.clone();
-            async move {
-                if cloned_hashes.contains(&tag.hash) {
-                    Ok(Some(tag.name))
-                } else {
-                    Ok(None)
-                }
-            }
-        })
-        .try_collect()
-        .await?;
+    // collect all hashes related to the blob
+    let parity_hashes = metadata
+        .parity_hashes
+        .iter()
+        .map(|(_, hash)| Hash::from_str(hash.as_str()))
+        .collect::<Result<Vec<_>, _>>()?;
+
+    let mut hashes = vec![orig_hash.clone(), metadata_hash];
+    hashes.extend_from_slice(&parity_hashes);
+
+    let batch = iroh.blobs().batch().await?;
 
     // make a hash sequence object from the hashes and upload it to iroh
     let hash_seq = hashes.into_iter().collect::<HashSeq>();
-    let res = iroh.blobs().add_bytes(hash_seq).await?;
+    let temp_tag = batch.add_bytes(hash_seq).await?;
 
-    // assign a consistent tag to the hash sequence object
-    let batch = iroh.blobs().batch().await?;
-    let temp_tag = batch.temp_tag(HashAndFormat::hash_seq(res.hash)).await?;
-    let hash_seq_hash = res.hash;
-    // this tag will be replaced later by the validator to "stored-{hash_seq_hash}"
-    let hash_seq_tag = iroh::blobs::Tag(format!("temp-{hash_seq_hash}").into());
+    let hash_seq_hash = *temp_tag.hash();
+    // this tag will be replaced later by the validator to "stored-seq-{hash_seq_hash}"
+    let hash_seq_tag = iroh::blobs::Tag(format!("temp-seq-{hash_seq_hash}").into());
     batch.persist_to(temp_tag, hash_seq_tag).await?;
 
-    // delete all temporary tags
-    for temp_tag in temp_tags {
-        iroh.tags().delete(temp_tag).await?;
-    }
-    iroh.tags().delete(res.tag).await?;
+    drop(batch);
 
-    Ok(res.hash)
+    // delete all previous temporary tags
+    for parity_hash in parity_hashes {
+        let tag = iroh::blobs::Tag(format!("ent-{parity_hash}").into());
+        iroh.tags().delete(tag).await?;
+    }
+
+    // remove upload tags
+    let orig_tag = iroh::blobs::Tag(format!("temp-{orig_hash}-{upload_id}").into());
+    iroh.tags().delete(orig_tag).await?;
+
+    // remove entangled metadata
+    let meta_tag = iroh::blobs::Tag(format!("ent-{metadata_hash}").into());
+    iroh.tags().delete(meta_tag).await?;
+
+    Ok(hash_seq_hash)
 }
 
 fn new_entangler(
@@ -980,17 +986,16 @@ mod tests {
                 .map(|hash| Hash::from_str(hash).unwrap()),
         )
         .collect::<HashSeq>();
-        let hash_seq_hash = iroh.blobs().add_bytes(hash_seq).await.unwrap().hash;
+
+        let batch = iroh.blobs().batch().await.unwrap();
+        let temp_tag = batch.add_bytes(hash_seq).await.unwrap();
+        let hash_seq_hash = *temp_tag.hash();
 
         // Add a tag to the hash sequence as expected by the system
-        let batch = iroh.blobs().batch().await.unwrap();
-        let temp_tag = batch
-            .temp_tag(HashAndFormat::hash_seq(hash_seq_hash))
-            .await
-            .unwrap();
-        let tag_name = format!("temp-{hash_seq_hash}");
+        let tag_name = format!("temp-seq-{hash_seq_hash}");
         let hash_seq_tag = iroh::blobs::Tag(tag_name.into());
         batch.persist_to(temp_tag, hash_seq_tag).await.unwrap();
+        drop(batch);
 
         let metadata_iroh_hash = Hash::from_str(metadata_hash.as_str()).unwrap();
 
