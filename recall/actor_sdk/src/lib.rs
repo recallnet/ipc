@@ -13,6 +13,7 @@ use fil_actors_runtime::runtime::builtins::Type;
 use fil_actors_runtime::runtime::Runtime;
 use recall_sol_facade::primitives::IntoLogData;
 use fvm_ipld_encoding::{strict_bytes, tuple::*};
+use fil_actors_evm_shared::address::EthAddress;
 
 pub fn hash_rm(hash: [u8; 32]) -> Result<(), ErrorNumber> {
     unsafe { sys::hash_rm(hash.as_ptr()) }
@@ -185,22 +186,15 @@ impl TryFrom<InvokeContractParams> for InputData {
     }
 }
 
-#[derive(Serialize_tuple, Deserialize_tuple)]
-#[serde(transparent)]
-pub struct InvokeContractReturn {
-    #[serde(with = "strict_bytes")]
-    pub output_data: Vec<u8>,
-}
-
 #[macro_export]
 macro_rules! declare_abi_call {
     () => {
         pub trait AbiCall {
             type Params;
-            type Output;
             type Returns;
+            type Output;
             fn params(&self) -> Self::Params;
-            fn returns(&self, output: Self::Output) -> Self::Returns;
+            fn returns(&self, returns: Self::Returns) -> Self::Output;
         }
 
         #[derive(Debug, Clone)]
@@ -228,4 +222,11 @@ macro_rules! declare_abi_call {
             }
         }
     };
+}
+
+#[derive(Serialize_tuple, Deserialize_tuple)]
+#[serde(transparent)]
+pub struct InvokeContractReturn {
+    #[serde(with = "strict_bytes")]
+    pub output_data: Vec<u8>,
 }

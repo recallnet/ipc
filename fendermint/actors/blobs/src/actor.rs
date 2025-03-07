@@ -762,7 +762,9 @@ impl BlobsActor {
                     call.returns(blob_requests)?
                 },
                 sol_blobs::Calls::getBlobStatus(call) => {
-                    todo!()
+                    let params = call.params()?;
+                    let blob_status = Self::get_blob_status(rt, params)?;
+                    call.returns(blob_status)
                 }
                 sol_blobs::Calls::getPendingBlobs(call) => {
                     todo!()

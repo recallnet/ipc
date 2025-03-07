@@ -183,6 +183,14 @@ impl TryInto<Hash> for &[u8] {
     }
 }
 
+impl TryInto<Hash> for Vec<u8> {
+    type Error = String;
+
+    fn try_into(self) -> Result<Hash, Self::Error> {
+        self.as_slice().try_into()
+    }
+}
+
 impl MapKey for Hash {
     fn from_bytes(b: &[u8]) -> Result<Self, String> {
         b.try_into()
@@ -485,7 +493,10 @@ fn deserialize_iter_sub<'a>(
             e
         ))
     })?;
-    Ok((SubscriptionId::new(id)?, sub))
+    let subscription_id = SubscriptionId::new(id).map_err(|e| {
+        ActorError::illegal_state(format!("failed to decode subscription ID from iter: {}", e))
+    })?;
+    Ok((subscription_id, sub))
 }
 
 /// The status of a blob.

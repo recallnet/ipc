@@ -2,15 +2,14 @@
 // Copyright 2022-2024 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use anyhow::Error;
-use fendermint_actor_blobs_shared::state::{BlobRequest, Hash, PublicKey};
+use fendermint_actor_blobs_shared::state::{BlobRequest, BlobStatus, Hash, PublicKey, SubscriptionId};
 use fvm_shared::address::Address;
 use fvm_shared::clock::ChainEpoch;
-use fendermint_actor_blobs_shared::params::GetAddedBlobsParams;
+use fendermint_actor_blobs_shared::params::{GetAddedBlobsParams, GetBlobStatusParams};
 use recall_actor_sdk::{TryIntoEVMEvent};
 use recall_sol_facade::blobs as sol;
 use recall_sol_facade::primitives::U256;
-use recall_sol_facade::types::{Base32String, SolCall, SolInterface, H160};
+use recall_sol_facade::types::{base32, SolCall, SolInterface, H160};
 
 pub use recall_sol_facade::blobs::Calls;
 
@@ -29,7 +28,7 @@ pub struct BlobAdded<'a> {
 impl TryIntoEVMEvent for BlobAdded<'_> {
     type Target = sol::Event;
 
-    fn try_into_evm_event(self) -> Result<Self::Target, Error> {
+    fn try_into_evm_event(self) -> Result<Self::Target, anyhow::Error> {
         let subscriber: H160 = self.subscriber.try_into()?;
         Ok(sol::Event::BlobAdded(sol::BlobAdded {
             subscriber: subscriber.into(),
@@ -48,7 +47,7 @@ pub struct BlobPending<'a> {
 }
 impl TryIntoEVMEvent for BlobPending<'_> {
     type Target = sol::Event;
-    fn try_into_evm_event(self) -> Result<sol::Event, Error> {
+    fn try_into_evm_event(self) -> Result<sol::Event, anyhow::Error> {
         let subscriber: H160 = self.subscriber.try_into()?;
         Ok(sol::Event::BlobPending(sol::BlobPending {
             subscriber: subscriber.into(),
@@ -65,7 +64,7 @@ pub struct BlobFinalized<'a> {
 }
 impl TryIntoEVMEvent for BlobFinalized<'_> {
     type Target = sol::Event;
-    fn try_into_evm_event(self) -> Result<sol::Event, Error> {
+    fn try_into_evm_event(self) -> Result<sol::Event, anyhow::Error> {
         let subscriber: H160 = self.subscriber.try_into()?;
         Ok(sol::Event::BlobFinalized(sol::BlobFinalized {
             subscriber: subscriber.into(),
@@ -83,7 +82,7 @@ pub struct BlobDeleted<'a> {
 }
 impl TryIntoEVMEvent for BlobDeleted<'_> {
     type Target = sol::Event;
-    fn try_into_evm_event(self) -> Result<sol::Event, Error> {
+    fn try_into_evm_event(self) -> Result<sol::Event, anyhow::Error> {
         let subscriber: H160 = self.subscriber.try_into()?;
         Ok(sol::Event::BlobDeleted(sol::BlobDeleted {
             subscriber: subscriber.into(),
@@ -116,13 +115,13 @@ fn blob_requests_to_tuple(blob_requests: Vec<BlobRequest>) -> Result<Vec<sol::Bl
             Ok(sol::BlobSourceInfo {
                 subscriber: H160::try_from(address)?.into(),
                 subscriptionId: subscription_id.into(),
-                source: Base32String::from(public_key).into(),
+                source: base32::encode(public_key),
             })
         }).collect::<Result<Vec<_>, anyhow::Error>>();
 
         let blob_hash = blob_request.0;
         Ok(sol::BlobTuple {
-            blobHash: Base32String::from(blob_hash).into(),
+            blobHash: base32::encode(blob_hash),
             sourceInfo: source_info?
         })
     }).collect::<Result<Vec<_>, anyhow::Error>>()
@@ -130,15 +129,49 @@ fn blob_requests_to_tuple(blob_requests: Vec<BlobRequest>) -> Result<Vec<sol::Bl
 
 impl AbiCall for sol::getAddedBlobsCall {
     type Params = GetAddedBlobsParams;
-    type Output = Vec<BlobRequest>;
-    type Returns = Result<Vec<u8>, AbiEncodeError>;
+    type Returns = Vec<BlobRequest>;
+    type Output = Result<Vec<u8>, AbiEncodeError>;
 
     fn params(&self) -> Self::Params {
         GetAddedBlobsParams(self.size)
     }
 
-    fn returns(&self, output: Self::Output) -> Self::Returns {
-        let blob_tuples = blob_requests_to_tuple(output)?;
+    fn returns(&self, returns: Self::Returns) -> Self::Output {
+        let blob_tuples = blob_requests_to_tuple(returns)?;
         Ok(Self::abi_encode_returns(&(blob_tuples,)))
+    }
+}
+
+impl AbiCall for sol::getBlobStatusCall {
+    type Params = Result<GetBlobStatusParams, AbiEncodeError>;
+    type Returns = Option<BlobStatus>;
+    type Output = Vec<u8>;
+
+    fn params(&self) -> Self::Params {
+        let subscriber: Address = H160::from(self.subscriber).try_into()?;
+        let blob_hash: Hash = base32::decode(self.blobHash.as_bytes())?.try_into().map_err(anyhow::Error::msg)?;
+        let subscription_id: SubscriptionId = self.subscriptionId.clone().try_into().map_err(anyhow::Error::msg)?;
+        Ok(GetBlobStatusParams {
+            subscriber: subscriber.into(),
+            hash: blob_hash,
+            id: subscription_id,
+        })
+    }
+
+    fn returns(&self, blob_status: Self::Returns) -> Self::Output {
+        // Use BlobStatus::Failed if None got passed
+        let blob_status = blob_status.unwrap_or(BlobStatus::Failed);
+        let value = blob_status_as_solidity_enum(blob_status);
+        Self::abi_encode_returns(&(value,))
+    }
+}
+
+
+fn blob_status_as_solidity_enum(blob_status: BlobStatus) -> u8 {
+    match blob_status {
+        BlobStatus::Added => 0,
+        BlobStatus::Pending => 1,
+        BlobStatus::Resolved => 2,
+        BlobStatus::Failed => 3
     }
 }
