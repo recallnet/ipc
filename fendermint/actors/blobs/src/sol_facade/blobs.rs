@@ -5,7 +5,7 @@
 use fendermint_actor_blobs_shared::state::{BlobRequest, BlobStatus, Hash, PublicKey, SubscriptionId};
 use fvm_shared::address::Address;
 use fvm_shared::clock::ChainEpoch;
-use fendermint_actor_blobs_shared::params::{GetAddedBlobsParams, GetBlobStatusParams, GetPendingBlobsParams};
+use fendermint_actor_blobs_shared::params::{GetAddedBlobsParams, GetBlobStatusParams, GetPendingBlobsParams, GetStatsReturn};
 use fil_actors_runtime::{actor_error, ActorError};
 use recall_actor_sdk::{TryIntoEVMEvent};
 use recall_sol_facade::blobs as sol;
@@ -214,5 +214,27 @@ impl AbiCall for sol::getPendingBytesCountCall {
     }
     fn returns(&self, bytes_resolving: Self::Returns) -> Self::Output {
         Self::abi_encode_returns(&(&bytes_resolving,))
+    }
+}
+
+impl AbiCall for sol::getStorageStatsCall {
+    type Params = ();
+    type Returns = GetStatsReturn;
+    type Output = Vec<u8>;
+    fn params(&self) -> Self::Params {
+        ()
+    }
+    fn returns(&self, stats: Self::Returns) -> Self::Output {
+        let storage_stats = sol::StorageStats {
+            capacityFree: stats.capacity_free,
+            capacityUsed: stats.capacity_used,
+            numBlobs: stats.num_blobs,
+            numResolving: stats.num_resolving,
+            numAccounts: stats.num_accounts,
+            bytesResolving: stats.bytes_resolving,
+            numAdded: stats.num_added,
+            bytesAdded: stats.bytes_added,
+        };
+        Self::abi_encode_returns(&(storage_stats,))
     }
 }

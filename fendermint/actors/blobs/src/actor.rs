@@ -780,7 +780,8 @@ impl BlobsActor {
                     call.returns(stats.bytes_resolving)
                 }
                 sol_blobs::Calls::getStorageStats(call) => {
-                    todo!()
+                    let stats = Self::get_stats(rt)?;
+                    call.returns(stats)
                 }
                 sol_blobs::Calls::addBlob(_) => {
                     todo!()
