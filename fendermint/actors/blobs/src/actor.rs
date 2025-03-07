@@ -25,12 +25,9 @@ use fil_actors_runtime::{
 use fvm_ipld_encoding::ipld_block::IpldBlock;
 use fvm_shared::{address::Address, econ::TokenAmount, error::ExitCode, MethodNum, METHOD_SEND};
 use num_traits::Zero;
-use recall_actor_sdk::{
-    emit_evm_event, require_addr_is_origin_or_caller, to_delegated_address, to_id_address,
-    to_id_and_delegated_address,
-};
+use recall_actor_sdk::{emit_evm_event, require_addr_is_origin_or_caller, to_delegated_address, to_id_address, to_id_and_delegated_address, InputData, InvokeContractParams, InvokeContractReturn};
 
-use crate::sol_facade::blobs::{BlobAdded, BlobDeleted, BlobFinalized, BlobPending};
+use crate::sol_facade::blobs as sol_blobs;
 use crate::sol_facade::credit::{CreditApproved, CreditDebited, CreditPurchased, CreditRevoked};
 use crate::sol_facade::gas::{GasSponsorSet, GasSponsorUnset};
 use crate::{State, BLOBS_ACTOR_NAME};
@@ -459,7 +456,7 @@ impl BlobsActor {
 
         emit_evm_event(
             rt,
-            BlobAdded {
+            sol_blobs::BlobAdded {
                 subscriber: subscriber_delegated_addr,
                 hash: &params.hash,
                 size: params.size,
@@ -535,7 +532,7 @@ impl BlobsActor {
 
         emit_evm_event(
             rt,
-            BlobPending {
+            sol_blobs::BlobPending {
                 subscriber: subscriber_delegated_addr,
                 hash: &params.hash,
                 source: &params.source,
@@ -571,7 +568,7 @@ impl BlobsActor {
 
         emit_evm_event(
             rt,
-            BlobFinalized {
+            sol_blobs::BlobFinalized {
                 subscriber: subscriber_delegated_addr,
                 hash: &params.hash,
                 resolved: event_resolved,
@@ -618,7 +615,7 @@ impl BlobsActor {
 
         emit_evm_event(
             rt,
-            BlobDeleted {
+            sol_blobs::BlobDeleted {
                 subscriber: subscriber_delegated_addr,
                 hash: &params.hash,
                 size,
@@ -709,7 +706,7 @@ impl BlobsActor {
         if overwrite {
             emit_evm_event(
                 rt,
-                BlobDeleted {
+                sol_blobs::BlobDeleted {
                     subscriber: subscriber_delegated_addr,
                     hash: &params.old_hash,
                     size: delete_size,
@@ -719,7 +716,7 @@ impl BlobsActor {
         }
         emit_evm_event(
             rt,
-            BlobAdded {
+            sol_blobs::BlobAdded {
                 subscriber: subscriber_delegated_addr,
                 hash: &add_hash,
                 size: add_size,
@@ -762,6 +759,11 @@ impl BlobsActor {
         }
 
         Ok((processed, next_key))
+    }
+
+    fn invoke_contract(rt: &impl Runtime, params: InvokeContractParams) -> Result<InvokeContractReturn, ActorError> {
+        let input_data: InputData = params.try_into()?;
+        todo!()
     }
 
     /// Fallback method for unimplemented method numbers.
@@ -834,6 +836,8 @@ impl ActorCode for BlobsActor {
 
         // Metrics methods
         GetStats => get_stats,
+        // EVM interop
+        InvokeContract => invoke_contract,
         _ => fallback,
     }
 }
