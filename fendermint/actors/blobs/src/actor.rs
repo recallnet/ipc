@@ -23,7 +23,7 @@ use fvm_ipld_encoding::ipld_block::IpldBlock;
 use fvm_shared::{address::Address, econ::TokenAmount, error::ExitCode, MethodNum, METHOD_SEND};
 use num_traits::Zero;
 use recall_actor_sdk::{emit_evm_event, require_addr_is_origin_or_caller, to_delegated_address, to_id_address, to_id_and_delegated_address, InputData, InvokeContractParams, InvokeContractReturn};
-use crate::sol_facade::blobs as sol_blobs;
+use crate::sol_facade::{blobs as sol_blobs, AbiEncodeReturns};
 use crate::sol_facade::credit::{CreditApproved, CreditDebited, CreditPurchased, CreditRevoked};
 use crate::sol_facade::gas::{GasSponsorSet, GasSponsorUnset};
 use crate::{State, BLOBS_ACTOR_NAME};
@@ -754,7 +754,6 @@ impl BlobsActor {
     }
 
     fn invoke_contract(rt: &impl Runtime, params: InvokeContractParams) -> Result<InvokeContractReturn, ActorError> {
-        use sol_blobs::SolCall;;
         let input_data: InputData = params.try_into()?;
         if sol_blobs::can_handle(&input_data) {
             let output_data = match sol_blobs::parse_input(&input_data)? {
@@ -770,7 +769,8 @@ impl BlobsActor {
                     todo!()
                 }
                 sol_blobs::Calls::getPendingBlobsCount(call) => {
-                    todo!()
+                    let stats = Self::get_stats(rt)?;
+                    call.returns(stats.num_resolving)
                 }
                 sol_blobs::Calls::getPendingBytesCount(call) => {
                     todo!()
@@ -963,7 +963,7 @@ mod tests {
         subscriber: Address,
         used: u64,
     ) {
-        let event = to_actor_event(BlobAdded {
+        let event = to_actor_event(sol_blobs::BlobAdded {
             subscriber,
             hash: &params.hash,
             size: params.size,
