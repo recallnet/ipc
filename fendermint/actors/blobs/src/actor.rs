@@ -776,7 +776,8 @@ impl BlobsActor {
                     call.returns(stats.num_resolving)
                 }
                 sol_blobs::Calls::getPendingBytesCount(call) => {
-                    todo!()
+                    let stats = Self::get_stats(rt)?;
+                    call.returns(stats.bytes_resolving)
                 }
                 sol_blobs::Calls::getStorageStats(call) => {
                     todo!()

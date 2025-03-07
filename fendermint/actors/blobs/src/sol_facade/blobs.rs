@@ -204,3 +204,15 @@ impl AbiCall for sol::getPendingBlobsCountCall {
         Self::abi_encode_returns(&(&num_resolving,))
     }
 }
+
+impl AbiCall for sol::getPendingBytesCountCall {
+    type Params = ();
+    type Returns = u64;
+    type Output = Vec<u8>;
+    fn params(&self) -> Self::Params {
+        ()
+    }
+    fn returns(&self, bytes_resolving: Self::Returns) -> Self::Output {
+        Self::abi_encode_returns(&(&bytes_resolving,))
+    }
+}
