@@ -12,6 +12,7 @@ use fil_actors_runtime::{actor_error, ActorError};
 use fil_actors_runtime::runtime::builtins::Type;
 use fil_actors_runtime::runtime::Runtime;
 use recall_sol_facade::primitives::IntoLogData;
+use fvm_ipld_encoding::{strict_bytes, tuple::*};
 
 pub fn hash_rm(hash: [u8; 32]) -> Result<(), ErrorNumber> {
     unsafe { sys::hash_rm(hash.as_ptr()) }
@@ -149,4 +150,44 @@ pub fn token_to_biguint(amount: Option<TokenAmount>) -> BigUint {
         .atto()
         .to_biguint()
         .unwrap_or_default()
+}
+
+#[derive(Default, Serialize_tuple, Deserialize_tuple)]
+#[serde(transparent)]
+pub struct InvokeContractParams {
+    #[serde(with = "strict_bytes")]
+    pub input_data: Vec<u8>,
+}
+
+/// EVM call with selector (first 4 bytes) and calldata (remaining bytes)
+pub struct InputData(Vec<u8>);
+
+impl InputData {
+    pub fn selector(&self) -> [u8; 4] {
+        let mut selector = [0u8; 4];
+        selector.copy_from_slice(&self.0[0..4]);
+        selector
+    }
+
+    pub fn calldata(&self) -> &[u8] {
+        &self.0[4..]
+    }
+}
+
+impl TryFrom<InvokeContractParams> for InputData {
+    type Error = ActorError;
+
+    fn try_from(value: InvokeContractParams) -> Result<Self, Self::Error> {
+        if value.input_data.len() < 4 {
+            return Err(ActorError::illegal_argument("input too short".to_string()));
+        }
+        Ok(InputData(value.input_data))
+    }
+}
+
+#[derive(Serialize_tuple, Deserialize_tuple)]
+#[serde(transparent)]
+pub struct InvokeContractReturn {
+    #[serde(with = "strict_bytes")]
+    pub output_data: Vec<u8>,
 }

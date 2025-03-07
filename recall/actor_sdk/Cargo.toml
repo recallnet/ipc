@@ -15,3 +15,4 @@ num-traits = { workspace = true }
 fil_actors_runtime = { workspace = true }
 recall_sol_facade = { workspace = true, features = [] }
 anyhow = { workspace = true }
+fvm_ipld_encoding = { workspace = true }
