@@ -183,11 +183,10 @@ impl TryInto<Hash> for &[u8] {
     }
 }
 
-impl TryInto<Hash> for Vec<u8> {
+impl TryFrom<Vec<u8>> for Hash {
     type Error = String;
-
-    fn try_into(self) -> Result<Hash, Self::Error> {
-        self.as_slice().try_into()
+    fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
+        value.as_slice().try_into()
     }
 }
 
