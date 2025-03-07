@@ -23,7 +23,7 @@ impl<'a> MachineCreated<'a> {
         }
     }
 }
-impl<'a> TryIntoEVMEvent for MachineCreated<'a> {
+impl TryIntoEVMEvent for MachineCreated<'_> {
     type Target = sol::Event;
     fn try_into_evm_event(self) -> Result<Self::Target, anyhow::Error> {
         let owner: H160 = self.owner.try_into()?;
