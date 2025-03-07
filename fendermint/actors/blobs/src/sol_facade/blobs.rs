@@ -2,17 +2,20 @@
 // Copyright 2022-2024 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use fendermint_actor_blobs_shared::state::{BlobRequest, BlobStatus, Hash, PublicKey, SubscriptionId};
+use std::fmt::Display;
+use std::str::FromStr;
+use fvm_ipld_blockstore::Blockstore;
+use fendermint_actor_blobs_shared::state::{Blob, BlobRequest, BlobStatus, Hash, PublicKey, Subscription, SubscriptionId};
 use fvm_shared::address::Address;
 use fvm_shared::clock::ChainEpoch;
-use fendermint_actor_blobs_shared::params::{AddBlobParams, DeleteBlobParams, GetAddedBlobsParams, GetBlobStatusParams, GetPendingBlobsParams, GetStatsReturn};
+use fendermint_actor_blobs_shared::params::{AddBlobParams, DeleteBlobParams, GetAddedBlobsParams, GetBlobParams, GetBlobStatusParams, GetPendingBlobsParams, GetStatsReturn};
 use fil_actors_runtime::{actor_error, ActorError};
 use recall_actor_sdk::{TryIntoEVMEvent};
 use recall_sol_facade::blobs as sol;
 use recall_sol_facade::primitives::U256;
 use recall_sol_facade::types::{base32, Base32, SolCall, SolInterface, H160};
 use num_traits::Zero;
-
+use recall_ipld::hamt::MapKey;
 pub use recall_sol_facade::blobs::Calls;
 
 use crate::sol_facade::{AbiCall, AbiEncodeError};
@@ -101,9 +104,9 @@ pub fn can_handle(input_data: &recall_actor_sdk::InputData) -> bool {
     Calls::valid_selector(input_data.selector())
 }
 
-pub fn parse_input(input: &recall_actor_sdk::InputData) -> Result<Calls, fil_actors_runtime::ActorError> {
+pub fn parse_input(input: &recall_actor_sdk::InputData) -> Result<Calls, ActorError> {
     Calls::abi_decode_raw(input.selector(), input.calldata(), true).map_err(|e| {
-        fil_actors_runtime::actor_error!(illegal_argument, format!("invalid call: {}", e))
+        actor_error!(illegal_argument, format!("invalid call: {}", e))
     })
 }
 
@@ -144,40 +147,29 @@ impl AbiCall for sol::getAddedBlobsCall {
     }
 }
 
-fn try_decode_address<T: AsRef<[u8]>>(data: T) -> Result<Address, ActorError> {
-    H160::from_slice(data.as_ref()).try_into().map_err(|e| {
-        actor_error!(illegal_argument, format!("invalid address: {}", e))
-    })
+fn try_decode_address<T: AsRef<[u8]>>(data: T) -> Result<Address, AbiEncodeError> {
+    let k = H160::try_from(data.as_ref())?;
+    k.try_into().map_err(Into::into)
 }
 
-fn try_decode_option_address<T: AsRef<[u8]>>(data: T) -> Result<Option<Address>, ActorError> {
-    let address: H160 = H160::from(data);
+fn try_decode_option_address<T: AsRef<[u8]>>(data: T) -> Result<Option<Address>, AbiEncodeError> {
+    let address: H160 = H160::try_from(data.as_ref())?;
     if address.is_null() {
         Ok(None)
     } else {
-        let address = address.try_into().map_err(|e| {
-            actor_error!(illegal_argument, format!("invalid address: {}", e))
-        })?;
+        let address = address.try_into()?;
         Ok(Some(address))
     }
 }
 
-fn try_decode_hash<T: AsRef<[u8]>>(data: T) -> Result<Hash, ActorError> {
-    Base32::decode(data.as_ref())
-        .and_then(|b| {
-            Hash::try_from(b.as_ref())
-                .map_err(anyhow::Error::msg)
-        }).map_err(|e| {
-        actor_error!(illegal_argument, format!("invalid hash: {}", e))
-    })
+fn try_decode_hash<T: AsRef<[u8]>>(data: T) -> Result<Hash, AbiEncodeError> {
+    let base32 = Base32::decode(data.as_ref())?;
+    Hash::try_from(base32.as_ref()).map_err(Into::into)
 }
 
-fn try_decode_public_key<T: AsRef<[u8]>>(data: T) -> Result<PublicKey, ActorError> {
-    Base32::decode(data.as_ref()).and_then(|b| {
-        PublicKey::try_from(b.as_ref())
-    }).map_err(|e| {
-        actor_error!(illegal_argument, format!("invalid public key: {}", e))
-    })
+fn try_decode_public_key<T: AsRef<[u8]>>(data: T) -> Result<PublicKey, AbiEncodeError> {
+    let base32 = Base32::decode(data.as_ref())?;
+    PublicKey::try_from(base32.as_ref()).map_err(Into::into)
 }
 
 impl AbiCall for sol::getBlobStatusCall {
@@ -319,6 +311,112 @@ impl AbiCall for sol::deleteBlobCall {
     }
     fn returns(&self, _: Self::Returns) -> Self::Output {
         Self::abi_encode_returns(&())
+    }
+}
+
+pub struct SubscriberTraversed {
+    pub address: Address,
+    pub subscriptions: Vec<SubscriptionsTraversed>,
+}
+
+pub struct SubscriptionsTraversed {
+    pub subscription_id: SubscriptionId,
+    pub subscription: sol::Subscription,
+}
+
+pub struct BlobTraversed {
+    pub size: u64,
+    pub metadata_hash: Hash,
+    pub status: BlobStatus,
+    pub subscribers: Vec<SubscriberTraversed>
+}
+
+fn as_illegal_state<E: Display>(err: E) -> ActorError {
+    actor_error!(illegal_state; "{}", err)
+}
+
+impl BlobTraversed {
+    pub fn from_store<T: Blockstore>(store: T, blob: Blob) -> Result<BlobTraversed, ActorError> {
+        let subscribers_hamt = blob.subscribers.hamt(&store)?;
+        let subscribers = subscribers_hamt.iter().map(|subscriber| {
+            let (bytes_key, subscription_group) = subscriber.map_err(as_illegal_state)?;
+            let subscriber = Address::from_bytes(bytes_key.as_slice()).map_err(as_illegal_state)?;
+            let subscription_group = subscription_group.hamt(&store)?;
+            let subscriptions = subscription_group.iter().map(|entry| {
+                let (bytes_key, subscription) = entry.map_err(as_illegal_state)?;
+                let subscription_id = SubscriptionId::from_bytes(bytes_key.as_slice()).map_err(as_illegal_state)?;
+                let subscription = SubscriptionsTraversed {
+                    subscription_id,
+                    subscription: sol::Subscription {
+                        added: subscription.added as u64,
+                        expiry: subscription.expiry as u64,
+                        source: Base32::from_slice(subscription.source.as_ref()).encode(),
+                        delegate: subscription.delegate.map(|address| H160::try_from(address)).transpose().map_err(as_illegal_state)?.unwrap_or_default().into(),
+                        failed: subscription.failed,
+                    }
+                };
+                Ok(subscription)
+            }).collect::<Result<Vec<_>, ActorError>>()?;
+            let subscriber_traversed = SubscriberTraversed {
+                address: subscriber,
+                subscriptions,
+            };
+            Ok(subscriber_traversed)
+        }).collect::<Result<Vec<_>, ActorError>>()?;
+        let blob = BlobTraversed {
+            size: blob.size,
+            metadata_hash: blob.metadata_hash,
+            status: blob.status,
+            subscribers,
+        };
+        Ok(blob)
+    }
+}
+
+impl AbiCall for sol::getBlobCall {
+    type Params = Result<GetBlobParams, ActorError>;
+    type Returns = Option<BlobTraversed>;
+    type Output = Result<Vec<u8>, AbiEncodeError>;
+    fn params(&self) -> Self::Params {
+        let blob_hash = try_decode_hash(self.blobHash.clone())?;
+        Ok(GetBlobParams(blob_hash))
+    }
+    fn returns(&self, blob: Self::Returns) -> Self::Output {
+        let facade_blob = if let Some(blob) = blob {
+            let subscribers = blob.subscribers.iter().map(|sub| {
+                let subscription_group = sub.subscriptions.iter().map(|sub| {
+                   Ok(sol::SubscriptionGroup {
+                       subscriptionId: sub.subscription_id.clone().into(),
+                       subscription: sol::Subscription {
+                           added: sub.subscription.added,
+                           expiry: sub.subscription.expiry,
+                           source:  Base32::from_slice(sub.subscription.source.as_ref()).encode(),
+                           // delegate: sub.subscription.delegate.map(|address| H160::try_from(address)).transpose()?.unwrap_or_default().into(),
+                           delegate: sub.subscription.delegate,
+                           failed: sub.subscription.failed,
+                       }
+                   })
+                }).collect::<Result<Vec<_>, anyhow::Error>>()?;
+                Ok(sol::Subscriber {
+                    subscriber: H160::try_from(sub.address)?.into(),
+                    subscriptionGroup: subscription_group,
+                })
+            }).collect::<Result<Vec<_>, AbiEncodeError>>()?;
+            sol::Blob {
+                size: blob.size,
+                metadataHash: Base32::from_slice(blob.metadata_hash.as_ref()).encode(),
+                status: blob_status_as_solidity_enum(blob.status),
+                subscribers: subscribers,
+            }
+        } else {
+            sol::Blob {
+                size: 0,
+                metadataHash: String::default(),
+                status: blob_status_as_solidity_enum(BlobStatus::Failed),
+                subscribers: Vec::default(),
+            }
+        };
+        Ok(Self::abi_encode_returns(&(facade_blob,)))
     }
 }
 

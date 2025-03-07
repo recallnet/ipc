@@ -201,17 +201,15 @@ macro_rules! declare_abi_call {
             message: String,
         }
 
-        impl AbiEncodeError {
-            pub fn new(message: impl Into<String>) -> Self {
-                Self {
-                    message: message.into(),
-                }
+        impl From<anyhow::Error> for AbiEncodeError {
+            fn from(error: anyhow::Error) -> Self {
+                Self { message: format!("failed to abi encode {}", error) }
             }
         }
 
-        impl From<anyhow::Error> for AbiEncodeError {
-            fn from(error: anyhow::Error) -> Self {
-                Self { message: format!("failed to abi encode response {}", error) }
+        impl From<String> for AbiEncodeError {
+            fn from(message: String) -> Self {
+                Self { message }
             }
         }
 
