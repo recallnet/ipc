@@ -2,18 +2,22 @@
 // Copyright 2022-2024 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use fendermint_actor_blobs_shared::params::{
+    AddBlobParams, DeleteBlobParams, GetAccountParams, GetAddedBlobsParams, GetBlobParams,
+    GetBlobStatusParams, GetPendingBlobsParams, GetStatsReturn, OverwriteBlobParams,
+};
+use fendermint_actor_blobs_shared::state::{
+    Blob, BlobRequest, BlobStatus, Hash, PublicKey, SubscriptionId,
+};
+use fil_actors_runtime::{actor_error, ActorError};
 use fvm_ipld_blockstore::Blockstore;
-use fendermint_actor_blobs_shared::state::{Blob, BlobRequest, BlobStatus, Hash, PublicKey, SubscriptionId};
 use fvm_shared::address::Address;
 use fvm_shared::clock::ChainEpoch;
-use fendermint_actor_blobs_shared::params::{AddBlobParams, DeleteBlobParams, GetAccountParams, GetAddedBlobsParams, GetBlobParams, GetBlobStatusParams, GetPendingBlobsParams, GetStatsReturn, OverwriteBlobParams};
-use fil_actors_runtime::{actor_error, ActorError};
-use recall_actor_sdk::{TryIntoEVMEvent};
+use num_traits::Zero;
+use recall_actor_sdk::TryIntoEVMEvent;
 use recall_sol_facade::blobs as sol;
 use recall_sol_facade::primitives::U256;
 use recall_sol_facade::types::{BigUintWrapper, SolCall, SolInterface, H160};
-use num_traits::Zero;
-use recall_ipld::hamt::MapKey;
 
 pub use recall_sol_facade::blobs::Calls;
 
@@ -104,31 +108,39 @@ pub fn can_handle(input_data: &recall_actor_sdk::InputData) -> bool {
 }
 
 pub fn parse_input(input: &recall_actor_sdk::InputData) -> Result<Calls, ActorError> {
-    Calls::abi_decode_raw(input.selector(), input.calldata(), true).map_err(|e| {
-        actor_error!(illegal_argument, format!("invalid call: {}", e))
-    })
+    Calls::abi_decode_raw(input.selector(), input.calldata(), true)
+        .map_err(|e| actor_error!(illegal_argument, format!("invalid call: {}", e)))
 }
 
-fn blob_requests_to_tuple(blob_requests: Vec<BlobRequest>) -> Result<Vec<sol::BlobTuple>, anyhow::Error> {
-    blob_requests.iter().map(|blob_request| {
-        let source_info: Result<Vec<sol::BlobSourceInfo>, anyhow::Error> = blob_request.1.iter().map(|item| {
-            let address = item.0;
-            let subscription_id = item.1.clone();
-            let public_key = item.2;
+fn blob_requests_to_tuple(
+    blob_requests: Vec<BlobRequest>,
+) -> Result<Vec<sol::BlobTuple>, anyhow::Error> {
+    blob_requests
+        .iter()
+        .map(|blob_request| {
+            let source_info: Result<Vec<sol::BlobSourceInfo>, anyhow::Error> = blob_request
+                .1
+                .iter()
+                .map(|item| {
+                    let address = item.0;
+                    let subscription_id = item.1.clone();
+                    let public_key = item.2;
 
-            Ok(sol::BlobSourceInfo {
-                subscriber: H160::try_from(address)?.into(),
-                subscriptionId: subscription_id.into(),
-                source: public_key.into(),
+                    Ok(sol::BlobSourceInfo {
+                        subscriber: H160::try_from(address)?.into(),
+                        subscriptionId: subscription_id.into(),
+                        source: public_key.into(),
+                    })
+                })
+                .collect::<Result<Vec<_>, anyhow::Error>>();
+
+            let blob_hash = blob_request.0;
+            Ok(sol::BlobTuple {
+                blobHash: blob_hash.into(),
+                sourceInfo: source_info?,
             })
-        }).collect::<Result<Vec<_>, anyhow::Error>>();
-
-        let blob_hash = blob_request.0;
-        Ok(sol::BlobTuple {
-            blobHash: blob_hash.into(),
-            sourceInfo: source_info?
         })
-    }).collect::<Result<Vec<_>, anyhow::Error>>()
+        .collect::<Result<Vec<_>, anyhow::Error>>()
 }
 
 impl AbiCall for sol::getAddedBlobsCall {
@@ -175,7 +187,7 @@ fn blob_status_as_solidity_enum(blob_status: BlobStatus) -> u8 {
         BlobStatus::Added => 0,
         BlobStatus::Pending => 1,
         BlobStatus::Resolved => 2,
-        BlobStatus::Failed => 3
+        BlobStatus::Failed => 3,
     }
 }
 
@@ -243,13 +255,19 @@ impl AbiCall for sol::addBlobCall {
     type Returns = ();
     type Output = Vec<u8>;
     fn params(&self) -> Self::Params {
-        let sponsor: Option<Address> = H160::from(self.params.sponsor).as_option().map(|a| a.into());
+        let sponsor: Option<Address> = H160::from(self.params.sponsor)
+            .as_option()
+            .map(|a| a.into());
         let source = PublicKey::try_from(self.params.source.clone())?;
         let hash = Hash::try_from(self.params.blobHash.clone())?;
         let metadata_hash = Hash::try_from(self.params.metadataHash.clone())?;
         let subscription_id: SubscriptionId = self.params.subscriptionId.clone().try_into()?;
-        let size =  self.params.size;
-        let ttl = if self.params.ttl.is_zero() { None } else { Some(self.params.ttl as ChainEpoch) };
+        let size = self.params.size;
+        let ttl = if self.params.ttl.is_zero() {
+            None
+        } else {
+            Some(self.params.ttl as ChainEpoch)
+        };
         let from: Address = H160::from(self.params.from).into();
         Ok(AddBlobParams {
             sponsor,
@@ -259,7 +277,7 @@ impl AbiCall for sol::addBlobCall {
             id: subscription_id,
             size,
             ttl,
-            from
+            from,
         })
     }
     fn returns(&self, returns: Self::Returns) -> Self::Output {
@@ -280,7 +298,7 @@ impl AbiCall for sol::deleteBlobCall {
             sponsor: subscriber,
             hash,
             id: subscription_id,
-            from
+            from,
         })
     }
     fn returns(&self, _: Self::Returns) -> Self::Output {
@@ -297,33 +315,48 @@ pub struct BlobTraversed {
 }
 
 impl BlobTraversed {
-    pub fn from_store<T: Blockstore>(store: T, blob: Blob) -> Result<BlobTraversed, AbiEncodeError> {
+    pub fn from_store<T: Blockstore>(
+        store: T,
+        blob: Blob,
+    ) -> Result<BlobTraversed, AbiEncodeError> {
         let subscribers_hamt = blob.subscribers.hamt(&store)?;
-        let subscribers = subscribers_hamt.iter().map(|subscriber| {
-            let (bytes_key, subscription_group) = subscriber.map_err(anyhow::Error::msg)?;
-            let subscriber = Address::from_bytes(bytes_key.as_slice()).map_err(anyhow::Error::msg)?;
-            let subscription_group = subscription_group.hamt(&store)?;
-            let subscriptions = subscription_group.iter().map(|entry| {
-                let (bytes_key, subscription) = entry.map_err(anyhow::Error::msg)?;
-                let subscription_id = SubscriptionId::from_bytes(bytes_key.as_slice())?;
-                let subscription = sol::SubscriptionGroup {
-                    subscriptionId: subscription_id.into(),
-                    subscription: sol::Subscription {
-                        added: subscription.added as u64,
-                        expiry: subscription.expiry as u64,
-                        source: subscription.source.into(),
-                        delegate: subscription.delegate.map(|address| H160::try_from(address)).transpose()?.unwrap_or_default().into(),
-                        failed: subscription.failed,
-                    }
+        let subscribers = subscribers_hamt
+            .iter()
+            .map(|subscriber| {
+                let (bytes_key, subscription_group) = subscriber.map_err(anyhow::Error::msg)?;
+                let subscriber =
+                    Address::from_bytes(bytes_key.as_slice()).map_err(anyhow::Error::msg)?;
+                let subscription_group = subscription_group.hamt(&store)?;
+                let subscriptions = subscription_group
+                    .iter()
+                    .map(|entry| {
+                        let (bytes_key, subscription) = entry.map_err(anyhow::Error::msg)?;
+                        let subscription_id = SubscriptionId::from_bytes(bytes_key.as_slice())?;
+                        let subscription = sol::SubscriptionGroup {
+                            subscriptionId: subscription_id.into(),
+                            subscription: sol::Subscription {
+                                added: subscription.added as u64,
+                                expiry: subscription.expiry as u64,
+                                source: subscription.source.into(),
+                                delegate: subscription
+                                    .delegate
+                                    .map(|address| H160::try_from(address))
+                                    .transpose()?
+                                    .unwrap_or_default()
+                                    .into(),
+                                failed: subscription.failed,
+                            },
+                        };
+                        Ok(subscription)
+                    })
+                    .collect::<Result<Vec<_>, AbiEncodeError>>()?;
+                let subscriber_traversed = sol::Subscriber {
+                    subscriber: H160::try_from(subscriber)?.into(),
+                    subscriptionGroup: subscriptions,
                 };
-                Ok(subscription)
-            }).collect::<Result<Vec<_>, AbiEncodeError>>()?;
-            let subscriber_traversed = sol::Subscriber {
-                subscriber: H160::try_from(subscriber)?.into(),
-                subscriptionGroup: subscriptions,
-            };
-            Ok(subscriber_traversed)
-        }).collect::<Result<Vec<_>, AbiEncodeError>>()?;
+                Ok(subscriber_traversed)
+            })
+            .collect::<Result<Vec<_>, AbiEncodeError>>()?;
         let blob = BlobTraversed {
             size: blob.size,
             metadata_hash: blob.metadata_hash,
@@ -409,13 +442,19 @@ impl AbiCall for sol::overwriteBlobCall {
     type Output = Vec<u8>;
     fn params(&self) -> Self::Params {
         let old_hash: Hash = Hash::try_from(self.oldHash.clone())?;
-        let sponsor = H160::from(self.params.sponsor).as_option().map(|a| a.into());
+        let sponsor = H160::from(self.params.sponsor)
+            .as_option()
+            .map(|a| a.into());
         let source: PublicKey = PublicKey::try_from(self.params.source.clone())?;
         let hash: Hash = Hash::try_from(self.params.blobHash.clone())?;
         let metadata_hash: Hash = Hash::try_from(self.params.metadataHash.clone())?;
         let subscription_id: SubscriptionId = self.params.subscriptionId.clone().try_into()?;
-        let size =  self.params.size;
-        let ttl = if self.params.ttl.is_zero() { None } else { Some(self.params.ttl as ChainEpoch) };
+        let size = self.params.size;
+        let ttl = if self.params.ttl.is_zero() {
+            None
+        } else {
+            Some(self.params.ttl as ChainEpoch)
+        };
         let from: Address = H160::from(self.params.from.clone()).into();
         Ok(OverwriteBlobParams {
             old_hash,
