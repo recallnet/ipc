@@ -11,10 +11,7 @@ use fendermint_actor_blobs_shared::params::{
     OverwriteBlobParams, RevokeCreditParams, SetAccountStatusParams, SetBlobPendingParams,
     SetSponsorParams, TrimBlobExpiriesParams, UpdateGasAllowanceParams,
 };
-use fendermint_actor_blobs_shared::state::{
-    AccountInfo, Blob, BlobStatus, Credit, CreditApproval, GasAllowance, Hash, PublicKey,
-    Subscription, SubscriptionId,
-};
+use fendermint_actor_blobs_shared::state::{AccountInfo, Blob, BlobRequest, BlobStatus, Credit, CreditApproval, GasAllowance, Hash, PublicKey, Subscription, SubscriptionId};
 use fendermint_actor_blobs_shared::Method;
 use fendermint_actor_recall_config_shared::{get_config, require_caller_is_admin};
 use fil_actors_runtime::{
@@ -44,10 +41,6 @@ fil_actors_runtime::wasm_trampoline!(BlobsActor);
 /// For simplicity, this actor currently manages both blobs and credit.
 /// A future version of the protocol will likely separate them in some way.
 pub struct BlobsActor;
-
-/// The return type used when fetching "added" or "pending" blobs.
-/// See `get_added_blobs` and `get_pending_blobs` for more information.
-type BlobRequest = (Hash, HashSet<(Address, SubscriptionId, PublicKey)>);
 
 impl BlobsActor {
     /// Creates a new `[BlobsActor]` state.
@@ -761,13 +754,14 @@ impl BlobsActor {
     }
 
     fn invoke_contract(rt: &impl Runtime, params: InvokeContractParams) -> Result<InvokeContractReturn, ActorError> {
+        use sol_blobs::SolCall;;
         let input_data: InputData = params.try_into()?;
         if sol_blobs::can_handle(&input_data) {
             let output_data = match sol_blobs::parse_input(&input_data)? {
                 sol_blobs::Calls::getAddedBlobs(call) => {
                     let size = call.size;
                     let blob_requests = Self::get_added_blobs(rt, GetAddedBlobsParams(size))?;
-                    call.try_returns(blob_requests)?
+                    todo!()
                 },
                 sol_blobs::Calls::getBlobStatus(call) => {
                     todo!()
