@@ -5,7 +5,7 @@
 use fendermint_actor_blobs_shared::state::{BlobRequest, BlobStatus, Hash, PublicKey, SubscriptionId};
 use fvm_shared::address::Address;
 use fvm_shared::clock::ChainEpoch;
-use fendermint_actor_blobs_shared::params::{AddBlobParams, GetAddedBlobsParams, GetBlobStatusParams, GetPendingBlobsParams, GetStatsReturn};
+use fendermint_actor_blobs_shared::params::{AddBlobParams, DeleteBlobParams, GetAddedBlobsParams, GetBlobStatusParams, GetPendingBlobsParams, GetStatsReturn};
 use fil_actors_runtime::{actor_error, ActorError};
 use recall_actor_sdk::{TryIntoEVMEvent};
 use recall_sol_facade::blobs as sol;
@@ -150,6 +150,18 @@ fn try_decode_address<T: AsRef<[u8]>>(data: T) -> Result<Address, ActorError> {
     })
 }
 
+fn try_decode_option_address<T: AsRef<[u8]>>(data: T) -> Result<Option<Address>, ActorError> {
+    let address: H160 = H160::from(data);
+    if address.is_null() {
+        Ok(None)
+    } else {
+        let address = address.try_into().map_err(|e| {
+            actor_error!(illegal_argument, format!("invalid address: {}", e))
+        })?;
+        Ok(Some(address))
+    }
+}
+
 fn try_decode_hash<T: AsRef<[u8]>>(data: T) -> Result<Hash, ActorError> {
     Base32::decode(data.as_ref())
         .and_then(|b| {
@@ -265,15 +277,7 @@ impl AbiCall for sol::addBlobCall {
     type Returns = ();
     type Output = Vec<u8>;
     fn params(&self) -> Self::Params {
-        let sponsor: H160 = H160::from(self.params.sponsor);
-        let sponsor: Option<Address> = if sponsor.is_null() {
-            None
-        } else {
-            let sponsor = sponsor.try_into().map_err(|e| {
-                actor_error!(illegal_argument, format!("invalid address: {}", e))
-            })?;
-            Some(sponsor)
-        };
+        let sponsor = try_decode_option_address(self.params.sponsor)?;
         let source = try_decode_public_key(self.params.source.clone())?;
         let hash = try_decode_hash(self.params.blobHash.clone())?;
         let metadata_hash = try_decode_hash(self.params.metadataHash.clone())?;
@@ -289,6 +293,27 @@ impl AbiCall for sol::addBlobCall {
             id: subscription_id,
             size,
             ttl,
+            from
+        })
+    }
+    fn returns(&self, _: Self::Returns) -> Self::Output {
+        Self::abi_encode_returns(&())
+    }
+}
+
+impl AbiCall for sol::deleteBlobCall {
+    type Params = Result<DeleteBlobParams, ActorError>;
+    type Returns = ();
+    type Output = Vec<u8>;
+    fn params(&self) -> Self::Params {
+        let subscriber = try_decode_option_address(self.subscriber)?;
+        let hash = try_decode_hash(self.blobHash.clone())?;
+        let subscription_id: SubscriptionId = self.subscriptionId.clone().try_into()?;
+        let from = try_decode_address(self.from)?;
+        Ok(DeleteBlobParams {
+            sponsor: subscriber,
+            hash,
+            id: subscription_id,
             from
         })
     }

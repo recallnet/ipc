@@ -788,8 +788,10 @@ impl BlobsActor {
                     Self::add_blob(rt, params)?;
                     call.returns(())
                 }
-                sol_blobs::Calls::deleteBlob(_) => {
-                    todo!()
+                sol_blobs::Calls::deleteBlob(call) => {
+                    let params = call.params()?;
+                    Self::delete_blob(rt, params)?;
+                    call.returns(())
                 }
                 sol_blobs::Calls::getBlob(_) => {
                     todo!()
