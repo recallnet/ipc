@@ -2,8 +2,6 @@
 // Copyright 2021-2023 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::collections::HashSet;
-
 use fendermint_actor_blobs_shared::params::{
     AddBlobParams, ApproveCreditParams, BuyCreditParams, DeleteBlobParams, FinalizeBlobParams,
     GetAccountParams, GetAddedBlobsParams, GetBlobParams, GetBlobStatusParams,
@@ -805,7 +803,7 @@ impl BlobsActor {
                     call.returns(blob)?
                 }
                 sol_blobs::Calls::getStorageUsage(call) => {
-                    let params = call.params()?;
+                    let params = call.params();
                     let account = Self::get_account(rt, params)?;
                     let capacity_used = account.map(|a| a.capacity_used);
                     call.returns(capacity_used)

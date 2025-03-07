@@ -213,6 +213,12 @@ macro_rules! declare_abi_call {
             }
         }
 
+        impl From<fil_actors_runtime::ActorError> for AbiEncodeError {
+            fn from(error: fil_actors_runtime::ActorError) -> Self {
+                Self { message: format!("{}", error) }
+            }
+        }
+
         impl From<AbiEncodeError> for fil_actors_runtime::ActorError {
             fn from(error: AbiEncodeError) -> Self {
                 fil_actors_runtime::actor_error!(serialization, error.message)

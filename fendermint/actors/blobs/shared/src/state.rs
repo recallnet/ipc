@@ -169,20 +169,6 @@ impl AsRef<[u8]> for Hash {
     }
 }
 
-// impl TryInto<Hash> for &[u8] {
-//     type Error = String;
-//
-//     fn try_into(self) -> Result<Hash, Self::Error> {
-//         if self.len() == 32 {
-//             let mut array = [0u8; 32];
-//             array.copy_from_slice(self);
-//             Ok(Hash(array))
-//         } else {
-//             Err("hash slice must be exactly 32 bytes".into())
-//         }
-//     }
-// }
-
 impl TryFrom<&[u8]> for Hash {
     type Error = String;
     fn try_from(slice: &[u8]) -> Result<Self, Self::Error> {
@@ -234,6 +220,19 @@ impl TryFrom<&str> for Hash {
     }
 }
 
+impl Into<String> for Hash {
+    fn into(self) -> String {
+        data_encoding::BASE32_NOPAD.encode(&self.0)
+    }
+}
+
+impl TryFrom<String> for Hash {
+    type Error = anyhow::Error;
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Hash::try_from(value.as_str())
+    }
+}
+
 impl From<u64> for Hash {
     fn from(value: u64) -> Self {
         let mut padded = [0u8; 32];
@@ -263,6 +262,31 @@ impl TryFrom<&[u8]> for PublicKey {
         } else {
             Err(anyhow!("hash slice must be exactly 32 bytes"))
         }
+    }
+}
+
+impl TryFrom<&str> for PublicKey {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        let mut res = [0u8; 32];
+        data_encoding::BASE32_NOPAD
+            .decode_mut(value.as_bytes(), &mut res)
+            .map_err(|_| anyhow::anyhow!("invalid hash"))?;
+        Ok(Self(res))
+    }
+}
+
+impl Into<String> for PublicKey {
+    fn into(self) -> String {
+        data_encoding::BASE32_NOPAD.encode(&self.0)
+    }
+}
+
+impl TryFrom<String> for PublicKey {
+    type Error = anyhow::Error;
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Self::try_from(value.as_str())
     }
 }
 
