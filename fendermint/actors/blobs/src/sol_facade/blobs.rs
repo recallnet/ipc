@@ -5,7 +5,8 @@
 use fendermint_actor_blobs_shared::state::{BlobRequest, BlobStatus, Hash, PublicKey, SubscriptionId};
 use fvm_shared::address::Address;
 use fvm_shared::clock::ChainEpoch;
-use fendermint_actor_blobs_shared::params::{GetAddedBlobsParams, GetBlobStatusParams};
+use fendermint_actor_blobs_shared::params::{GetAddedBlobsParams, GetBlobStatusParams, GetPendingBlobsParams};
+use fil_actors_runtime::{actor_error, ActorError};
 use recall_actor_sdk::{TryIntoEVMEvent};
 use recall_sol_facade::blobs as sol;
 use recall_sol_facade::primitives::U256;
@@ -143,14 +144,18 @@ impl AbiCall for sol::getAddedBlobsCall {
 }
 
 impl AbiCall for sol::getBlobStatusCall {
-    type Params = Result<GetBlobStatusParams, AbiEncodeError>;
+    type Params = Result<GetBlobStatusParams, ActorError>;
     type Returns = Option<BlobStatus>;
     type Output = Vec<u8>;
 
     fn params(&self) -> Self::Params {
-        let subscriber: Address = H160::from(self.subscriber).try_into()?;
-        let blob_hash: Hash = base32::decode(self.blobHash.as_bytes())?.try_into().map_err(anyhow::Error::msg)?;
-        let subscription_id: SubscriptionId = self.subscriptionId.clone().try_into().map_err(anyhow::Error::msg)?;
+        let subscriber: Address = H160::from(self.subscriber).try_into().map_err(|_| {
+            actor_error!(illegal_argument, "invalid subscriber param".to_string())
+        })?;
+        let blob_hash: Hash = base32::decode(self.blobHash.as_bytes()).and_then(|vec| Hash::try_from(vec).map_err(anyhow::Error::msg)).map_err(|_| {
+            actor_error!(illegal_argument, "invalid hash param".to_string())
+        })?;
+        let subscription_id: SubscriptionId = self.subscriptionId.clone().try_into()?;
         Ok(GetBlobStatusParams {
             subscriber: subscriber.into(),
             hash: blob_hash,
@@ -166,12 +171,24 @@ impl AbiCall for sol::getBlobStatusCall {
     }
 }
 
-
 fn blob_status_as_solidity_enum(blob_status: BlobStatus) -> u8 {
     match blob_status {
         BlobStatus::Added => 0,
         BlobStatus::Pending => 1,
         BlobStatus::Resolved => 2,
         BlobStatus::Failed => 3
+    }
+}
+
+impl AbiCall for sol::getPendingBlobsCall {
+    type Params = GetPendingBlobsParams;
+    type Returns = Vec<BlobRequest>;
+    type Output = Result<Vec<u8>, AbiEncodeError>;
+    fn params(&self) -> Self::Params {
+        GetPendingBlobsParams(self.size)
+    }
+    fn returns(&self, blob_requests: Self::Returns) -> Self::Output {
+        let blob_tuples = blob_requests_to_tuple(blob_requests)?;
+        Ok(Self::abi_encode_returns(&(blob_tuples,)))
     }
 }

@@ -13,7 +13,6 @@ use fil_actors_runtime::runtime::builtins::Type;
 use fil_actors_runtime::runtime::Runtime;
 use recall_sol_facade::primitives::IntoLogData;
 use fvm_ipld_encoding::{strict_bytes, tuple::*};
-use fil_actors_evm_shared::address::EthAddress;
 
 pub fn hash_rm(hash: [u8; 32]) -> Result<(), ErrorNumber> {
     unsafe { sys::hash_rm(hash.as_ptr()) }
