@@ -191,3 +191,35 @@ pub struct InvokeContractReturn {
     #[serde(with = "strict_bytes")]
     pub output_data: Vec<u8>,
 }
+
+#[macro_export]
+macro_rules! define_abi_encode {
+    () => {
+        pub trait AbiEncodeReturns<T>: recall_sol_facade::types::SolCall {
+            fn returns(&self, value: T) -> Vec<u8>;
+        }
+
+        pub trait TryAbiEncodeReturns<T>: recall_sol_facade::types::SolCall {
+            fn try_returns(&self, value: T) -> anyhow::Result<Vec<u8>, AbiEncodeError>;
+        }
+
+        #[derive(Debug, Clone)]
+        pub struct AbiEncodeError {
+            message: String,
+        }
+
+        impl AbiEncodeError {
+            pub fn new(message: impl Into<String>) -> Self {
+                Self {
+                    message: message.into(),
+                }
+            }
+        }
+
+        impl From<AbiEncodeError> for fil_actors_runtime::ActorError {
+            fn from(error: AbiEncodeError) -> Self {
+                fil_actors_runtime::actor_error!(serialization, error.message)
+            }
+        }
+    };
+}

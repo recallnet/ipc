@@ -10,9 +10,11 @@ use fil_actors_runtime::{actor_error, ActorError};
 use recall_actor_sdk::{InputData, TryIntoEVMEvent};
 use recall_sol_facade::blobs as sol;
 use recall_sol_facade::primitives::U256;
-use recall_sol_facade::types::{SolInterface, H160};
+use recall_sol_facade::types::{SolCall, SolInterface, H160};
 
 pub use recall_sol_facade::blobs::Calls;
+
+use crate::sol_facade::AbiEncodeReturns;
 
 // ----- Events ----- //
 
@@ -103,29 +105,9 @@ pub fn parse_input(input: &InputData) -> Result<Calls, ActorError> {
         actor_error!(illegal_argument, format!("invalid call: {}", e))
     })
 }
-//
-// use sol::{A, Foo};
-// pub use sol::foo;
-// pub use recall_sol_facade::types::SolCall;
-//
-// macro_rules! duplicate_trait {
-//     ($trait_name:ident) => {
-//         pub trait $trait_name {
-//             fn do_something(&self);
-//         }
-//     };
-// }
-// duplicate_trait!(Blah);
-//
-// impl Blah for A {
-//     fn do_something(&self) {
-//         todo!()
-//     }
-// }
 
-// impl TryAbiEncodeReturns<Vec<BlobRequest>> for IBlobsFacade::getAddedBlobsCall {
-//     fn try_returns(&self, blob_requests: Vec<BlobRequest>) -> Result<Vec<u8>, AbiEncodeError> {
-//         let blob_tuples = blob_requests_to_tuple(blob_requests)?;
-//         Ok(Self::abi_encode_returns(&(blob_tuples,)))
-//     }
-// }
+impl AbiEncodeReturns<u64> for sol::getPendingBlobsCountCall {
+    fn returns(&self, value: u64) -> Vec<u8> {
+        Self::abi_encode_returns(&(&value,))
+    }
+}
