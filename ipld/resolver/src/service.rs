@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::time::Duration;
 
 use crate::behaviour::{
@@ -15,11 +16,12 @@ use anyhow::anyhow;
 use bloom::{BloomFilter, ASMS};
 use ipc_api::subnet_id::SubnetID;
 use ipc_observability::emit;
-use iroh::blobs::Hash;
-use iroh::client::blobs::ReadAtLen;
-use iroh::client::Iroh;
-use iroh::net::NodeAddr;
-use iroh_manager::{get_blob_hash_and_size, IrohManager};
+use iroh::NodeAddr;
+use iroh_blobs::net_protocol::DownloadMode;
+use iroh_blobs::rpc::client::blobs::{DownloadOptions, ReadAtLen};
+use iroh_blobs::util::SetTagOption;
+use iroh_blobs::{BlobFormat, Hash, Tag};
+use iroh_manager::{get_blob_hash_and_size, IrohBlobsClient, IrohManager};
 use libipld::store::StoreParams;
 use libipld::Cid;
 use libp2p::connection_limits::ConnectionLimits;
@@ -97,7 +99,7 @@ pub struct Config {
     pub membership: MembershipConfig,
     pub connection: ConnectionConfig,
     pub content: ContentConfig,
-    pub iroh_addr: Option<String>,
+    pub iroh_path: Option<PathBuf>,
 }
 
 /// Internal requests to enqueue to the [`Service`]
@@ -209,6 +211,9 @@ where
         let (request_tx, request_rx) = mpsc::unbounded_channel();
         let (event_tx, _) = broadcast::channel(config.connection.event_buffer_capacity as usize);
 
+        let iroh_path = config
+            .iroh_path
+            .ok_or_else(|| anyhow::anyhow!("missing iroh configuration"))?;
         let service = Self {
             peer_id,
             listen_addr: config.connection.listen_addr,
@@ -222,7 +227,7 @@ where
                 config.connection.expected_peer_count,
             ),
             max_peers_per_query: config.connection.max_peers_per_query as usize,
-            iroh: IrohManager::from_addr(config.iroh_addr),
+            iroh: IrohManager::new(iroh_path),
         };
 
         Ok(service)
@@ -525,11 +530,11 @@ where
         node_addr: NodeAddr,
         response_channel: ResponseChannel,
     ) {
-        let mut iroh = self.iroh.clone();
+        let iroh = self.iroh.clone();
         tokio::spawn(async move {
-            match iroh.client().await {
+            match iroh.blobs_client().await {
                 Ok(client) => {
-                    let res = download_blob(client, hash, size, node_addr).await;
+                    let res = download_blob(&client, hash, size, node_addr).await;
                     match res {
                         Ok(_) => send_resolve_result(response_channel, Ok(())),
                         Err(e) => send_resolve_result(response_channel, Err(anyhow!(e))),
@@ -551,11 +556,11 @@ where
         len: u32,
         response_channel: ReadRequestResponseChannel,
     ) {
-        let mut iroh = self.iroh.clone();
+        let iroh = self.iroh.clone();
         tokio::spawn(async move {
-            match iroh.client().await {
+            match iroh.blobs_client().await {
                 Ok(client) => {
-                    let res = read_blob(client, hash, offset, len).await;
+                    let res = read_blob(&client, hash, offset, len).await;
                     match res {
                         Ok(bytes) => send_read_request_result(response_channel, Ok(bytes)),
                         Err(e) => send_read_request_result(response_channel, Err(anyhow!(e))),
@@ -671,26 +676,26 @@ pub fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox)> {
 }
 
 async fn download_blob(
-    iroh: Iroh,
+    iroh: &IrohBlobsClient,
     seq_hash: Hash,
     size: u64,
     node_addr: NodeAddr,
 ) -> anyhow::Result<()> {
     // Download top-level blob
     // Use an explicit tag so we can keep track of it
-    let tag = iroh::blobs::Tag(format!("stored-seq-{seq_hash}").into());
-    iroh.blobs()
-        .download_with_opts(
-            seq_hash,
-            iroh::client::blobs::DownloadOptions {
-                format: iroh::blobs::BlobFormat::HashSeq,
-                nodes: vec![node_addr.clone()],
-                tag: iroh::blobs::util::SetTagOption::Named(tag),
-                mode: iroh::client::blobs::DownloadMode::Queued,
-            },
-        )
-        .await?
-        .await?;
+
+    let tag = Tag(format!("stored-seq-{seq_hash}").into());
+    iroh.download_with_opts(
+        seq_hash,
+        DownloadOptions {
+            format: BlobFormat::HashSeq,
+            nodes: vec![node_addr],
+            tag: SetTagOption::Named(tag),
+            mode: DownloadMode::Queued,
+        },
+    )
+    .await?
+    .await?;
 
     // Verify downloaded size of user blob matches the expected size
     let (_, size_actual) = get_blob_hash_and_size(&iroh, seq_hash).await?;
@@ -703,7 +708,7 @@ async fn download_blob(
     }
 
     // Delete the temporary tag (this might fail as not all nodes will have one).
-    let tag = iroh::blobs::Tag(format!("temp-seq-{seq_hash}").into());
+    let tag = Tag(format!("temp-seq-{seq_hash}").into());
     iroh.tags().delete(tag).await.ok();
 
     debug!("downloaded blob {}", seq_hash);
@@ -711,13 +716,15 @@ async fn download_blob(
     Ok(())
 }
 
-async fn read_blob(iroh: Iroh, hash: Hash, offset: u32, len: u32) -> anyhow::Result<bytes::Bytes> {
+async fn read_blob(
+    iroh: &IrohBlobsClient,
+    hash: Hash,
+    offset: u32,
+    len: u32,
+) -> anyhow::Result<bytes::Bytes> {
     let (hash, _) = get_blob_hash_and_size(&iroh, hash).await?;
     let len = ReadAtLen::AtMost(len as u64);
-    let res = iroh
-        .blobs()
-        .read_at_to_bytes(hash, offset as u64, len)
-        .await?;
+    let res = iroh.read_at_to_bytes(hash, offset as u64, len).await?;
     debug!("read blob {}: {:?}", hash, res);
     Ok(res)
 }

@@ -1,6 +1,7 @@
 // Copyright 2022-2024 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use anyhow::{anyhow, bail, Context};
@@ -50,10 +51,11 @@ use fendermint_vm_iroh_resolver::observe::{
 
 cmd! {
   RunArgs(self, settings) {
-    // this env var must be set for the blobs_syscall to work. the CLI has a default and accepts
-    // an override via the env variable, but it doesn't require it's set, so we ensure it here
-    std::env::set_var("IROH_RPC_ADDR", self.iroh_addr.clone());
-    run(settings, self.iroh_addr.clone()).await
+      // this env var must be set for the blobs_syscall to work. the CLI has a default and accepts
+      // an override via the env variable, but it doesn't require it's set, so we ensure it here
+      // TODO: should tis be IROH_SYSCALL_PATH? does this mean RunArgs needs two iroh paths?
+      std::env::set_var("IROH_OBJECTS_PATH", self.iroh_path.clone());
+      run(settings, self.iroh_path.clone()).await
   }
 }
 
@@ -70,7 +72,7 @@ namespaces! {
 /// Run the Fendermint ABCI Application.
 ///
 /// This method acts as our composition root.
-async fn run(settings: Settings, iroh_addr: String) -> anyhow::Result<()> {
+async fn run(settings: Settings, iroh_path: PathBuf) -> anyhow::Result<()> {
     let tendermint_rpc_url = settings.tendermint_rpc_url()?;
     info!("Connecting to Tendermint at {tendermint_rpc_url}");
 
@@ -188,7 +190,7 @@ async fn run(settings: Settings, iroh_addr: String) -> anyhow::Result<()> {
             db.clone(),
             state_store.clone(),
             ns.bit_store,
-            iroh_addr,
+            iroh_path,
         )
         .await?;
 
@@ -469,7 +471,7 @@ async fn make_resolver_service(
     db: RocksDb,
     state_store: NamespaceBlockstore,
     bit_store_ns: String,
-    iroh_addr: String,
+    iroh_path: PathBuf,
 ) -> anyhow::Result<ipc_ipld_resolver::Service<libipld::DefaultParams, AppVote>> {
     // Blockstore for Bitswap.
     let bit_store = NamespaceBlockstore::new(db, bit_store_ns).context("error creating bit DB")?;
@@ -478,7 +480,7 @@ async fn make_resolver_service(
     let bitswap_store = BitswapBlockstore::new(state_store, bit_store);
 
     let config =
-        to_resolver_config(settings, iroh_addr).context("error creating resolver config")?;
+        to_resolver_config(settings, iroh_path).context("error creating resolver config")?;
 
     let service = ipc_ipld_resolver::Service::new(config, bitswap_store)
         .await
@@ -511,7 +513,7 @@ fn make_ipc_provider_proxy(settings: &Settings) -> anyhow::Result<IPCProviderPro
 
 fn to_resolver_config(
     settings: &Settings,
-    iroh_addr: String,
+    iroh_path: PathBuf,
 ) -> anyhow::Result<ipc_ipld_resolver::Config> {
     use ipc_ipld_resolver::{
         Config, ConnectionConfig, ContentConfig, DiscoveryConfig, MembershipConfig, NetworkConfig,
@@ -561,7 +563,7 @@ fn to_resolver_config(
             rate_limit_bytes: r.content.rate_limit_bytes,
             rate_limit_period: r.content.rate_limit_period,
         },
-        iroh_addr: Some(iroh_addr),
+        iroh_path: Some(iroh_path),
     };
 
     Ok(config)

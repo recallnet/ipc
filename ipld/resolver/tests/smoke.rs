@@ -347,7 +347,7 @@ fn make_config(rng: &mut StdRng, cluster_size: u32, bootstrap_addr: Option<Multi
             rate_limit_bytes: 1 << 20,
             rate_limit_period: Duration::from_secs(60),
         },
-        iroh_addr: None,
+        iroh_path: None,
     };
 
     config

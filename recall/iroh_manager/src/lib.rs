@@ -1,60 +1,85 @@
 // Copyright 2025 Recall Contributors
-// Copyright 2022-2024 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::net::ToSocketAddrs;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
-use anyhow::anyhow;
-use iroh::blobs::hashseq::HashSeq;
-use iroh::blobs::Hash;
-use iroh::client::blobs::BlobStatus;
-use iroh::client::Iroh;
+use anyhow::{anyhow, Result};
+use iroh::protocol::Router;
+use iroh::Endpoint;
+use iroh_blobs::hashseq::HashSeq;
+use iroh_blobs::net_protocol::Blobs;
+use iroh_blobs::rpc::client::blobs::BlobStatus;
+use iroh_blobs::Hash;
 use num_traits::Zero;
+use tokio::sync::Mutex;
+
+pub type IrohBlobsClient = iroh_blobs::rpc::client::blobs::MemClient;
 
 /// Helper for managing Iroh connections.
 #[derive(Clone, Debug)]
 pub struct IrohManager {
-    addr: Option<String>,
-    client: Option<Iroh>,
+    client: Arc<Mutex<Option<IrohNode>>>,
+    /// Storage path for iroh-blobs
+    storage_path: PathBuf,
+}
+
+#[derive(Debug, Clone)]
+struct IrohNode {
+    _router: Router,
+    blobs: Blobs<iroh_blobs::store::fs::Store>,
+}
+
+impl IrohNode {
+    async fn new(path: impl AsRef<Path>) -> Result<Self> {
+        // TODO: preserve secret key
+        let endpoint = Endpoint::builder().discovery_n0().bind().await?;
+        let blobs = Blobs::persistent(path).await?.build(&endpoint);
+        let router = Router::builder(endpoint)
+            .accept(iroh_blobs::ALPN, blobs.clone())
+            .spawn()
+            .await?;
+
+        Ok(Self {
+            _router: router,
+            blobs,
+        })
+    }
 }
 
 impl IrohManager {
-    /// Returns a manager for the address.
-    pub fn from_addr(addr: Option<String>) -> IrohManager {
-        Self { addr, client: None }
+    pub fn new(path: impl AsRef<Path>) -> Self {
+        Self {
+            client: Default::default(),
+            storage_path: path.as_ref().to_path_buf(),
+        }
     }
 
-    /// Returns the Iroh client.
-    /// The underlying client will be created if it does not exist.  
-    pub async fn client(&mut self) -> anyhow::Result<Iroh> {
-        if let Some(c) = self.client.clone() {
-            return Ok(c);
+    /// Retrives a blob client, and starts the node if it has not started yet.
+    pub async fn blobs_client(&self) -> Result<IrohBlobsClient> {
+        let mut client = self.client.lock().await;
+        if client.is_none() {
+            let new_client = IrohNode::new(&self.storage_path).await?;
+            client.replace(new_client);
         }
-        if let Some(addr) = self.addr.clone() {
-            let addr = addr.to_socket_addrs()?.next().ok_or(anyhow!(
-                "failed to convert iroh node address to a socket address"
-            ))?;
-            match Iroh::connect_addr(addr).await {
-                Ok(client) => {
-                    self.client = Some(client.clone());
-                    Ok(client)
-                }
-                Err(e) => Err(e),
-            }
-        } else {
-            Err(anyhow!("iroh node address is not configured"))
-        }
+
+        Ok(client
+            .as_ref()
+            .expect("just inserted")
+            .blobs
+            .client()
+            .clone())
     }
 }
 
 /// Returns the user blob hash and size from the hash sequence.
 /// The user blob hash is the first hash in the sequence.
 pub async fn get_blob_hash_and_size(
-    iroh: &Iroh,
+    iroh: &IrohBlobsClient,
     seq_hash: Hash,
 ) -> Result<(Hash, u64), anyhow::Error> {
     // Get the hash sequence status (it needs to be available)
-    let status = iroh.blobs().status(seq_hash).await.map_err(|e| {
+    let status = iroh.status(seq_hash).await.map_err(|e| {
         anyhow!(
             "failed to get status for hash sequence object: {} {}",
             seq_hash,
@@ -73,7 +98,6 @@ pub async fn get_blob_hash_and_size(
 
     // Read the bytes and create a hash sequence
     let res = iroh
-        .blobs()
         .read_to_bytes(seq_hash)
         .await
         .map_err(|e| anyhow!("failed to read hash sequence object: {} {}", seq_hash, e))?;
@@ -88,7 +112,6 @@ pub async fn get_blob_hash_and_size(
         )
     })?;
     let status = iroh
-        .blobs()
         .status(blob_hash)
         .await
         .map_err(|e| anyhow!("failed to read object: {} {}", blob_hash, e))?;

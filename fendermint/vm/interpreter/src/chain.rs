@@ -60,9 +60,8 @@ use fvm_shared::clock::ChainEpoch;
 use fvm_shared::econ::TokenAmount;
 use fvm_shared::message::Message;
 use fvm_shared::MethodNum;
-use iroh::base::key::PublicKey;
-use iroh::blobs::Hash;
-use iroh::net::NodeId;
+use iroh::{NodeId, PublicKey};
+use iroh_blobs::Hash;
 use num_traits::Zero;
 use tokio_util::bytes;
 

@@ -2,6 +2,8 @@
 // Copyright 2022-2024 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::path::PathBuf;
+
 use clap::{Args, Subcommand};
 use tendermint_rpc::Url;
 
@@ -23,7 +25,7 @@ pub enum ObjectsCommands {
         )]
         tendermint_url: Url,
 
-        #[arg(long, short, default_value = "127.0.0.1:4919", env = "IROH_RPC_ADDR")]
-        iroh_addr: String,
+        #[arg(long, short, env = "IROH_OBJECTS_PATH")]
+        iroh_path: PathBuf,
     },
 }
