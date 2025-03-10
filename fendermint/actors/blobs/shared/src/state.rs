@@ -2,12 +2,7 @@
 // Copyright 2021-2023 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::collections::HashMap;
-use std::fmt;
-use std::ops::{Div, Mul};
-use std::str::from_utf8;
-
-use fendermint_actor_machine::util::to_delegated_address;
+use anyhow::anyhow;
 use fil_actors_runtime::runtime::Runtime;
 use fil_actors_runtime::ActorError;
 use fvm_ipld_blockstore::Blockstore;
@@ -18,10 +13,18 @@ use fvm_shared::clock::ChainEpoch;
 use fvm_shared::econ::TokenAmount;
 use recall_ipld::{hamt, hamt::map::TrackedFlushResult, hamt::MapKey};
 use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
+use std::fmt;
+use std::ops::{Div, Mul};
+use std::str::from_utf8;
 
 /// Credit is counted the same way as tokens.
 /// The smallest indivisible unit is 1 atto, and 1 credit = 1e18 atto credits.
 pub type Credit = TokenAmount;
+
+/// The return type used when fetching "added" or "pending" blobs.
+/// See `get_added_blobs` and `get_pending_blobs` for more information.
+pub type BlobRequest = (Hash, HashSet<(Address, SubscriptionId, PublicKey)>);
 
 /// TokenCreditRate determines how much atto credits can be bought by a certain amount of RECALL.
 #[derive(Clone, Default, Debug, serde::Serialize, serde::Deserialize, Eq, PartialEq)]
@@ -160,13 +163,18 @@ impl GasAllowance {
 #[serde(transparent)]
 pub struct Hash(pub [u8; 32]);
 
-impl TryInto<Hash> for &[u8] {
-    type Error = String;
+impl AsRef<[u8]> for Hash {
+    fn as_ref(&self) -> &[u8] {
+        &self.0[..]
+    }
+}
 
-    fn try_into(self) -> Result<Hash, Self::Error> {
-        if self.len() == 32 {
+impl TryFrom<&[u8]> for Hash {
+    type Error = String;
+    fn try_from(slice: &[u8]) -> Result<Self, Self::Error> {
+        if slice.len() == 32 {
             let mut array = [0u8; 32];
-            array.copy_from_slice(self);
+            array.copy_from_slice(slice);
             Ok(Hash(array))
         } else {
             Err("hash slice must be exactly 32 bytes".into())
@@ -212,6 +220,19 @@ impl TryFrom<&str> for Hash {
     }
 }
 
+impl From<Hash> for String {
+    fn from(hash: Hash) -> String {
+        data_encoding::BASE32_NOPAD.encode(&hash.0)
+    }
+}
+
+impl TryFrom<String> for Hash {
+    type Error = anyhow::Error;
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Hash::try_from(value.as_str())
+    }
+}
+
 impl From<u64> for Hash {
     fn from(value: u64) -> Self {
         let mut padded = [0u8; 32];
@@ -224,6 +245,50 @@ impl From<u64> for Hash {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct PublicKey(pub [u8; 32]);
+
+impl AsRef<[u8]> for PublicKey {
+    fn as_ref(&self) -> &[u8] {
+        &self.0[..]
+    }
+}
+
+impl TryFrom<&[u8]> for PublicKey {
+    type Error = anyhow::Error;
+    fn try_from(slice: &[u8]) -> Result<Self, Self::Error> {
+        if slice.len() == 32 {
+            let mut array = [0u8; 32];
+            array.copy_from_slice(slice);
+            Ok(PublicKey(array))
+        } else {
+            Err(anyhow!("hash slice must be exactly 32 bytes"))
+        }
+    }
+}
+
+impl TryFrom<&str> for PublicKey {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        let mut res = [0u8; 32];
+        data_encoding::BASE32_NOPAD
+            .decode_mut(value.as_bytes(), &mut res)
+            .map_err(|_| anyhow::anyhow!("invalid hash"))?;
+        Ok(Self(res))
+    }
+}
+
+impl From<PublicKey> for String {
+    fn from(public_key: PublicKey) -> Self {
+        data_encoding::BASE32_NOPAD.encode(&public_key.0)
+    }
+}
+
+impl TryFrom<String> for PublicKey {
+    type Error = anyhow::Error;
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Self::try_from(value.as_str())
+    }
+}
 
 /// The stored representation of a blob.
 #[derive(Clone, PartialEq, Debug, Serialize_tuple, Deserialize_tuple)]
@@ -313,6 +378,12 @@ impl SubscriptionId {
         Ok(Self {
             inner: value.to_string(),
         })
+    }
+}
+
+impl From<SubscriptionId> for String {
+    fn from(id: SubscriptionId) -> String {
+        id.inner
     }
 }
 
@@ -464,7 +535,10 @@ fn deserialize_iter_sub<'a>(
             e
         ))
     })?;
-    Ok((SubscriptionId::new(id)?, sub))
+    let subscription_id = SubscriptionId::new(id).map_err(|e| {
+        ActorError::illegal_state(format!("failed to decode subscription ID from iter: {}", e))
+    })?;
+    Ok((subscription_id, sub))
 }
 
 /// The status of a blob.
@@ -585,7 +659,14 @@ pub struct AccountInfo {
 }
 
 impl AccountInfo {
-    pub fn from(account: Account, rt: &impl Runtime) -> Result<Self, ActorError> {
+    pub fn from<F, K: Runtime>(
+        account: Account,
+        rt: &K,
+        to_delegated_address: F,
+    ) -> Result<Self, ActorError>
+    where
+        F: Fn(&K, Address) -> Result<Address, ActorError>,
+    {
         let mut approvals_to = HashMap::new();
         account
             .approvals_to
