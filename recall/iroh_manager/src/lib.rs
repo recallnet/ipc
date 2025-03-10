@@ -1,40 +1,68 @@
 // Copyright 2025 Recall Contributors
-// Copyright 2022-2024 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::net::ToSocketAddrs;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
-use anyhow::anyhow;
-use iroh::client::Iroh;
+use anyhow::Result;
+use iroh::protocol::Router;
+use iroh::Endpoint;
+use iroh_blobs::net_protocol::Blobs;
+use tokio::sync::Mutex;
+
+pub type IrohBlobsClient = iroh_blobs::rpc::client::blobs::MemClient;
 
 #[derive(Clone, Debug)]
 pub struct IrohManager {
-    addr: Option<String>,
-    client: Option<Iroh>,
+    client: Arc<Mutex<Option<IrohNode>>>,
+    /// Storage path for iroh-blobs
+    storage_path: PathBuf,
+}
+
+#[derive(Debug, Clone)]
+struct IrohNode {
+    _router: Router,
+    blobs: Blobs<iroh_blobs::store::fs::Store>,
+}
+
+impl IrohNode {
+    async fn new(path: impl AsRef<Path>) -> Result<Self> {
+        // TODO: preserve secret key
+        let endpoint = Endpoint::builder().discovery_n0().bind().await?;
+        let blobs = Blobs::persistent(path).await?.build(&endpoint);
+        let router = Router::builder(endpoint)
+            .accept(iroh_blobs::ALPN, blobs.clone())
+            .spawn()
+            .await?;
+
+        Ok(Self {
+            _router: router,
+            blobs,
+        })
+    }
 }
 
 impl IrohManager {
-    pub fn from_addr(addr: Option<String>) -> IrohManager {
-        Self { addr, client: None }
+    pub fn new(path: impl AsRef<Path>) -> Self {
+        Self {
+            client: Default::default(),
+            storage_path: path.as_ref().to_path_buf(),
+        }
     }
 
-    pub async fn client(&mut self) -> anyhow::Result<Iroh> {
-        if let Some(c) = self.client.clone() {
-            return Ok(c);
+    /// Retrives a blob client, and starts the node if it has not started yet.
+    pub async fn blobs_client(&self) -> Result<IrohBlobsClient> {
+        let mut client = self.client.lock().await;
+        if client.is_none() {
+            let new_client = IrohNode::new(&self.storage_path).await?;
+            client.replace(new_client);
         }
-        if let Some(addr) = self.addr.clone() {
-            let addr = addr.to_socket_addrs()?.next().ok_or(anyhow!(
-                "failed to convert iroh node address to a socket address"
-            ))?;
-            match Iroh::connect_addr(addr).await {
-                Ok(client) => {
-                    self.client = Some(client.clone());
-                    Ok(client)
-                }
-                Err(e) => Err(e),
-            }
-        } else {
-            Err(anyhow!("iroh node address is not configured"))
-        }
+
+        Ok(client
+            .as_ref()
+            .expect("just inserted")
+            .blobs
+            .client()
+            .clone())
     }
 }
