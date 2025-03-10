@@ -90,8 +90,8 @@ data-encoding = { version = "2.3.3" }
 dirs = "5.0"
 dircpy = "0.3.19"
 either = "1.10"
-entangler = { git = "https://github.com/recallnet/entanglement.git", branch = "dig/tags" }
-entangler_storage = { package = "storage", git = "https://github.com/recallnet/entanglement.git", branch = "dig/tags" }
+entangler = { git = "https://github.com/recallnet/entanglement.git", branch = "islam/expose-iroh-tags" }
+entangler_storage = { package = "storage", git = "https://github.com/recallnet/entanglement.git", branch = "islam/expose-iroh-tags" }
 env_logger = "0.10"
 erased-serde = "0.3"
 ethers = { version = "2.0.13", features = ["abigen", "ws"] }
@@ -197,7 +197,7 @@ tracing-subscriber = { version = "0.3", features = [
     "registry",
 ] }
 tracing-appender = "0.2.3"
-uuid = { version = "1.15.1", features = ["v4" ] }
+uuid = { version = "1.15.1", features = ["v4"] }
 url = { version = "2.4.1", features = ["serde"] }
 warp = "0.3.7"
 zeroize = "1.6"

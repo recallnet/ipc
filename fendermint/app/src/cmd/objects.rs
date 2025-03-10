@@ -9,7 +9,7 @@ use std::{convert::Infallible, net::ToSocketAddrs, num::ParseIntError};
 use anyhow::anyhow;
 use anyhow::Context;
 use bytes::Buf;
-use entangler::{ChunkRange, Config, Entangler};
+use entangler::{ChunkRange, Config, EntanglementResult, Entangler};
 use entangler_storage::iroh::IrohStorage as EntanglerIrohStorage;
 use fendermint_actor_blobs_shared::state::Hash as BlobHash;
 use fendermint_actor_bucket::{GetParams, Object};
@@ -342,7 +342,7 @@ async fn handle_object_upload(
                     iroh::client::blobs::DownloadOptions {
                         format: iroh::blobs::BlobFormat::Raw,
                         nodes: vec![source],
-                        tag: SetTagOption::Auto,
+                        tag: SetTagOption::Named(tag),
                         mode: iroh::client::blobs::DownloadMode::Queued,
                     },
                 )
@@ -440,13 +440,13 @@ async fn handle_object_upload(
             message: format!("failed to create entangler: {}", e),
         })
     })?;
-    let metadata_hash = ent.entangle_uploaded(hash.to_string()).await.map_err(|e| {
+    let ent_result = ent.entangle_uploaded(hash.to_string()).await.map_err(|e| {
         Rejection::from(BadRequest {
             message: format!("failed to entangle uploaded data: {}", e),
         })
     })?;
 
-    let hash_seq_hash = tag_entangled_data(&iroh, &ent, &metadata_hash, upload_id)
+    let hash_seq_hash = tag_entangled_data(&iroh, &ent_result, upload_id)
         .await
         .map_err(|e| {
             Rejection::from(BadRequest {
@@ -459,34 +459,32 @@ async fn handle_object_upload(
 
     let response = UploadResponse {
         hash: hash_seq_hash.to_string(),
-        metadata_hash,
+        metadata_hash: ent_result.metadata_hash,
     };
     Ok(warp::reply::json(&response))
 }
 
 async fn tag_entangled_data(
     iroh: &iroh::client::Iroh,
-    ent: &Entangler<EntanglerIrohStorage>,
-    metadata_hash: &String,
+    ent_result: &EntanglementResult,
     upload_id: Uuid,
 ) -> Result<Hash, anyhow::Error> {
-    // entangler tags: ent-{hash}
-    // uploaded tags: temp-{hash}-{upload_id}
-    // hash seq tags: temp-seq-{hash-seq-hash}
+    let orig_hash = Hash::from_str(ent_result.orig_hash.as_str())?;
+    let metadata_hash = Hash::from_str(ent_result.metadata_hash.as_str())?;
 
-    let metadata = ent.download_metadata(metadata_hash).await?;
-    let orig_hash = Hash::from_str(metadata.orig_hash.as_str())?;
-    let metadata_hash = Hash::from_str(metadata_hash.as_str())?;
-
-    // collect all hashes related to the blob
-    let parity_hashes = metadata
-        .parity_hashes
+    // collect all hashes related to the blob, but ignore the metadata hash, as we want to make
+    // sure that the metadata hash is the second hash in the sequence after the original hash
+    let upload_hashes = ent_result
+        .upload_results
         .iter()
-        .map(|(_, hash)| Hash::from_str(hash.as_str()))
-        .collect::<Result<Vec<_>, _>>()?;
+        .map(|r| Hash::from_str(&r.hash))
+        .collect::<Result<Vec<_>, _>>()?
+        .into_iter()
+        .filter(|h| h != &metadata_hash)
+        .collect::<Vec<_>>();
 
     let mut hashes = vec![orig_hash.clone(), metadata_hash];
-    hashes.extend_from_slice(&parity_hashes);
+    hashes.extend(upload_hashes);
 
     let batch = iroh.blobs().batch().await?;
 
@@ -501,19 +499,19 @@ async fn tag_entangled_data(
 
     drop(batch);
 
-    // delete all previous temporary tags
-    for parity_hash in parity_hashes {
-        let tag = iroh::blobs::Tag(format!("ent-{parity_hash}").into());
+    // delete all tags returned by the entangler
+    for ent_upload_result in &ent_result.upload_results {
+        let tag_value = ent_upload_result
+            .info
+            .get("tag")
+            .ok_or_else(|| anyhow!("Missing tag in entanglement upload result"))?;
+        let tag = iroh::blobs::Tag::from(tag_value.clone());
         iroh.tags().delete(tag).await?;
     }
 
     // remove upload tags
     let orig_tag = iroh::blobs::Tag(format!("temp-{orig_hash}-{upload_id}").into());
     iroh.tags().delete(orig_tag).await?;
-
-    // remove entangled metadata
-    let meta_tag = iroh::blobs::Tag(format!("ent-{metadata_hash}").into());
-    iroh.tags().delete(meta_tag).await?;
 
     Ok(hash_seq_hash)
 }
@@ -970,13 +968,16 @@ mod tests {
     ) -> (Hash, Hash) {
         let data = data.into(); // Convert to Bytes first, which implements Send
         let ent = new_entangler(iroh.clone()).unwrap();
-        let (original_hash, metadata_hash) = ent.upload(data).await.unwrap();
+        let ent_result = ent.upload(data).await.unwrap();
 
-        let metadata = ent.download_metadata(metadata_hash.as_str()).await.unwrap();
+        let metadata = ent
+            .download_metadata(ent_result.metadata_hash.as_str())
+            .await
+            .unwrap();
 
         let hash_seq = vec![
-            Hash::from_str(original_hash.as_str()).unwrap(),
-            Hash::from_str(metadata_hash.as_str()).unwrap(),
+            Hash::from_str(ent_result.orig_hash.as_str()).unwrap(),
+            Hash::from_str(ent_result.metadata_hash.as_str()).unwrap(),
         ]
         .into_iter()
         .chain(
@@ -997,7 +998,7 @@ mod tests {
         batch.persist_to(temp_tag, hash_seq_tag).await.unwrap();
         drop(batch);
 
-        let metadata_iroh_hash = Hash::from_str(metadata_hash.as_str()).unwrap();
+        let metadata_iroh_hash = Hash::from_str(ent_result.metadata_hash.as_str()).unwrap();
 
         (hash_seq_hash, metadata_iroh_hash)
     }
