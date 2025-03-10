@@ -108,8 +108,9 @@ hex-literal = "0.4.1"
 http = "0.2.12"
 im = "15.1.0"
 integer-encoding = { version = "3.0.3", default-features = false }
-iroh = "0.28.1"
-iroh-base = "0.28.0"
+iroh = "0.33"
+iroh-base = "0.33"
+iroh-blobs = { version = "0.33", features = ["rpc"] }
 jsonrpc-v2 = { version = "0.11", default-features = false, features = [
     "bytes-v10",
 ] }
@@ -262,9 +263,9 @@ tendermint-proto = { version = "0.31" }
 [patch.crates-io]
 # Use below when working locally on entanglement and this repo simultaneously.
 # Assumes the entanglement checkout is in a sibling directory with the same name.
-# [patch."https://github.com/recallnet/entanglement.git"]
-# entangler = { path = "../entanglement/entangler" }
-# entangler_storage = { package = "storage", path = "../entanglement/storage" }
+[patch."https://github.com/recallnet/entanglement.git"]
+entangler = { path = "../entanglement/entangler" }
+entangler_storage = { package = "storage", path = "../entanglement/storage" }
 
 [profile.wasm]
 inherits = "release"
