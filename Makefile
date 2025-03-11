@@ -35,10 +35,6 @@ config-devnet:
 	PATH="./target/release:$(PATH)" \
 	./scripts/setup.sh
 
-run-devnet-iroh:
-	cargo install iroh-cli --version 0.28.1
-	iroh --rpc-addr 127.0.0.1:4919 start
-
 run-devnet-fendermint:
 	rm -rf ~/.fendermint/data/rocksdb
 	FM_NETWORK=test \
@@ -46,7 +42,7 @@ run-devnet-fendermint:
 	FM_VALIDATOR_KEY__PATH=keys/validator.sk \
 	FM_VALIDATOR_KEY__KIND=regular \
 	FM_RESOLVER__CONNECTION__LISTEN_ADDR=/ip4/127.0.0.1/tcp/3001 \
-	./target/release/fendermint run --iroh-addr 127.0.0.1:4919
+	./target/release/fendermint run --iroh-path iroh-resolver-path # TODO: what path
 
 run-devnet-cometbft:
 	cometbft unsafe-reset-all

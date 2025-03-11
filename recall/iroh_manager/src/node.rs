@@ -53,6 +53,10 @@ impl IrohNode {
             .bind()
             .await?;
         let blobs = Blobs::persistent(path).await?.build(&endpoint);
+
+        // TODO: enable metrics
+        // TODO: enable GC with interval `300`
+
         let router = Router::builder(endpoint)
             .accept(iroh_blobs::ALPN, blobs.clone())
             .spawn()
