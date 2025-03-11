@@ -2,7 +2,6 @@
 // Copyright 2022-2024 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::path::Path;
 use std::str::FromStr;
 use std::time::Instant;
 use std::{convert::Infallible, net::ToSocketAddrs, num::ParseIntError};
@@ -25,12 +24,10 @@ use fvm_shared::{
     econ::TokenAmount,
 };
 use ipc_api::ethers_address_to_fil_address;
-use iroh::{protocol::Router, Endpoint, NodeAddr};
-use iroh_blobs::{
-    net_protocol::Blobs, provider::AddProgress, rpc::client::blobs::BlobStatus,
-    rpc::client::blobs::MemClient as BlobsClient, util::SetTagOption, Hash,
-};
-use iroh_manager::{get_blob_hash_and_size, IrohManager};
+
+use iroh::NodeAddr;
+use iroh_blobs::{provider::AddProgress, rpc::client::blobs::BlobStatus, util::SetTagOption, Hash};
+use iroh_manager::{get_blob_hash_and_size, IrohNode};
 use lazy_static::lazy_static;
 use mime_guess::get_mime_extensions_str;
 use prometheus::{register_histogram, register_int_counter, Histogram, IntCounter};
@@ -58,50 +55,6 @@ const ENTANGLER_S: u8 = 5;
 const ENTANGLER_P: u8 = 5;
 /// Chunk size used by the entangler.
 const CHUNK_SIZE: u64 = 1024;
-
-// TODO: deduplicate with IrohManager
-#[derive(Debug, Clone)]
-struct IrohNode {
-    router: Router,
-    blobs: BlobsWrapper,
-}
-
-impl IrohNode {
-    async fn persistent(path: impl AsRef<Path>) -> anyhow::Result<Self> {
-        // TODO: preserve secret key
-        let endpoint = Endpoint::builder().discovery_n0().bind().await?;
-        let blobs = Blobs::persistent(path).await?.build(&endpoint);
-        let router = Router::builder(endpoint)
-            .accept(iroh_blobs::ALPN, blobs.clone())
-            .spawn()
-            .await?;
-        Ok(Self {
-            router,
-            blobs: BlobsWrapper::Fs(blobs),
-        })
-    }
-
-    async fn memory() -> anyhow::Result<Self> {
-        let endpoint = Endpoint::builder().discovery_n0().bind().await?;
-        let blobs = Blobs::memory().build(&endpoint);
-        let router = Router::builder(endpoint)
-            .accept(iroh_blobs::ALPN, blobs.clone())
-            .spawn()
-            .await?;
-        Ok(Self {
-            router,
-            blobs: BlobsWrapper::Mem(blobs),
-        })
-    }
-
-    fn endpoint(&self) -> &Endpoint {
-        self.router.endpoint()
-    }
-
-    fn blobs_client(&self) -> &BlobsClient {
-        self.blobs.client()
-    }
-}
 
 cmd! {
     ObjectsArgs(self, settings: ObjectsSettings) {

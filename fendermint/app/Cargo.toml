@@ -20,6 +20,7 @@ futures-util = { workspace = true }
 hex = { workspace = true }
 iroh = { workspace = true }
 iroh-blobs = { workspace = true }
+iroh-manager = { path = "../../recall/iroh_manager" }
 k256 = { workspace = true }
 lazy_static = { workspace = true }
 libipld = { workspace = true }
