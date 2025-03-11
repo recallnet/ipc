@@ -1,5 +1,5 @@
 [package]
-name = "iroh_manager"
+name = "iroh-manager"
 version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
@@ -11,3 +11,4 @@ num-traits = { workspace = true }
 iroh = { workspace = true }
 iroh-blobs = { workspace = true }
 tokio = { workspace = true }
+tracing = { workspace = true }

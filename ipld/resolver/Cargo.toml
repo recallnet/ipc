@@ -41,7 +41,7 @@ fvm_ipld_blockstore = { workspace = true, optional = true }
 ipc-api = { path = "../../ipc/api", default-features = false }
 ipc-observability = { workspace = true }
 
-iroh_manager = { path = "../../recall/iroh_manager" }
+iroh-manager = { path = "../../recall/iroh_manager" }
 
 [dev-dependencies]
 cid = { workspace = true }

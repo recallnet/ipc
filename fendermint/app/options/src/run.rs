@@ -7,6 +7,10 @@ use clap::Args;
 
 #[derive(Args, Debug)]
 pub struct RunArgs {
+    /// Storage path for the objects iroh node
     #[arg(long, short, env = "IROH_OBJECTS_PATH")]
-    pub iroh_path: PathBuf,
+    pub iroh_objects_path: PathBuf,
+    /// Storage path for the syscall iroh node
+    #[arg(long, short, env = "IROH_SYSCALL_PATH")]
+    pub iroh_syscall_path: PathBuf,
 }
