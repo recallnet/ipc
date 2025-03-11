@@ -3763,6 +3763,7 @@ dependencies = [
  "ipc_ipld_resolver",
  "iroh",
  "iroh-blobs",
+ "iroh-manager",
  "k256 0.11.6",
  "lazy_static",
  "libipld",
@@ -6603,7 +6604,7 @@ dependencies = [
  "ipc_ipld_resolver",
  "iroh",
  "iroh-blobs",
- "iroh_manager",
+ "iroh-manager",
  "lazy_static",
  "libipld",
  "libp2p",
@@ -6797,6 +6798,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "iroh-manager"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "iroh",
+ "iroh-blobs",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "iroh-metrics"
 version = "0.31.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6941,16 +6953,6 @@ dependencies = [
  "url",
  "webpki-roots 0.26.7",
  "z32",
-]
-
-[[package]]
-name = "iroh_manager"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "iroh",
- "iroh-blobs",
- "tokio",
 ]
 
 [[package]]
@@ -10316,7 +10318,7 @@ dependencies = [
  "fvm_shared",
  "iroh",
  "iroh-blobs",
- "iroh_manager",
+ "iroh-manager",
  "recall_kernel_ops",
  "tokio",
  "tracing",
