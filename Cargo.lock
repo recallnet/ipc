@@ -2852,7 +2852,7 @@ dependencies = [
 [[package]]
 name = "entangler"
 version = "0.1.0"
-source = "git+https://github.com/recallnet/entanglement.git?branch=islam/expose-iroh-tags#154a9967df78338ba48916576a914f5f95209855"
+source = "git+https://github.com/recallnet/entanglement.git?rev=48660e4861460d103d0864aa36bcfe8b7498ba46#48660e4861460d103d0864aa36bcfe8b7498ba46"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -11993,7 +11993,7 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 [[package]]
 name = "storage"
 version = "0.1.0"
-source = "git+https://github.com/recallnet/entanglement.git?branch=islam/expose-iroh-tags#154a9967df78338ba48916576a914f5f95209855"
+source = "git+https://github.com/recallnet/entanglement.git?rev=48660e4861460d103d0864aa36bcfe8b7498ba46#48660e4861460d103d0864aa36bcfe8b7498ba46"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -12006,7 +12006,6 @@ dependencies = [
  "serde_json",
  "thiserror 2.0.11",
  "tokio",
- "uuid 1.15.1",
 ]
 
 [[package]]
