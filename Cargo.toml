@@ -90,8 +90,8 @@ data-encoding = { version = "2.3.3" }
 dirs = "5.0"
 dircpy = "0.3.19"
 either = "1.10"
-entangler = { git = "https://github.com/recallnet/entanglement.git", rev = "48660e4861460d103d0864aa36bcfe8b7498ba46" }
-entangler_storage = { package = "storage", git = "https://github.com/recallnet/entanglement.git", rev = "48660e4861460d103d0864aa36bcfe8b7498ba46" }
+entangler = { git = "https://github.com/recallnet/entanglement.git", rev = "c13e1a5c17ecfae2ac5f8953e5d7ac7f8793cc3e" }
+entangler_storage = { package = "storage", git = "https://github.com/recallnet/entanglement.git", rev = "c13e1a5c17ecfae2ac5f8953e5d7ac7f8793cc3e" }
 env_logger = "0.10"
 erased-serde = "0.3"
 ethers = { version = "2.0.13", features = ["abigen", "ws"] }

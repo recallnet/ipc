@@ -2852,7 +2852,7 @@ dependencies = [
 [[package]]
 name = "entangler"
 version = "0.1.0"
-source = "git+https://github.com/recallnet/entanglement.git?rev=48660e4861460d103d0864aa36bcfe8b7498ba46#48660e4861460d103d0864aa36bcfe8b7498ba46"
+source = "git+https://github.com/recallnet/entanglement.git?rev=c13e1a5c17ecfae2ac5f8953e5d7ac7f8793cc3e#c13e1a5c17ecfae2ac5f8953e5d7ac7f8793cc3e"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -11993,7 +11993,7 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 [[package]]
 name = "storage"
 version = "0.1.0"
-source = "git+https://github.com/recallnet/entanglement.git?rev=48660e4861460d103d0864aa36bcfe8b7498ba46#48660e4861460d103d0864aa36bcfe8b7498ba46"
+source = "git+https://github.com/recallnet/entanglement.git?rev=c13e1a5c17ecfae2ac5f8953e5d7ac7f8793cc3e#c13e1a5c17ecfae2ac5f8953e5d7ac7f8793cc3e"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -12006,6 +12006,7 @@ dependencies = [
  "serde_json",
  "thiserror 2.0.11",
  "tokio",
+ "uuid 1.15.1",
 ]
 
 [[package]]
