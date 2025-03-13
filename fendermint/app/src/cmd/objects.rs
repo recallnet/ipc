@@ -9,8 +9,8 @@ use std::{convert::Infallible, net::ToSocketAddrs, num::ParseIntError};
 use anyhow::anyhow;
 use anyhow::Context;
 use bytes::Buf;
-use entangler::{ChunkRange, Config, EntanglementResult, Entangler};
-use entangler_storage::iroh::IrohStorage as EntanglerIrohStorage;
+use recall_entangler::{ChunkRange, Config, EntanglementResult, Entangler};
+use recall_entanglement_storage::iroh::IrohStorage as EntanglerIrohStorage;
 use fendermint_actor_blobs_shared::state::Hash as BlobHash;
 use fendermint_actor_bucket::{GetParams, Object};
 use fendermint_app_settings::objects::ObjectsSettings;
@@ -518,7 +518,7 @@ async fn tag_entangled_data(
 
 fn new_entangler(
     iroh: iroh::client::Iroh,
-) -> Result<Entangler<EntanglerIrohStorage>, entangler::Error> {
+) -> Result<Entangler<EntanglerIrohStorage>, recall_entangler::Error> {
     Entangler::new(
         EntanglerIrohStorage::from_client(iroh),
         Config::new(ENTANGLER_ALPHA, ENTANGLER_S, ENTANGLER_P),
