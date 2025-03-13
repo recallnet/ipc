@@ -3817,6 +3817,7 @@ dependencies = [
  "ipc-api",
  "ipc-observability",
  "ipc-types",
+ "iroh-base",
  "lazy_static",
  "num-traits",
  "tendermint-rpc",

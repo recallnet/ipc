@@ -17,9 +17,17 @@ pub const HASHRM_SYSCALL_FUNCTION_NAME: &str = "hash_rm";
 
 const ENV_IROH_PATH: &str = "IROH_SYSCALL_PATH";
 static IROH_INSTANCE: LazyLock<Option<IrohManager>> = LazyLock::new(|| {
-    std::env::var(ENV_IROH_PATH)
-        .ok()
-        .map(|path| IrohManager::new(path))
+    let iroh_path = std::env::var(ENV_IROH_PATH).ok()?;
+    let manager = IrohManager::new(iroh_path);
+    Some(manager)
+});
+
+// Currently we not needed, but this is would be how we get the node id
+// for the objects iroh node.
+const ENV_IROH_NODE_ID: &str = "IROH_SYSCALL_NODE_ID";
+static IROH_OBJECTS_NODE_ID: LazyLock<Option<iroh::NodeId>> = LazyLock::new(|| {
+    let iroh_objects_node_id: iroh::NodeId = std::env::var(ENV_IROH_NODE_ID).ok()?.parse().ok()?;
+    Some(iroh_objects_node_id)
 });
 
 fn hash_source(bytes: &[u8]) -> Result<[u8; 32]> {
