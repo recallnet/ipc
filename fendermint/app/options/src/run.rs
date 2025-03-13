@@ -4,13 +4,14 @@
 use std::path::PathBuf;
 
 use clap::Args;
+use iroh_base::NodeId;
 
 #[derive(Args, Debug)]
 pub struct RunArgs {
-    /// Storage path for the objects iroh node
-    #[arg(long, short, env = "IROH_OBJECTS_PATH")]
-    pub iroh_objects_path: PathBuf,
+    /// Storage path for the iroh node
+    #[arg(long, env = "IROH_PATH")]
+    pub iroh_path: PathBuf,
     /// Storage path for the syscall iroh node
-    #[arg(long, short, env = "IROH_SYSCALL_PATH")]
-    pub iroh_syscall_path: PathBuf,
+    #[arg(long, env = "IROH_OBJECTS_NODE_ID")]
+    pub iroh_objects_id: NodeId,
 }
