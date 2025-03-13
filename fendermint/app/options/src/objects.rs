@@ -25,7 +25,7 @@ pub enum ObjectsCommands {
         )]
         tendermint_url: Url,
 
-        #[arg(long, short, env = "IROH_OBJECTS_PATH")]
+        #[arg(long, short, env = "IROH_PATH")]
         iroh_path: PathBuf,
     },
 }

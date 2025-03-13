@@ -53,8 +53,9 @@ cmd! {
   RunArgs(self, settings) {
       // this env var must be set for the blobs_syscall to work. the CLI has a default and accepts
       // an override via the env variable, but it doesn't require it's set, so we ensure it here
-      std::env::set_var("IROH_SYSCALL_PATH", self.iroh_syscall_path.clone());
-      run(settings, self.iroh_objects_path.clone()).await
+      std::env::set_var("IROH_SYSCALL_PATH", self.iroh_path.clone());
+      std::env::set_var("IROH_OBJECTS_NODE_ID", self.iroh_objects_id.to_string());
+      run(settings, self.iroh_path.clone()).await
   }
 }
 
