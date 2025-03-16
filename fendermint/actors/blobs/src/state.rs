@@ -26,11 +26,11 @@ mod accounts;
 mod blobs;
 mod expiries;
 
+use crate::caller::Caller;
 use accounts::AccountsState;
+pub use blobs::{AddBlobStateParams, DeleteBlobStateParams, FinalizeBlobStateParams};
 use blobs::{BlobsProgressCollection, BlobsState};
 use expiries::{ExpiriesState, ExpiryUpdate};
-
-use crate::caller::Caller;
 
 /// The state represents all accounts and stored blobs.
 #[derive(Debug, Serialize_tuple, Deserialize_tuple)]
@@ -53,9 +53,6 @@ pub struct State {
     pub accounts: AccountsState,
     /// HAMT containing all blobs keyed by blob hash.
     pub blobs: BlobsState,
-    /// The next account to debit in the current debit cycle.
-    /// If this is None, we have finished the debit cycle.    
-    pub next_debit_addr: Option<Address>,
 }
 
 impl State {
@@ -70,7 +67,6 @@ impl State {
             pending: BlobsProgressCollection::new(store, "pending blobs queue")?,
             accounts: AccountsState::new(store)?,
             blobs: BlobsState::new(store)?,
-            next_debit_addr: None,
         })
     }
 
@@ -92,16 +88,6 @@ impl State {
         }
     }
 
-    /// Return available capacity as a difference between `blob_capacity_total` and `capacity_used`.
-    fn capacity_available(&self, blob_capacity_total: u64) -> u64 {
-        // Prevent underflow. We only care if free capacity is > 0 anyway.
-        if blob_capacity_total > self.capacity_used {
-            blob_capacity_total - self.capacity_used
-        } else {
-            0
-        }
-    }
-
     /// Returns an error if the subnet storage is at capacity.
     pub fn ensure_capacity(&self, capacity: u64) -> anyhow::Result<(), ActorError> {
         if self.capacity_available(capacity).is_zero() {
@@ -112,20 +98,26 @@ impl State {
         Ok(())
     }
 
+    /// Return available capacity as a difference between `blob_capacity_total` and `capacity_used`.
+    fn capacity_available(&self, blob_capacity_total: u64) -> u64 {
+        // Prevent underflow. We only care if free capacity is > 0 anyway.
+        blob_capacity_total.saturating_sub(self.capacity_used)
+    }
+
     pub fn get_account<BS: Blockstore>(
         &self,
         store: &BS,
-        from: Address,
+        address: Address,
     ) -> anyhow::Result<Option<Account>, ActorError> {
         let accounts = self.accounts.hamt(store)?;
-        accounts.get(&from)
+        accounts.get(&address)
     }
 
     pub fn set_account_status<BS: Blockstore>(
         &mut self,
-        config: &RecallConfig,
         store: &BS,
-        subscriber: Address,
+        config: &RecallConfig,
+        address: Address,
         status: TtlStatus,
         current_epoch: ChainEpoch,
     ) -> anyhow::Result<(), ActorError> {
@@ -133,50 +125,49 @@ impl State {
         match status {
             // We don't want to create an account for default TTL
             TtlStatus::Default => {
-                if let Some(mut account) = accounts.get(&subscriber)? {
+                if let Some(mut account) = accounts.get(&address)? {
                     account.max_ttl = status.get_max_ttl(config.blob_default_ttl);
                     self.accounts
-                        .save_tracked(accounts.set_and_flush_tracked(&subscriber, account)?);
+                        .save_tracked(accounts.set_and_flush_tracked(&address, account)?);
                 }
             }
             _ => {
                 // Get or create a new account
                 let max_ttl = status.get_max_ttl(config.blob_default_ttl);
                 let mut account = accounts
-                    .get_or_create(&subscriber, || Account::new(store, current_epoch, max_ttl))?;
+                    .get_or_create(&address, || Account::new(store, current_epoch, max_ttl))?;
                 account.max_ttl = max_ttl;
                 self.accounts
-                    .save_tracked(accounts.set_and_flush_tracked(&subscriber, account)?);
+                    .save_tracked(accounts.set_and_flush_tracked(&address, account)?);
             }
         }
         Ok(())
     }
 
-    #[allow(clippy::type_complexity)]
     pub fn debit_accounts<BS: Blockstore>(
         &mut self,
         store: &BS,
+        config: &RecallConfig,
         current_epoch: ChainEpoch,
-        blob_delete_batch_size: u64,
-        account_debit_batch_size: u64,
-    ) -> anyhow::Result<HashSet<Hash>, ActorError> {
+    ) -> anyhow::Result<(HashSet<Hash>, bool), ActorError> {
         // Delete expired subscriptions
         let mut delete_from_disc = HashSet::new();
         let mut num_deleted = 0;
         let mut expiries = self.expiries.clone();
-
         expiries.foreach_up_to_epoch(
             store,
             current_epoch,
-            Some(blob_delete_batch_size),
+            Some(config.blob_delete_batch_size),
             |_, subscriber, key| {
                 match self.delete_blob(
                     store,
                     subscriber,
-                    subscriber,
-                    current_epoch,
-                    key.hash,
-                    key.id.clone(),
+                    None,
+                    DeleteBlobStateParams {
+                        hash: key.hash,
+                        id: key.id.clone(),
+                        epoch: current_epoch,
+                    },
                 ) {
                     Ok((from_disc, _)) => {
                         num_deleted += 1;
@@ -194,96 +185,87 @@ impl State {
                 Ok(())
             },
         )?;
+
         debug!("deleted {} expired subscriptions", num_deleted);
         debug!(
             "{} blobs marked for deletion from disc",
             delete_from_disc.len()
         );
-        // Debit for existing usage
+
+        // Debit accounts for existing usage
         let reader = self.accounts.hamt(store)?;
         let mut writer = self.accounts.hamt(store)?;
-
-        let start_key = self
-            .next_debit_addr
-            .map(|address| BytesKey::from(address.to_bytes()));
+        let start_key = self.accounts.get_debit_start_address();
         let (count, next_account) = reader.for_each_ranged(
             start_key.as_ref(),
-            Some(account_debit_batch_size as usize),
+            Some(config.account_debit_batch_size as usize),
             |address, account| {
-                let mut account = account.clone();
-                let debit_blocks = current_epoch - account.last_debit_epoch;
-                let debit_credits =
-                    Credit::from_whole(self.get_storage_cost(debit_blocks, &account.capacity_used));
-                self.credit_debited += &debit_credits;
-                self.credit_committed -= &debit_credits;
-                account.credit_committed -= &debit_credits;
-                account.last_debit_epoch = current_epoch;
-                debug!("debited {} credits from {}", debit_credits, address);
-                writer.set(&address, account)?;
+                let mut caller =
+                    Caller::load_account(store, &reader, address, account.clone(), None)?;
+                let debit_duration = current_epoch - caller.subscriber().last_debit_epoch;
+                let debit = self.get_debit_for_caller(&caller, debit_duration);
+                self.debit_caller(&mut caller, &debit, current_epoch);
+                caller.save(&mut writer)?;
                 Ok(())
             },
         )?;
+
+        // Save accounts
+        self.accounts.save_tracked(writer.flush_tracked()?);
+        self.accounts.save_debit_progress(next_account);
+
         debug!(
             "finished debiting {:#?} accounts, next account: {:#?}",
             count, next_account
         );
-        self.next_debit_addr = next_account;
-        self.accounts.root = writer.flush()?;
-        Ok(delete_from_disc)
+
+        Ok((delete_from_disc, next_account.is_some()))
     }
 
-    /// Add a blob.
-    ///
-    /// @param origin - The address that is submitting the transaction to add this blob.
-    /// @param subscriber - The address responsible for the subscription to keep this blob around.
-    ///   This is whose credits will be spent by this transaction, and going forward to continue to
-    ///   pay for the blob over time. Generally, this is the owner of the wrapping Actor
-    ///   (e.g., Buckets, Timehub).
-    #[allow(clippy::too_many_arguments)]
+    /// Adds a blob.
+    /// - Subscriber is either the caller or a designated sponsor
+    /// - Subscriber's account/credits are used for:
+    ///   - Initial storage transaction
+    ///   - Ongoing storage costs over time
+    /// - Typically managed by a wrapping Actor (e.g., Buckets, Timehub) that owns
+    ///   the subscription
     pub fn add_blob<BS: Blockstore>(
         &mut self,
-        config: &RecallConfig,
         store: &BS,
-        origin: Address,
-        subscriber: Address,
-        current_epoch: ChainEpoch,
-        hash: Hash,
-        metadata_hash: Hash,
-        id: SubscriptionId,
-        size: u64,
-        ttl: Option<ChainEpoch>,
-        source: PublicKey,
-        value: TokenAmount,
+        config: &RecallConfig,
+        caller: Address,
+        sponsor: Option<Address>,
+        params: AddBlobStateParams,
     ) -> anyhow::Result<(Subscription, TokenAmount), ActorError> {
         // Get or create a new account
         let mut accounts = self.accounts.hamt(store)?;
         let mut caller = Caller::load_or_create(
             store,
             &accounts,
-            origin,
-            subscriber,
-            current_epoch,
+            caller,
+            sponsor,
+            params.epoch,
             config.blob_default_ttl,
         )?;
 
         // Validate the TTL
-        let ttl = caller.validate_ttl_usage(config, ttl)?;
+        let ttl = caller.validate_ttl_usage(config, params.ttl)?;
 
         // Capacity updates and required credit depend on whether the subscriber is already
         // subscribing to this blob
-        let expiry = i64::saturating_add(current_epoch, ttl);
+        let expiry = i64::saturating_add(params.epoch, ttl);
         let mut new_capacity: u64 = 0;
         let mut new_account_capacity: u64 = 0;
         let credit_required: Credit;
-        // Like cashback but for sending unspent tokens back
-        let value_rebate: TokenAmount;
+
         // Get or create a new blob
         let mut blobs = self.blobs.hamt(store)?;
-        let (sub, blob) = if let Some(mut blob) = blobs.get(&hash)? {
+        let (sub, blob) = if let Some(mut blob) = blobs.get(&params.hash)? {
             let mut subscribers = blob.subscribers.hamt(store)?;
-            let sub = if let Some(mut group) = subscribers.get(&subscriber)? {
+            let sub = if let Some(mut group) = subscribers.get(&caller.subscriber_address())? {
                 let (group_expiry, new_group_expiry) =
-                    group.max_expiries(store, &id, Some(expiry))?;
+                    group.max_expiries(store, &params.id, Some(expiry))?;
+
                 // If the subscriber has been debited after the group's max expiry, we need to
                 // clean up the accounting with a refund.
                 // If the ensure-credit check below fails, the refund won't be saved in the
@@ -291,272 +273,258 @@ impl State {
                 // However, they will get rerefunded during the next auto debit tick.
                 if let Some(group_expiry) = group_expiry {
                     if caller.subscriber().last_debit_epoch > group_expiry {
+                        // Return over-debited credit.
                         // The refund extends up to the current epoch because we need to
                         // account for the charge that will happen below at the current epoch.
                         let return_credits = Credit::from_whole(
-                            self.get_storage_cost(current_epoch - group_expiry, &size),
+                            self.get_storage_cost(params.epoch - group_expiry, &params.size),
                         );
-                        // Return over-debited credit
-                        caller.return_committed_credit(&return_credits);
-                        self.credit_debited -= &return_credits;
-                        self.credit_committed += &return_credits;
-                        debug!("returned {} credits to {}", return_credits, subscriber);
+                        self.return_committed_credit_for_caller(&mut caller, &return_credits);
                     }
                 }
+
                 // Ensure subscriber has enough credits, considering the subscription group may
                 // have expiries that cover a portion of the addition.
                 // Required credit can be negative if subscriber is reducing expiry.
                 // When adding, the new group expiry will always contain a value.
                 let new_group_expiry = new_group_expiry.unwrap();
-                let group_expiry = group_expiry.map_or(current_epoch, |e| e.max(current_epoch));
+                let group_expiry = group_expiry.map_or(params.epoch, |e| e.max(params.epoch));
                 credit_required = Credit::from_whole(
-                    self.get_storage_cost(new_group_expiry - group_expiry, &size),
+                    self.get_storage_cost(new_group_expiry - group_expiry, &params.size),
                 );
-                value_rebate = self.use_or_buy_credit_for_caller(
-                    &mut caller,
-                    config,
-                    &credit_required,
-                    &value,
-                    current_epoch,
-                )?;
+
                 // Add / update subscription
                 let mut group_hamt = group.hamt(store)?;
-                let sub = if let Some(mut sub) = group_hamt.get(&id)? {
+                let sub = if let Some(mut sub) = group_hamt.get(&params.id)? {
                     // Update expiry index
                     if expiry != sub.expiry {
                         self.expiries.update_index(
                             store,
-                            subscriber,
-                            hash,
-                            &id,
+                            caller.subscriber_address(),
+                            params.hash,
+                            &params.id,
                             vec![ExpiryUpdate::Add(expiry), ExpiryUpdate::Remove(sub.expiry)],
                         )?;
                     }
                     sub.expiry = expiry;
+
                     // Overwrite source allows subscriber to retry resolving
-                    sub.source = source;
+                    sub.source = params.source;
                     sub.delegate = caller.delegate_address();
                     sub.failed = false;
-                    group.save_tracked(group_hamt.set_and_flush_tracked(&id, sub.clone())?);
+                    group.save_tracked(group_hamt.set_and_flush_tracked(&params.id, sub.clone())?);
 
                     debug!(
                         "updated subscription to blob {} for {} (key: {})",
-                        hash, subscriber, id
+                        params.hash,
+                        caller.subscriber_address(),
+                        params.id
                     );
                     sub
                 } else {
                     // Add new subscription
                     let sub = Subscription {
-                        added: current_epoch,
+                        added: params.epoch,
                         expiry,
-                        source,
+                        source: params.source,
                         delegate: caller.delegate_address(),
                         failed: false,
                     };
-                    group.save_tracked(group_hamt.set_and_flush_tracked(&id, sub.clone())?);
+                    group.save_tracked(group_hamt.set_and_flush_tracked(&params.id, sub.clone())?);
+
                     // Update expiry index
                     self.expiries.update_index(
                         store,
-                        subscriber,
-                        hash,
-                        &id,
+                        caller.subscriber_address(),
+                        params.hash,
+                        &params.id,
                         vec![ExpiryUpdate::Add(expiry)],
                     )?;
 
                     debug!(
                         "created new subscription to blob {} for {} (key: {})",
-                        hash, subscriber, id
+                        params.hash,
+                        caller.subscriber_address(),
+                        params.id
                     );
                     sub
                 };
-                blob.subscribers
-                    .save_tracked(subscribers.set_and_flush_tracked(&subscriber, group)?);
+
+                blob.subscribers.save_tracked(
+                    subscribers.set_and_flush_tracked(&caller.subscriber_address(), group)?,
+                );
+
                 sub
             } else {
-                new_account_capacity = size;
+                new_account_capacity = params.size;
+
                 // One or more accounts have already committed credit.
                 // However, we still need to reserve the full required credit from the new
                 // subscriber, as the existing account(s) may decide to change the expiry or cancel.
-                credit_required = Credit::from_whole(self.get_storage_cost(ttl, &size));
-                value_rebate = self.use_or_buy_credit_for_caller(
-                    &mut caller,
-                    config,
-                    &credit_required,
-                    &value,
-                    current_epoch,
-                )?;
+                credit_required = Credit::from_whole(self.get_storage_cost(ttl, &params.size));
+
                 // Add new subscription
                 let sub = Subscription {
-                    added: current_epoch,
+                    added: params.epoch,
                     expiry,
-                    source,
+                    source: params.source,
                     delegate: caller.delegate_address(),
                     failed: false,
                 };
                 let mut subscribers = blob.subscribers.hamt(store)?;
                 let mut subscription_group = SubscriptionGroup::new(store)?;
                 let mut subscription_group_hamt = subscription_group.hamt(store)?;
-                subscription_group
-                    .save_tracked(subscription_group_hamt.set_and_flush_tracked(&id, sub.clone())?);
-                blob.subscribers.save_tracked(
-                    subscribers.set_and_flush_tracked(&subscriber, subscription_group)?,
+                subscription_group.save_tracked(
+                    subscription_group_hamt.set_and_flush_tracked(&params.id, sub.clone())?,
                 );
+                blob.subscribers.save_tracked(
+                    subscribers
+                        .set_and_flush_tracked(&caller.subscriber_address(), subscription_group)?,
+                );
+
                 // Update expiry index
                 self.expiries.update_index(
                     store,
-                    subscriber,
-                    hash,
-                    &id,
+                    caller.subscriber_address(),
+                    params.hash,
+                    &params.id,
                     vec![ExpiryUpdate::Add(expiry)],
                 )?;
 
                 debug!(
                     "created new subscription to blob {} for {} (key: {})",
-                    hash, subscriber, id
+                    params.hash,
+                    caller.subscriber_address(),
+                    params.id
                 );
                 sub
             };
+
             // Update blob status
             if !matches!(blob.status, BlobStatus::Resolved) {
                 // It's pending or failed, reset to added status
                 blob.status = BlobStatus::Added;
+
                 // Add to or update the source in the added queue
-                self.added
-                    .upsert(store, hash, (subscriber, id, source), blob.size)?;
+                self.added.upsert(
+                    store,
+                    params.hash,
+                    (caller.subscriber_address(), params.id, params.source),
+                    blob.size,
+                )?;
             }
+
             (sub, blob)
         } else {
-            new_account_capacity = size;
+            new_account_capacity = params.size;
+
             // New blob increases network capacity as well.
-            // Ensure there is enough capacity available.
-            let available_capacity = self.capacity_available(config.blob_capacity);
-            if size > available_capacity {
-                return Err(ActorError::forbidden(format!(
-                    "subnet has insufficient storage capacity (available: {}; required: {})",
-                    available_capacity, size
-                )));
-            }
-            new_capacity = size;
-            credit_required = Credit::from_whole(self.get_storage_cost(ttl, &size));
-            value_rebate = self.use_or_buy_credit_for_caller(
-                &mut caller,
-                config,
-                &credit_required,
-                &value,
-                current_epoch,
-            )?;
+            new_capacity = params.size;
+            credit_required = Credit::from_whole(self.get_storage_cost(ttl, &params.size));
+
             // Create new blob
             let sub = Subscription {
-                added: current_epoch,
+                added: params.epoch,
                 expiry,
-                source,
+                source: params.source,
                 delegate: caller.delegate_address(),
                 failed: false,
             };
             let blob_subscribers = BlobSubscribers::new(store)?;
             let mut subscribers = blob_subscribers.hamt(store)?;
             let mut blob = Blob {
-                size: size.to_u64().unwrap(),
-                metadata_hash,
+                size: params.size.to_u64().unwrap(),
+                metadata_hash: params.metadata_hash,
                 subscribers: blob_subscribers,
                 status: BlobStatus::Added,
             };
             let mut subscription_group = SubscriptionGroup::new(store)?;
             let mut subscription_group_hamt = subscription_group.hamt(store)?;
-            subscription_group
-                .save_tracked(subscription_group_hamt.set_and_flush_tracked(&id, sub.clone())?);
-            blob.subscribers
-                .save_tracked(subscribers.set_and_flush_tracked(&subscriber, subscription_group)?);
+            subscription_group.save_tracked(
+                subscription_group_hamt.set_and_flush_tracked(&params.id, sub.clone())?,
+            );
+            blob.subscribers.save_tracked(
+                subscribers
+                    .set_and_flush_tracked(&caller.subscriber_address(), subscription_group)?,
+            );
+
             // Update expiry index
             self.expiries.update_index(
                 store,
-                subscriber,
-                hash,
-                &id,
+                caller.subscriber_address(),
+                params.hash,
+                &params.id,
                 vec![ExpiryUpdate::Add(expiry)],
             )?;
-            // Add the source to the added queue
-            self.added
-                .upsert(store, hash, (subscriber, id, source), blob.size)?;
 
-            debug!("created new blob {}", hash);
+            // Add the source to the added queue
+            self.added.upsert(
+                store,
+                params.hash,
+                (
+                    caller.subscriber_address(),
+                    params.id.clone(),
+                    params.source,
+                ),
+                blob.size,
+            )?;
+
+            debug!("created new blob {}", params.hash);
             debug!(
                 "created new subscription to blob {} for {} (key: {})",
-                hash, subscriber, id
+                params.hash,
+                caller.subscriber_address(),
+                params.id
             );
             (sub, blob)
         };
+
         // Account capacity is changing, debit for existing usage
-        let debit = Credit::from_whole(self.get_storage_cost(
-            current_epoch - account.last_debit_epoch,
-            &account.capacity_used,
-        ));
-        self.credit_debited += &debit;
-        self.credit_committed -= &debit;
-        account.credit_committed -= &debit;
-        account.last_debit_epoch = current_epoch;
-        debug!("debited {} credits from {}", debit, subscriber);
-        // Account for new size and move free credit to committed credit
-        self.capacity_used += &new_capacity;
-        debug!("used {} bytes from subnet", new_account_capacity);
-        account.capacity_used += &new_account_capacity;
-        debug!("used {} bytes from {}", new_account_capacity, subscriber);
-        self.credit_committed += &credit_required;
-        account.credit_committed += &credit_required;
-        account.credit_free -= &credit_required;
-        // Update credit approval
-        if let Some(delegation) = delegation {
-            let origin = delegation.to;
-            let mut origin_account = accounts.get_or_err(&origin)?;
-            let mut origin_approval = origin_account
-                .approvals_from
-                .hamt(store)?
-                .get(&subscriber)?
-                .ok_or(ActorError::illegal_state(format!(
-                    "approval from {} to {} not found in 'to' account",
-                    subscriber, origin
-                )))?;
+        let debit_duration = params.epoch - caller.subscriber().last_debit_epoch;
+        let debit = self.get_debit_for_caller(&caller, debit_duration);
+        self.debit_caller(&mut caller, &debit, params.epoch);
 
-            delegation.approval.credit_used += &credit_required;
-            origin_approval.credit_used += &credit_required;
+        // Account for new size and commit credit
+        let token_rebate = if credit_required.is_positive() {
+            self.commit_capacity_for_caller(
+                &mut caller,
+                config,
+                new_capacity,
+                new_account_capacity,
+                &credit_required,
+                &params.token_amount,
+                params.epoch,
+            )?
+        } else {
+            self.uncommit_capacity_for_caller(
+                &mut caller,
+                new_capacity,
+                new_account_capacity,
+                &-credit_required,
+            );
+            TokenAmount::zero()
+        };
 
-            // Save delegation origin account
-            origin_account.approvals_from.save_tracked(
-                origin_account
-                    .approvals_from
-                    .hamt(store)?
-                    .set_and_flush_tracked(&subscriber, origin_approval)?,
-            );
-            account.approvals_to.save_tracked(
-                account
-                    .approvals_to
-                    .hamt(store)?
-                    .set_and_flush_tracked(&origin, delegation.approval.clone())?,
-            );
-            accounts.set(&origin, origin_account)?;
-        }
-        // Save accounts
-        accounts.set(&subscriber, account)?;
-        self.accounts.save_tracked(accounts.flush_tracked()?);
+        // Save caller
+        self.save_caller(&mut caller, &mut accounts)?;
 
         // Save blob
         self.blobs
-            .save_tracked(blobs.set_and_flush_tracked(&hash, blob)?);
+            .save_tracked(blobs.set_and_flush_tracked(&params.hash, blob)?);
 
-        if credit_required.is_positive() {
-            debug!("committed {} credits from {}", credit_required, subscriber);
-        } else {
-            debug!(
-                "released {} credits to {}",
-                credit_required.atto().magnitude(),
-                subscriber
-            );
-        }
-        Ok((sub, value_rebate))
+        Ok((sub, token_rebate))
     }
 
     fn get_storage_cost(&self, duration: i64, size: &u64) -> BigInt {
         duration * BigInt::from(*size)
+    }
+
+    fn get_debit_for_caller<BS: Blockstore>(
+        &self,
+        caller: &Caller<BS>,
+        duration: ChainEpoch,
+    ) -> Credit {
+        Credit::from_whole(BigInt::from(caller.subscriber().capacity_used) * duration)
     }
 
     pub fn get_blob<BS: Blockstore>(
@@ -586,6 +554,7 @@ impl State {
         } else {
             return Ok(None);
         };
+
         let subscribers = blob.subscribers.hamt(store)?;
         if subscribers.contains_key(&subscriber)? {
             match blob.status {
@@ -650,11 +619,14 @@ impl State {
             return Ok(());
         };
         blob.status = BlobStatus::Pending;
+
         // Add the source to the pending queue
         self.pending
             .upsert(store, hash, (subscriber, id, source), blob.size)?;
+
         // Remove entire blob entry from the added queue
         self.added.remove_entry(store, &hash, blob.size)?;
+
         // Save blob
         self.blobs
             .save_tracked(blobs.set_and_flush_tracked(&hash, blob)?);
@@ -664,29 +636,21 @@ impl State {
     #[allow(clippy::too_many_arguments)]
     pub fn finalize_blob<BS: Blockstore>(
         &mut self,
-        config: &RecallConfig,
         store: &BS,
         subscriber: Address,
-        current_epoch: ChainEpoch,
-        hash: Hash,
-        id: SubscriptionId,
-        status: BlobStatus,
+        params: FinalizeBlobStateParams,
     ) -> anyhow::Result<(), ActorError> {
         // Validate incoming status
-        if matches!(status, BlobStatus::Added | BlobStatus::Pending) {
+        if matches!(params.status, BlobStatus::Added | BlobStatus::Pending) {
             return Err(ActorError::illegal_state(format!(
                 "cannot finalize blob {} as added or pending",
-                hash
+                params.hash
             )));
         }
-        // Get or create a new account
-        let mut accounts = self.accounts.hamt(store)?;
-        let mut account = accounts.get_or_create(&subscriber, || {
-            Account::new(store, current_epoch, config.blob_default_ttl)
-        })?;
+
         // Get the blob
         let mut blobs = self.blobs.hamt(store)?;
-        let mut blob = if let Some(blob) = blobs.get(&hash)? {
+        let mut blob = if let Some(blob) = blobs.get(&params.hash)? {
             blob
         } else {
             // The blob may have been deleted before it was finalized
@@ -695,7 +659,7 @@ impl State {
         if matches!(blob.status, BlobStatus::Added) {
             return Err(ActorError::illegal_state(format!(
                 "blob {} cannot be finalized from status added",
-                hash
+                params.hash
             )));
         } else if matches!(blob.status, BlobStatus::Resolved) {
             // Blob is already finalized as resolved.
@@ -707,158 +671,121 @@ impl State {
             .get(&subscriber)?
             .ok_or(ActorError::forbidden(format!(
                 "subscriber {} is not subscribed to blob {}",
-                subscriber, hash
+                subscriber, params.hash
             )))?;
+
         // Get max expiries with the current subscription removed in case we need them below.
         // We have to do this here to avoid breaking borrow rules.
-        let (group_expiry, new_group_expiry) = group.max_expiries(store, &id, Some(0))?;
-        let (sub_is_min_added, next_min_added) = group.is_min_added(store, &id)?;
+        let (group_expiry, new_group_expiry) = group.max_expiries(store, &params.id, Some(0))?;
+        let (sub_is_min_added, next_min_added) = group.is_min_added(store, &params.id)?;
         let mut group_hamt = group.hamt(store)?;
-        let mut sub = group_hamt.get(&id)?.ok_or(ActorError::not_found(format!(
-            "subscription id {} not found",
-            id.clone()
-        )))?;
-        // Do not error if the approval was removed while this blob was pending
-        let mut origin_approval = if let Some(origin) = sub.delegate {
-            // Look for an approval for origin from subscriber
-            account
-                .approvals_to
-                .hamt(store)?
-                .get(&origin)?
-                .map(|approval| (origin, approval))
-        } else {
-            None
-        };
-        let delegation = origin_approval
-            .as_mut()
-            .map(|(origin, approval)| CreditDelegation::new(*origin, approval));
+        let mut sub = group_hamt
+            .get(&params.id)?
+            .ok_or(ActorError::not_found(format!(
+                "subscription id {} not found",
+                params.id.clone()
+            )))?;
+
+        // Load the caller account and delegation.
+        let mut accounts = self.accounts.hamt(store)?;
+        let mut caller = Caller::load(
+            store,
+            &accounts,
+            sub.delegate.unwrap_or(subscriber),
+            sub.delegate.map(|_| subscriber),
+        )?;
 
         // Update blob status
-        blob.status = status;
-        debug!("finalized blob {} to status {}", hash, blob.status);
+        blob.status = params.status.clone();
         if matches!(blob.status, BlobStatus::Failed) {
-            // When failing, the existing group expiry will always contain a value.
-            let group_expiry = group_expiry.unwrap();
-            let size = blob.size;
             // We're not going to make a debit, but we need to refund any spent credits that may
             // have been used on this group in the event the last debit is later than the
             // added epoch.
-            if account.last_debit_epoch > sub.added && sub_is_min_added {
+            // When failing, the existing group expiry will always contain a value.
+            let group_expiry = group_expiry.unwrap();
+            let size = blob.size;
+            let last_debit_epoch = caller.subscriber().last_debit_epoch;
+            if last_debit_epoch > sub.added && sub_is_min_added {
                 // The refund extends up to either the next minimum added epoch that is less
                 // than the last debit epoch, or the last debit epoch.
                 let cutoff = next_min_added
-                    .unwrap_or(account.last_debit_epoch)
-                    .min(account.last_debit_epoch);
+                    .unwrap_or(last_debit_epoch)
+                    .min(last_debit_epoch);
                 let refund_credits =
                     Credit::from_whole(self.get_storage_cost(cutoff - sub.added, &size));
-                // Refund credit
-                self.credit_debited -= &refund_credits;
-                account.credit_free += &refund_credits; // move directly to free
-                debug!("refunded {} credits to {}", refund_credits, subscriber);
-                // Correct for over-refund
-                if cutoff > group_expiry {
-                    let correction_credits =
-                        Credit::from_whole(self.get_storage_cost(cutoff - group_expiry, &size));
-                    self.credit_committed += &correction_credits;
-                    account.credit_committed += &correction_credits;
-                    account.credit_free -= &correction_credits;
-                    debug!(
-                        "corrected refund with {} credits to {}",
-                        correction_credits, subscriber
-                    );
-                }
+                let correction_credits = if cutoff > group_expiry {
+                    Credit::from_whole(self.get_storage_cost(cutoff - group_expiry, &size))
+                } else {
+                    Credit::zero()
+                };
+                self.refund_caller(&mut caller, &refund_credits, &correction_credits);
             }
+
             // If there's no new group expiry, all subscriptions have failed.
-            if new_group_expiry.is_none() {
-                // Account for reclaimed size and move committed credit to free credit
-                self.capacity_used -= &size;
-                debug!("released {} bytes to subnet", size);
-                account.capacity_used -= size;
-                debug!("released {} bytes to {}", size, subscriber);
-            }
+            let reclaim_capacity = if new_group_expiry.is_none() { size } else { 0 };
+
             // Release credits considering other subscriptions may still be pending.
-            if account.last_debit_epoch < group_expiry {
-                let reclaim_credits = Credit::from_whole(self.get_storage_cost(
+            let reclaim_credits = if last_debit_epoch < group_expiry {
+                Credit::from_whole(self.get_storage_cost(
                     group_expiry
-                        - new_group_expiry.map_or(account.last_debit_epoch, |e| {
-                            e.max(account.last_debit_epoch)
-                        }),
+                        - new_group_expiry.map_or(last_debit_epoch, |e| e.max(last_debit_epoch)),
                     &size,
-                ));
-                self.credit_committed -= &reclaim_credits;
-                account.credit_committed -= &reclaim_credits;
-                account.credit_free += &reclaim_credits;
-                // Update credit approval
-                if let Some(delegation) = delegation {
-                    delegation.approval.credit_used -= &reclaim_credits;
+                ))
+            } else {
+                Credit::zero()
+            };
+            self.uncommit_capacity_for_caller(
+                &mut caller,
+                reclaim_capacity,
+                reclaim_capacity,
+                &reclaim_credits,
+            );
 
-                    let origin = delegation.to;
-                    let mut origin_account = accounts.get_or_err(&origin)?;
-                    let mut origin_approval = origin_account
-                        .approvals_from
-                        .hamt(store)?
-                        .get(&subscriber)?
-                        .ok_or(ActorError::illegal_state(format!(
-                            "approval from {} to {} not found in 'to' account",
-                            subscriber, origin
-                        )))?;
-
-                    delegation.approval.credit_used -= &reclaim_credits;
-                    origin_approval.credit_used -= &reclaim_credits;
-                    // Save delegation origin account
-                    origin_account.approvals_from.save_tracked(
-                        origin_account
-                            .approvals_from
-                            .hamt(store)?
-                            .set_and_flush_tracked(&subscriber, origin_approval)?,
-                    );
-                    account.approvals_to.save_tracked(
-                        account
-                            .approvals_to
-                            .hamt(store)?
-                            .set_and_flush_tracked(&origin, delegation.approval.clone())?,
-                    );
-                    accounts.set(&origin, origin_account)?;
-                }
-                debug!("released {} credits to {}", reclaim_credits, subscriber);
-            }
-
+            // Mark the subscription as failed
             sub.failed = true;
-            // flush the mutated sub to the group's store
-            group.save_tracked(group_hamt.set_and_flush_tracked(&id, sub.clone())?);
+
+            // Save the subscription
+            group.save_tracked(group_hamt.set_and_flush_tracked(&params.id, sub.clone())?);
         }
+
         // Remove the source from the pending queue
-        self.pending
-            .remove_source(store, hash, (subscriber, id, sub.source), blob.size)?;
+        self.pending.remove_source(
+            store,
+            params.hash,
+            (subscriber, params.id, sub.source),
+            blob.size,
+        )?;
+
         // Save accounts
-        accounts.set(&subscriber, account)?;
+        caller.save(&mut accounts)?;
         self.accounts.save_tracked(accounts.flush_tracked()?);
 
+        // Save blob
         blob.subscribers
             .save_tracked(subscribers.set_and_flush_tracked(&subscriber, group)?);
-        // Save blob
         self.blobs
-            .save_tracked(blobs.set_and_flush_tracked(&hash, blob)?);
+            .save_tracked(blobs.set_and_flush_tracked(&params.hash, blob)?);
+
+        debug!("finalized blob {} to status {}", params.hash, params.status);
 
         Ok(())
     }
 
-    #[allow(clippy::too_many_arguments)]
     pub fn delete_blob<BS: Blockstore>(
         &mut self,
         store: &BS,
-        origin: Address,
-        subscriber: Address,
-        current_epoch: ChainEpoch,
-        hash: Hash,
-        id: SubscriptionId,
+        caller: Address,
+        sponsor: Option<Address>,
+        params: DeleteBlobStateParams,
     ) -> anyhow::Result<(bool, u64), ActorError> {
-        // Get or create a new account
+        // Load the caller account and delegation.
         let mut accounts = self.accounts.hamt(store)?;
-        let mut account = accounts.get_or_err(&subscriber)?;
+        let mut caller = Caller::load(store, &accounts, caller, sponsor)?;
+        caller.validate_delegate_expiration(params.epoch)?;
+
         // Get the blob
         let mut blobs = self.blobs.hamt(store)?;
-        let mut blob = if let Some(blob) = blobs.get(&hash)? {
+        let mut blob = if let Some(blob) = blobs.get(&params.hash)? {
             blob
         } else {
             // We could error here, but since this method is called from other actors,
@@ -872,216 +799,158 @@ impl State {
         };
         let mut subscribers = blob.subscribers.hamt(store)?;
         let num_subscribers = blob.subscribers.len();
-        let mut group = subscribers
-            .get(&subscriber)?
-            .ok_or(ActorError::forbidden(format!(
-                "subscriber {} is not subscribed to blob {}",
-                subscriber, hash
-            )))?;
+        let mut group =
+            subscribers
+                .get(&caller.subscriber_address())?
+                .ok_or(ActorError::forbidden(format!(
+                    "subscriber {} is not subscribed to blob {}",
+                    caller.subscriber_address(),
+                    params.hash
+                )))?;
         let mut group_hamt = group.hamt(store)?;
-        let (group_expiry, new_group_expiry) = group.max_expiries(store, &id, Some(0))?;
-        let sub = group_hamt.get(&id)?.ok_or(ActorError::not_found(format!(
-            "subscription id {} not found",
-            id.clone()
-        )))?;
+        let sub = group_hamt
+            .get(&params.id)?
+            .ok_or(ActorError::not_found(format!(
+                "subscription id {} not found",
+                params.id.clone()
+            )))?;
 
-        let mut origin_approval = if let Some(origin) = sub.delegate {
-            // Look for an approval for origin from subscriber
-            let approval = account.approvals_to.hamt(store)?.get(&origin)?;
-            if approval.is_none() {
-                // Approval may have been removed, or this is a call from the system actor,
-                // in which case the origin will be supplied as the subscriber
-                if origin != subscriber {
-                    return Err(ActorError::forbidden(format!(
-                        "approval from {} to {} not found",
-                        subscriber, origin
-                    )));
-                }
-            }
-            approval.map(|approval| (origin, approval))
-        } else {
-            None
-        };
-
-        let delegation = origin_approval
-            .as_mut()
-            .map(|(origin, approval)| CreditDelegation::new(*origin, approval));
-
-        // If the subscription does not have a delegate, the origin must be the subscriber.
-        // If the subscription has a delegate, it must be the origin or the
-        // origin must be the subscriber.
-        match &delegation {
-            None => {
-                if origin != subscriber {
-                    return Err(ActorError::forbidden(format!(
-                        "origin {} is not subscriber {} for blob {}",
-                        origin, subscriber, hash
-                    )));
-                }
-            }
-            Some(delegation) => {
-                if origin != delegation.to && origin != subscriber {
-                    return Err(ActorError::forbidden(format!(
-                        "origin {} is not delegate origin {} or subscriber {} for blob {}",
-                        origin, delegation.to, subscriber, hash
-                    )));
-                }
-                if let Some(expiry) = delegation.approval.expiry {
-                    if expiry <= current_epoch {
-                        return Err(ActorError::forbidden(format!(
-                            "approval from {} to {} expired",
-                            subscriber, delegation.to
-                        )));
-                    }
-                }
-            }
-        }
         // Do not allow deletion if status is added or pending.
         // This would cause issues with deletion from disc.
         if matches!(blob.status, BlobStatus::Added) || matches!(blob.status, BlobStatus::Pending) {
             return Err(ActorError::forbidden(format!(
                 "blob {} pending finalization; please wait",
-                hash
+                params.hash
             )));
         }
+
         // Since the charge will be for all the account's blobs, we can only
         // account for capacity up to this blob's expiry if it is less than
         // the current epoch.
         // If the subscription is failed, there may be no group expiry.
+        let (group_expiry, new_group_expiry) = group.max_expiries(store, &params.id, Some(0))?;
         if let Some(group_expiry) = group_expiry {
-            let debit_epoch = group_expiry.min(current_epoch);
+            let debit_epoch = group_expiry.min(params.epoch);
             // Account capacity is changing, debit for existing usage.
             // It could be possible that debit epoch is less than the last debit,
             // in which case we need to refund for that duration.
-            if account.last_debit_epoch < debit_epoch {
-                let debit = Credit::from_whole(self.get_storage_cost(
-                    debit_epoch - account.last_debit_epoch,
-                    &account.capacity_used,
-                ));
-                self.credit_debited += &debit;
-                self.credit_committed -= &debit;
-                account.credit_committed -= &debit;
-                account.last_debit_epoch = debit_epoch;
-                debug!("debited {} credits from {}", debit, subscriber);
-            } else if account.last_debit_epoch != debit_epoch {
+            let last_debit_epoch = caller.subscriber().last_debit_epoch;
+            if last_debit_epoch < debit_epoch {
+                let debit = self.get_debit_for_caller(&caller, debit_epoch - last_debit_epoch);
+                self.debit_caller(&mut caller, &debit, debit_epoch);
+            } else if last_debit_epoch != debit_epoch {
                 // The account was debited after this blob's expiry
-                let return_credits = Credit::from_whole(
-                    self.get_storage_cost(account.last_debit_epoch - group_expiry, &blob.size),
-                );
                 // Return over-debited credit
-                self.credit_debited -= &return_credits;
-                self.credit_committed += &return_credits;
-                account.credit_committed += &return_credits;
-                debug!("returned {} credits to {}", return_credits, subscriber);
+                let return_credits = Credit::from_whole(
+                    self.get_storage_cost(last_debit_epoch - group_expiry, &blob.size),
+                );
+                self.return_committed_credit_for_caller(&mut caller, &return_credits);
             }
         }
+
         // Account for reclaimed size and move committed credit to free credit
         // If blob failed, capacity and committed credits have already been returned
         let size = blob.size;
         if !matches!(blob.status, BlobStatus::Failed) && !sub.failed {
             // If there's no new group expiry, we can reclaim capacity.
-            if new_group_expiry.is_none() {
-                account.capacity_used -= &size;
-                if num_subscribers == 1 {
-                    self.capacity_used -= &size;
-                    debug!("released {} bytes to subnet", size);
-                }
-                debug!("released {} bytes to {}", size, subscriber);
-            }
+            let (reclaim_subnet_capacity, reclaim_caller_capacity) = if new_group_expiry.is_none() {
+                (size, if num_subscribers == 1 { size } else { 0 })
+            } else {
+                (0, 0)
+            };
+
             // We can release credits if the new group expiry is in the future,
             // considering other subscriptions may still be active.
-            if let Some(group_expiry) = group_expiry {
-                if account.last_debit_epoch < group_expiry {
-                    let reclaim_credits = Credit::from_whole(self.get_storage_cost(
-                        group_expiry
-                            - new_group_expiry.map_or(account.last_debit_epoch, |e| {
-                                e.max(account.last_debit_epoch)
-                            }),
-                        &size,
-                    ));
-                    self.credit_committed -= &reclaim_credits;
-                    account.credit_committed -= &reclaim_credits;
-                    account.credit_free += &reclaim_credits;
-                    // Update credit approval
-                    if let Some(delegation) = delegation {
-                        delegation.approval.credit_used -= &reclaim_credits;
-
-                        let origin = delegation.to;
-                        let mut origin_account = accounts.get_or_err(&origin)?;
-                        let mut origin_approval = origin_account
-                            .approvals_from
-                            .hamt(store)?
-                            .get(&subscriber)?
-                            .ok_or(ActorError::illegal_state(format!(
-                                "approval from {} to {} not found in 'to' account",
-                                subscriber, origin
-                            )))?;
-
-                        delegation.approval.credit_used -= &reclaim_credits;
-                        origin_approval.credit_used -= &reclaim_credits;
-                        // Save delegation origin account
-                        origin_account.approvals_from.save_tracked(
-                            origin_account
-                                .approvals_from
-                                .hamt(store)?
-                                .set_and_flush_tracked(&subscriber, origin_approval)?,
-                        );
-                        account.approvals_to.save_tracked(
-                            account
-                                .approvals_to
-                                .hamt(store)?
-                                .set_and_flush_tracked(&origin, delegation.approval.clone())?,
-                        );
-                        accounts.set(&origin, origin_account)?;
+            let reclaim_credits = group_expiry
+                .map(|group_expiry| {
+                    let last_debit_epoch = caller.subscriber().last_debit_epoch;
+                    if last_debit_epoch < group_expiry {
+                        let reclaim_duration_start =
+                            new_group_expiry.map_or(last_debit_epoch, |e| e.max(last_debit_epoch));
+                        Credit::from_whole(
+                            self.get_storage_cost(group_expiry - reclaim_duration_start, &size),
+                        )
+                    } else {
+                        Credit::zero()
                     }
-                    debug!("released {} credits to {}", reclaim_credits, subscriber);
-                }
-            }
+                })
+                .unwrap_or_default();
+            self.uncommit_capacity_for_caller(
+                &mut caller,
+                reclaim_subnet_capacity,
+                reclaim_caller_capacity,
+                &reclaim_credits,
+            );
         }
+
         // Update expiry index
         self.expiries.update_index(
             store,
-            subscriber,
-            hash,
-            &id,
+            caller.subscriber_address(),
+            params.hash,
+            &params.id,
             vec![ExpiryUpdate::Remove(sub.expiry)],
         )?;
+
         // Remove the source from the added queue
-        self.added
-            .remove_source(store, hash, (subscriber, id.clone(), sub.source), size)?;
+        self.added.remove_source(
+            store,
+            params.hash,
+            (caller.subscriber_address(), params.id.clone(), sub.source),
+            size,
+        )?;
+
         // Remove the source from the pending queue
-        self.pending
-            .remove_source(store, hash, (subscriber, id.clone(), sub.source), size)?;
+        self.pending.remove_source(
+            store,
+            params.hash,
+            (caller.subscriber_address(), params.id.clone(), sub.source),
+            size,
+        )?;
+
         // Delete subscription
-        let (sub_del_flush, _) = group_hamt.delete_and_flush_tracked(&id)?;
-        group.save_tracked(sub_del_flush);
+        group.save_tracked(group_hamt.delete_and_flush_tracked(&params.id)?.0);
         debug!(
             "deleted subscription to blob {} for {} (key: {})",
-            hash, subscriber, id
+            params.hash,
+            caller.subscriber_address(),
+            params.id
         );
+
         // Delete the group if empty
         let delete_blob = if group.is_empty() {
-            let (del_sub, _) = subscribers.delete_and_flush_tracked(&subscriber)?;
-            blob.subscribers.save_tracked(del_sub);
-            debug!("deleted subscriber {} to blob {}", subscriber, hash);
+            blob.subscribers.save_tracked(
+                subscribers
+                    .delete_and_flush_tracked(&caller.subscriber_address())?
+                    .0,
+            );
+            debug!(
+                "deleted subscriber {} to blob {}",
+                caller.subscriber_address(),
+                params.hash
+            );
+
             // Delete or update blob
             let delete_blob = subscribers.is_empty();
             if delete_blob {
-                let (res, _) = blobs.delete_and_flush_tracked(&hash)?;
-                self.blobs.save_tracked(res);
-                debug!("deleted blob {}", hash);
+                self.blobs
+                    .save_tracked(blobs.delete_and_flush_tracked(&params.hash)?.0);
+                debug!("deleted blob {}", params.hash);
             }
             delete_blob
         } else {
-            blob.subscribers
-                .save_tracked(subscribers.set_and_flush_tracked(&subscriber, group)?);
+            blob.subscribers.save_tracked(
+                subscribers.set_and_flush_tracked(&caller.subscriber_address(), group)?,
+            );
             self.blobs
-                .save_tracked(blobs.set_and_flush_tracked(&hash, blob)?);
+                .save_tracked(blobs.set_and_flush_tracked(&params.hash, blob)?);
             false
         };
+
         // Save accounts
-        accounts.set(&subscriber, account)?;
+        caller.save(&mut accounts)?;
         self.accounts.save_tracked(accounts.flush_tracked()?);
+
         Ok((delete_blob, size))
     }
 
@@ -1132,28 +1001,32 @@ impl State {
                                 let (from_disc, _) = self.delete_blob(
                                     store,
                                     subscriber,
-                                    subscriber,
-                                    current_epoch,
-                                    hash,
-                                    SubscriptionId::new(id)?,
+                                    None,
+                                    DeleteBlobStateParams {
+                                        epoch: current_epoch,
+                                        hash,
+                                        id: SubscriptionId::new(id)?,
+                                    },
                                 )?;
                                 if from_disc {
                                     deleted_blobs.push(hash);
                                 };
                             } else {
                                 self.add_blob(
-                                    config,
                                     store,
+                                    config,
                                     subscriber,
-                                    subscriber,
-                                    current_epoch,
-                                    hash,
-                                    blob.metadata_hash,
-                                    SubscriptionId::new(id)?,
-                                    blob.size,
-                                    Some(new_ttl),
-                                    sub.source,
-                                    TokenAmount::zero(),
+                                    None,
+                                    AddBlobStateParams {
+                                        hash,
+                                        metadata_hash: blob.metadata_hash,
+                                        id: SubscriptionId::new(id)?,
+                                        size: blob.size,
+                                        ttl: Some(new_ttl),
+                                        source: sub.source,
+                                        epoch: current_epoch,
+                                        token_amount: TokenAmount::zero(),
+                                    },
                                 )?;
                             }
                             processed += 1;
@@ -1163,6 +1036,7 @@ impl State {
                 Ok(())
             },
         )?;
+
         Ok((processed, next_key, deleted_blobs))
     }
 
@@ -1170,33 +1044,12 @@ impl State {
         &self,
         config: &RecallConfig,
         store: &BS,
-        account: Address,
+        address: Address,
     ) -> Result<ChainEpoch, ActorError> {
         let accounts = self.accounts.hamt(store)?;
         Ok(accounts
-            .get(&account)?
+            .get(&address)?
             .map_or(config.blob_default_ttl, |account| account.max_ttl))
-    }
-
-    fn validate_ttl(
-        &self,
-        config: &RecallConfig,
-        ttl: Option<ChainEpoch>,
-        account: &Account,
-    ) -> anyhow::Result<ChainEpoch, ActorError> {
-        let ttl = ttl.unwrap_or(config.blob_default_ttl);
-        if ttl < config.blob_min_ttl {
-            return Err(ActorError::illegal_argument(format!(
-                "minimum blob TTL is {}",
-                config.blob_min_ttl
-            )));
-        } else if ttl > account.max_ttl {
-            return Err(ActorError::forbidden(format!(
-                "attempt to add a blob with TTL ({}) that exceeds account's max allowed TTL ({})",
-                ttl, account.max_ttl,
-            )));
-        }
-        Ok(ttl)
     }
 }
 
@@ -1204,6 +1057,7 @@ impl State {
 mod tests {
     use super::*;
 
+    use crate::caller::DelegationOptions;
     use fendermint_actor_blobs_testing::{
         new_address, new_hash, new_metadata_hash, new_pk, new_subscription_id, setup_logs,
     };
@@ -1216,27 +1070,28 @@ mod tests {
     fn check_approval_used<BS: Blockstore>(
         state: &State,
         store: &BS,
-        origin: Address,
-        subscriber: Address,
+        caller: Address,
+        sponsor: Address,
     ) {
-        let subscriber_account = state.get_account(&store, subscriber).unwrap().unwrap();
+        assert_ne!(caller, sponsor);
+        let subscriber_account = state.get_account(&store, sponsor).unwrap().unwrap();
         let subscriber_approval = subscriber_account
             .approvals_to
             .hamt(store)
             .unwrap()
-            .get(&origin)
+            .get(&caller)
             .unwrap()
             .unwrap();
         assert_eq!(
             subscriber_approval.credit_used,
             state.credit_debited.clone() + subscriber_account.credit_committed.clone()
         );
-        let origin_account = state.get_account(&store, origin).unwrap().unwrap();
+        let origin_account = state.get_account(&store, caller).unwrap().unwrap();
         let origin_approval = origin_account
             .approvals_from
             .hamt(store)
             .unwrap()
-            .get(&subscriber)
+            .get(&sponsor)
             .unwrap()
             .unwrap();
         assert_eq!(
@@ -1252,18 +1107,18 @@ mod tests {
         let config = RecallConfig::default();
         let store = MemoryBlockstore::default();
         let mut state = State::new(&store).unwrap();
-        let origin = new_address();
+        let caller = new_address();
         let current_epoch = ChainEpoch::from(1);
         let token_amount = TokenAmount::from_whole(10);
         state
-            .buy_credit(&store, &config, origin, token_amount.clone(), current_epoch)
+            .buy_credit(&store, &config, caller, token_amount.clone(), current_epoch)
             .unwrap();
         debit_accounts_delete_from_disc(
             &config,
             &store,
             state,
-            origin,
-            origin,
+            caller,
+            None,
             current_epoch,
             token_amount,
             false,
@@ -1276,15 +1131,15 @@ mod tests {
         let config = RecallConfig::default();
         let store = MemoryBlockstore::default();
         let mut state = State::new(&store).unwrap();
-        let origin = new_address();
-        let subscriber = new_address();
+        let caller = new_address();
+        let sponsor = new_address();
         let current_epoch = ChainEpoch::from(1);
         let token_amount = TokenAmount::from_whole(10);
         state
             .buy_credit(
                 &store,
                 &config,
-                subscriber,
+                sponsor,
                 token_amount.clone(),
                 current_epoch,
             )
@@ -1293,20 +1148,18 @@ mod tests {
             .approve_credit(
                 &config,
                 &store,
-                subscriber,
-                origin,
+                sponsor,
+                caller,
+                DelegationOptions::default(),
                 current_epoch,
-                None,
-                None,
-                None,
             )
             .unwrap();
         debit_accounts_delete_from_disc(
             &config,
             &store,
             state,
-            origin,
-            subscriber,
+            caller,
+            Some(sponsor),
             current_epoch,
             token_amount,
             true,
@@ -1318,12 +1171,13 @@ mod tests {
         config: &RecallConfig,
         store: &BS,
         mut state: State,
-        origin: Address,
-        subscriber: Address,
+        caller: Address,
+        sponsor: Option<Address>,
         current_epoch: ChainEpoch,
         token_amount: TokenAmount,
         using_approval: bool,
     ) {
+        let subscriber = sponsor.unwrap_or(caller);
         let mut credit_amount =
             Credit::from_atto(token_amount.atto().clone()) * &config.token_credit_rate;
 
@@ -1334,18 +1188,20 @@ mod tests {
         let ttl1 = ChainEpoch::from(config.blob_min_ttl);
         let source = new_pk();
         let res = state.add_blob(
-            config,
             &store,
-            origin,
-            subscriber,
-            add1_epoch,
-            hash,
-            new_metadata_hash(),
-            id1.clone(),
-            size,
-            Some(ttl1),
-            source,
-            TokenAmount::zero(),
+            config,
+            caller,
+            sponsor,
+            AddBlobStateParams {
+                hash,
+                metadata_hash: new_metadata_hash(),
+                id: id1.clone(),
+                size,
+                ttl: Some(ttl1),
+                source,
+                epoch: add1_epoch,
+                token_amount: TokenAmount::zero(),
+            },
         );
         assert!(res.is_ok());
 
@@ -1372,13 +1228,14 @@ mod tests {
         // Finalize as resolved
         let finalize_epoch = ChainEpoch::from(11);
         let res = state.finalize_blob(
-            config,
             &store,
             subscriber,
-            finalize_epoch,
-            hash,
-            id1.clone(),
-            BlobStatus::Resolved,
+            FinalizeBlobStateParams {
+                hash,
+                id: id1.clone(),
+                status: BlobStatus::Resolved,
+                epoch: finalize_epoch,
+            },
         );
         assert!(res.is_ok());
         let stats = state.get_stats(config, TokenAmount::zero());
@@ -1405,18 +1262,20 @@ mod tests {
         let id2 = SubscriptionId::new("foo").unwrap();
         let source = new_pk();
         let res = state.add_blob(
-            config,
             &store,
-            origin,
-            subscriber,
-            add2_epoch,
-            hash,
-            new_metadata_hash(),
-            id2.clone(),
-            size,
-            Some(ttl2),
-            source,
-            TokenAmount::zero(),
+            config,
+            caller,
+            sponsor,
+            AddBlobStateParams {
+                hash,
+                metadata_hash: new_metadata_hash(),
+                id: id2.clone(),
+                size,
+                ttl: Some(ttl2),
+                source,
+                epoch: add2_epoch,
+                token_amount: TokenAmount::zero(),
+            },
         );
         assert!(res.is_ok());
 
@@ -1446,14 +1305,7 @@ mod tests {
 
         // Debit all accounts at an epoch between the two expiries (3601-3621)
         let debit_epoch = ChainEpoch::from(config.blob_min_ttl + 11);
-        let deletes_from_disc = state
-            .debit_accounts(
-                &store,
-                debit_epoch,
-                config.blob_delete_batch_size,
-                config.account_debit_batch_size,
-            )
-            .unwrap();
+        let (deletes_from_disc, _) = state.debit_accounts(&store, &config, debit_epoch).unwrap();
         assert!(deletes_from_disc.is_empty());
 
         // Check the account balance
@@ -1474,14 +1326,7 @@ mod tests {
 
         // Debit all accounts at an epoch greater than group expiry (3621)
         let debit_epoch = ChainEpoch::from(config.blob_min_ttl + 31);
-        let deletes_from_disc = state
-            .debit_accounts(
-                &store,
-                debit_epoch,
-                config.blob_delete_batch_size,
-                config.account_debit_batch_size,
-            )
-            .unwrap();
+        let (deletes_from_disc, _) = state.debit_accounts(&store, &config, debit_epoch).unwrap();
         assert!(!deletes_from_disc.is_empty()); // blob is marked for deletion
 
         // Check the account balance
@@ -1509,8 +1354,125 @@ mod tests {
 
         // Check approval
         if using_approval {
-            check_approval_used(&state, store, origin, subscriber);
+            check_approval_used(&state, store, caller, subscriber);
         }
+    }
+
+    #[test]
+    fn test_paginated_debit_accounts() {
+        let config = RecallConfig {
+            account_debit_batch_size: 5, // Process 5 accounts at a time (10 accounts total)
+            ..Default::default()
+        };
+
+        let store = MemoryBlockstore::default();
+        let mut state = State::new(&store).unwrap();
+        let current_epoch = ChainEpoch::from(1);
+
+        // Create more than one batch worth of accounts (>5)
+        for i in 0..10 {
+            let address = Address::new_id(1000 + i);
+            let token_amount = TokenAmount::from_whole(10);
+
+            // Buy credits for each account
+            state
+                .buy_credit(
+                    &store,
+                    &config,
+                    address,
+                    token_amount.clone(),
+                    current_epoch,
+                )
+                .unwrap();
+
+            // Add some storage usage
+            let mut accounts = state.accounts.hamt(&store).unwrap();
+            let mut account = accounts.get(&address).unwrap().unwrap();
+            account.capacity_used = 1000;
+            accounts.set(&address, account).unwrap();
+        }
+
+        // First batch (should process 5 accounts)
+        assert!(state.accounts.get_debit_start_address().is_none());
+        let (deletes1, _) = state
+            .debit_accounts(&store, &config, current_epoch + 1)
+            .unwrap();
+        assert!(deletes1.is_empty()); // No expired blobs
+        assert!(state.accounts.get_debit_start_address().is_some());
+
+        // Second batch (should process remaining 5 accounts and clear state)
+        let (deletes2, _) = state
+            .debit_accounts(&store, &config, current_epoch + 1)
+            .unwrap();
+        assert!(deletes2.is_empty());
+        assert!(state.accounts.get_debit_start_address().is_none()); // The state should be cleared after all accounts processed
+
+        // Verify all accounts were processed
+        let reader = state.accounts.hamt(&store).unwrap();
+        reader
+            .for_each(|_, account| {
+                assert_eq!(account.last_debit_epoch, current_epoch + 1);
+                Ok(())
+            })
+            .unwrap();
+    }
+
+    #[test]
+    fn test_multiple_debit_cycles() {
+        let config = RecallConfig {
+            account_debit_batch_size: 5, // Process 5 accounts at a time (10 accounts total)
+            ..Default::default()
+        };
+
+        let store = MemoryBlockstore::default();
+        let mut state = State::new(&store).unwrap();
+        let current_epoch = ChainEpoch::from(1);
+
+        // Create accounts
+        for i in 0..10 {
+            let address = Address::new_id(1000 + i);
+            let token_amount = TokenAmount::from_whole(10);
+            state
+                .buy_credit(
+                    &store,
+                    &config,
+                    address,
+                    token_amount.clone(),
+                    current_epoch,
+                )
+                .unwrap();
+
+            let mut accounts = state.accounts.hamt(&store).unwrap();
+            let mut account = accounts.get(&address).unwrap().unwrap();
+            account.capacity_used = 1000;
+            accounts.set(&address, account).unwrap();
+        }
+
+        // First cycle
+        let (deletes1, _) = state
+            .debit_accounts(&store, &config, current_epoch + 1)
+            .unwrap();
+        assert!(deletes1.is_empty());
+        assert!(state.accounts.get_debit_start_address().is_some());
+
+        let (deletes2, _) = state
+            .debit_accounts(&store, &config, current_epoch + 1)
+            .unwrap();
+        assert!(deletes2.is_empty());
+        assert!(state.accounts.get_debit_start_address().is_none()); // First cycle complete
+
+        // Second cycle
+        let (deletes3, _) = state
+            .debit_accounts(&store, &config, current_epoch + 2)
+            .unwrap();
+        assert!(deletes3.is_empty());
+        assert!(state.accounts.get_debit_start_address().is_some());
+
+        let (deletes4, _) = state
+            .debit_accounts(&store, &config, current_epoch + 2)
+            .unwrap();
+        assert!(deletes4.is_empty());
+        assert!(state.accounts.get_debit_start_address().is_none()); // Second cycle complete
     }
 
     #[test]
@@ -1519,18 +1481,18 @@ mod tests {
         let config = RecallConfig::default();
         let store = MemoryBlockstore::default();
         let mut state = State::new(&store).unwrap();
-        let origin = new_address();
+        let caller = new_address();
         let current_epoch = ChainEpoch::from(1);
         let token_amount = TokenAmount::from_whole(10);
         state
-            .buy_credit(&store, &config, origin, token_amount.clone(), current_epoch)
+            .buy_credit(&store, &config, caller, token_amount.clone(), current_epoch)
             .unwrap();
         add_blob_refund(
             &config,
             &store,
             state,
-            origin,
-            origin,
+            caller,
+            None,
             current_epoch,
             token_amount,
             false,
@@ -1543,15 +1505,15 @@ mod tests {
         let config = RecallConfig::default();
         let store = MemoryBlockstore::default();
         let mut state = State::new(&store).unwrap();
-        let origin = new_address();
-        let subscriber = new_address();
+        let caller = new_address();
+        let sponsor = new_address();
         let current_epoch = ChainEpoch::from(1);
         let token_amount = TokenAmount::from_whole(10);
         state
             .buy_credit(
                 &store,
                 &config,
-                subscriber,
+                sponsor,
                 token_amount.clone(),
                 current_epoch,
             )
@@ -1560,20 +1522,18 @@ mod tests {
             .approve_credit(
                 &config,
                 &store,
-                subscriber,
-                origin,
+                sponsor,
+                caller,
+                DelegationOptions::default(),
                 current_epoch,
-                None,
-                None,
-                None,
             )
             .unwrap();
         add_blob_refund(
             &config,
             &store,
             state,
-            origin,
-            subscriber,
+            caller,
+            Some(sponsor),
             current_epoch,
             token_amount,
             true,
@@ -1585,12 +1545,13 @@ mod tests {
         config: &RecallConfig,
         store: &BS,
         mut state: State,
-        origin: Address,
-        subscriber: Address,
+        caller: Address,
+        sponsor: Option<Address>,
         current_epoch: ChainEpoch,
         token_amount: TokenAmount,
         using_approval: bool,
     ) {
+        let subscriber = sponsor.unwrap_or(caller);
         let token_credit_rate = BigInt::from(1_000_000_000_000_000_000u64);
         let mut credit_amount = token_amount.clone() * &config.token_credit_rate;
 
@@ -1600,18 +1561,20 @@ mod tests {
         let id1 = SubscriptionId::default();
         let source = new_pk();
         let res = state.add_blob(
-            config,
             &store,
-            origin,
-            subscriber,
-            add1_epoch,
-            hash1,
-            new_metadata_hash(),
-            id1.clone(),
-            size1,
-            Some(config.blob_min_ttl),
-            source,
-            TokenAmount::zero(),
+            config,
+            caller,
+            sponsor,
+            AddBlobStateParams {
+                hash: hash1,
+                metadata_hash: new_metadata_hash(),
+                id: id1.clone(),
+                size: size1,
+                ttl: Some(config.blob_min_ttl),
+                source,
+                epoch: add1_epoch,
+                token_amount: TokenAmount::zero(),
+            },
         );
         assert!(res.is_ok());
 
@@ -1636,8 +1599,8 @@ mod tests {
 
         assert!(state
             .set_account_status(
-                config,
                 &store,
+                config,
                 subscriber,
                 TtlStatus::Extended,
                 current_epoch
@@ -1650,18 +1613,20 @@ mod tests {
         let id2 = SubscriptionId::new("foo").unwrap();
         let source = new_pk();
         let res = state.add_blob(
-            config,
             &store,
-            origin,
-            subscriber,
-            add2_epoch,
-            hash2,
-            new_metadata_hash(),
-            id2.clone(),
-            size2,
-            Some(config.blob_min_ttl),
-            source,
-            TokenAmount::zero(),
+            config,
+            caller,
+            sponsor,
+            AddBlobStateParams {
+                hash: hash2,
+                metadata_hash: new_metadata_hash(),
+                id: id2.clone(),
+                size: size2,
+                ttl: Some(config.blob_min_ttl),
+                source,
+                epoch: add2_epoch,
+                token_amount: TokenAmount::zero(),
+            },
         );
         assert!(res.is_ok());
 
@@ -1705,18 +1670,20 @@ mod tests {
         let id1 = SubscriptionId::default();
         let source = new_pk();
         let res = state.add_blob(
-            config,
             &store,
-            origin,
-            subscriber,
-            add3_epoch,
-            hash1,
-            new_metadata_hash(),
-            id1.clone(),
-            size1,
-            Some(config.blob_min_ttl),
-            source,
-            TokenAmount::zero(),
+            config,
+            caller,
+            sponsor,
+            AddBlobStateParams {
+                hash: hash1,
+                metadata_hash: new_metadata_hash(),
+                id: id1.clone(),
+                size: size1,
+                ttl: Some(config.blob_min_ttl),
+                source,
+                epoch: add3_epoch,
+                token_amount: TokenAmount::zero(),
+            },
         );
         assert!(res.is_ok());
 
@@ -1758,7 +1725,7 @@ mod tests {
 
         // Check approval
         if using_approval {
-            check_approval_used(&state, store, origin, subscriber);
+            check_approval_used(&state, store, caller, subscriber);
         }
     }
 
@@ -1768,18 +1735,18 @@ mod tests {
         let config = RecallConfig::default();
         let store = MemoryBlockstore::default();
         let mut state = State::new(&store).unwrap();
-        let origin = new_address();
+        let caller = new_address();
         let current_epoch = ChainEpoch::from(1);
         let token_amount = TokenAmount::from_whole(10);
         state
-            .buy_credit(&store, &config, origin, token_amount.clone(), current_epoch)
+            .buy_credit(&store, &config, caller, token_amount.clone(), current_epoch)
             .unwrap();
         add_blob_same_hash_same_account(
             &config,
             &store,
             state,
-            origin,
-            origin,
+            caller,
+            None,
             current_epoch,
             token_amount,
             false,
@@ -1792,15 +1759,15 @@ mod tests {
         let config = RecallConfig::default();
         let store = MemoryBlockstore::default();
         let mut state = State::new(&store).unwrap();
-        let origin = new_address();
-        let subscriber = new_address();
+        let caller = new_address();
+        let sponsor = new_address();
         let current_epoch = ChainEpoch::from(1);
         let token_amount = TokenAmount::from_whole(10);
         state
             .buy_credit(
                 &store,
                 &config,
-                subscriber,
+                sponsor,
                 token_amount.clone(),
                 current_epoch,
             )
@@ -1809,20 +1776,18 @@ mod tests {
             .approve_credit(
                 &config,
                 &store,
-                subscriber,
-                origin,
+                sponsor,
+                caller,
+                DelegationOptions::default(),
                 current_epoch,
-                None,
-                None,
-                None,
             )
             .unwrap();
         add_blob_same_hash_same_account(
             &config,
             &store,
             state,
-            origin,
-            subscriber,
+            caller,
+            Some(sponsor),
             current_epoch,
             token_amount,
             true,
@@ -1834,19 +1799,20 @@ mod tests {
         config: &RecallConfig,
         store: &BS,
         mut state: State,
-        origin: Address,
-        subscriber: Address,
+        caller: Address,
+        sponsor: Option<Address>,
         current_epoch: ChainEpoch,
         token_amount: TokenAmount,
         using_approval: bool,
     ) {
+        let subscriber = sponsor.unwrap_or(caller);
         let mut credit_amount =
             Credit::from_atto(token_amount.atto().clone()) * &config.token_credit_rate;
 
         assert!(state
             .set_account_status(
-                config,
                 &store,
+                config,
                 subscriber,
                 TtlStatus::Extended,
                 current_epoch
@@ -1859,18 +1825,20 @@ mod tests {
         let id1 = SubscriptionId::default();
         let source = new_pk();
         let res = state.add_blob(
-            config,
             &store,
-            origin,
-            subscriber,
-            add1_epoch,
-            hash,
-            new_metadata_hash(),
-            id1.clone(),
-            size,
-            Some(config.blob_min_ttl),
-            source,
-            TokenAmount::zero(),
+            config,
+            caller,
+            sponsor,
+            AddBlobStateParams {
+                hash,
+                metadata_hash: new_metadata_hash(),
+                id: id1.clone(),
+                size,
+                ttl: Some(config.blob_min_ttl),
+                source,
+                epoch: add1_epoch,
+                token_amount: TokenAmount::zero(),
+            },
         );
         assert!(res.is_ok());
         let (sub, _) = res.unwrap();
@@ -1878,8 +1846,8 @@ mod tests {
         assert_eq!(sub.expiry, add1_epoch + config.blob_min_ttl);
         assert_eq!(sub.source, source);
         assert!(!sub.failed);
-        if subscriber != origin {
-            assert_eq!(sub.delegate, Some(origin));
+        if subscriber != caller {
+            assert_eq!(sub.delegate, Some(caller));
         }
 
         // Check stats
@@ -1938,13 +1906,14 @@ mod tests {
         // Finalize as resolved
         let finalize_epoch = ChainEpoch::from(11);
         let res = state.finalize_blob(
-            config,
             &store,
             subscriber,
-            finalize_epoch,
-            hash,
-            id1.clone(),
-            BlobStatus::Resolved,
+            FinalizeBlobStateParams {
+                hash,
+                id: id1.clone(),
+                status: BlobStatus::Resolved,
+                epoch: finalize_epoch,
+            },
         );
         assert!(res.is_ok());
         assert_eq!(
@@ -1966,18 +1935,20 @@ mod tests {
         let add2_epoch = ChainEpoch::from(21);
         let source = new_pk();
         let res = state.add_blob(
-            config,
             &store,
-            origin,
-            subscriber,
-            add2_epoch,
-            hash,
-            new_metadata_hash(),
-            id1.clone(),
-            size,
-            Some(config.blob_min_ttl),
-            source,
-            TokenAmount::zero(),
+            config,
+            caller,
+            sponsor,
+            AddBlobStateParams {
+                hash,
+                metadata_hash: new_metadata_hash(),
+                id: id1.clone(),
+                size,
+                ttl: Some(config.blob_min_ttl),
+                source,
+                epoch: add2_epoch,
+                token_amount: TokenAmount::zero(),
+            },
         );
         assert!(res.is_ok());
         let (sub, _) = res.unwrap();
@@ -1985,8 +1956,8 @@ mod tests {
         assert_eq!(sub.expiry, add2_epoch + config.blob_min_ttl);
         assert_eq!(sub.source, source);
         assert!(!sub.failed);
-        if subscriber != origin {
-            assert_eq!(sub.delegate, Some(origin));
+        if subscriber != caller {
+            assert_eq!(sub.delegate, Some(caller));
         }
 
         // Check the blob status
@@ -2028,18 +1999,20 @@ mod tests {
         let id2 = SubscriptionId::new("foo").unwrap();
         let source = new_pk();
         let res = state.add_blob(
-            config,
             &store,
-            origin,
-            subscriber,
-            add3_epoch,
-            hash,
-            new_metadata_hash(),
-            id2.clone(),
-            size,
-            Some(config.blob_min_ttl),
-            source,
-            TokenAmount::zero(),
+            config,
+            caller,
+            sponsor,
+            AddBlobStateParams {
+                hash,
+                metadata_hash: new_metadata_hash(),
+                id: id2.clone(),
+                size,
+                ttl: Some(config.blob_min_ttl),
+                source,
+                epoch: add3_epoch,
+                token_amount: TokenAmount::zero(),
+            },
         );
         assert!(res.is_ok());
         let (sub, _) = res.unwrap();
@@ -2047,8 +2020,8 @@ mod tests {
         assert_eq!(sub.expiry, add3_epoch + config.blob_min_ttl);
         assert_eq!(sub.source, source);
         assert!(!sub.failed);
-        if subscriber != origin {
-            assert_eq!(sub.delegate, Some(origin));
+        if subscriber != caller {
+            assert_eq!(sub.delegate, Some(caller));
         }
 
         // Check stats
@@ -2095,14 +2068,7 @@ mod tests {
 
         // Debit all accounts
         let debit_epoch = ChainEpoch::from(41);
-        let deletes_from_disc = state
-            .debit_accounts(
-                &store,
-                debit_epoch,
-                config.blob_delete_batch_size,
-                config.account_debit_batch_size,
-            )
-            .unwrap();
+        let (deletes_from_disc, _) = state.debit_accounts(&store, config, debit_epoch).unwrap();
         assert!(deletes_from_disc.is_empty());
 
         // Check the account balance
@@ -2122,7 +2088,16 @@ mod tests {
 
         // Delete the default subscription ID
         let delete_epoch = ChainEpoch::from(51);
-        let res = state.delete_blob(&store, origin, subscriber, delete_epoch, hash, id1.clone());
+        let res = state.delete_blob(
+            &store,
+            caller,
+            sponsor,
+            DeleteBlobStateParams {
+                hash,
+                id: id1.clone(),
+                epoch: delete_epoch,
+            },
+        );
 
         assert!(res.is_ok());
         let (delete_from_disk, deleted_size) = res.unwrap();
@@ -2171,7 +2146,7 @@ mod tests {
 
         // Check approval
         if using_approval {
-            check_approval_used(&state, store, origin, subscriber);
+            check_approval_used(&state, store, caller, subscriber);
         }
     }
 
@@ -2181,41 +2156,44 @@ mod tests {
         let config = RecallConfig::default();
         let store = MemoryBlockstore::default();
         let mut state = State::new(&store).unwrap();
-        let subscriber = new_address();
+        let caller = new_address();
         let current_epoch = ChainEpoch::from(1);
         let amount = TokenAmount::from_whole(10);
         state
-            .buy_credit(&store, &config, subscriber, amount.clone(), current_epoch)
+            .buy_credit(&store, &config, caller, amount.clone(), current_epoch)
             .unwrap();
 
         // Add a blob
         let (hash, size) = new_hash(1024);
         let res = state.add_blob(
-            &config,
             &store,
-            subscriber,
-            subscriber,
-            current_epoch,
-            hash,
-            new_metadata_hash(),
-            SubscriptionId::default(),
-            size,
+            &config,
+            caller,
             None,
-            new_pk(),
-            TokenAmount::zero(),
+            AddBlobStateParams {
+                hash,
+                metadata_hash: new_metadata_hash(),
+                id: SubscriptionId::default(),
+                size,
+                ttl: None,
+                source: new_pk(),
+                epoch: current_epoch,
+                token_amount: TokenAmount::zero(),
+            },
         );
         assert!(res.is_ok());
 
         // Finalize as pending
         let finalize_epoch = ChainEpoch::from(11);
         let res = state.finalize_blob(
-            &config,
             &store,
-            subscriber,
-            finalize_epoch,
-            hash,
-            SubscriptionId::default(),
-            BlobStatus::Pending,
+            caller,
+            FinalizeBlobStateParams {
+                hash,
+                id: SubscriptionId::default(),
+                status: BlobStatus::Pending,
+                epoch: finalize_epoch,
+            },
         );
         assert!(res.is_err());
         assert_eq!(
@@ -2230,36 +2208,33 @@ mod tests {
         let config = RecallConfig::default();
         let store = MemoryBlockstore::default();
         let mut state = State::new(&store).unwrap();
-        let subscriber = new_address();
+        let caller = new_address();
         let current_epoch = ChainEpoch::from(1);
         let amount = TokenAmount::from_whole(1000000);
         state
-            .buy_credit(&store, &config, subscriber, amount.clone(), current_epoch)
+            .buy_credit(&store, &config, caller, amount.clone(), current_epoch)
             .unwrap();
 
-        let res = state.set_account_status(
-            &config,
-            &store,
-            subscriber,
-            TtlStatus::Extended,
-            current_epoch,
-        );
+        let res =
+            state.set_account_status(&store, &config, caller, TtlStatus::Extended, current_epoch);
         assert!(res.is_ok());
 
         let (hash, size) = new_hash(1024);
         let res = state.add_blob(
-            &config,
             &store,
-            subscriber,
-            subscriber,
-            current_epoch,
-            hash,
-            new_metadata_hash(),
-            SubscriptionId::default(),
-            size,
-            Some(ChainEpoch::MAX),
-            new_pk(),
-            TokenAmount::zero(),
+            &config,
+            caller,
+            None,
+            AddBlobStateParams {
+                hash,
+                metadata_hash: new_metadata_hash(),
+                id: SubscriptionId::default(),
+                size,
+                ttl: Some(ChainEpoch::MAX),
+                source: new_pk(),
+                epoch: current_epoch,
+                token_amount: TokenAmount::zero(),
+            },
         );
         assert!(res.is_ok());
         let (sub, _) = res.unwrap();
@@ -2272,53 +2247,55 @@ mod tests {
         let config = RecallConfig::default();
         let store = MemoryBlockstore::default();
         let mut state = State::new(&store).unwrap();
-        let subscriber = new_address();
+        let caller = new_address();
         let current_epoch = ChainEpoch::from(1);
         let amount = TokenAmount::from_whole(10);
         state
-            .buy_credit(&store, &config, subscriber, amount.clone(), current_epoch)
+            .buy_credit(&store, &config, caller, amount.clone(), current_epoch)
             .unwrap();
 
         // Add a blob
         let (hash, size) = new_hash(1024);
         let source = new_pk();
         let res = state.add_blob(
-            &config,
             &store,
-            subscriber,
-            subscriber,
-            current_epoch,
-            hash,
-            new_metadata_hash(),
-            SubscriptionId::default(),
-            size,
+            &config,
+            caller,
             None,
-            source,
-            TokenAmount::zero(),
+            AddBlobStateParams {
+                hash,
+                metadata_hash: new_metadata_hash(),
+                id: SubscriptionId::default(),
+                size,
+                ttl: None,
+                source,
+                epoch: current_epoch,
+                token_amount: TokenAmount::zero(),
+            },
         );
         assert!(res.is_ok());
 
         // Set to status pending
-        let res =
-            state.set_blob_pending(&store, subscriber, hash, SubscriptionId::default(), source);
+        let res = state.set_blob_pending(&store, caller, hash, SubscriptionId::default(), source);
         assert!(res.is_ok());
 
         // Finalize as resolved
         let finalize_epoch = ChainEpoch::from(11);
         let res = state.finalize_blob(
-            &config,
             &store,
-            subscriber,
-            finalize_epoch,
-            hash,
-            SubscriptionId::default(),
-            BlobStatus::Resolved,
+            caller,
+            FinalizeBlobStateParams {
+                hash,
+                id: SubscriptionId::default(),
+                status: BlobStatus::Resolved,
+                epoch: finalize_epoch,
+            },
         );
         assert!(res.is_ok());
 
         // Check status
         let status = state
-            .get_blob_status(&store, subscriber, hash, SubscriptionId::default())
+            .get_blob_status(&store, caller, hash, SubscriptionId::default())
             .unwrap()
             .unwrap();
         assert!(matches!(status, BlobStatus::Resolved));
@@ -2335,11 +2312,11 @@ mod tests {
         let config = RecallConfig::default();
         let store = MemoryBlockstore::default();
         let mut state = State::new(&store).unwrap();
-        let subscriber = new_address();
+        let caller = new_address();
         let current_epoch = ChainEpoch::from(1);
         let amount = TokenAmount::from_whole(10);
         state
-            .buy_credit(&store, &config, subscriber, amount.clone(), current_epoch)
+            .buy_credit(&store, &config, caller, amount.clone(), current_epoch)
             .unwrap();
         let credit_amount = amount * &config.token_credit_rate;
 
@@ -2348,48 +2325,50 @@ mod tests {
         let (hash, size) = new_hash(1024);
         let source = new_pk();
         let res = state.add_blob(
-            &config,
             &store,
-            subscriber,
-            subscriber,
-            add_epoch,
-            hash,
-            new_metadata_hash(),
-            SubscriptionId::default(),
-            size,
+            &config,
+            caller,
             None,
-            source,
-            TokenAmount::zero(),
+            AddBlobStateParams {
+                hash,
+                metadata_hash: new_metadata_hash(),
+                id: SubscriptionId::default(),
+                size,
+                ttl: None,
+                source,
+                epoch: add_epoch,
+                token_amount: TokenAmount::zero(),
+            },
         );
         assert!(res.is_ok());
 
         // Set to status pending
-        let res =
-            state.set_blob_pending(&store, subscriber, hash, SubscriptionId::default(), source);
+        let res = state.set_blob_pending(&store, caller, hash, SubscriptionId::default(), source);
         assert!(res.is_ok());
 
         // Finalize as failed
         let finalize_epoch = ChainEpoch::from(11);
         let res = state.finalize_blob(
-            &config,
             &store,
-            subscriber,
-            finalize_epoch,
-            hash,
-            SubscriptionId::default(),
-            BlobStatus::Failed,
+            caller,
+            FinalizeBlobStateParams {
+                hash,
+                id: SubscriptionId::default(),
+                status: BlobStatus::Failed,
+                epoch: finalize_epoch,
+            },
         );
         assert!(res.is_ok());
 
         // Check status
         let status = state
-            .get_blob_status(&store, subscriber, hash, SubscriptionId::default())
+            .get_blob_status(&store, caller, hash, SubscriptionId::default())
             .unwrap()
             .unwrap();
         assert!(matches!(status, BlobStatus::Failed));
 
         // Check the account balance
-        let account = state.get_account(&store, subscriber).unwrap().unwrap();
+        let account = state.get_account(&store, caller).unwrap().unwrap();
         assert_eq!(account.last_debit_epoch, add_epoch);
         assert_eq!(account.credit_committed, Credit::from_whole(0)); // credit was released
         assert_eq!(account.credit_free, credit_amount);
@@ -2412,22 +2391,16 @@ mod tests {
         let config = RecallConfig::default();
         let store = MemoryBlockstore::default();
         let mut state = State::new(&store).unwrap();
-        let subscriber = new_address();
+        let caller = new_address();
         let current_epoch = ChainEpoch::from(1);
         let amount = TokenAmount::from_whole(10);
         state
-            .buy_credit(&store, &config, subscriber, amount.clone(), current_epoch)
+            .buy_credit(&store, &config, caller, amount.clone(), current_epoch)
             .unwrap();
         let mut credit_amount = amount.clone() * &config.token_credit_rate;
 
         assert!(state
-            .set_account_status(
-                &config,
-                &store,
-                subscriber,
-                TtlStatus::Extended,
-                current_epoch
-            )
+            .set_account_status(&store, &config, caller, TtlStatus::Extended, current_epoch)
             .is_ok());
 
         // Add a blob
@@ -2435,23 +2408,25 @@ mod tests {
         let (hash, size) = new_hash(1024);
         let source = new_pk();
         let res = state.add_blob(
-            &config,
             &store,
-            subscriber,
-            subscriber,
-            add_epoch,
-            hash,
-            new_metadata_hash(),
-            SubscriptionId::default(),
-            size,
-            Some(config.blob_min_ttl),
-            source,
-            TokenAmount::zero(),
+            &config,
+            caller,
+            None,
+            AddBlobStateParams {
+                hash,
+                metadata_hash: new_metadata_hash(),
+                id: SubscriptionId::default(),
+                size,
+                ttl: Some(config.blob_min_ttl),
+                source,
+                epoch: add_epoch,
+                token_amount: TokenAmount::zero(),
+            },
         );
         assert!(res.is_ok());
 
         // Check the account balance
-        let account = state.get_account(&store, subscriber).unwrap().unwrap();
+        let account = state.get_account(&store, caller).unwrap().unwrap();
         assert_eq!(account.last_debit_epoch, add_epoch);
         assert_eq!(
             account.credit_committed,
@@ -2468,18 +2443,11 @@ mod tests {
 
         // Debit accounts to trigger a refund when we fail below
         let debit_epoch = ChainEpoch::from(11);
-        let deletes_from_disc = state
-            .debit_accounts(
-                &store,
-                debit_epoch,
-                config.blob_delete_batch_size,
-                config.account_debit_batch_size,
-            )
-            .unwrap();
+        let (deletes_from_disc, _) = state.debit_accounts(&store, &config, debit_epoch).unwrap();
         assert!(deletes_from_disc.is_empty());
 
         // Check the account balance
-        let account = state.get_account(&store, subscriber).unwrap().unwrap();
+        let account = state.get_account(&store, caller).unwrap().unwrap();
         assert_eq!(account.last_debit_epoch, debit_epoch);
         assert_eq!(
             account.credit_committed,
@@ -2497,32 +2465,32 @@ mod tests {
         assert_eq!(state.capacity_used, account.capacity_used);
 
         // Set to status pending
-        let res =
-            state.set_blob_pending(&store, subscriber, hash, SubscriptionId::default(), source);
+        let res = state.set_blob_pending(&store, caller, hash, SubscriptionId::default(), source);
         assert!(res.is_ok());
 
         // Finalize as failed
         let finalize_epoch = ChainEpoch::from(21);
         let res = state.finalize_blob(
-            &config,
             &store,
-            subscriber,
-            finalize_epoch,
-            hash,
-            SubscriptionId::default(),
-            BlobStatus::Failed,
+            caller,
+            FinalizeBlobStateParams {
+                hash,
+                id: SubscriptionId::default(),
+                status: BlobStatus::Failed,
+                epoch: finalize_epoch,
+            },
         );
         assert!(res.is_ok());
 
         // Check status
         let status = state
-            .get_blob_status(&store, subscriber, hash, SubscriptionId::default())
+            .get_blob_status(&store, caller, hash, SubscriptionId::default())
             .unwrap()
             .unwrap();
         assert!(matches!(status, BlobStatus::Failed));
 
         // Check the account balance
-        let account = state.get_account(&store, subscriber).unwrap().unwrap();
+        let account = state.get_account(&store, caller).unwrap().unwrap();
         assert_eq!(account.last_debit_epoch, debit_epoch);
         assert_eq!(account.credit_committed, Credit::from_whole(0)); // credit was released
         assert_eq!(
@@ -2548,18 +2516,18 @@ mod tests {
         let config = RecallConfig::default();
         let store = MemoryBlockstore::default();
         let mut state = State::new(&store).unwrap();
-        let origin = new_address();
+        let caller = new_address();
         let current_epoch = ChainEpoch::from(1);
         let token_amount = TokenAmount::from_whole(10);
         state
-            .buy_credit(&store, &config, origin, token_amount.clone(), current_epoch)
+            .buy_credit(&store, &config, caller, token_amount.clone(), current_epoch)
             .unwrap();
         delete_blob_refund(
             &config,
             &store,
             state,
-            origin,
-            origin,
+            caller,
+            None,
             current_epoch,
             token_amount,
             false,
@@ -2572,15 +2540,15 @@ mod tests {
         let config = RecallConfig::default();
         let store = MemoryBlockstore::default();
         let mut state = State::new(&store).unwrap();
-        let origin = new_address();
-        let subscriber = new_address();
+        let caller = new_address();
+        let sponsor = new_address();
         let current_epoch = ChainEpoch::from(1);
         let token_amount = TokenAmount::from_whole(10);
         state
             .buy_credit(
                 &store,
                 &config,
-                subscriber,
+                sponsor,
                 token_amount.clone(),
                 current_epoch,
             )
@@ -2589,20 +2557,18 @@ mod tests {
             .approve_credit(
                 &config,
                 &store,
-                subscriber,
-                origin,
+                sponsor,
+                caller,
+                DelegationOptions::default(),
                 current_epoch,
-                None,
-                None,
-                None,
             )
             .unwrap();
         delete_blob_refund(
             &config,
             &store,
             state,
-            origin,
-            subscriber,
+            caller,
+            Some(sponsor),
             current_epoch,
             token_amount,
             true,
@@ -2614,12 +2580,13 @@ mod tests {
         config: &RecallConfig,
         store: &BS,
         mut state: State,
-        origin: Address,
-        subscriber: Address,
+        caller: Address,
+        sponsor: Option<Address>,
         current_epoch: ChainEpoch,
         token_amount: TokenAmount,
         using_approval: bool,
     ) {
+        let subscriber = sponsor.unwrap_or(caller);
         let mut credit_amount = token_amount * &config.token_credit_rate;
 
         // Add a blob
@@ -2627,18 +2594,20 @@ mod tests {
         let (hash1, size1) = new_hash(1024);
         let source1 = new_pk();
         let res = state.add_blob(
-            config,
             &store,
-            origin,
-            subscriber,
-            add1_epoch,
-            hash1,
-            new_metadata_hash(),
-            SubscriptionId::default(),
-            size1,
-            Some(config.blob_min_ttl),
-            source1,
-            TokenAmount::zero(),
+            config,
+            caller,
+            sponsor,
+            AddBlobStateParams {
+                hash: hash1,
+                metadata_hash: new_metadata_hash(),
+                id: SubscriptionId::default(),
+                size: size1,
+                ttl: Some(config.blob_min_ttl),
+                source: source1,
+                epoch: add1_epoch,
+                token_amount: TokenAmount::zero(),
+            },
         );
         assert!(res.is_ok());
 
@@ -2653,13 +2622,14 @@ mod tests {
         assert!(res.is_ok());
         let finalize_epoch = ChainEpoch::from(current_epoch + 1);
         let res = state.finalize_blob(
-            config,
             &store,
             subscriber,
-            finalize_epoch,
-            hash1,
-            SubscriptionId::default(),
-            BlobStatus::Resolved,
+            FinalizeBlobStateParams {
+                hash: hash1,
+                id: SubscriptionId::default(),
+                status: BlobStatus::Resolved,
+                epoch: finalize_epoch,
+            },
         );
         assert!(res.is_ok());
 
@@ -2687,18 +2657,20 @@ mod tests {
         let add2_epoch = ChainEpoch::from(config.blob_min_ttl + 10);
         let (hash2, size2) = new_hash(2048);
         let res = state.add_blob(
-            config,
             &store,
-            origin,
-            subscriber,
-            add2_epoch,
-            hash2,
-            new_metadata_hash(),
-            SubscriptionId::default(),
-            size2,
-            Some(config.blob_min_ttl),
-            new_pk(),
-            TokenAmount::zero(),
+            config,
+            caller,
+            sponsor,
+            AddBlobStateParams {
+                hash: hash2,
+                metadata_hash: new_metadata_hash(),
+                id: SubscriptionId::default(),
+                size: size2,
+                ttl: Some(config.blob_min_ttl),
+                source: new_pk(),
+                epoch: add2_epoch,
+                token_amount: TokenAmount::zero(),
+            },
         );
         assert!(res.is_ok());
 
@@ -2728,11 +2700,13 @@ mod tests {
         let (delete_from_disc, deleted_size) = state
             .delete_blob(
                 &store,
-                origin,
-                subscriber,
-                delete_epoch,
-                hash1,
-                SubscriptionId::default(),
+                caller,
+                sponsor,
+                DeleteBlobStateParams {
+                    hash: hash1,
+                    id: SubscriptionId::default(),
+                    epoch: delete_epoch,
+                },
             )
             .unwrap();
         assert!(delete_from_disc);
@@ -2771,7 +2745,7 @@ mod tests {
 
         // Check approval
         if using_approval {
-            check_approval_used(&state, store, origin, subscriber);
+            check_approval_used(&state, store, caller, subscriber);
         }
     }
 
@@ -2857,18 +2831,18 @@ mod tests {
             let config = RecallConfig::default();
             let store = MemoryBlockstore::default();
             let mut state = State::new(&store).unwrap();
-            let subscriber = new_address();
+            let caller = new_address();
             let current_epoch = ChainEpoch::from(1);
             let amount = TokenAmount::from_whole(10);
 
             state
-                .buy_credit(&store, &config, subscriber, amount.clone(), current_epoch)
+                .buy_credit(&store, &config, caller, amount.clone(), current_epoch)
                 .unwrap();
             state
                 .set_account_status(
-                    &config,
                     &store,
-                    subscriber,
+                    &config,
+                    caller,
                     tc.account_ttl_status,
                     current_epoch,
                 )
@@ -2876,23 +2850,23 @@ mod tests {
 
             let (hash, size) = new_hash(1024);
             let res = state.add_blob(
-                &config,
                 &store,
-                subscriber,
-                subscriber,
-                current_epoch,
-                hash,
-                new_metadata_hash(),
-                SubscriptionId::default(),
-                size,
-                tc.blob_ttl,
-                new_pk(),
-                TokenAmount::zero(),
+                &config,
+                caller,
+                None,
+                AddBlobStateParams {
+                    hash,
+                    metadata_hash: new_metadata_hash(),
+                    id: SubscriptionId::default(),
+                    size,
+                    ttl: tc.blob_ttl,
+                    source: new_pk(),
+                    epoch: current_epoch,
+                    token_amount: TokenAmount::zero(),
+                },
             );
 
-            let account_ttl = state
-                .get_account_max_ttl(&config, &store, subscriber)
-                .unwrap();
+            let account_ttl = state.get_account_max_ttl(&config, &store, caller).unwrap();
             assert_eq!(
                 account_ttl, tc.expected_account_ttl,
                 "Test case '{}' has unexpected account TTL (expected {}, got {})",
@@ -2994,16 +2968,16 @@ mod tests {
         for tc in test_cases {
             let store = MemoryBlockstore::default();
             let mut state = State::new(&store).unwrap();
-            let account = new_address();
+            let address = new_address();
             let current_epoch = ChainEpoch::from(1);
 
             // Initialize the account if needed
             if tc.initial_ttl_status.is_some() {
                 state
                     .set_account_status(
-                        &config,
                         &store,
-                        account,
+                        &config,
+                        address,
                         tc.initial_ttl_status.unwrap(),
                         current_epoch,
                     )
@@ -3012,9 +2986,9 @@ mod tests {
 
             // Change TTL status
             let res = state.set_account_status(
-                &config,
                 &store,
-                account,
+                &config,
+                address,
                 tc.new_ttl_status,
                 current_epoch,
             );
@@ -3025,7 +2999,7 @@ mod tests {
             );
 
             // Verify max TTL
-            let max_ttl = state.get_account_max_ttl(&config, &store, account).unwrap();
+            let max_ttl = state.get_account_max_ttl(&config, &store, address).unwrap();
             assert_eq!(
                 max_ttl, tc.expected_ttl,
                 "Test case '{}' failed: expected max TTL {}, got {}",
@@ -3078,18 +3052,18 @@ mod tests {
         for tc in test_cases {
             let store = MemoryBlockstore::default();
             let mut state = State::new(&store).unwrap();
-            let addr = new_address();
+            let caller = new_address();
             let current_epoch = ChainEpoch::from(1);
 
             // Setup account with credits and TTL status
             let token = TokenAmount::from_whole(1000);
             state
-                .buy_credit(&store, &config, addr, token, current_epoch)
+                .buy_credit(&store, &config, caller, token, current_epoch)
                 .unwrap();
 
             // Set extended TTL status to allow adding all blobs
             state
-                .set_account_status(&config, &store, addr, TtlStatus::Extended, current_epoch)
+                .set_account_status(&store, &config, caller, TtlStatus::Extended, current_epoch)
                 .unwrap();
 
             // Add blobs
@@ -3106,32 +3080,35 @@ mod tests {
 
                 state
                     .add_blob(
-                        &config,
                         &store,
-                        addr,
-                        addr,
-                        current_epoch,
-                        hash,
-                        new_metadata_hash(),
-                        id.clone(),
-                        size,
-                        *ttl,
-                        source,
-                        TokenAmount::zero(),
+                        &config,
+                        caller,
+                        None,
+                        AddBlobStateParams {
+                            hash,
+                            metadata_hash: new_metadata_hash(),
+                            id: id.clone(),
+                            size,
+                            ttl: *ttl,
+                            source,
+                            epoch: current_epoch,
+                            token_amount: TokenAmount::zero(),
+                        },
                     )
                     .unwrap();
                 state
-                    .set_blob_pending(&store, addr, hash, id.clone(), source)
+                    .set_blob_pending(&store, caller, hash, id.clone(), source)
                     .unwrap();
                 state
                     .finalize_blob(
-                        &config,
                         &store,
-                        addr,
-                        current_epoch,
-                        hash,
-                        id,
-                        BlobStatus::Resolved,
+                        caller,
+                        FinalizeBlobStateParams {
+                            hash,
+                            id,
+                            status: BlobStatus::Resolved,
+                            epoch: current_epoch,
+                        },
                     )
                     .unwrap();
 
@@ -3142,7 +3119,7 @@ mod tests {
                     Credit::from_whole(state.get_storage_cost(tc.expected_ttls[i], &size));
             }
 
-            let account = state.get_account(&store, addr).unwrap().unwrap();
+            let account = state.get_account(&store, caller).unwrap().unwrap();
             assert_eq!(
                 account.credit_committed, total_cost,
                 "Test case '{}' failed: committed credits don't match",
@@ -3150,11 +3127,11 @@ mod tests {
             );
 
             state
-                .set_account_status(&config, &store, addr, tc.account_ttl, current_epoch)
+                .set_account_status(&store, &config, caller, tc.account_ttl, current_epoch)
                 .unwrap();
 
             let res =
-                state.trim_blob_expiries(&config, &store, addr, current_epoch, None, tc.limit);
+                state.trim_blob_expiries(&config, &store, caller, current_epoch, None, tc.limit);
             assert!(
                 res.is_ok(),
                 "Test case '{}' failed to adjust TTLs: {}",
@@ -3175,7 +3152,7 @@ mod tests {
                 } else {
                     let blob = state.get_blob(&store, *hash).unwrap().unwrap();
                     let subscribers = blob.subscribers.hamt(&store).unwrap();
-                    let group = subscribers.get(&addr).unwrap().unwrap();
+                    let group = subscribers.get(&caller).unwrap().unwrap();
                     let group_hamt = group.hamt(&store).unwrap();
                     let sub = group_hamt
                         .get(&SubscriptionId::new(&format!("blob-{}", i)).unwrap())
@@ -3194,7 +3171,7 @@ mod tests {
                 }
             }
 
-            let account = state.get_account(&store, addr).unwrap().unwrap();
+            let account = state.get_account(&store, caller).unwrap().unwrap();
             assert_eq!(
                 account.credit_committed, expected_credits,
                 "Test case '{}' failed: account's committed credits after blob adjustment don't match",
@@ -3264,7 +3241,7 @@ mod tests {
         for tc in test_cases {
             let store = MemoryBlockstore::default();
             let mut state = State::new(&store).unwrap();
-            let addr = new_address();
+            let caller = new_address();
             let current_epoch = ChainEpoch::from(1);
 
             // Setup account with credits and Extended TTL status to allow adding all blobs
@@ -3272,13 +3249,13 @@ mod tests {
                 .buy_credit(
                     &store,
                     &config,
-                    addr,
+                    caller,
                     TokenAmount::from_whole(1000),
                     current_epoch,
                 )
                 .unwrap();
             state
-                .set_account_status(&config, &store, addr, TtlStatus::Extended, current_epoch)
+                .set_account_status(&store, &config, caller, TtlStatus::Extended, current_epoch)
                 .unwrap();
 
             // Add 5 blobs with different sizes to ensure different hashes
@@ -3288,37 +3265,40 @@ mod tests {
                 let source = new_pk();
                 state
                     .add_blob(
-                        &config,
                         &store,
-                        addr,
-                        addr,
-                        current_epoch,
-                        hash,
-                        new_metadata_hash(),
-                        id.clone(),
-                        size,
-                        Some(7200), // 2 hours
-                        source,
-                        TokenAmount::zero(),
+                        &config,
+                        caller,
+                        None,
+                        AddBlobStateParams {
+                            hash,
+                            metadata_hash: new_metadata_hash(),
+                            id: id.clone(),
+                            size,
+                            ttl: Some(7200), // 2 hours
+                            source,
+                            epoch: current_epoch,
+                            token_amount: TokenAmount::zero(),
+                        },
                     )
                     .unwrap();
                 state
-                    .set_blob_pending(&store, addr, hash, id.clone(), source)
+                    .set_blob_pending(&store, caller, hash, id.clone(), source)
                     .unwrap();
                 state
                     .finalize_blob(
-                        &config,
                         &store,
-                        addr,
-                        current_epoch,
-                        hash,
-                        id,
-                        BlobStatus::Resolved,
+                        caller,
+                        FinalizeBlobStateParams {
+                            hash,
+                            id,
+                            status: BlobStatus::Resolved,
+                            epoch: current_epoch,
+                        },
                     )
                     .unwrap();
             }
 
-            // range over all blobs and store their hashes
+            // Range over all blobs and store their hashes
             let mut blob_hashes = Vec::with_capacity(5);
             for _ in 0..5 {
                 let res = state.blobs.hamt(&store).unwrap().for_each(
@@ -3336,13 +3316,13 @@ mod tests {
 
             // Change to Reduced status and process blobs with pagination
             state
-                .set_account_status(&config, &store, addr, TtlStatus::Reduced, current_epoch)
+                .set_account_status(&store, &config, caller, TtlStatus::Reduced, current_epoch)
                 .unwrap();
 
             let res = state.trim_blob_expiries(
                 &config,
                 &store,
-                addr,
+                caller,
                 current_epoch,
                 tc.start.map(|ind| blob_hashes[ind]),
                 tc.limit,
@@ -3390,8 +3370,8 @@ mod tests {
         let config = RecallConfig::default();
         let store = MemoryBlockstore::default();
         let mut state = State::new(&store).unwrap();
-        let account1 = new_address();
-        let account2 = new_address();
+        let address1 = new_address();
+        let address2 = new_address();
         let current_epoch = ChainEpoch::from(1);
 
         // Setup accounts with credits and Extended TTL status to allow adding all blobs
@@ -3399,7 +3379,7 @@ mod tests {
             .buy_credit(
                 &store,
                 &config,
-                account1,
+                address1,
                 TokenAmount::from_whole(1000),
                 current_epoch,
             )
@@ -3408,25 +3388,25 @@ mod tests {
             .buy_credit(
                 &store,
                 &config,
-                account2,
+                address2,
                 TokenAmount::from_whole(1000),
                 current_epoch,
             )
             .unwrap();
         state
             .set_account_status(
-                &config,
                 &store,
-                account1,
+                &config,
+                address1,
                 TtlStatus::Extended,
                 current_epoch,
             )
             .unwrap();
         state
             .set_account_status(
-                &config,
                 &store,
-                account2,
+                &config,
+                address2,
                 TtlStatus::Extended,
                 current_epoch,
             )
@@ -3442,32 +3422,35 @@ mod tests {
             blob_hashes_account1.push(hash);
             state
                 .add_blob(
-                    &config,
                     &store,
-                    account1,
-                    account1,
-                    current_epoch,
-                    hash,
-                    new_metadata_hash(),
-                    id.clone(),
-                    size,
-                    Some(7200), // 2 hours
-                    source,
-                    TokenAmount::zero(),
+                    &config,
+                    address1,
+                    None,
+                    AddBlobStateParams {
+                        hash,
+                        metadata_hash: new_metadata_hash(),
+                        id: id.clone(),
+                        size,
+                        ttl: Some(7200), // 2 hours
+                        source,
+                        epoch: current_epoch,
+                        token_amount: TokenAmount::zero(),
+                    },
                 )
                 .unwrap();
             state
-                .set_blob_pending(&store, account1, hash, id.clone(), source)
+                .set_blob_pending(&store, address1, hash, id.clone(), source)
                 .unwrap();
             state
                 .finalize_blob(
-                    &config,
                     &store,
-                    account1,
-                    current_epoch,
-                    hash,
-                    id,
-                    BlobStatus::Resolved,
+                    address1,
+                    FinalizeBlobStateParams {
+                        hash,
+                        id,
+                        status: BlobStatus::Resolved,
+                        epoch: current_epoch,
+                    },
                 )
                 .unwrap();
         }
@@ -3478,41 +3461,44 @@ mod tests {
             blob_hashes_account2.push(hash);
             state
                 .add_blob(
-                    &config,
                     &store,
-                    account2,
-                    account2,
-                    current_epoch,
-                    hash,
-                    new_metadata_hash(),
-                    id.clone(),
-                    size,
-                    Some(7200), // 2 hours
-                    source,
-                    TokenAmount::zero(),
+                    &config,
+                    address2,
+                    None,
+                    AddBlobStateParams {
+                        hash,
+                        metadata_hash: new_metadata_hash(),
+                        id: id.clone(),
+                        size,
+                        ttl: Some(7200), // 2 hours
+                        source,
+                        epoch: current_epoch,
+                        token_amount: TokenAmount::zero(),
+                    },
                 )
                 .unwrap();
             state
-                .set_blob_pending(&store, account2, hash, id.clone(), source)
+                .set_blob_pending(&store, address2, hash, id.clone(), source)
                 .unwrap();
             state
                 .finalize_blob(
-                    &config,
                     &store,
-                    account2,
-                    current_epoch,
-                    hash,
-                    id,
-                    BlobStatus::Resolved,
+                    address2,
+                    FinalizeBlobStateParams {
+                        hash,
+                        id,
+                        status: BlobStatus::Resolved,
+                        epoch: current_epoch,
+                    },
                 )
                 .unwrap();
         }
 
         // Change TTL status for account1 and adjust blobs
         state
-            .set_account_status(&config, &store, account1, TtlStatus::Reduced, current_epoch)
+            .set_account_status(&store, &config, address1, TtlStatus::Reduced, current_epoch)
             .unwrap();
-        let res = state.trim_blob_expiries(&config, &store, account1, current_epoch, None, None);
+        let res = state.trim_blob_expiries(&config, &store, address1, current_epoch, None, None);
         assert!(
             res.is_ok(),
             "Failed to adjust TTLs for account1: {}",
@@ -3647,18 +3633,20 @@ mod tests {
                         let ttl = rng.gen_range(min_ttl..=max_ttl);
                         let source = new_pk();
                         let res = state.add_blob(
-                            &config,
                             &store,
+                            &config,
                             user,
-                            user,
-                            epoch,
-                            blob.hash,
-                            blob.metadata_hash,
-                            sub_id.clone(),
-                            blob.size,
-                            Some(ttl),
-                            source,
-                            TokenAmount::zero(),
+                            None,
+                            AddBlobStateParams {
+                                hash: blob.hash,
+                                metadata_hash: blob.metadata_hash,
+                                id: sub_id.clone(),
+                                size: blob.size,
+                                ttl: Some(ttl),
+                                source,
+                                epoch,
+                                token_amount: TokenAmount::zero(),
+                            },
                         );
                         assert!(res.is_ok());
                         if blob.added.is_none() {
@@ -3733,13 +3721,14 @@ mod tests {
                             .unwrap();
                         state
                             .finalize_blob(
-                                &config,
                                 &store,
                                 *user,
-                                epoch,
-                                blob.hash,
-                                sub_id.clone(),
-                                status,
+                                FinalizeBlobStateParams {
+                                    hash: blob.hash,
+                                    id: sub_id.clone(),
+                                    status,
+                                    epoch,
+                                },
                             )
                             .unwrap();
                     }
@@ -3748,14 +3737,7 @@ mod tests {
 
             // Every debit interval epochs we debit all acounts
             if epoch % debit_interval == 0 {
-                let deletes_from_disc = state
-                    .debit_accounts(
-                        &store,
-                        epoch,
-                        config.blob_delete_batch_size,
-                        config.account_debit_batch_size,
-                    )
-                    .unwrap();
+                let (deletes_from_disc, _) = state.debit_accounts(&store, &config, epoch).unwrap();
                 warn!(
                     "deleting {} blobs at epoch {}",
                     deletes_from_disc.len(),
@@ -3797,152 +3779,5 @@ mod tests {
         assert_eq!(stats.bytes_added, 0);
         assert_eq!(stats.num_resolving, 0);
         assert_eq!(stats.bytes_resolving, 0);
-    }
-
-    #[test]
-    fn test_paginated_debit_accounts() {
-        let config = RecallConfig {
-            account_debit_batch_size: 5, // Process 5 accounts at a time (10 accounts total)
-            ..Default::default()
-        };
-
-        let store = MemoryBlockstore::default();
-        let mut state = State::new(&store).unwrap();
-        let current_epoch = ChainEpoch::from(1);
-
-        // Create more than one batch worth of accounts (>5)
-        for i in 0..10 {
-            let address = Address::new_id(1000 + i);
-            let token_amount = TokenAmount::from_whole(10);
-
-            // Buy credits for each account
-            state
-                .buy_credit(
-                    &store,
-                    &config,
-                    address,
-                    token_amount.clone(),
-                    current_epoch,
-                )
-                .unwrap();
-
-            // Add some storage usage
-            let mut accounts = state.accounts.hamt(&store).unwrap();
-            let mut account = accounts.get(&address).unwrap().unwrap();
-            account.capacity_used = 1000;
-            accounts.set(&address, account).unwrap();
-        }
-
-        // First batch (should process 5 accounts)
-        assert!(state.next_debit_addr.is_none());
-        let deletes1 = state
-            .debit_accounts(
-                &store,
-                current_epoch + 1,
-                config.blob_delete_batch_size,
-                config.account_debit_batch_size,
-            )
-            .unwrap();
-        assert!(deletes1.is_empty()); // No expired blobs
-        assert!(state.next_debit_addr.is_some());
-
-        // Second batch (should process remaining 5 accounts and clear state)
-        let deletes2 = state
-            .debit_accounts(
-                &store,
-                current_epoch + 1,
-                config.blob_delete_batch_size,
-                config.account_debit_batch_size,
-            )
-            .unwrap();
-        assert!(deletes2.is_empty());
-        assert!(state.next_debit_addr.is_none()); // The state should be cleared after all accounts processed
-
-        // Verify all accounts were processed
-        let reader = state.accounts.hamt(&store).unwrap();
-        reader
-            .for_each(|_, account| {
-                assert_eq!(account.last_debit_epoch, current_epoch + 1);
-                Ok(())
-            })
-            .unwrap();
-    }
-
-    #[test]
-    fn test_multiple_debit_cycles() {
-        let config = RecallConfig {
-            account_debit_batch_size: 5, // Process 5 accounts at a time (10 accounts total)
-            ..Default::default()
-        };
-
-        let store = MemoryBlockstore::default();
-        let mut state = State::new(&store).unwrap();
-        let current_epoch = ChainEpoch::from(1);
-
-        // Create accounts
-        for i in 0..10 {
-            let address = Address::new_id(1000 + i);
-            let token_amount = TokenAmount::from_whole(10);
-            state
-                .buy_credit(
-                    &store,
-                    &config,
-                    address,
-                    token_amount.clone(),
-                    current_epoch,
-                )
-                .unwrap();
-
-            let mut accounts = state.accounts.hamt(&store).unwrap();
-            let mut account = accounts.get(&address).unwrap().unwrap();
-            account.capacity_used = 1000;
-            accounts.set(&address, account).unwrap();
-        }
-
-        // First cycle
-        let deletes1 = state
-            .debit_accounts(
-                &store,
-                current_epoch + 1,
-                config.blob_delete_batch_size,
-                config.account_debit_batch_size,
-            )
-            .unwrap();
-        assert!(deletes1.is_empty());
-        assert!(state.next_debit_addr.is_some());
-
-        let deletes2 = state
-            .debit_accounts(
-                &store,
-                current_epoch + 1,
-                config.blob_delete_batch_size,
-                config.account_debit_batch_size,
-            )
-            .unwrap();
-        assert!(deletes2.is_empty());
-        assert!(state.next_debit_addr.is_none()); // First cycle complete
-
-        // Second cycle
-        let deletes3 = state
-            .debit_accounts(
-                &store,
-                current_epoch + 2,
-                config.blob_delete_batch_size,
-                config.account_debit_batch_size,
-            )
-            .unwrap();
-        assert!(deletes3.is_empty());
-        assert!(state.next_debit_addr.is_some());
-
-        let deletes4 = state
-            .debit_accounts(
-                &store,
-                current_epoch + 2,
-                config.blob_delete_batch_size,
-                config.account_debit_batch_size,
-            )
-            .unwrap();
-        assert!(deletes4.is_empty());
-        assert!(state.next_debit_addr.is_none()); // Second cycle complete
     }
 }

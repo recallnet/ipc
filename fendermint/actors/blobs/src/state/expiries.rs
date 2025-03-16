@@ -56,10 +56,16 @@ impl ExpiryKey {
 
 type PerChainEpochRoot = hamt::Root<Address, hamt::Root<ExpiryKey, ()>>;
 
+/// AMT wrapper for expiry index state.
 #[derive(Debug, Clone, Serialize_tuple, Deserialize_tuple)]
 pub struct ExpiriesState {
+    /// The AMT root.
     pub root: amt::Root<PerChainEpochRoot>,
-    pub next_idx: Option<u64>,
+    /// Index marker for pagination.
+    /// When present, iteration starts from this index.
+    /// Otherwise, iteration begins from the first entry.
+    /// Used for efficient traversal during blob expiration.
+    next_index: Option<u64>,
 }
 
 impl ExpiriesState {
@@ -83,7 +89,7 @@ impl ExpiriesState {
         let root = amt::Root::<PerChainEpochRoot>::new(store)?;
         Ok(Self {
             root,
-            next_idx: None,
+            next_index: None,
         })
     }
 
@@ -114,7 +120,7 @@ impl ExpiriesState {
     {
         let expiries = self.amt(&store)?;
         let (count, next_idx) = expiries.for_each_while_ranged(
-            self.next_idx,
+            self.next_index,
             batch_size,
             |index, per_chain_epoch_root| {
                 if index > epoch as u64 {
@@ -128,13 +134,15 @@ impl ExpiriesState {
                 Ok(true)
             },
         )?;
-        self.next_idx = batch_size.and(next_idx);
-        log::info!(
-            "finished deleting {} blobs, next_idx: {:?}, current_epoch: {}",
+        self.next_index = batch_size.and(next_idx);
+
+        log::debug!(
+            "walked {} blobs, next_index: {:?}, stop_epoch: {}",
             count,
-            self.next_idx,
+            self.next_index,
             epoch
         );
+
         Ok(())
     }
 
@@ -217,8 +225,11 @@ impl ExpiriesState {
     }
 }
 
+/// Helper enum for expiry updates.
 pub enum ExpiryUpdate {
+    /// Entry to add.
     Add(ChainEpoch),
+    /// Entry to remove.
     Remove(ChainEpoch),
 }
 
@@ -314,7 +325,7 @@ mod tests {
                     Ok(())
                 })
                 .unwrap();
-            done = state.next_idx.is_none();
+            done = state.next_index.is_none();
         }
 
         // Should get all epochs in order, despite gaps
@@ -380,7 +391,7 @@ mod tests {
             .unwrap();
 
         // Process remaining epochs
-        while state.next_idx.is_some() {
+        while state.next_index.is_some() {
             state
                 .foreach_up_to_epoch(&store, 150, Some(2), |epoch, _, _| {
                     processed.push(epoch);
@@ -444,7 +455,7 @@ mod tests {
             .unwrap();
 
         // Process remaining epochs - should see updated expiry
-        while state.next_idx.is_some() {
+        while state.next_index.is_some() {
             state
                 .foreach_up_to_epoch(&store, 150, Some(2), |epoch, _, _| {
                     processed.push(epoch);
@@ -533,7 +544,7 @@ mod tests {
                     Ok(())
                 })
                 .unwrap();
-            done = state.next_idx.is_none();
+            done = state.next_index.is_none();
         }
 
         // Should get all entries, with multiple entries per epoch

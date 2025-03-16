@@ -797,10 +797,10 @@ mod tests {
             BLOBS_ACTOR_ADDR,
             BlobMethod::DeleteBlob as MethodNum,
             IpldBlock::serialize_cbor(&DeleteBlobParams {
+                from: origin,
                 sponsor: Some(origin),
                 hash: add_params.hash,
                 id: sub_id,
-                from: origin,
             })
             .unwrap(),
             TokenAmount::from_whole(0),

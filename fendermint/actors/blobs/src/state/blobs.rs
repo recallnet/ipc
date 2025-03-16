@@ -4,18 +4,112 @@
 
 use std::collections::HashSet;
 
-use fendermint_actor_blobs_shared::state::{Blob, Hash};
-use fendermint_actor_blobs_shared::state::{PublicKey, SubscriptionId};
+use fendermint_actor_blobs_shared::state::{Blob, BlobStatus, Hash, PublicKey, SubscriptionId};
 use fil_actors_runtime::ActorError;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::tuple::*;
-use fvm_shared::address::Address;
+use fvm_shared::{address::Address, clock::ChainEpoch, econ::TokenAmount};
 use recall_ipld::hamt;
 use recall_ipld::hamt::map::TrackedFlushResult;
 
+/// Params for adding a blob.
+#[derive(Clone, Debug)]
+pub struct AddBlobStateParams {
+    /// Source Iroh node ID used for ingestion.
+    pub source: PublicKey,
+    /// Blob blake3 hash.
+    pub hash: Hash,
+    /// Blake3 hash of the metadata to use for blob recovery.
+    pub metadata_hash: Hash,
+    /// Identifier used to differentiate blob additions for the same subscriber.
+    pub id: SubscriptionId,
+    /// Blob size.
+    pub size: u64,
+    /// Blob time-to-live epochs.
+    /// If not specified, the current default TTL from the config actor is used.
+    pub ttl: Option<ChainEpoch>,
+    /// Chain epoch.
+    pub epoch: ChainEpoch,
+    /// Token amount sent with the transaction.
+    pub token_amount: TokenAmount,
+}
+
+impl AddBlobStateParams {
+    pub fn from_actor_params(
+        params: fendermint_actor_blobs_shared::params::AddBlobParams,
+        epoch: ChainEpoch,
+        token_amount: TokenAmount,
+    ) -> Self {
+        Self {
+            source: params.source,
+            hash: params.hash,
+            metadata_hash: params.metadata_hash,
+            id: params.id,
+            size: params.size,
+            ttl: params.ttl,
+            epoch,
+            token_amount,
+        }
+    }
+}
+
+/// Params for deleting a blob.
+#[derive(Clone, Debug)]
+pub struct DeleteBlobStateParams {
+    /// Blob blake3 hash.
+    pub hash: Hash,
+    /// Identifier used to differentiate blob additions for the same subscriber.
+    pub id: SubscriptionId,
+    /// Chain epoch.
+    pub epoch: ChainEpoch,
+}
+
+impl DeleteBlobStateParams {
+    pub fn from_actor_params(
+        params: fendermint_actor_blobs_shared::params::DeleteBlobParams,
+        epoch: ChainEpoch,
+    ) -> Self {
+        Self {
+            hash: params.hash,
+            id: params.id,
+            epoch,
+        }
+    }
+}
+
+/// Params for finalizing a blob.
+#[derive(Clone, Debug)]
+pub struct FinalizeBlobStateParams {
+    /// Blob blake3 hash.
+    pub hash: Hash,
+    /// Identifier used to differentiate blob additions for the same subscriber.
+    pub id: SubscriptionId,
+    /// Finalized status.
+    pub status: BlobStatus,
+    /// Chain epoch.
+    pub epoch: ChainEpoch,
+}
+
+impl FinalizeBlobStateParams {
+    pub fn from_actor_params(
+        params: fendermint_actor_blobs_shared::params::FinalizeBlobParams,
+        epoch: ChainEpoch,
+    ) -> Self {
+        Self {
+            hash: params.hash,
+            id: params.id,
+            status: params.status,
+            epoch,
+        }
+    }
+}
+
+/// HAMT wrapper for blobs state.
 #[derive(Debug, Serialize_tuple, Deserialize_tuple)]
 pub struct BlobsState {
+    /// The HAMT root.
     pub root: hamt::Root<Hash, Blob>,
+    /// Size of the collection.
     size: u64,
 }
 

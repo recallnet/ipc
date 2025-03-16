@@ -9,9 +9,9 @@ use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::error::ExitCode;
 use fvm_shared::{address::Address, clock::ChainEpoch, econ::TokenAmount};
 use log::debug;
-use num_traits::Zero;
+use recall_ipld::hamt;
 
-use crate::caller::Caller;
+use crate::caller::{Caller, Delegation, DelegationOptions};
 use crate::State;
 
 /// Returns an error if the amount is negative.
@@ -25,6 +25,8 @@ pub fn ensure_positive_amount(amount: &TokenAmount) -> anyhow::Result<(), ActorE
 }
 
 impl State {
+    /// Buys credit for an account.
+    /// Flushes state to the blockstore.
     pub fn buy_credit<BS: Blockstore>(
         &mut self,
         store: &BS,
@@ -36,80 +38,56 @@ impl State {
         self.ensure_capacity(config.blob_capacity)?;
         ensure_positive_amount(&value)?;
 
-        // Get or create a new account
         let mut accounts = self.accounts.hamt(store)?;
         let mut caller = Caller::load_or_create(
             store,
             &accounts,
             to,
-            to,
+            None,
             current_epoch,
             config.blob_default_ttl,
         )?;
 
         let amount: Credit = value.clone() * &config.token_credit_rate;
-        caller.add_credit(&amount);
-        caller.add_gas_allowance(&value);
-        caller.save(&mut accounts)?;
+        caller.add_allowances(&amount, &value);
 
         // Update global state
         self.credit_sold += &amount;
 
-        // Save account
-        self.accounts.save_tracked(accounts.flush_tracked()?);
+        // Save caller
+        self.save_caller(&mut caller, &mut accounts)?;
 
-        debug!("sold {} credits to {}", amount, caller.subscriber_address());
         Ok(caller.subscriber().clone())
     }
 
-    // Note: does not save state
-    pub fn use_or_buy_credit_for_caller<'a, BS: Blockstore>(
+    /// Sets the default credit and gas fee sponsor for an account.
+    /// Flushes state to the blockstore.
+    pub fn set_account_sponsor<BS: Blockstore>(
         &mut self,
-        caller: &mut Caller<'a, BS>,
         config: &RecallConfig,
-        amount: &Credit,
-        value: &TokenAmount,
+        store: &BS,
+        from: Address,
+        sponsor: Option<Address>,
         current_epoch: ChainEpoch,
-    ) -> anyhow::Result<TokenAmount, ActorError> {
-        self.ensure_capacity(config.blob_capacity)?;
-        ensure_positive_amount(amount)?;
-        ensure_positive_amount(value)?;
+    ) -> anyhow::Result<(), ActorError> {
+        let mut accounts = self.accounts.hamt(store)?;
+        let mut caller = Caller::load_or_create(
+            store,
+            &accounts,
+            from,
+            None,
+            current_epoch,
+            config.blob_default_ttl,
+        )?;
 
-        match caller.validate_credit_usage(amount, current_epoch) {
-            Ok(()) => Ok(value.clone()),
-            Err(e) => {
-                // Buy credit to cover the amount
-                if e.exit_code() == ExitCode::USR_INSUFFICIENT_FUNDS && !value.is_zero() {
-                    if caller.is_delegate() {
-                        return Err(ActorError::forbidden(
-                            "cannot auto-buy credits for a sponsor".into(),
-                        ));
-                    }
+        caller.set_default_sponsor(sponsor);
 
-                    let amount: Credit = amount - &caller.subscriber().credit_free;
-                    let value_required = &amount / &config.token_credit_rate;
-                    let value_remaining = value - &value_required;
-                    if value_remaining.is_negative() {
-                        return Err(ActorError::insufficient_funds(format!(
-                            "insufficient value (received: {}; required: {})",
-                            value, value_required
-                        )));
-                    }
-                    caller.add_credit(&amount);
-                    caller.add_gas_allowance(&value_required);
-
-                    // Update global state
-                    self.credit_sold += &amount;
-
-                    debug!("sold {} credits to {}", amount, caller.subscriber_address());
-                    Ok(value_remaining)
-                } else {
-                    Err(e)
-                }
-            }
-        }
+        // Save caller
+        self.save_caller(&mut caller, &mut accounts)
     }
 
+    /// Updates (adds/removes) gas allowance for an account.
+    /// Flushes state to the blockstore.
     pub fn update_gas_allowance<BS: Blockstore>(
         &mut self,
         store: &BS,
@@ -118,181 +96,58 @@ impl State {
         add_amount: TokenAmount,
         current_epoch: ChainEpoch,
     ) -> anyhow::Result<(), ActorError> {
-        let subscriber = sponsor.unwrap_or(from);
         let mut accounts = self.accounts.hamt(store)?;
-        let mut caller = Caller::load_or_err(store, &accounts, from, subscriber)?;
+        let mut caller = Caller::load(store, &accounts, from, sponsor)?;
 
-        // Add / deduct gas allowance
-        caller.deduct_gas_allowance(&add_amount, current_epoch)?;
-        caller.save(&mut accounts)?;
+        caller.update_gas_allowance(&add_amount, current_epoch)?;
 
-        // Save accounts
-        self.accounts.save_tracked(accounts.flush_tracked()?);
-
-        if add_amount.is_positive() {
-            debug!("refunded {} atto to {}", add_amount.atto(), subscriber);
-        } else {
-            debug!(
-                "debited {} atto from {}",
-                add_amount.atto().magnitude(),
-                subscriber
-            );
-        }
-        Ok(())
+        // Save caller
+        self.save_caller(&mut caller, &mut accounts)
     }
 
-    #[allow(clippy::too_many_arguments)]
+    /// Approves credit and gas allowance spend from one account to another.
+    /// Flushes state to the blockstore.
     pub fn approve_credit<BS: Blockstore>(
         &mut self,
         config: &RecallConfig,
         store: &BS,
         from: Address,
         to: Address,
+        options: DelegationOptions,
         current_epoch: ChainEpoch,
-        credit_limit: Option<Credit>,
-        gas_fee_limit: Option<TokenAmount>,
-        ttl: Option<ChainEpoch>,
     ) -> anyhow::Result<CreditApproval, ActorError> {
-        let credit_limit = credit_limit.map(Credit::from);
-        let gas_fee_limit = gas_fee_limit.map(TokenAmount::from);
-        if let Some(ttl) = ttl {
-            if ttl < config.blob_min_ttl {
-                return Err(ActorError::illegal_argument(format!(
-                    "minimum approval TTL is {}",
-                    config.blob_min_ttl
-                )));
-            }
-        }
-        let expiry = ttl.map(|t| i64::saturating_add(t, current_epoch));
-        // Get or create a new account
         let mut accounts = self.accounts.hamt(store)?;
-        let mut from_account = accounts.get_or_create(&from, || {
-            Account::new(store, current_epoch, config.blob_default_ttl)
-        })?;
-        let mut to_account = accounts.get_or_create(&to, || {
-            Account::new(store, current_epoch, config.blob_default_ttl)
-        })?;
-        // Get or add a new approval
-        let approval = CreditApproval {
-            credit_limit: credit_limit.clone(),
-            gas_allowance_limit: gas_fee_limit.clone(),
-            expiry,
-            credit_used: Credit::zero(),
-            gas_allowance_used: TokenAmount::zero(),
-        };
-        let mut from_approval = from_account
-            .approvals_to
-            .hamt(store)?
-            .get_or_create(&to, || Ok(approval.clone()))?;
-        let mut to_approval = to_account
-            .approvals_from
-            .hamt(store)?
-            .get_or_create(&from, || Ok(approval))?;
-        if from_approval != to_approval {
-            return Err(ActorError::illegal_state(format!(
-                "approval in 'from' account ({}) doesn't match approval in 'to' account ({})",
-                from, to,
-            )));
-        }
-
-        // Validate approval changes
-        if let Some(limit) = credit_limit.clone() {
-            if from_approval.credit_used > limit {
-                return Err(ActorError::illegal_argument(format!(
-                    "limit cannot be less than amount of already used credits ({})",
-                    from_approval.credit_used
-                )));
-            }
-        }
-
-        if let Some(limit) = gas_fee_limit.clone() {
-            if from_approval.gas_allowance_used > limit {
-                return Err(ActorError::illegal_argument(format!(
-                    "limit cannot be less than amount of already used gas fees ({})",
-                    from_approval.gas_allowance_used
-                )));
-            }
-        }
-        from_approval.credit_limit = credit_limit.clone();
-        from_approval.gas_allowance_limit = gas_fee_limit.clone();
-        from_approval.expiry = expiry;
-        to_approval.credit_limit = credit_limit;
-        to_approval.gas_allowance_limit = gas_fee_limit;
-        to_approval.expiry = expiry;
-
-        from_account.approvals_to.save_tracked(
-            from_account
-                .approvals_to
-                .hamt(store)?
-                .set_and_flush_tracked(&to, from_approval.clone())?,
-        );
-
-        to_account.approvals_from.save_tracked(
-            to_account
-                .approvals_from
-                .hamt(store)?
-                .set_and_flush_tracked(&from, to_approval)?,
-        );
-
-        // Save accounts
-        let from_approval = from_approval.clone();
-        accounts.set(&from, from_account)?;
-        accounts.set(&to, to_account)?;
-        self.accounts.save_tracked(accounts.flush_tracked()?);
-
-        debug!(
-            "approved credits from {} to {} (credit limit: {:?}; gas fee limit: {:?}, expiry: {:?}",
+        let mut delegation = Delegation::update_or_create(
+            store,
+            &config,
+            &accounts,
             from,
             to,
-            from_approval.credit_limit,
-            from_approval.gas_allowance_limit,
-            from_approval.expiry
-        );
-        Ok(from_approval)
+            options,
+            current_epoch,
+        )?;
+
+        // Save delegation
+        self.save_delegation(&mut delegation, &mut accounts)?;
+
+        Ok(delegation.approval().clone())
     }
 
-    /// Revokes credit from one account to another.
+    /// Revokes credit and gas allowance spend from one account to another.
+    /// Flushes state to the blockstore.
     pub fn revoke_credit<BS: Blockstore>(
         &mut self,
         store: &BS,
         from: Address,
         to: Address,
     ) -> anyhow::Result<(), ActorError> {
-        // Get the account
         let mut accounts = self.accounts.hamt(store)?;
-        let mut from_account = accounts.get_or_err(&from)?;
-        let (tracked_result, approval) = from_account
-            .approvals_to
-            .hamt(store)?
-            .delete_and_flush_tracked(&to)?;
-        if approval.is_none() {
-            return Err(ActorError::not_found(format!(
-                "approval from {} to {} not found",
-                from, to
-            )));
-        }
-        from_account.approvals_to.save_tracked(tracked_result);
+        let mut caller = Caller::load(store, &accounts, to, Some(from))?;
 
-        let mut to_account = accounts.get_or_err(&to)?;
-        let (tracked_result, approval) = to_account
-            .approvals_from
-            .hamt(store)?
-            .delete_and_flush_tracked(&from)?;
-        if approval.is_none() {
-            return Err(ActorError::not_found(format!(
-                "approval from {} to {} not found in 'to' account",
-                from, to
-            )));
-        }
-        to_account.approvals_from.save_tracked(tracked_result);
+        caller.cancel_delegation(&mut accounts)?;
 
-        // Save accounts
-        accounts.set(&from, from_account)?;
-        accounts.set(&to, to_account)?;
-        self.accounts.save_tracked(accounts.flush_tracked()?);
-
-        debug!("revoked credits from {} to {}", from, to);
-        Ok(())
+        // Save caller
+        self.save_caller(&mut caller, &mut accounts)
     }
 
     /// Returns a [`CreditApproval`] from the given address to the given address
@@ -304,11 +159,8 @@ impl State {
         to: Address,
     ) -> anyhow::Result<Option<CreditApproval>, ActorError> {
         let accounts = self.accounts.hamt(store)?;
-        let account = accounts
-            .get(&from)?
-            .ok_or(ActorError::not_found(format!("account {} not found", from)))?;
-        let approval = account.approvals_to.hamt(store)?.get(&to)?;
-        Ok(approval)
+        let caller = Caller::load(store, &accounts, to, Some(from))?;
+        Ok(caller.delegate_approval().map(|approval| approval.clone()))
     }
 
     /// Returns the gas allowance for the given address, including an amount from a default sponsor.
@@ -319,70 +171,154 @@ impl State {
         from: Address,
         current_epoch: ChainEpoch,
     ) -> anyhow::Result<GasAllowance, ActorError> {
-        // Get the account or return default allowance
         let accounts = self.accounts.hamt(store)?;
-        let account = match accounts.get(&from)? {
-            None => return Ok(GasAllowance::default()),
-            Some(account) => account,
-        };
-        let mut allowance = GasAllowance {
-            amount: account.gas_allowance.clone(),
-            ..Default::default()
-        };
-        if let Some(credit_sponsor) = account.credit_sponsor {
-            let sponsor = match accounts.get(&credit_sponsor)? {
-                None => return Ok(allowance),
-                Some(account) => account,
-            };
-            let sponsored = sponsor
-                .approvals_to
-                .hamt(store)?
-                .get(&from)?
-                .and_then(|approval| {
-                    let expiry_valid = approval
-                        .expiry
-                        .map_or(true, |expiry| expiry > current_epoch);
-                    if !expiry_valid {
-                        return None;
-                    }
-                    let gas_allowance = sponsor.gas_allowance.clone();
-                    let used = approval.gas_allowance_used.clone();
-                    let amount = approval
-                        .gas_allowance_limit
-                        .clone()
-                        .map_or(gas_allowance.clone(), |limit| {
-                            (limit - used).min(gas_allowance)
-                        });
-                    Some(amount)
-                })
-                .unwrap_or(TokenAmount::zero());
-            allowance.sponsor = Some(credit_sponsor);
-            allowance.sponsored_amount = sponsored;
-        } else {
-            return Ok(allowance);
-        }
+        let allowance = Caller::load_with_default_sponsor(store, &accounts, from)
+            .map(|caller| caller.gas_allowance(current_epoch))
+            .unwrap_or_default();
         Ok(allowance)
     }
 
-    pub fn set_account_sponsor<BS: Blockstore>(
+    /// Debits credit from the caller.
+    /// Does NOT flush the state to the blockstore.
+    pub(crate) fn debit_caller<BS: Blockstore>(
         &mut self,
-        config: &RecallConfig,
-        store: &BS,
-        from: Address,
-        sponsor: Option<Address>,
+        caller: &mut Caller<BS>,
+        amount: &Credit,
         current_epoch: ChainEpoch,
-    ) -> anyhow::Result<(), ActorError> {
-        // Get or create a new account
-        let mut accounts = self.accounts.hamt(store)?;
-        let mut account = accounts.get_or_create(&from, || {
-            Account::new(store, current_epoch, config.blob_default_ttl)
-        })?;
-        account.credit_sponsor = sponsor;
-        // Save account
-        self.accounts
-            .save_tracked(accounts.set_and_flush_tracked(&from, account)?);
+    ) {
+        caller.debit_credit(amount, current_epoch);
 
-        debug!("set credit sponsor for {} to {:?}", from, sponsor);
+        // Update global state
+        self.credit_debited += amount;
+        self.credit_committed -= amount;
+    }
+
+    /// Refunds credit to the caller.
+    /// Does NOT flush the state to the blockstore.
+    pub(crate) fn refund_caller<BS: Blockstore>(
+        &mut self,
+        caller: &mut Caller<BS>,
+        amount: &Credit,
+        correction: &Credit,
+    ) {
+        caller.refund_credit(amount, correction);
+
+        // Update global state
+        self.credit_debited -= amount;
+        self.credit_committed += correction;
+    }
+
+    /// Commits new capacity for the caller.
+    /// The caller may pay for capacity with free credit or token value.
+    /// Does NOT flush the state to the blockstore.
+    pub(crate) fn commit_capacity_for_caller<'a, BS: Blockstore>(
+        &mut self,
+        caller: &mut Caller<'a, BS>,
+        config: &RecallConfig,
+        subnet_size: u64,
+        caller_size: u64,
+        cost: &Credit,
+        value: &TokenAmount,
+        current_epoch: ChainEpoch,
+    ) -> anyhow::Result<TokenAmount, ActorError> {
+        self.ensure_capacity(config.blob_capacity)?;
+        ensure_positive_amount(cost)?;
+        ensure_positive_amount(value)?;
+
+        let value_remaining = match caller.commit_capacity(caller_size, cost, current_epoch) {
+            Ok(()) => Ok(value.clone()),
+            Err(e) => {
+                // Buy credit to cover the amount
+                if e.exit_code() == ExitCode::USR_INSUFFICIENT_FUNDS && !value.is_zero() {
+                    if caller.is_delegate() {
+                        return Err(ActorError::forbidden(
+                            "cannot auto-buy credits for a sponsor".into(),
+                        ));
+                    }
+
+                    let remainder: Credit = cost - &caller.subscriber().credit_free;
+                    let value_required = &remainder / &config.token_credit_rate;
+                    let value_remaining = value - &value_required;
+                    if value_remaining.is_negative() {
+                        return Err(ActorError::insufficient_funds(format!(
+                            "insufficient value (received: {}; required: {})",
+                            value, value_required
+                        )));
+                    }
+                    caller.add_allowances(&remainder, &value_required);
+
+                    // Update global state
+                    self.credit_sold += &remainder;
+
+                    // Try again
+                    caller.commit_capacity(caller_size, cost, current_epoch)?;
+                    Ok(value_remaining)
+                } else {
+                    Err(e)
+                }
+            }
+        }?;
+
+        // Update global state
+        self.capacity_used += subnet_size;
+        self.credit_committed += cost;
+
+        debug!("used {} bytes from subnet", subnet_size);
+
+        Ok(value_remaining)
+    }
+
+    /// Uncommits capacity for the caller.
+    /// Does NOT flush the state to the blockstore.
+    pub(crate) fn uncommit_capacity_for_caller<BS: Blockstore>(
+        &mut self,
+        caller: &mut Caller<BS>,
+        subnet_size: u64,
+        caller_size: u64,
+        cost: &Credit,
+    ) {
+        caller.uncommit_capacity(caller_size, cost);
+
+        // Update global state
+        self.capacity_used -= subnet_size;
+        self.credit_committed -= cost;
+
+        debug!("released {} bytes to subnet", subnet_size);
+    }
+
+    /// Returns committed credit to the caller.
+    /// Does NOT flush the state to the blockstore.
+    pub(crate) fn return_committed_credit_for_caller<BS: Blockstore>(
+        &mut self,
+        caller: &mut Caller<BS>,
+        amount: &Credit,
+    ) {
+        caller.return_committed_credit(amount);
+
+        // Update global state
+        self.credit_debited -= amount;
+        self.credit_committed += amount;
+    }
+
+    /// Save the caller state to the accounts HAMT.
+    pub(crate) fn save_caller<'a, BS: Blockstore>(
+        &mut self,
+        caller: &mut Caller<'a, BS>,
+        mut accounts: &mut hamt::map::Hamt<'a, &'a BS, Address, Account>,
+    ) -> anyhow::Result<(), ActorError> {
+        caller.save(&mut accounts)?;
+        self.accounts.save_tracked(accounts.flush_tracked()?);
+        Ok(())
+    }
+
+    /// Save the delegation state to the accounts HAMT.
+    pub(crate) fn save_delegation<'a, BS: Blockstore>(
+        &mut self,
+        delegation: &mut Delegation<'a, &'a BS>,
+        mut accounts: &mut hamt::map::Hamt<'a, &'a BS, Address, Account>,
+    ) -> anyhow::Result<(), ActorError> {
+        delegation.save(&mut accounts)?;
+        self.accounts.save_tracked(accounts.flush_tracked()?);
         Ok(())
     }
 }
@@ -391,11 +327,13 @@ impl State {
 mod tests {
     use super::*;
 
+    use crate::state::AddBlobStateParams;
     use fendermint_actor_blobs_shared::state::{CreditApproval, SubscriptionId};
     use fendermint_actor_blobs_testing::{
         new_address, new_hash, new_metadata_hash, new_pk, setup_logs,
     };
     use fvm_ipld_blockstore::MemoryBlockstore;
+    use num_traits::Zero;
 
     fn check_approvals_match(
         state: &State,
@@ -454,12 +392,12 @@ mod tests {
         let config = RecallConfig::default();
         let store = MemoryBlockstore::default();
         let mut state = State::new(&store).unwrap();
-        let recipient = new_address();
+        let to = new_address();
         let amount = TokenAmount::from_whole(-1);
 
-        let res = state.buy_credit(&store, &config, recipient, amount, 1);
+        let res = state.buy_credit(&store, &config, to, amount, 1);
         assert!(res.is_err());
-        assert_eq!(res.err().unwrap().msg(), "token amount must be positive");
+        assert_eq!(res.err().unwrap().msg(), "amount must be positive");
     }
 
     #[test]
@@ -468,15 +406,15 @@ mod tests {
         let config = RecallConfig::default();
         let store = MemoryBlockstore::default();
         let mut state = State::new(&store).unwrap();
-        let recipient = new_address();
+        let to = new_address();
         let amount = TokenAmount::from_whole(1);
 
         state.capacity_used = config.blob_capacity;
-        let res = state.buy_credit(&store, &config, recipient, amount, 1);
+        let res = state.buy_credit(&store, &config, to, amount, 1);
         assert!(res.is_err());
         assert_eq!(
             res.err().unwrap().msg(),
-            "credits not available (subnet has reached storage capacity)"
+            "subnet has reached storage capacity"
         );
     }
 
@@ -492,7 +430,14 @@ mod tests {
         let config = RecallConfig::default();
 
         // No limit or expiry
-        let res = state.approve_credit(&config, &store, from, to, current_epoch, None, None, None);
+        let res = state.approve_credit(
+            &config,
+            &store,
+            from,
+            to,
+            DelegationOptions::default(),
+            current_epoch,
+        );
         assert!(res.is_ok());
         let approval = res.unwrap();
         assert_eq!(approval.credit_limit, None);
@@ -507,10 +452,11 @@ mod tests {
             &store,
             from,
             to,
+            DelegationOptions {
+                credit_limit: Some(Credit::from_whole(limit)),
+                ..Default::default()
+            },
             current_epoch,
-            Some(Credit::from_whole(limit)),
-            None,
-            None,
         );
         assert!(res.is_ok());
         let approval = res.unwrap();
@@ -526,10 +472,11 @@ mod tests {
             &store,
             from,
             to,
+            DelegationOptions {
+                gas_fee_limit: Some(TokenAmount::from_atto(limit)),
+                ..Default::default()
+            },
             current_epoch,
-            None,
-            Some(TokenAmount::from_atto(limit)),
-            None,
         );
         assert!(res.is_ok());
         let approval = res.unwrap();
@@ -548,10 +495,12 @@ mod tests {
             &store,
             from,
             to,
+            DelegationOptions {
+                credit_limit: Some(Credit::from_whole(limit)),
+                ttl: Some(ttl),
+                ..Default::default()
+            },
             current_epoch,
-            Some(Credit::from_whole(limit)),
-            None,
-            Some(ttl),
         );
         assert!(res.is_ok());
         let approval = res.unwrap();
@@ -577,10 +526,11 @@ mod tests {
             &store,
             from,
             to,
+            DelegationOptions {
+                ttl: Some(ttl),
+                ..Default::default()
+            },
             current_epoch,
-            None,
-            None,
-            Some(ttl),
         );
         assert!(res.is_err());
         assert_eq!(
@@ -605,10 +555,11 @@ mod tests {
             &store,
             from,
             to,
+            DelegationOptions {
+                ttl: Some(ChainEpoch::MAX),
+                ..Default::default()
+            },
             current_epoch,
-            None,
-            None,
-            Some(ChainEpoch::MAX),
         );
         assert!(res.is_ok());
         let approval = res.unwrap();
@@ -629,24 +580,33 @@ mod tests {
         state
             .buy_credit(&store, &config, from, amount.clone(), current_epoch)
             .unwrap();
-        let res = state.approve_credit(&config, &store, from, to, current_epoch, None, None, None);
+        let res = state.approve_credit(
+            &config,
+            &store,
+            from,
+            to,
+            DelegationOptions::default(),
+            current_epoch,
+        );
         assert!(res.is_ok());
 
         // Add a blob
         let (hash, size) = new_hash(1024);
         let res = state.add_blob(
-            &config,
             &store,
+            &config,
             to,
-            from,
-            current_epoch,
-            hash,
-            new_metadata_hash(),
-            SubscriptionId::default(),
-            size,
-            None,
-            new_pk(),
-            TokenAmount::zero(),
+            Some(from),
+            AddBlobStateParams {
+                hash,
+                metadata_hash: new_metadata_hash(),
+                id: SubscriptionId::default(),
+                size,
+                ttl: None,
+                source: new_pk(),
+                epoch: current_epoch,
+                token_amount: TokenAmount::zero(),
+            },
         );
         assert!(res.is_ok());
 
@@ -668,10 +628,11 @@ mod tests {
             &store,
             from,
             to,
+            DelegationOptions {
+                credit_limit: Some(Credit::from_whole(limit)),
+                ..Default::default()
+            },
             current_epoch,
-            Some(Credit::from_whole(limit)),
-            None,
-            None,
         );
         assert!(res.is_err());
         assert_eq!(
@@ -693,7 +654,14 @@ mod tests {
         let current_epoch = 1;
 
         let config = RecallConfig::default();
-        let res = state.approve_credit(&config, &store, from, to, current_epoch, None, None, None);
+        let res = state.approve_credit(
+            &config,
+            &store,
+            from,
+            to,
+            DelegationOptions::default(),
+            current_epoch,
+        );
         assert!(res.is_ok());
 
         // Check the account approvals
@@ -723,7 +691,7 @@ mod tests {
         assert!(res.is_err());
         assert_eq!(
             res.err().unwrap().msg(),
-            format!("{} not found in accounts", from)
+            format!("{} not found in accounts", to)
         );
     }
 }

@@ -77,7 +77,7 @@ impl Ord for TokenCreditRate {
 }
 
 /// The stored representation of a credit account.
-#[derive(Clone, Debug, PartialEq, Serialize_tuple, Deserialize_tuple)]
+#[derive(Clone, PartialEq, Serialize_tuple, Deserialize_tuple)]
 pub struct Account {
     /// Total size of all blobs managed by the account.
     pub capacity_used: u64,
@@ -106,16 +106,30 @@ impl Account {
         max_ttl: ChainEpoch,
     ) -> Result<Self, ActorError> {
         Ok(Self {
-            last_debit_epoch: current_epoch,
-            max_ttl,
             capacity_used: 0,
             credit_free: Credit::default(),
             credit_committed: Credit::default(),
             credit_sponsor: None,
+            last_debit_epoch: current_epoch,
             approvals_to: CreditApprovals::new(store)?,
             approvals_from: CreditApprovals::new(store)?,
+            max_ttl,
             gas_allowance: TokenAmount::default(),
         })
+    }
+}
+
+impl fmt::Debug for Account {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Account")
+            .field("capacity_used", &self.capacity_used)
+            .field("credit_free", &self.credit_free)
+            .field("credit_committed", &self.credit_committed)
+            .field("credit_sponsor", &self.credit_sponsor)
+            .field("last_debit_epoch", &self.last_debit_epoch)
+            .field("max_ttl", &self.max_ttl)
+            .field("gas_allowance", &self.gas_allowance)
+            .finish()
     }
 }
 
@@ -185,6 +199,24 @@ impl CreditApproval {
             }
         }
         Ok(())
+    }
+}
+
+/// Credit allowance for an account.
+#[derive(Debug, Default, Clone, PartialEq, Serialize_tuple, Deserialize_tuple)]
+pub struct CreditAllowance {
+    /// The amount from the account.
+    pub amount: Credit,
+    /// The account's default sponsor.
+    pub sponsor: Option<Address>,
+    /// The amount from the account's default sponsor.
+    pub sponsored_amount: Credit,
+}
+
+impl CreditAllowance {
+    /// Returns the total allowance from self and default sponsor.
+    pub fn total(&self) -> Credit {
+        &self.amount + &self.sponsored_amount
     }
 }
 
