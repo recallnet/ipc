@@ -4,8 +4,9 @@
 
 mod actor;
 mod caller;
-mod credit;
 mod shared;
 mod state;
+#[cfg(test)]
+mod testing;
 
 pub use shared::*;

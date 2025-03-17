@@ -41,8 +41,8 @@ use recall_sol_facade::{
 
 use crate::{
     caller::DelegationOptions,
-    state::{AddBlobStateParams, DeleteBlobStateParams, FinalizeBlobStateParams, State},
-    BLOBS_ACTOR_NAME,
+    state::blobs::{AddBlobStateParams, DeleteBlobStateParams, FinalizeBlobStateParams},
+    State, BLOBS_ACTOR_NAME,
 };
 
 #[cfg(feature = "fil-actor")]
