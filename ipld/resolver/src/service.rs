@@ -15,8 +15,9 @@ use anyhow::anyhow;
 use bloom::{BloomFilter, ASMS};
 use ipc_api::subnet_id::SubnetID;
 use ipc_observability::emit;
+use iroh::blobs::hashseq::HashSeq;
 use iroh::blobs::Hash;
-use iroh::client::blobs::ReadAtLen;
+use iroh::client::blobs::{BlobStatus, ReadAtLen};
 use iroh::client::Iroh;
 use iroh::net::NodeAddr;
 use iroh_manager::IrohManager;
@@ -34,6 +35,7 @@ use libp2p::{identify, ping};
 use libp2p_bitswap::{BitswapResponse, BitswapStore};
 use libp2p_mplex::MplexConfig;
 use log::{debug, error, info, warn};
+use num_traits::Zero;
 use prometheus::Registry;
 use rand::seq::SliceRandom;
 use serde::de::DeserializeOwned;
@@ -672,17 +674,17 @@ pub fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox)> {
 
 async fn download_blob(
     iroh: Iroh,
-    hash: Hash,
+    seq_hash: Hash,
     size: u64,
     node_addr: NodeAddr,
 ) -> anyhow::Result<()> {
     // Use an explicit tag so we can keep track of it
     // TODO: this needs to be tagged with a "user id"
-    let tag = iroh::blobs::Tag(format!("stored-seq-{hash}").into());
+    let tag = iroh::blobs::Tag(format!("stored-seq-{seq_hash}").into());
     let res = iroh
         .blobs()
         .download_with_opts(
-            hash,
+            seq_hash,
             iroh::client::blobs::DownloadOptions {
                 format: iroh::blobs::BlobFormat::Raw,
                 nodes: vec![node_addr],
@@ -693,25 +695,27 @@ async fn download_blob(
         .await?
         .await?;
 
-    if res.local_size + res.downloaded_size != size {
+    let (_, size_actual) = extract_blob_hash_and_size(&iroh, seq_hash).await?;
+    if size != size_actual {
         return Err(anyhow!(
             "downloaded blob size {} does not match expected size {}",
-            res.local_size + res.downloaded_size,
+            size_actual,
             size
         ));
     }
 
-    debug!("downloaded blob {}: {:?}", hash, res);
+    debug!("downloaded blob {}: {:?}", seq_hash, res);
 
     // Delete the temporary tag (this might fail as not all nodes will have one).
     // TODO: this needs to be tagged with a "user id"
-    let tag = iroh::blobs::Tag(format!("temp-seq-{hash}").into());
+    let tag = iroh::blobs::Tag(format!("temp-seq-{seq_hash}").into());
     iroh.tags().delete(tag).await.ok();
 
     Ok(())
 }
 
 async fn read_blob(iroh: Iroh, hash: Hash, offset: u32, len: u32) -> anyhow::Result<bytes::Bytes> {
+    let (hash, _) = extract_blob_hash_and_size(&iroh, hash).await?;
     let len = ReadAtLen::AtMost(len as u64);
     let res = iroh
         .blobs()
@@ -719,4 +723,55 @@ async fn read_blob(iroh: Iroh, hash: Hash, offset: u32, len: u32) -> anyhow::Res
         .await?;
     debug!("read blob {}: {:?}", hash, res);
     Ok(res)
+}
+
+async fn extract_blob_hash_and_size(
+    iroh: &Iroh,
+    seq_hash: Hash,
+) -> Result<(Hash, u64), anyhow::Error> {
+    let status = iroh.blobs().status(seq_hash).await.map_err(|e| {
+        anyhow!(
+            "failed to get status for hash sequence object: {} {}",
+            seq_hash,
+            e
+        )
+    })?;
+
+    let BlobStatus::Complete { size } = status else {
+        return Err(anyhow!(
+            "hash sequence object {} is not available",
+            seq_hash
+        ));
+    };
+
+    if size.is_zero() {
+        return Err(anyhow!("hash sequence object {} has zero size", seq_hash));
+    }
+
+    let res = iroh
+        .blobs()
+        .read_to_bytes(seq_hash)
+        .await
+        .map_err(|e| anyhow!("failed to read hash sequence object: {} {}", seq_hash, e))?;
+
+    let hash_seq = HashSeq::try_from(res)
+        .map_err(|e| anyhow!("failed to parse hash sequence object: {} {}", seq_hash, e))?;
+
+    let blob_hash = hash_seq.get(0).ok_or_else(|| {
+        anyhow!(
+            "failed to get hash with index 0 from hash sequence object: {}",
+            seq_hash
+        )
+    })?;
+
+    let status = iroh
+        .blobs()
+        .status(blob_hash)
+        .await
+        .map_err(|e| anyhow!("failed to read object: {} {}", blob_hash, e))?;
+
+    let BlobStatus::Complete { size } = status else {
+        return Err(anyhow!("object {} is not available", blob_hash));
+    };
+    Ok((blob_hash, size))
 }

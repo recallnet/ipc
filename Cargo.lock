@@ -6701,6 +6701,7 @@ dependencies = [
  "log",
  "lru_time_cache",
  "multihash 0.18.1",
+ "num-traits",
  "prometheus",
  "quickcheck",
  "quickcheck_macros",
