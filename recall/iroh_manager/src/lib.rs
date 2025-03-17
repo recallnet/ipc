@@ -9,20 +9,11 @@ mod node;
 pub use self::manager::IrohManager;
 pub use self::node::IrohNode;
 
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
-
 use anyhow::{anyhow, Result};
-use iroh::protocol::Router;
-use iroh::Endpoint;
 use iroh_blobs::hashseq::HashSeq;
-use iroh_blobs::net_protocol::Blobs;
 use iroh_blobs::rpc::client::blobs::BlobStatus;
 use iroh_blobs::Hash;
 use num_traits::Zero;
-use tokio::sync::Mutex;
-
-pub type IrohBlobsClient = iroh_blobs::rpc::client::blobs::MemClient;
 
 /// Returns the user blob hash and size from the hash sequence.
 /// The user blob hash is the first hash in the sequence.

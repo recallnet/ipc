@@ -6599,6 +6599,7 @@ dependencies = [
  "log",
  "lru_time_cache",
  "multihash 0.18.1",
+ "num-traits",
  "prometheus",
  "quickcheck",
  "quickcheck_macros",
@@ -6789,6 +6790,7 @@ dependencies = [
  "anyhow",
  "iroh",
  "iroh-blobs",
+ "num-traits",
  "tokio",
  "tracing",
 ]

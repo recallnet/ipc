@@ -10,10 +10,7 @@ use anyhow::anyhow;
 use anyhow::Context;
 use bytes::Buf;
 use entangler::{ChunkRange, Config, EntanglementResult, Entangler};
-use entangler::{ChunkRange, Config, Entangler};
 use entangler_storage::iroh::IrohStorage as EntanglerIrohStorage;
-use entangler_storage::iroh::{BlobsWrapper, IrohStorage as EntanglerIrohStorage};
-use fendermint_actor_blobs_shared::state::Hash as BlobHash;
 use fendermint_actor_bucket::{GetParams, Object};
 use fendermint_app_settings::objects::ObjectsSettings;
 use fendermint_rpc::{client::FendermintClient, message::GasParams, QueryClient};
@@ -26,7 +23,8 @@ use fvm_shared::{
 use ipc_api::ethers_address_to_fil_address;
 
 use iroh::NodeAddr;
-use iroh_blobs::{provider::AddProgress, rpc::client::blobs::BlobStatus, util::SetTagOption, Hash};
+use iroh_blobs::hashseq::HashSeq;
+use iroh_blobs::{rpc::client::blobs::BlobStatus, util::SetTagOption, Hash};
 use iroh_manager::{get_blob_hash_and_size, IrohNode};
 use lazy_static::lazy_static;
 use mime_guess::get_mime_extensions_str;
@@ -88,7 +86,7 @@ cmd! {
                 .and(with_iroh(iroh_node.clone()))
                 .and(warp::multipart::form().max_length(settings.max_object_size + 1024 * 1024)) // max_object_size + 1MB for form overhead
                 .and(with_max_size(settings.max_object_size))
-                .and_then(handle_object_upload_with_manager);
+                .and_then(handle_object_upload);
 
                 let objects_download = warp::path!("v1" / "objects" / String / ..)
                 .and(warp::path::tail())
@@ -99,7 +97,7 @@ cmd! {
                 .and(warp::query::<HeightQuery>())
                 .and(with_client(client.clone()))
                 .and(with_iroh(iroh_node.clone()))
-                .and_then(handle_object_download_with_manager);
+                .and_then(handle_object_download);
 
                 let router = health
                     .or(node_addr)
@@ -287,19 +285,6 @@ struct UploadResponse {
     metadata_hash: String,
 }
 
-async fn handle_object_upload_with_manager(
-    mut iroh: IrohManager,
-    form_data: warp::multipart::FormData,
-    max_size: u64,
-) -> Result<impl Reply, Rejection> {
-    let iroh_client = iroh.client().await.map_err(|e| {
-        Rejection::from(BadRequest {
-            message: format!("failed to load iroh client: {}", e),
-        })
-    })?;
-    handle_object_upload(iroh_client, form_data, max_size).await
-}
-
 async fn handle_object_upload(
     iroh: IrohNode,
     form_data: warp::multipart::FormData,
@@ -404,7 +389,7 @@ async fn handle_object_upload(
             })?;
 
             let hash = *temp_tag.hash();
-            let new_tag = iroh::blobs::Tag(format!("temp-{hash}-{upload_id}").into());
+            let new_tag = iroh_blobs::Tag(format!("temp-{hash}-{upload_id}").into());
             batch.persist_to(temp_tag, new_tag).await.map_err(|e| {
                 Rejection::from(BadRequest {
                     message: format!("failed to persist blob: {}", e),
@@ -413,7 +398,7 @@ async fn handle_object_upload(
 
             drop(batch);
 
-            let status = iroh.blobs().status(hash).await.map_err(|e| {
+            let status = iroh.blobs_client().status(hash).await.map_err(|e| {
                 Rejection::from(BadRequest {
                     message: format!("failed to check blob status: {}", e),
                 })
@@ -472,7 +457,7 @@ async fn handle_object_upload(
 }
 
 async fn tag_entangled_data(
-    iroh: &iroh::client::Iroh,
+    iroh: &IrohNode,
     ent_result: &EntanglementResult,
     upload_id: Uuid,
 ) -> Result<Hash, anyhow::Error> {
@@ -499,7 +484,7 @@ async fn tag_entangled_data(
         .collect::<Vec<_>>()
         .join(", ");
 
-    let batch = iroh.blobs().batch().await?;
+    let batch = iroh.blobs_client().batch().await?;
 
     // make a hash sequence object from the hashes and upload it to iroh
     let hash_seq = hashes.into_iter().collect::<HashSeq>();
@@ -513,7 +498,7 @@ async fn tag_entangled_data(
     );
 
     // this tag will be replaced later by the validator to "stored-seq-{hash_seq_hash}"
-    let hash_seq_tag = iroh::blobs::Tag(format!("temp-seq-{hash_seq_hash}").into());
+    let hash_seq_tag = iroh_blobs::Tag(format!("temp-seq-{hash_seq_hash}").into());
     batch.persist_to(temp_tag, hash_seq_tag).await?;
 
     drop(batch);
@@ -524,13 +509,13 @@ async fn tag_entangled_data(
             .info
             .get("tag")
             .ok_or_else(|| anyhow!("Missing tag in entanglement upload result"))?;
-        let tag = iroh::blobs::Tag::from(tag_value.clone());
-        iroh.tags().delete(tag).await?;
+        let tag = iroh_blobs::Tag::from(tag_value.clone());
+        iroh.blobs_client().tags().delete(tag).await?;
     }
 
     // remove upload tags
-    let orig_tag = iroh::blobs::Tag(format!("temp-{orig_hash}-{upload_id}").into());
-    iroh.tags().delete(orig_tag).await?;
+    let orig_tag = iroh_blobs::Tag(format!("temp-{orig_hash}-{upload_id}").into());
+    iroh.blobs_client().tags().delete(orig_tag).await?;
 
     Ok(hash_seq_hash)
 }
@@ -581,32 +566,6 @@ pub(crate) struct ObjectRange {
     body: Body,
 }
 
-async fn handle_object_download_with_manager<F: QueryClient + Send + Sync>(
-    address: String,
-    tail: Tail,
-    method: String,
-    range: Option<String>,
-    height_query: HeightQuery,
-    client: F,
-    mut iroh: IrohManager,
-) -> Result<impl Reply, Rejection> {
-    let iroh_client = iroh.client().await.map_err(|e| {
-        Rejection::from(BadRequest {
-            message: format!("failed to load iroh client: {}", e),
-        })
-    })?;
-    handle_object_download(
-        address,
-        tail,
-        method,
-        range,
-        height_query,
-        client,
-        iroh_client,
-    )
-    .await
-}
-
 async fn handle_object_download<F: QueryClient + Send + Sync>(
     address: String,
     tail: Tail,
@@ -638,11 +597,13 @@ async fn handle_object_download<F: QueryClient + Send + Sync>(
     match maybe_object {
         Some(object) => {
             let hash = Hash::from_bytes(object.hash.0);
-            let (hash, size) = get_blob_hash_and_size(&iroh, hash).await.map_err(|e| {
-                Rejection::from(BadRequest {
-                    message: e.to_string(),
-                })
-            })?;
+            let (hash, size) = get_blob_hash_and_size(iroh.blobs_client(), hash)
+                .await
+                .map_err(|e| {
+                    Rejection::from(BadRequest {
+                        message: e.to_string(),
+                    })
+                })?;
 
             let ent = new_entangler(&iroh).map_err(|e| {
                 Rejection::from(BadRequest {
@@ -961,13 +922,13 @@ mod tests {
 
     /// Prepares test data for object download tests by uploading data, creating entanglement,
     /// and properly tagging the hash sequence
-    async fn simulate_blob_upload(
-        iroh: &iroh::client::Iroh,
-        data: impl Into<Bytes>,
-    ) -> (Hash, Hash) {
+    async fn simulate_blob_upload(iroh: &IrohNode, data: impl Into<Bytes>) -> (Hash, Hash) {
         let data = data.into(); // Convert to Bytes first, which implements Send
-        let ent = new_entangler(iroh.clone()).unwrap();
-        let ent_result = ent.upload(data).await.unwrap();
+        let ent = new_entangler(iroh).unwrap();
+        let data_stream = Box::pin(futures::stream::once(async move {
+            Ok::<Bytes, std::io::Error>(data)
+        }));
+        let ent_result = ent.upload(data_stream).await.unwrap();
 
         let metadata = ent
             .download_metadata(ent_result.metadata_hash.as_str())
@@ -987,13 +948,13 @@ mod tests {
         )
         .collect::<HashSeq>();
 
-        let batch = iroh.blobs().batch().await.unwrap();
+        let batch = iroh.blobs_client().batch().await.unwrap();
         let temp_tag = batch.add_bytes(hash_seq).await.unwrap();
         let hash_seq_hash = *temp_tag.hash();
 
         // Add a tag to the hash sequence as expected by the system
         let tag_name = format!("temp-seq-{hash_seq_hash}");
-        let hash_seq_tag = iroh::blobs::Tag(tag_name.into());
+        let hash_seq_tag = iroh_blobs::Tag(tag_name.into());
         batch.persist_to(temp_tag, hash_seq_tag).await.unwrap();
         drop(batch);
 
