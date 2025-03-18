@@ -483,7 +483,7 @@ async fn tag_entangled_data(
         .filter(|h| h != &metadata_hash)
         .collect::<Vec<_>>();
 
-    let mut hashes = vec![orig_hash.clone(), metadata_hash];
+    let mut hashes = vec![orig_hash, metadata_hash];
     hashes.extend(upload_hashes);
 
     let batch = iroh.blobs().batch().await?;
@@ -944,8 +944,8 @@ mod tests {
         metadata_iroh_hash: Hash,
     ) -> MockQueryClient {
         let object = Object {
-            hash: BlobHash(hash_seq_hash.as_bytes().clone()),
-            recovery_hash: BlobHash(metadata_iroh_hash.as_bytes().clone()),
+            hash: BlobHash(*hash_seq_hash.as_bytes()),
+            recovery_hash: BlobHash(*metadata_iroh_hash.as_bytes()),
             metadata: HashMap::from([
                 ("foo".to_string(), "bar".to_string()),
                 (
