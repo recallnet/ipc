@@ -177,7 +177,7 @@ mod tests {
 
     fn expect_emitted_open_event(rt: &MockRuntime, params: &OpenReadRequestParams, id: &Hash) {
         let event = to_actor_event(ReadRequestOpened {
-            id: &id,
+            id,
             blob_hash: &params.hash,
             read_offset: params.offset.into(),
             read_length: params.len.into(),

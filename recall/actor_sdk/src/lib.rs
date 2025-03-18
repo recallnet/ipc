@@ -2,17 +2,17 @@
 // Copyright 2022-2024 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use fil_actors_runtime::runtime::builtins::Type;
+use fil_actors_runtime::runtime::Runtime;
+use fil_actors_runtime::{actor_error, ActorError};
+use fvm_ipld_encoding::{strict_bytes, tuple::*};
 use fvm_shared::address::Address;
 use fvm_shared::bigint::BigUint;
 use fvm_shared::econ::TokenAmount;
 use fvm_shared::error::ErrorNumber;
 use fvm_shared::event::{ActorEvent, Entry, Flags};
 use fvm_shared::IPLD_RAW;
-use fil_actors_runtime::{actor_error, ActorError};
-use fil_actors_runtime::runtime::builtins::Type;
-use fil_actors_runtime::runtime::Runtime;
 use recall_sol_facade::primitives::IntoLogData;
-use fvm_ipld_encoding::{strict_bytes, tuple::*};
 
 pub fn hash_rm(hash: [u8; 32]) -> Result<(), ErrorNumber> {
     unsafe { sys::hash_rm(hash.as_ptr()) }
@@ -87,7 +87,9 @@ const EVENT_DATA_KEY: &str = "d";
 
 /// Returns an [`ActorEvent`] from an EVM event.
 pub fn to_actor_event<T: TryIntoEVMEvent>(event: T) -> Result<ActorEvent, ActorError> {
-    let event = event.try_into_evm_event().map_err(|e| actor_error!(illegal_argument; "failed to build evm event: {}", e))?;
+    let event = event
+        .try_into_evm_event()
+        .map_err(|e| actor_error!(illegal_argument; "failed to build evm event: {}", e))?;
     let log = event.to_log_data();
     let num_entries = log.topics().len() + 1; // +1 for log data
 
@@ -211,7 +213,9 @@ macro_rules! declare_abi_call {
 
         impl From<anyhow::Error> for AbiEncodeError {
             fn from(error: anyhow::Error) -> Self {
-                Self { message: format!("failed to abi encode {}", error) }
+                Self {
+                    message: format!("failed to abi encode {}", error),
+                }
             }
         }
 
@@ -223,7 +227,9 @@ macro_rules! declare_abi_call {
 
         impl From<fil_actors_runtime::ActorError> for AbiEncodeError {
             fn from(error: fil_actors_runtime::ActorError) -> Self {
-                Self { message: format!("{}", error) }
+                Self {
+                    message: format!("{}", error),
+                }
             }
         }
 

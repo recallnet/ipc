@@ -11,7 +11,7 @@ use fendermint_actor_blobs_shared::params::{
 };
 use fendermint_actor_blobs_shared::state::{
     AccountInfo, Blob, BlobRequest, BlobStatus, Credit, CreditApproval, GasAllowance, Hash,
-    Subscription, SubscriptionId,
+    Subscription,
 };
 use fendermint_actor_blobs_shared::Method;
 use fendermint_actor_recall_config_shared::{get_config, require_caller_is_admin};
@@ -21,14 +21,12 @@ use fil_actors_runtime::{
     ActorError, FIRST_EXPORTED_METHOD_NUMBER, SYSTEM_ACTOR_ADDR,
 };
 use fvm_ipld_encoding::ipld_block::IpldBlock;
-use fvm_shared::address::Address;
 use fvm_shared::{econ::TokenAmount, error::ExitCode, MethodNum, METHOD_SEND};
 use num_traits::Zero;
 use recall_actor_sdk::{
     emit_evm_event, require_addr_is_origin_or_caller, to_delegated_address, to_id_address,
     to_id_and_delegated_address, InputData, InvokeContractParams, InvokeContractReturn,
 };
-use recall_ipld::hamt::MapKey;
 
 use crate::sol_facade::blobs::BlobTraversed;
 use crate::sol_facade::credit::{CreditApproved, CreditDebited, CreditPurchased, CreditRevoked};
@@ -949,6 +947,7 @@ impl ActorCode for BlobsActor {
 mod tests {
     use super::*;
 
+    use fendermint_actor_blobs_shared::state::SubscriptionId;
     use fendermint_actor_blobs_testing::{new_hash, new_pk};
     use fendermint_actor_recall_config_shared::{RecallConfig, RECALL_CONFIG_ACTOR_ADDR};
     use fil_actors_evm_shared::address::EthAddress;

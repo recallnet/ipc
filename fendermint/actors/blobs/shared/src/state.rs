@@ -24,7 +24,7 @@ pub type Credit = TokenAmount;
 
 /// The return type used when fetching "added" or "pending" blobs.
 /// See `get_added_blobs` and `get_pending_blobs` for more information.
-pub type BlobRequest = (Hash, HashSet<(Address, SubscriptionId, PublicKey)>);
+pub type BlobRequest = (Hash, u64, HashSet<(Address, SubscriptionId, PublicKey)>);
 
 /// TokenCreditRate determines how much atto credits can be bought by a certain amount of RECALL.
 #[derive(Clone, Default, Debug, serde::Serialize, serde::Deserialize, Eq, PartialEq)]

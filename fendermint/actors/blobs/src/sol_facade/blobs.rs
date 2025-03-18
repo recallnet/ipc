@@ -211,7 +211,7 @@ impl BlobTraversed {
                                 source: subscription.source.0.into(),
                                 delegate: subscription
                                     .delegate
-                                    .map(|address| H160::try_from(address))
+                                    .map(H160::try_from)
                                     .transpose()?
                                     .unwrap_or_default()
                                     .into(),
@@ -270,9 +270,7 @@ impl AbiCall for sol::getStatsCall {
     type Params = ();
     type Returns = GetStatsReturn;
     type Output = Vec<u8>;
-    fn params(&self) -> Self::Params {
-        ()
-    }
+    fn params(&self) -> Self::Params {}
     fn returns(&self, stats: Self::Returns) -> Self::Output {
         let subnet_stats = sol::SubnetStats {
             balance: BigUintWrapper::from(stats.balance).into(),

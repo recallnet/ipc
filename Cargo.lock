@@ -10437,7 +10437,6 @@ dependencies = [
  "alloy-sol-macro-input",
  "alloy-sol-types",
  "anyhow",
- "data-encoding",
  "dunce",
  "eyre",
  "fvm_ipld_encoding",

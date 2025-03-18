@@ -9,8 +9,8 @@ use std::str::from_utf8;
 
 use fendermint_actor_blobs_shared::params::GetStatsReturn;
 use fendermint_actor_blobs_shared::state::{
-    Account, Blob, BlobStatus, BlobSubscribers, Credit, CreditApproval, GasAllowance, Hash,
-    PublicKey, Subscription, SubscriptionGroup, SubscriptionId, TokenCreditRate, TtlStatus,
+    Account, Blob, BlobRequest, BlobStatus, BlobSubscribers, Credit, CreditApproval, GasAllowance,
+    Hash, PublicKey, Subscription, SubscriptionGroup, SubscriptionId, TokenCreditRate, TtlStatus,
 };
 use fendermint_actor_recall_config_shared::RecallConfig;
 use fil_actors_runtime::ActorError;
@@ -25,8 +25,7 @@ use log::{debug, warn};
 use num_traits::{ToPrimitive, Zero};
 use recall_ipld::hamt::{BytesKey, MapKey};
 
-type BlobSourcesResult =
-    anyhow::Result<Vec<(Hash, u64, HashSet<(Address, SubscriptionId, PublicKey)>)>, ActorError>;
+type BlobSourcesResult = anyhow::Result<Vec<BlobRequest>, ActorError>;
 
 mod accounts;
 mod blobs;
@@ -4163,7 +4162,7 @@ mod tests {
         // Test cases for pagination
         struct PaginationTest {
             name: &'static str,
-            limit: Option<usize>,
+            limit: Option<u32>,
             start: Option<usize>,
             expected_next_key: Option<usize>,
             expected_processed: usize,
