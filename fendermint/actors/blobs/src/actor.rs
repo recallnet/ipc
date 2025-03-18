@@ -525,6 +525,7 @@ impl BlobsActor {
                 rt.store(),
                 subscriber_id_addr,
                 params.hash,
+                params.size,
                 params.id,
                 params.source,
             )
