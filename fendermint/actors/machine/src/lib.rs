@@ -19,6 +19,7 @@ use serde::{de::DeserializeOwned, Serialize};
 use crate::events::emit_evm_event;
 use crate::util::{to_delegated_address, to_id_address, to_id_and_delegated_address};
 
+pub mod caller;
 pub mod events;
 pub mod util;
 

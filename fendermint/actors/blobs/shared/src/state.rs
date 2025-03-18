@@ -78,7 +78,7 @@ impl Ord for TokenCreditRate {
 }
 
 /// The stored representation of a credit account.
-#[derive(Clone, Debug, PartialEq, Serialize_tuple, Deserialize_tuple)]
+#[derive(Clone, PartialEq, Serialize_tuple, Deserialize_tuple)]
 pub struct Account {
     /// Total size of all blobs managed by the account.
     pub capacity_used: u64,
@@ -107,32 +107,118 @@ impl Account {
         max_ttl: ChainEpoch,
     ) -> Result<Self, ActorError> {
         Ok(Self {
-            last_debit_epoch: current_epoch,
-            max_ttl,
             capacity_used: 0,
             credit_free: Credit::default(),
             credit_committed: Credit::default(),
             credit_sponsor: None,
+            last_debit_epoch: current_epoch,
             approvals_to: CreditApprovals::new(store)?,
             approvals_from: CreditApprovals::new(store)?,
+            max_ttl,
             gas_allowance: TokenAmount::default(),
         })
     }
 }
 
+impl fmt::Debug for Account {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Account")
+            .field("capacity_used", &self.capacity_used)
+            .field("credit_free", &self.credit_free)
+            .field("credit_committed", &self.credit_committed)
+            .field("credit_sponsor", &self.credit_sponsor)
+            .field("last_debit_epoch", &self.last_debit_epoch)
+            .field("max_ttl", &self.max_ttl)
+            .field("gas_allowance", &self.gas_allowance)
+            .finish()
+    }
+}
+
 /// A credit approval from one account to another.
-#[derive(Debug, Clone, PartialEq, Serialize_tuple, Deserialize_tuple)]
+#[derive(Debug, Default, Clone, PartialEq, Serialize_tuple, Deserialize_tuple)]
 pub struct CreditApproval {
     /// Optional credit approval limit.
     pub credit_limit: Option<Credit>,
     /// Used to limit gas fee delegation.
-    pub gas_fee_limit: Option<TokenAmount>,
+    pub gas_allowance_limit: Option<TokenAmount>,
     /// Optional credit approval expiry epoch.
     pub expiry: Option<ChainEpoch>,
     /// Counter for how much credit has been used via this approval.
     pub credit_used: Credit,
     /// Used to track gas fees paid for by the delegation
-    pub gas_fee_used: TokenAmount,
+    pub gas_allowance_used: TokenAmount,
+}
+
+impl CreditApproval {
+    /// Returns a new credit approval.
+    pub fn new(
+        credit_limit: Option<Credit>,
+        gas_allowance_limit: Option<TokenAmount>,
+        expiry: Option<ChainEpoch>,
+    ) -> Self {
+        Self {
+            credit_limit,
+            gas_allowance_limit,
+            expiry,
+            ..Default::default()
+        }
+    }
+
+    /// Validates whether the approval has enough allowance for the credit amount.
+    pub fn validate_credit_usage(&self, amount: &TokenAmount) -> Result<(), ActorError> {
+        if let Some(credit_limit) = self.credit_limit.as_ref() {
+            let unused = &(credit_limit - &self.credit_used);
+            if unused < amount {
+                return Err(ActorError::forbidden(format!(
+                    "usage would exceed approval credit limit (available: {}; required: {})",
+                    unused, amount
+                )));
+            }
+        }
+        Ok(())
+    }
+
+    /// Validates whether the approval has enough allowance for the gas amount.
+    pub fn validate_gas_usage(&self, amount: &TokenAmount) -> Result<(), ActorError> {
+        if let Some(gas_limit) = self.gas_allowance_limit.as_ref() {
+            let unused = &(gas_limit - &self.gas_allowance_used);
+            if unused < amount {
+                return Err(ActorError::forbidden(format!(
+                    "usage would exceed approval gas allowance (available: {}; required: {})",
+                    unused, amount
+                )));
+            }
+        }
+        Ok(())
+    }
+
+    /// Validates whether the approval has a valid expiration.
+    pub fn validate_expiration(&self, current_epoch: ChainEpoch) -> Result<(), ActorError> {
+        if let Some(expiry) = self.expiry {
+            if expiry <= current_epoch {
+                return Err(ActorError::forbidden("approval expired".into()));
+            }
+        }
+        Ok(())
+    }
+}
+
+/// Credit allowance for an account.
+#[derive(Debug, Default, Clone, PartialEq, Serialize_tuple, Deserialize_tuple)]
+pub struct CreditAllowance {
+    /// The amount from the account.
+    pub amount: Credit,
+    /// The account's default sponsor.
+    pub sponsor: Option<Address>,
+    /// The amount from the account's default sponsor.
+    pub sponsored_amount: Credit,
+}
+
+impl CreditAllowance {
+    /// Returns the total allowance from self and default sponsor.
+    pub fn total(&self) -> Credit {
+        &self.amount + &self.sponsored_amount
+    }
 }
 
 /// Gas allowance for an account.
@@ -250,10 +336,10 @@ impl BlobSubscribers {
         Ok(Self { root, size: 0 })
     }
 
-    pub fn hamt<BS: Blockstore>(
+    pub fn hamt<'a, BS: Blockstore>(
         &self,
         store: BS,
-    ) -> Result<hamt::map::Hamt<BS, Address, SubscriptionGroup>, ActorError> {
+    ) -> Result<hamt::map::Hamt<'a, BS, Address, SubscriptionGroup>, ActorError> {
         self.root.hamt(store, self.size)
     }
 
@@ -538,12 +624,13 @@ impl CreditApprovals {
         Ok(Self { root, size: 0 })
     }
 
-    pub fn hamt<BS: Blockstore>(
+    pub fn hamt<'a, BS: Blockstore>(
         &self,
         store: BS,
-    ) -> Result<hamt::map::Hamt<BS, Address, CreditApproval>, ActorError> {
+    ) -> Result<hamt::map::Hamt<'a, BS, Address, CreditApproval>, ActorError> {
         self.root.hamt(store, self.size)
     }
+
     pub fn save_tracked(
         &mut self,
         tracked_flush_result: TrackedFlushResult<Address, CreditApproval>,

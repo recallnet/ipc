@@ -3,7 +3,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod actor;
+mod caller;
 mod shared;
 mod state;
+#[cfg(test)]
+mod testing;
 
 pub use shared::*;

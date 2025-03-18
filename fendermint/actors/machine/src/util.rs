@@ -73,7 +73,7 @@ pub fn to_id_and_delegated_address(
         )))?;
     let delegated = rt
         .lookup_delegated_address(actor_id)
-        .ok_or(ActorError::not_found(format!(
+        .ok_or(ActorError::forbidden(format!(
             "invalid address: actor {} is not delegated",
             address
         )))?;
