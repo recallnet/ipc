@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use anyhow::Error;
-use fendermint_actor_blobs_shared::state::Hash;
 use recall_actor_sdk::TryIntoEVMEvent;
+use recall_fendermint_actor_blobs_shared::state::Hash;
 use recall_sol_facade::bucket as sol;
 use std::collections::HashMap;
 

@@ -13,12 +13,12 @@ pub enum Error {
 
     #[cfg(feature = "fil-actor")]
     #[error("actor error")]
-    Actor(fil_actors_runtime::ActorError),
+    Actor(recall_fil_actors_runtime::ActorError),
 }
 
 #[cfg(feature = "fil-actor")]
-impl From<fil_actors_runtime::ActorError> for Error {
-    fn from(e: fil_actors_runtime::ActorError) -> Self {
+impl From<recall_fil_actors_runtime::ActorError> for Error {
+    fn from(e: recall_fil_actors_runtime::ActorError) -> Self {
         Self::Actor(e)
     }
 }

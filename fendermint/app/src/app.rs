@@ -17,12 +17,9 @@ use async_trait::async_trait;
 use cid::Cid;
 use fendermint_abci::util::take_until_max_size;
 use fendermint_abci::{AbciResult, Application};
-use fendermint_actors_api::gas_market::Reading;
-use fendermint_crypto::PublicKey;
 use fendermint_storage::{
     Codec, Encode, KVCollection, KVRead, KVReadable, KVStore, KVWritable, KVWrite,
 };
-use fendermint_vm_core::Timestamp;
 use fendermint_vm_interpreter::bytes::{
     BytesMessageApplyRes, BytesMessageCheckRes, BytesMessageQuery, BytesMessageQueryRes,
 };
@@ -38,7 +35,6 @@ use fendermint_vm_interpreter::signed::InvalidSignature;
 use fendermint_vm_interpreter::{
     CheckInterpreter, ExecInterpreter, ProposalInterpreter, QueryInterpreter,
 };
-use fendermint_vm_message::query::FvmQueryHeight;
 use fendermint_vm_snapshot::{SnapshotClient, SnapshotError};
 use fvm::engine::MultiEngine;
 use fvm_ipld_blockstore::Blockstore;
@@ -48,6 +44,10 @@ use fvm_shared::econ::TokenAmount;
 use fvm_shared::version::NetworkVersion;
 use ipc_observability::{emit, serde::HexEncodableBlockHash};
 use num_traits::Zero;
+use recall_fendermint_actors_api::gas_market::Reading;
+use recall_fendermint_crypto::PublicKey;
+use recall_fendermint_vm_core::Timestamp;
+use recall_fendermint_vm_message::query::FvmQueryHeight;
 use serde::{Deserialize, Serialize};
 use tendermint::abci::request::CheckTxKind;
 use tendermint::abci::{request, response};
@@ -510,8 +510,8 @@ where
     /// Called once upon genesis.
     async fn init_chain(&self, request: request::InitChain) -> AbciResult<response::InitChain> {
         let genesis_bytes = Self::parse_genesis_app_bytes(&request.app_state_bytes)?;
-        let genesis_hash =
-            fendermint_vm_message::cid(&genesis_bytes).context("failed to compute genesis CID")?;
+        let genesis_hash = recall_fendermint_vm_message::cid(&genesis_bytes)
+            .context("failed to compute genesis CID")?;
 
         // Make it easy to spot any discrepancies between nodes.
         tracing::info!(genesis_hash = genesis_hash.to_string(), "genesis");

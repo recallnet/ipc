@@ -9,7 +9,7 @@
 //!
 //! # Usage
 //! ```text
-//! cargo run -p fendermint_rpc --release --example simplecoin -- --secret-key test-network/keys/alice.sk --verbose
+//! cargo run -p recall_fendermint_rpc --release --example simplecoin -- --secret-key test-network/keys/alice.sk --verbose
 //! ```
 
 use std::path::PathBuf;
@@ -20,21 +20,21 @@ use clap::Parser;
 use ethers::abi::Tokenizable;
 use ethers::prelude::{abigen, decode_function_data};
 use ethers::types::{H160, U256};
-use fendermint_crypto::SecretKey;
-use fendermint_rpc::query::QueryClient;
-use fendermint_vm_actor_interface::eam::{self, CreateReturn, EthAddress};
-use fendermint_vm_message::query::FvmQueryHeight;
 use fvm_shared::address::Address;
 use fvm_shared::chainid::ChainID;
 use lazy_static::lazy_static;
+use recall_fendermint_crypto::SecretKey;
+use recall_fendermint_rpc::query::QueryClient;
+use recall_fendermint_vm_actor_interface::eam::{self, CreateReturn, EthAddress};
+use recall_fendermint_vm_message::query::FvmQueryHeight;
 use tendermint_rpc::Url;
 use tracing::Level;
 
 use fvm_shared::econ::TokenAmount;
 
-use fendermint_rpc::client::FendermintClient;
-use fendermint_rpc::message::{GasParams, SignedMessageFactory};
-use fendermint_rpc::tx::{CallClient, TxClient, TxCommit};
+use recall_fendermint_rpc::client::FendermintClient;
+use recall_fendermint_rpc::message::{GasParams, SignedMessageFactory};
+use recall_fendermint_rpc::tx::{CallClient, TxClient, TxCommit};
 
 type MockProvider = ethers::providers::Provider<ethers::providers::MockProvider>;
 type MockContractCall<T> = ethers::prelude::ContractCall<MockProvider, T>;

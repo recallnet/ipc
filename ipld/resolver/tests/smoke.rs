@@ -22,7 +22,6 @@ use cid::Cid;
 use fvm_ipld_encoding::IPLD_RAW;
 use fvm_ipld_hamt::Hamt;
 use fvm_shared::{address::Address, ActorID};
-use ipc_api::subnet_id::SubnetID;
 use ipc_ipld_resolver::{
     Client, Config, ConnectionConfig, ContentConfig, DiscoveryConfig, Event, MembershipConfig,
     NetworkConfig, Resolver, Service, VoteRecord,
@@ -38,6 +37,7 @@ use libp2p::{
 };
 use multihash::{Code, MultihashDigest};
 use rand::{rngs::StdRng, Rng, SeedableRng};
+use recall_ipc_api::subnet_id::SubnetID;
 use std::{
     sync::atomic::{AtomicU64, Ordering},
     time::Duration,

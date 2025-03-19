@@ -10,8 +10,8 @@ use serde_with::serde_as;
 use std::{collections::BTreeMap, path::Path};
 use url::Url;
 
-use fendermint_vm_encoding::IsHumanReadable;
-use fendermint_vm_genesis::Collateral;
+use recall_fendermint_vm_encoding::IsHumanReadable;
+use recall_fendermint_vm_genesis::Collateral;
 
 use crate::{validation::validate_manifest, AccountId, NodeId, RelayerId, SubnetId, TestnetName};
 

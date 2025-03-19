@@ -1,10 +1,10 @@
 [package]
-name = "merkle-tree-rs"
+name = "recall_merkle_tree_rs"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
 rust-version = "1.65.0"
-authors = ["Ahiara Ikechukwu Marvellous <https://github.com/literallymarvellous>"]
+authors = ["Ahiara Ikechukwu Marvellous <https://github.com/literallymarvellous>", "Textile"]
 readme = "README.md"
 repository = "https://github.com/literallymarvellous/merkle-tree-rs"
 description = "A Rust library to generate merkle trees and merkle proofs."

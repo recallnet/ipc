@@ -5,13 +5,13 @@
 use crate::app::{AppState, AppStoreKey};
 use crate::{App, BlockHeight};
 use fendermint_storage::{Codec, Encode, KVReadable, KVStore, KVWritable};
-use fendermint_vm_genesis::{Power, Validator};
 use fendermint_vm_interpreter::fvm::state::ipc::GatewayCaller;
 use fendermint_vm_interpreter::fvm::state::{FvmExecState, FvmStateParams};
 use fendermint_vm_interpreter::fvm::store::ReadOnlyBlockstore;
 use fendermint_vm_topdown::sync::ParentFinalityStateQuery;
 use fendermint_vm_topdown::{IPCBlobFinality, IPCParentFinality, IPCReadRequestClosed};
 use fvm_ipld_blockstore::Blockstore;
+use recall_fendermint_vm_genesis::{Power, Validator};
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};

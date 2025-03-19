@@ -4,8 +4,6 @@
 
 use std::collections::HashSet;
 
-use fil_actors_runtime::runtime::Runtime;
-use fil_actors_runtime::{deserialize_block, extract_send_result, ActorError};
 use fvm_ipld_encoding::ipld_block::IpldBlock;
 use fvm_shared::address::Address;
 use fvm_shared::clock::ChainEpoch;
@@ -13,6 +11,8 @@ use fvm_shared::econ::TokenAmount;
 use fvm_shared::sys::SendFlags;
 use fvm_shared::{ActorID, MethodNum, METHOD_CONSTRUCTOR};
 use num_derive::FromPrimitive;
+use recall_fil_actors_runtime::runtime::Runtime;
+use recall_fil_actors_runtime::{deserialize_block, extract_send_result, ActorError};
 
 use crate::state::{Account, Credit, CreditApproval, Subscription};
 
@@ -28,35 +28,35 @@ pub enum Method {
     Constructor = METHOD_CONSTRUCTOR,
 
     // User methods
-    BuyCredit = frc42_dispatch::method_hash!("BuyCredit"),
-    ApproveCredit = frc42_dispatch::method_hash!("ApproveCredit"),
-    RevokeCredit = frc42_dispatch::method_hash!("RevokeCredit"),
-    SetAccountSponsor = frc42_dispatch::method_hash!("SetAccountSponsor"),
-    GetAccount = frc42_dispatch::method_hash!("GetAccount"),
-    GetCreditApproval = frc42_dispatch::method_hash!("GetCreditApproval"),
-    AddBlob = frc42_dispatch::method_hash!("AddBlob"),
-    GetBlob = frc42_dispatch::method_hash!("GetBlob"),
-    DeleteBlob = frc42_dispatch::method_hash!("DeleteBlob"),
-    OverwriteBlob = frc42_dispatch::method_hash!("OverwriteBlob"),
+    BuyCredit = recall_frc42_dispatch::method_hash!("BuyCredit"),
+    ApproveCredit = recall_frc42_dispatch::method_hash!("ApproveCredit"),
+    RevokeCredit = recall_frc42_dispatch::method_hash!("RevokeCredit"),
+    SetAccountSponsor = recall_frc42_dispatch::method_hash!("SetAccountSponsor"),
+    GetAccount = recall_frc42_dispatch::method_hash!("GetAccount"),
+    GetCreditApproval = recall_frc42_dispatch::method_hash!("GetCreditApproval"),
+    AddBlob = recall_frc42_dispatch::method_hash!("AddBlob"),
+    GetBlob = recall_frc42_dispatch::method_hash!("GetBlob"),
+    DeleteBlob = recall_frc42_dispatch::method_hash!("DeleteBlob"),
+    OverwriteBlob = recall_frc42_dispatch::method_hash!("OverwriteBlob"),
 
     // System methods
-    GetGasAllowance = frc42_dispatch::method_hash!("GetGasAllowance"),
-    UpdateGasAllowance = frc42_dispatch::method_hash!("UpdateGasAllowance"),
-    GetBlobStatus = frc42_dispatch::method_hash!("GetBlobStatus"),
-    GetAddedBlobs = frc42_dispatch::method_hash!("GetAddedBlobs"),
-    GetPendingBlobs = frc42_dispatch::method_hash!("GetPendingBlobs"),
-    SetBlobPending = frc42_dispatch::method_hash!("SetBlobPending"),
-    FinalizeBlob = frc42_dispatch::method_hash!("FinalizeBlob"),
-    DebitAccounts = frc42_dispatch::method_hash!("DebitAccounts"),
+    GetGasAllowance = recall_frc42_dispatch::method_hash!("GetGasAllowance"),
+    UpdateGasAllowance = recall_frc42_dispatch::method_hash!("UpdateGasAllowance"),
+    GetBlobStatus = recall_frc42_dispatch::method_hash!("GetBlobStatus"),
+    GetAddedBlobs = recall_frc42_dispatch::method_hash!("GetAddedBlobs"),
+    GetPendingBlobs = recall_frc42_dispatch::method_hash!("GetPendingBlobs"),
+    SetBlobPending = recall_frc42_dispatch::method_hash!("SetBlobPending"),
+    FinalizeBlob = recall_frc42_dispatch::method_hash!("FinalizeBlob"),
+    DebitAccounts = recall_frc42_dispatch::method_hash!("DebitAccounts"),
 
     // Admin methods
-    SetAccountStatus = frc42_dispatch::method_hash!("SetAccountStatus"),
-    TrimBlobExpiries = frc42_dispatch::method_hash!("TrimBlobExpiries"),
+    SetAccountStatus = recall_frc42_dispatch::method_hash!("SetAccountStatus"),
+    TrimBlobExpiries = recall_frc42_dispatch::method_hash!("TrimBlobExpiries"),
 
     // Metrics methods
-    GetStats = frc42_dispatch::method_hash!("GetStats"),
+    GetStats = recall_frc42_dispatch::method_hash!("GetStats"),
     // EVM Interop
-    InvokeContract = frc42_dispatch::method_hash!("InvokeEVM"),
+    InvokeContract = recall_frc42_dispatch::method_hash!("InvokeEVM"),
 }
 
 pub fn buy_credit(rt: &impl Runtime, to: Address) -> Result<Account, ActorError> {

@@ -4,7 +4,6 @@
 use std::fmt::{Debug, Display};
 
 use cid::multihash::MultihashDigest;
-use fendermint_crypto::PublicKey;
 use fvm_ipld_encoding::{
     strict_bytes,
     tuple::{Deserialize_tuple, Serialize_tuple},
@@ -13,6 +12,7 @@ use fvm_shared::{
     address::{Address, Error, SECP_PUB_LEN},
     ActorID, METHOD_CONSTRUCTOR,
 };
+use recall_fendermint_crypto::PublicKey;
 
 define_singleton!(EAM {
     id: 10,
@@ -138,10 +138,10 @@ impl CreateReturn {
 #[cfg(test)]
 mod tests {
     use ethers_core::k256::ecdsa::SigningKey;
-    use fendermint_crypto::SecretKey;
     use quickcheck_macros::quickcheck;
     use rand::rngs::StdRng;
     use rand::SeedableRng;
+    use recall_fendermint_crypto::SecretKey;
 
     use super::EthAddress;
 

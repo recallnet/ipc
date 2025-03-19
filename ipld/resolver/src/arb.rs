@@ -1,8 +1,8 @@
 // Copyright 2022-2024 Protocol Labs
 // SPDX-License-Identifier: MIT
 use fvm_shared::address::Address;
-use ipc_api::subnet_id::SubnetID;
 use quickcheck::Arbitrary;
+use recall_ipc_api::subnet_id::SubnetID;
 
 #[derive(Clone, Debug)]
 pub struct ArbSubnetID(pub SubnetID);

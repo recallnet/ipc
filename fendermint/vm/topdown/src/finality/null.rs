@@ -6,8 +6,8 @@ use crate::finality::{
 };
 use crate::{BlockHash, BlockHeight, Config, Error, IPCParentFinality, SequentialKeyCache};
 use async_stm::{abort, atomically, Stm, StmResult, TVar};
-use ipc_api::cross::IpcEnvelope;
-use ipc_api::staking::StakingChangeRequest;
+use recall_ipc_api::cross::IpcEnvelope;
+use recall_ipc_api::staking::StakingChangeRequest;
 use std::cmp::min;
 
 use fendermint_tracing::emit;

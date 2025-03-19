@@ -7,7 +7,7 @@ use crate::{CommandLineHandler, GlobalArguments};
 use async_trait::async_trait;
 use clap::Args;
 use fvm_shared::address::Address;
-use ipc_api::subnet_id::SubnetID;
+use recall_ipc_api::subnet_id::SubnetID;
 use std::str::FromStr;
 
 /// The command to set federated power.

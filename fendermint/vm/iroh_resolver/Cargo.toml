@@ -18,7 +18,7 @@ serde = { workspace = true }
 tracing = { workspace = true }
 tokio = { workspace = true }
 
-ipc-api = { workspace = true }
+recall_ipc_api = { workspace = true }
 ipc_ipld_resolver = { workspace = true }
 ipc-observability = { workspace = true }
 

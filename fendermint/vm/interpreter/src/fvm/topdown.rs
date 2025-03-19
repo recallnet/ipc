@@ -9,7 +9,7 @@ use crate::fvm::FvmApplyRet;
 use anyhow::Context;
 use fendermint_vm_topdown::{BlockHeight, IPCParentFinality, ParentViewProvider};
 use fvm_ipld_blockstore::Blockstore;
-use ipc_api::cross::IpcEnvelope;
+use recall_ipc_api::cross::IpcEnvelope;
 
 use super::state::ipc::tokens_to_mint;
 

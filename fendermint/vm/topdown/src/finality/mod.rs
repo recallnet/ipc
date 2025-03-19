@@ -7,8 +7,8 @@ mod null;
 use crate::error::Error;
 use crate::BlockHash;
 use async_stm::{abort, StmResult};
-use ipc_api::cross::IpcEnvelope;
-use ipc_api::staking::StakingChangeRequest;
+use recall_ipc_api::cross::IpcEnvelope;
+use recall_ipc_api::staking::StakingChangeRequest;
 
 pub use fetch::CachedFinalityProvider;
 
@@ -47,9 +47,9 @@ mod tests {
     };
     use async_stm::atomically_or_err;
     use async_trait::async_trait;
-    use ipc_api::cross::IpcEnvelope;
-    use ipc_api::staking::StakingChangeRequest;
     use ipc_provider::manager::{GetBlockHashResult, TopDownQueryPayload};
+    use recall_ipc_api::cross::IpcEnvelope;
+    use recall_ipc_api::staking::StakingChangeRequest;
     use std::sync::Arc;
     use tokio::time::Duration;
 

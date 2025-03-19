@@ -1,5 +1,5 @@
 [package]
-name = "fendermint_vm_core"
+name = "recall_fendermint_vm_core"
 description = "Core data structures shared between genesis and messages"
 version = "0.1.0"
 authors.workspace = true

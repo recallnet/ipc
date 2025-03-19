@@ -5,7 +5,6 @@ use cid::{
     multihash::{Code, MultihashDigest},
     Cid,
 };
-use fendermint_vm_actor_interface::chainmetadata::CHAINMETADATA_ACTOR_ID;
 use fvm::{
     externs::{Chain, Consensus, Externs, Rand},
     state_tree::StateTree,
@@ -13,6 +12,7 @@ use fvm::{
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{CborStore, DAG_CBOR};
 use fvm_shared::clock::ChainEpoch;
+use recall_fendermint_vm_actor_interface::chainmetadata::CHAINMETADATA_ACTOR_ID;
 
 use super::store::ReadOnlyBlockstore;
 
@@ -93,7 +93,7 @@ where
         };
 
         // get the chain metadata actor state from the blockstore
-        let actor_state: fendermint_actor_chainmetadata::State =
+        let actor_state: recall_fendermint_actor_chainmetadata::State =
             match state_tree.store().get_cbor(&actor_state_cid) {
                 Ok(Some(v)) => v,
                 Ok(None) => {

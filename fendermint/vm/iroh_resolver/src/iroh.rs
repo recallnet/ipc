@@ -9,9 +9,9 @@ use crate::observe::{
 };
 use async_stm::{atomically, atomically_or_err, queues::TQueueLike};
 use fendermint_vm_topdown::voting::VoteTally;
-use ipc_api::subnet_id::SubnetID;
 use ipc_ipld_resolver::{Client, ResolverIroh, ResolverIrohReadRequest, ValidatorKey, VoteRecord};
 use ipc_observability::emit;
+use recall_ipc_api::subnet_id::SubnetID;
 
 use iroh::blobs::Hash;
 use libp2p::identity::Keypair;

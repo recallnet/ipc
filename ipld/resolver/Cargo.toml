@@ -37,7 +37,7 @@ fvm_ipld_encoding = { workspace = true }
 fvm_shared = { workspace = true }
 fvm_ipld_blockstore = { workspace = true, optional = true }
 
-ipc-api = { path = "../../ipc/api", default-features = false }
+recall_ipc_api = { path = "../../ipc/api", default-features = false }
 ipc-observability = { workspace = true }
 
 iroh_manager = { path = "../../recall/iroh_manager" }

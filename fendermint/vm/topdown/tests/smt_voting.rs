@@ -22,12 +22,12 @@ use std::{
 
 use arbitrary::Unstructured;
 use async_stm::{atomically, atomically_or_err, Stm, StmResult};
-use fendermint_testing::{smt, state_machine_test};
 use fendermint_vm_topdown::{
     voting::{self, VoteTally, Weight},
     BlockHash, BlockHeight,
 };
 use im::HashSet;
+use recall_fendermint_testing::{smt, state_machine_test};
 //use rand::{rngs::StdRng, SeedableRng};
 
 /// Size of window of voting relative to the last cast vote.
@@ -242,7 +242,7 @@ impl smt::StateMachine for VotingMachine {
             let weight = u.int_in_range(min_weight..=100)?;
 
             // A VotingKey is has a lot of wrapping...
-            // let secret_key = fendermint_crypto::SecretKey::random(&mut rng);
+            // let secret_key = recall_fendermint_crypto::SecretKey::random(&mut rng);
             // let public_key = secret_key.public_key();
             // let public_key = libp2p::identity::secp256k1::PublicKey::try_from_bytes(
             //     &public_key.serialize_compressed(),

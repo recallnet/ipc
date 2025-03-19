@@ -1,0 +1,86 @@
+name: Release
+
+on:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_NET_GIT_FETCH_WITH_CLI: true
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
+          components: rustfmt, clippy
+
+      - name: Build
+        run: make build
+
+      - name: Run tests
+        run: make test
+
+      - name: Run linter
+        run: make lint
+
+      - name: Get version from Cargo.toml
+        id: get_ver
+        uses: dante-signal31/rust-app-version@v1.2.0
+
+      - name: Tag
+        uses: actions/github-script@v5
+        id: create-tag
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            await github.rest.git.createRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: 'refs/tags/${{ steps.get_ver.outputs.app_version }}',
+              sha: context.sha
+            })
+
+      - name: Publish
+        run: |
+          rustup run nightly cargo -Zpackage-workspace publish --locked --token ${{ secrets.CARGO_REGISTRY_TOKEN }} --package recall_frc42_hasher
+          rustup run nightly cargo -Zpackage-workspace publish --locked --token ${{ secrets.CARGO_REGISTRY_TOKEN }} --package recall_frc42_macros
+          rustup run nightly cargo -Zpackage-workspace publish --locked --token ${{ secrets.CARGO_REGISTRY_TOKEN }} --package recall_frc42_dispatch
+          rustup run nightly cargo -Zpackage-workspace publish --locked --token ${{ secrets.CARGO_REGISTRY_TOKEN }} --package recall_ipld
+          rustup run nightly cargo -Zpackage-workspace publish --locked --token ${{ secrets.CARGO_REGISTRY_TOKEN }} --package recall_fendermint_actor_blobs_shared
+          rustup run nightly cargo -Zpackage-workspace publish --locked --token ${{ secrets.CARGO_REGISTRY_TOKEN }} --package recall_actor_sdk
+          rustup run nightly cargo -Zpackage-workspace publish --locked --token ${{ secrets.CARGO_REGISTRY_TOKEN }} --package fendermint_actor_machine
+          rustup run nightly cargo -Zpackage-workspace publish --locked --token ${{ secrets.CARGO_REGISTRY_TOKEN }} --package recall_fendermint_actor_bucket
+          rustup run nightly cargo -Zpackage-workspace publish --locked --token ${{ secrets.CARGO_REGISTRY_TOKEN }} --package recall_fendermint_actor_recall_config_shared
+          rustup run nightly cargo -Zpackage-workspace publish --locked --token ${{ secrets.CARGO_REGISTRY_TOKEN }} --package recall_fendermint_actor_recall_config
+          rustup run nightly cargo -Zpackage-workspace publish --locked --token ${{ secrets.CARGO_REGISTRY_TOKEN }} --package recall_fendermint_actor_timehub
+          rustup run nightly cargo -Zpackage-workspace publish --locked --token ${{ secrets.CARGO_REGISTRY_TOKEN }} --package recall_fendermint_crypto
+          rustup run nightly cargo -Zpackage-workspace publish --locked --token ${{ secrets.CARGO_REGISTRY_TOKEN }} --package recall_fendermint_vm_actor_interface
+          rustup run nightly cargo -Zpackage-workspace publish --locked --token ${{ secrets.CARGO_REGISTRY_TOKEN }} --package recall_merkle_tree_rs
+          rustup run nightly cargo -Zpackage-workspace publish --locked --token ${{ secrets.CARGO_REGISTRY_TOKEN }} --package recall_ipc_actors_abis
+          rustup run nightly cargo -Zpackage-workspace publish --locked --token ${{ secrets.CARGO_REGISTRY_TOKEN }} --package recall_ipc_types
+          rustup run nightly cargo -Zpackage-workspace publish --locked --token ${{ secrets.CARGO_REGISTRY_TOKEN }} --package recall_ipc_api
+          rustup run nightly cargo -Zpackage-workspace publish --locked --token ${{ secrets.CARGO_REGISTRY_TOKEN }} --package recall_fendermint_vm_core
+          rustup run nightly cargo -Zpackage-workspace publish --locked --token ${{ secrets.CARGO_REGISTRY_TOKEN }} --package recall_fendermint_vm_encoding
+          rustup run nightly cargo -Zpackage-workspace publish --locked --token ${{ secrets.CARGO_REGISTRY_TOKEN }} --package recall_fendermint_actor_eam
+          rustup run nightly cargo -Zpackage-workspace publish --locked --token ${{ secrets.CARGO_REGISTRY_TOKEN }} --package recall_fendermint_vm_genesis
+          rustup run nightly cargo -Zpackage-workspace publish --locked --token ${{ secrets.CARGO_REGISTRY_TOKEN }} --package recall_fendermint_vm_actor_interface
+          rustup run nightly cargo -Zpackage-workspace publish --locked --token ${{ secrets.CARGO_REGISTRY_TOKEN }} --package recall_fendermint_vm_message
+          rustup run nightly cargo -Zpackage-workspace publish --locked --token ${{ secrets.CARGO_REGISTRY_TOKEN }} --package recall_fendermint_rpc
+          rustup run nightly cargo -Zpackage-workspace publish --locked --token ${{ secrets.CARGO_REGISTRY_TOKEN }} --packagerecall_fendermint_eth_api
+          rustup run nightly cargo -Zpackage-workspace publish --locked --token ${{ secrets.CARGO_REGISTRY_TOKEN }} --package recall_fendermint_testing
+
+      - name: Release 🚀
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ steps.get_ver.outputs.app_version }}
+          generateReleaseNotes: true
+          prerelease: ${{ contains(steps.get_ver.outputs.app_version, 'pre') }}
+          token: ${{ secrets.GITHUB_TOKEN }}

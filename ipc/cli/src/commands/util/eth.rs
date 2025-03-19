@@ -5,7 +5,7 @@
 use async_trait::async_trait;
 use clap::Args;
 use fvm_shared::address::Address;
-use ipc_api::evm::payload_to_evm_address;
+use recall_ipc_api::evm::payload_to_evm_address;
 use std::fmt::Debug;
 use std::str::FromStr;
 

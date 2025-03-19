@@ -8,14 +8,14 @@ use fvm_shared::bigint::{BigInt, Integer};
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 
-use fendermint_actor_eam::PermissionModeParams;
 use fvm_shared::chainid::ChainID;
 use fvm_shared::version::NetworkVersion;
 use fvm_shared::{address::Address, econ::TokenAmount};
+use recall_fendermint_actor_eam::PermissionModeParams;
 
-use fendermint_crypto::{normalize_public_key, PublicKey};
-use fendermint_vm_core::{chainid, Timestamp};
-use fendermint_vm_encoding::IsHumanReadable;
+use recall_fendermint_crypto::{normalize_public_key, PublicKey};
+use recall_fendermint_vm_core::{chainid, Timestamp};
+use recall_fendermint_vm_encoding::IsHumanReadable;
 
 #[cfg(feature = "arb")]
 mod arb;
@@ -237,8 +237,8 @@ impl From<PermissionMode> for PermissionModeParams {
 
 /// IPC related data structures.
 pub mod ipc {
-    use fendermint_vm_encoding::IsHumanReadable;
-    use ipc_api::subnet_id::SubnetID;
+    use recall_fendermint_vm_encoding::IsHumanReadable;
+    use recall_ipc_api::subnet_id::SubnetID;
     use serde::{Deserialize, Serialize};
     use serde_with::serde_as;
 

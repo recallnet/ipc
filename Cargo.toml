@@ -55,12 +55,14 @@ members = [
     "recall/syscalls",
 ]
 exclude = ["builtin-actors"]
+version = "0.0.0"
 
 [workspace.package]
-authors = ["Protocol Labs"]
+authors = ["Protocol Labs", "Textile"]
 edition = "2021"
 license = "MIT OR Apache-2.0"
 license-file = "LICENSE-APACHE"
+repository = "https://github.com/recallnet/ipc"
 
 [workspace.dependencies]
 ambassador = "0.3.5"
@@ -90,15 +92,15 @@ data-encoding = { version = "2.3.3" }
 dirs = "5.0"
 dircpy = "0.3.19"
 either = "1.10"
-entangler = { git = "https://github.com/recallnet/entanglement.git", rev = "c13e1a5c17ecfae2ac5f8953e5d7ac7f8793cc3e" }
-entangler_storage = { package = "storage", git = "https://github.com/recallnet/entanglement.git", rev = "c13e1a5c17ecfae2ac5f8953e5d7ac7f8793cc3e" }
+recall_entangler = "0.1.0"
+recall_entangler_storage = "0.1.0"
 env_logger = "0.10"
 erased-serde = "0.3"
 ethers = { version = "2.0.13", features = ["abigen", "ws"] }
 ethers-core = { version = "2.0.13" }
 ethers-contract = "2.0.13"
 fnv = "1.0"
-frc42_dispatch = { path = "./ext/frc42_dispatch" }
+recall_frc42_dispatch = { version = "0.0.0", path = "./ext/frc42_dispatch" }
 futures = "0.3"
 futures-core = "0.3"
 futures-util = "0.3"
@@ -204,14 +206,14 @@ warp = "0.3.7"
 zeroize = "1.6"
 
 # Workspace deps
-ipc-api = { path = "ipc/api" }
+recall_ipc_api = { path = "ipc/api", version = "0.1.0" }
 ipc-provider = { path = "ipc/provider" }
 ipc-wallet = { path = "ipc/wallet", features = ["with-ethers"] }
 ipc_ipld_resolver = { path = "ipld/resolver" }
-ipc-types = { path = "ipc/types" }
+recall_ipc_types = { path = "ipc/types", version = "0.1.0" }
 ipc-observability = { path = "ipc/observability" }
-ipc_actors_abis = { path = "contracts/binding" }
-fendermint_actors_api = { path = "fendermint/actors/api" }
+recall_ipc_actors_abis = { path = "contracts/binding", version = "0.1.0" }
+recall_fendermint_actors_api = { path = "fendermint/actors/api" }
 
 # Vendored for cross-compilation, see https://github.com/cross-rs/cross/wiki/Recipes#openssl
 # Make sure every top level build target actually imports this dependency, and don't end up
@@ -241,13 +243,13 @@ fvm_ipld_amt = "0.6.2"
 #
 # The original IPC build fetches a pre-built builtin-actors CAR bundle from a GH release.
 # For ADM, we can do the same at some point, but for now I've included the repo as a submodule.
-fil_actors_evm_shared = { path = "builtin-actors/actors/evm/shared" }
-fil_actor_eam = { path = "builtin-actors/actors/eam" }
-fil_actor_adm = { path = "builtin-actors/actors/adm" }
-fil_actors_runtime = { path = "builtin-actors/runtime" }
+recall_fil_actors_evm_shared = { version = "0.0.0" }
+recall_fil_actor_eam = { version = "0.0.0" }
+recall_fil_actor_adm = { version = "0.0.0" }
+recall_fil_actors_runtime = { version = "0.0.0" }
 
 # Recall Solidity bindings
-recall_sol_facade = { path = "recall-contracts/crates/facade" }
+recall_sol_facade = { version = "0.1.0", path = "recall-contracts/crates/facade" }
 
 # Using the same tendermint-rs dependency as tower-abci. From both we are interested in v037 modules.
 tower-abci = { version = "0.7" }
@@ -265,8 +267,8 @@ tendermint-proto = { version = "0.31" }
 # Use below when working locally on entanglement and this repo simultaneously.
 # Assumes the entanglement checkout is in a sibling directory with the same name.
 # [patch."https://github.com/recallnet/entanglement.git"]
-# entangler = { path = "../entanglement/entangler" }
-# entangler_storage = { package = "storage", path = "../entanglement/storage" }
+# recall_entangler = { path = "../entanglement/entangler" }
+# recall_entangler_storage = { package = "storage", path = "../entanglement/storage" }
 
 [profile.wasm]
 inherits = "release"

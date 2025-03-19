@@ -723,8 +723,8 @@ To avoid having to come up with ABI encoded arguments in hexadecimal format, we 
 Here's an [example](../fendermint/rpc/examples/simplecoin.rs) of doing that with the [SimpleCoin](https://github.com/filecoin-project/builtin-actors/blob/v10.0.0/actors/evm/tests/contracts/simplecoin.sol) contract.
 
 ```console
-$ cargo run -p fendermint_rpc --release --example simplecoin -- --secret-key test-network/keys/alice.sk --verbose
-2023-05-19T10:18:47.234878Z DEBUG fendermint_rpc::client: Using HTTP client to submit request to: http://127.0.0.1:26657/
+$ cargo run -p recall_fendermint_rpc --release --example simplecoin -- --secret-key test-network/keys/alice.sk --verbose
+2023-05-19T10:18:47.234878Z DEBUG recall_fendermint_rpc::client: Using HTTP client to submit request to: http://127.0.0.1:26657/
 ...
 2023-05-19T10:18:47.727563Z  INFO simplecoin: contract deployed contract_address="f410fvbmxiqdn6svyo5oubfbzxsorkvydcb5ecmlbwma" actor_id=107
 ...

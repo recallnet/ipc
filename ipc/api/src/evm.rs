@@ -17,7 +17,7 @@ use ethers::types::U256;
 use fvm_shared::address::{Address, Payload};
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::econ::TokenAmount;
-use ipc_actors_abis::{
+use recall_ipc_actors_abis::{
     checkpointing_facet, gateway_getter_facet, gateway_manager_facet, gateway_messenger_facet,
     lib_gateway, register_subnet_facet, subnet_actor_activity_facet,
     subnet_actor_checkpointing_facet, subnet_actor_diamond, subnet_actor_getter_facet,
@@ -385,7 +385,7 @@ mod tests {
     use crate::evm::subnet_id_to_evm_addresses;
     use crate::subnet_id::SubnetID;
     use fvm_shared::address::Address;
-    use ipc_types::EthAddress;
+    use recall_ipc_types::EthAddress;
     use std::str::FromStr;
 
     #[test]

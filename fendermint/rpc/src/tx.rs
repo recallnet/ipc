@@ -6,7 +6,7 @@ use std::marker::PhantomData;
 use anyhow::Context;
 use async_trait::async_trait;
 use bytes::Bytes;
-use fendermint_vm_message::query::{FvmQueryHeight, GasEstimate};
+use recall_fendermint_vm_message::query::{FvmQueryHeight, GasEstimate};
 use tendermint::abci::response::DeliverTx;
 use tendermint_rpc::endpoint::broadcast::{tx_async, tx_commit, tx_sync};
 
@@ -15,8 +15,8 @@ use fvm_shared::address::Address;
 use fvm_shared::econ::TokenAmount;
 use fvm_shared::MethodNum;
 
-use fendermint_vm_actor_interface::eam;
-use fendermint_vm_message::chain::ChainMessage;
+use recall_fendermint_vm_actor_interface::eam;
+use recall_fendermint_vm_message::chain::ChainMessage;
 
 use crate::message::{GasParams, SignedMessageFactory};
 use crate::query::{QueryClient, QueryResponse};

@@ -7,13 +7,13 @@ use bytes::Bytes;
 use cid::Cid;
 use num_traits::{FromPrimitive, Num};
 
-use fendermint_vm_genesis::SignerAddr;
 use fvm_shared::{
     address::{set_current_network, Address, Network},
     bigint::BigInt,
     econ::TokenAmount,
     version::NetworkVersion,
 };
+use recall_fendermint_vm_genesis::SignerAddr;
 
 /// Decimals for filecoin in nano
 const FIL_AMOUNT_NANO_DIGITS: u32 = 9;
@@ -103,7 +103,7 @@ pub fn parse_network(s: &str) -> Result<Network, String> {
 }
 
 pub fn parse_eth_address(s: &str) -> Result<Address, String> {
-    match ipc_types::EthAddress::from_str(s) {
+    match recall_ipc_types::EthAddress::from_str(s) {
         Ok(a) => Ok(a.into()),
         Err(e) => Err(format!("not a valid ethereum address: {e}")),
     }

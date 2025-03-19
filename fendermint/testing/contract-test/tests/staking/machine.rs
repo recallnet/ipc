@@ -4,27 +4,27 @@ use std::{cell::RefCell, collections::HashSet};
 
 use arbitrary::{Arbitrary, Unstructured};
 use fendermint_contract_test::ipc::{registry::RegistryCaller, subnet::SubnetCaller};
-use fendermint_crypto::{PublicKey, SecretKey};
-use fendermint_testing::smt::StateMachine;
-use fendermint_vm_actor_interface::{
-    eam::EthAddress,
-    ipc::{subnet::SubnetActorErrors, subnet_id_to_eth, AbiHash},
-};
-use fendermint_vm_genesis::{Collateral, Validator, ValidatorKey};
 use fendermint_vm_interpreter::fvm::{
     state::{fevm::ContractResult, ipc::GatewayCaller, FvmExecState},
     store::memory::MemoryBlockstore,
-};
-use fendermint_vm_message::{
-    conv::from_fvm::{self, to_eth_tokens},
-    signed::sign_secp256k1,
 };
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::bigint::Integer;
 use fvm_shared::econ::TokenAmount;
 use fvm_shared::{address::Address, bigint::BigInt};
-use ipc_actors_abis::subnet_actor_checkpointing_facet as checkpointer;
-use ipc_api::subnet_id::SubnetID;
+use recall_fendermint_crypto::{PublicKey, SecretKey};
+use recall_fendermint_testing::smt::StateMachine;
+use recall_fendermint_vm_actor_interface::{
+    eam::EthAddress,
+    ipc::{subnet::SubnetActorErrors, subnet_id_to_eth, AbiHash},
+};
+use recall_fendermint_vm_genesis::{Collateral, Validator, ValidatorKey};
+use recall_fendermint_vm_message::{
+    conv::from_fvm::{self, to_eth_tokens},
+    signed::sign_secp256k1,
+};
+use recall_ipc_actors_abis::subnet_actor_checkpointing_facet as checkpointer;
+use recall_ipc_api::subnet_id::SubnetID;
 
 use super::{
     choose_amount,
@@ -101,7 +101,7 @@ impl StateMachine for StakingMachine {
 
         // TODO: Need to add field to specify release queue lock time.
         let params = SubnetConstructorParams {
-            parent_id: ipc_actors_abis::register_subnet_facet::SubnetID { root, route },
+            parent_id: recall_ipc_actors_abis::register_subnet_facet::SubnetID { root, route },
             ipc_gateway_addr: gateway.addr().into(),
             consensus: 0, // TODO: What are the options?
             bottom_up_check_period: child_ipc.gateway.bottom_up_check_period,
@@ -111,11 +111,11 @@ impl StateMachine for StakingMachine {
             min_activation_collateral: to_eth_tokens(&state.min_collateral()).unwrap(),
             min_validators: state.min_validators() as u64,
             permission_mode: 0, // collateral based
-            supply_source: ipc_actors_abis::register_subnet_facet::Asset {
+            supply_source: recall_ipc_actors_abis::register_subnet_facet::Asset {
                 kind: 0, // native token
                 token_address: ethers::types::Address::zero(),
             },
-            collateral_source: ipc_actors_abis::register_subnet_facet::Asset {
+            collateral_source: recall_ipc_actors_abis::register_subnet_facet::Asset {
                 kind: 0, // native token
                 token_address: ethers::types::Address::zero(),
             },

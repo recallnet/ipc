@@ -23,11 +23,11 @@ pub(crate) mod topdown;
 pub use check::FvmCheckRet;
 pub use checkpoint::PowerUpdates;
 pub use exec::{EndBlockOutput, FvmApplyRet};
-use fendermint_crypto::{PublicKey, SecretKey};
-pub use fendermint_vm_message::query::FvmQuery;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::address::Address;
 pub use query::FvmQueryRet;
+use recall_fendermint_crypto::{PublicKey, SecretKey};
+pub use recall_fendermint_vm_message::query::FvmQuery;
 use tendermint_rpc::Client;
 
 pub use self::broadcast::Broadcaster;

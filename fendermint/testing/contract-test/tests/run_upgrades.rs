@@ -7,9 +7,9 @@ use anyhow::{Context, Ok};
 use async_trait::async_trait;
 use ethers::types::U256;
 use fendermint_contract_test::Tester;
-use fendermint_rpc::response::decode_fevm_return_data;
 use rand::rngs::StdRng;
 use rand::SeedableRng;
+use recall_fendermint_rpc::response::decode_fevm_return_data;
 use std::str::FromStr;
 
 use ethers::contract::abigen;
@@ -19,14 +19,16 @@ use fvm_shared::econ::TokenAmount;
 use fvm_shared::version::NetworkVersion;
 use tendermint_rpc::Client;
 
-use fendermint_crypto::SecretKey;
-use fendermint_vm_actor_interface::eam;
-use fendermint_vm_actor_interface::eam::EthAddress;
-use fendermint_vm_core::Timestamp;
-use fendermint_vm_genesis::{Account, Actor, ActorMeta, Genesis, PermissionMode, SignerAddr};
 use fendermint_vm_interpreter::fvm::store::memory::MemoryBlockstore;
 use fendermint_vm_interpreter::fvm::upgrades::{Upgrade, UpgradeScheduler};
 use fendermint_vm_interpreter::fvm::FvmMessageInterpreter;
+use recall_fendermint_crypto::SecretKey;
+use recall_fendermint_vm_actor_interface::eam;
+use recall_fendermint_vm_actor_interface::eam::EthAddress;
+use recall_fendermint_vm_core::Timestamp;
+use recall_fendermint_vm_genesis::{
+    Account, Actor, ActorMeta, Genesis, PermissionMode, SignerAddr,
+};
 
 // returns a seeded secret key which is guaranteed to be the same every time
 fn my_secret_key() -> SecretKey {
@@ -37,8 +39,8 @@ fn my_secret_key() -> SecretKey {
 #[tokio::test]
 async fn test_applying_upgrades() {
     use bytes::Bytes;
-    use fendermint_rpc::message::{GasParams, MessageFactory};
     use lazy_static::lazy_static;
+    use recall_fendermint_rpc::message::{GasParams, MessageFactory};
 
     lazy_static! {
        /// Default gas params based on the testkit.

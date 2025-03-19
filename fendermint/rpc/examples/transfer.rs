@@ -8,27 +8,27 @@
 //!
 //! # Usage
 //! ```text
-//! cargo run -p fendermint_rpc --release --example transfer -- --secret-key test-network/keys/eric.sk --verbose
+//! cargo run -p recall_fendermint_rpc --release --example transfer -- --secret-key test-network/keys/eric.sk --verbose
 //! ```
 
 use std::path::PathBuf;
 
 use anyhow::{anyhow, Context};
 use clap::Parser;
-use fendermint_rpc::query::QueryClient;
-use fendermint_vm_actor_interface::eam::EthAddress;
-use fendermint_vm_message::query::FvmQueryHeight;
 use fvm_shared::address::Address;
 use fvm_shared::chainid::ChainID;
 use lazy_static::lazy_static;
+use recall_fendermint_rpc::query::QueryClient;
+use recall_fendermint_vm_actor_interface::eam::EthAddress;
+use recall_fendermint_vm_message::query::FvmQueryHeight;
 use tendermint_rpc::Url;
 use tracing::Level;
 
 use fvm_shared::econ::TokenAmount;
 
-use fendermint_rpc::client::FendermintClient;
-use fendermint_rpc::message::{GasParams, SignedMessageFactory};
-use fendermint_rpc::tx::{TxClient, TxCommit};
+use recall_fendermint_rpc::client::FendermintClient;
+use recall_fendermint_rpc::message::{GasParams, SignedMessageFactory};
+use recall_fendermint_rpc::tx::{TxClient, TxCommit};
 
 lazy_static! {
     /// Default gas params based on the testkit.
