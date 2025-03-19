@@ -8,7 +8,7 @@ use fendermint_actor_blobs_shared::params::{
     SetSponsorParams,
 };
 use fendermint_actor_blobs_shared::state::{
-    AccountInfo, Blob, Credit, CreditApproval, Subscription,
+    AccountInfo, BlobInfo, Credit, CreditApproval, Subscription,
 };
 use fendermint_actor_machine::{
     caller::{Caller, CallerOption},
@@ -65,7 +65,7 @@ impl BlobsActor {
             ),
         )?;
 
-        AccountInfo::from(account, rt)
+        AccountInfo::from(rt, account)
     }
 
     /// Approve credit and gas usage from one account to another.
@@ -209,7 +209,7 @@ impl BlobsActor {
                     .map(|sponsor| to_delegated_address(rt, sponsor))
                     .transpose()?;
 
-                AccountInfo::from(account, rt)
+                AccountInfo::from(rt, account)
             });
 
         account.transpose()
@@ -294,10 +294,15 @@ impl BlobsActor {
     }
 
     /// Returns a blob by hash if it exists.
-    pub fn get_blob(rt: &impl Runtime, params: GetBlobParams) -> Result<Option<Blob>, ActorError> {
+    pub fn get_blob(
+        rt: &impl Runtime,
+        params: GetBlobParams,
+    ) -> Result<Option<BlobInfo>, ActorError> {
         rt.validate_immediate_caller_accept_any()?;
-        let blob = rt.state::<State>()?.get_blob(rt.store(), params.0)?;
-        Ok(blob)
+        match rt.state::<State>()?.get_blob(rt.store(), params.0)? {
+            Some(blob) => Ok(Some(BlobInfo::from(rt, blob)?)),
+            None => Ok(None),
+        }
     }
 
     /// Deletes a blob subscription.
@@ -445,7 +450,7 @@ mod tests {
         construct_and_verify, expect_emitted_add_event, expect_emitted_approve_event,
         expect_emitted_purchase_event, expect_emitted_revoke_event, expect_get_config,
     };
-    use fendermint_actor_blobs_shared::state::SubscriptionId;
+    use fendermint_actor_blobs_shared::state::{BlobStatus, SubscriptionId};
     use fendermint_actor_blobs_shared::Method;
     use fendermint_actor_blobs_testing::{new_hash, new_pk, setup_logs};
     use fil_actors_evm_shared::address::EthAddress;
@@ -890,6 +895,25 @@ mod tests {
         assert_eq!(subscription.expiry, 3605);
         assert_eq!(subscription.delegate, None);
         rt.verify();
+
+        // Get it back
+        rt.expect_validate_caller_any();
+        let get_params = GetBlobParams(hash.0);
+        let blob = rt
+            .call::<BlobsActor>(
+                Method::GetBlob as u64,
+                IpldBlock::serialize_cbor(&get_params).unwrap(),
+            )
+            .unwrap()
+            .unwrap()
+            .deserialize::<Option<BlobInfo>>()
+            .unwrap();
+        assert!(blob.is_some());
+        let blob = blob.unwrap();
+        assert_eq!(blob.size, add_params.size);
+        assert_eq!(blob.metadata_hash, add_params.metadata_hash);
+        assert_eq!(blob.subscribers.len(), 1);
+        assert_eq!(blob.status, BlobStatus::Added);
     }
 
     #[test]
