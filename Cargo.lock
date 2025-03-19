@@ -6711,7 +6711,6 @@ dependencies = [
  "serde_json",
  "thiserror 1.0.69",
  "tokio",
- "uuid 1.15.1",
 ]
 
 [[package]]

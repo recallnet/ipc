@@ -15,12 +15,11 @@ use anyhow::anyhow;
 use bloom::{BloomFilter, ASMS};
 use ipc_api::subnet_id::SubnetID;
 use ipc_observability::emit;
-use iroh::blobs::hashseq::HashSeq;
 use iroh::blobs::Hash;
 use iroh::client::blobs::ReadAtLen;
 use iroh::client::Iroh;
 use iroh::net::NodeAddr;
-use iroh_manager::{extract_blob_hash_and_size, IrohManager};
+use iroh_manager::{get_blob_hash_and_size, IrohManager};
 use libipld::store::StoreParams;
 use libipld::Cid;
 use libp2p::connection_limits::ConnectionLimits;
@@ -43,7 +42,6 @@ use tokio::select;
 use tokio::sync::broadcast;
 use tokio::sync::mpsc;
 use tokio::sync::oneshot::Sender;
-use uuid::Uuid;
 
 /// Result of attempting to resolve a CID.
 pub type ResolveResult = anyhow::Result<()>;
@@ -685,7 +683,7 @@ async fn download_blob(
         .download_with_opts(
             seq_hash,
             iroh::client::blobs::DownloadOptions {
-                format: iroh::blobs::BlobFormat::Raw,
+                format: iroh::blobs::BlobFormat::HashSeq,
                 nodes: vec![node_addr.clone()],
                 tag: iroh::blobs::util::SetTagOption::Named(tag),
                 mode: iroh::client::blobs::DownloadMode::Queued,
@@ -694,57 +692,27 @@ async fn download_blob(
         .await?
         .await?;
 
-    // Read top-level blob as a hash sequence
-    let res = iroh
-        .blobs()
-        .read_to_bytes(seq_hash)
-        .await
-        .map_err(|e| anyhow!("failed to read hash sequence object: {} {}", seq_hash, e))?;
-    let hash_seq = HashSeq::try_from(res)
-        .map_err(|e| anyhow!("failed to parse hash sequence object: {} {}", seq_hash, e))?;
-
-    // Download blobs in the hash sequence
-    for (i, hash) in hash_seq.iter().enumerate() {
-        let tmp_id = Uuid::new_v4();
-        let tmp_tag = iroh::blobs::Tag(format!("temp-{hash}-{tmp_id}").into());
-        let res = iroh
-            .blobs()
-            .download_with_opts(
-                hash,
-                iroh::client::blobs::DownloadOptions {
-                    format: iroh::blobs::BlobFormat::Raw,
-                    nodes: vec![node_addr.clone()],
-                    tag: iroh::blobs::util::SetTagOption::Named(tmp_tag.clone()),
-                    mode: iroh::client::blobs::DownloadMode::Queued,
-                },
-            )
-            .await?
-            .await?;
-        iroh.tags().delete(tmp_tag).await.ok();
-
-        // Verify user blob size
-        // The first hash in the sequence is the user blob for which we have the size
-        let size_resolved = res.local_size + res.downloaded_size;
-        if i == 0 && size_resolved != size {
-            return Err(anyhow!(
-                "downloaded blob size {} does not match expected size {}",
-                size_resolved,
-                size
-            ));
-        }
+    // Verify downloaded size of user blob matches the expected size
+    let (_, size_actual) = get_blob_hash_and_size(&iroh, seq_hash).await?;
+    if size != size_actual {
+        return Err(anyhow!(
+            "downloaded blob size {} does not match expected size {}",
+            size_actual,
+            size
+        ));
     }
-
-    debug!("downloaded blob {}", seq_hash);
 
     // Delete the temporary tag (this might fail as not all nodes will have one).
     let tag = iroh::blobs::Tag(format!("temp-seq-{seq_hash}").into());
     iroh.tags().delete(tag).await.ok();
 
+    debug!("downloaded blob {}", seq_hash);
+
     Ok(())
 }
 
 async fn read_blob(iroh: Iroh, hash: Hash, offset: u32, len: u32) -> anyhow::Result<bytes::Bytes> {
-    let (hash, _) = extract_blob_hash_and_size(&iroh, hash).await?;
+    let (hash, _) = get_blob_hash_and_size(&iroh, hash).await?;
     let len = ReadAtLen::AtMost(len as u64);
     let res = iroh
         .blobs()

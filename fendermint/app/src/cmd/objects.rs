@@ -26,7 +26,7 @@ use iroh::{
     client::blobs::BlobStatus,
     net::NodeAddr,
 };
-use iroh_manager::{extract_blob_hash_and_size, IrohManager};
+use iroh_manager::{get_blob_hash_and_size, IrohManager};
 use lazy_static::lazy_static;
 use prometheus::{register_histogram, register_int_counter, Histogram, IntCounter};
 use serde::{Deserialize, Serialize};
@@ -649,7 +649,7 @@ async fn handle_object_download<F: QueryClient + Send + Sync>(
     match maybe_object {
         Some(object) => {
             let hash = Hash::from_bytes(object.hash.0);
-            let (hash, size) = extract_blob_hash_and_size(&iroh, hash).await.map_err(|e| {
+            let (hash, size) = get_blob_hash_and_size(&iroh, hash).await.map_err(|e| {
                 Rejection::from(BadRequest {
                     message: e.to_string(),
                 })
