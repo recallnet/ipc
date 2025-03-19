@@ -108,9 +108,9 @@ hex-literal = "0.4.1"
 http = "0.2.12"
 im = "15.1.0"
 integer-encoding = { version = "3.0.3", default-features = false }
-iroh = "0.33"
-iroh-base = "0.33"
-iroh-blobs = { version = "0.33", features = ["rpc"] }
+iroh = "0.34"
+iroh-base = "0.34"
+iroh-blobs = { version = "0.34", features = ["rpc"] }
 jsonrpc-v2 = { version = "0.11", default-features = false, features = [
     "bytes-v10",
 ] }
