@@ -90,8 +90,8 @@ data-encoding = { version = "2.3.3" }
 dirs = "5.0"
 dircpy = "0.3.19"
 either = "1.10"
-entangler = { package = "recall_entangler", git = "https://github.com/recallnet/entanglement.git", rev = "c13e1a5c17ecfae2ac5f8953e5d7ac7f8793cc3e" }
-entangler_storage = { package = "recall_entangler_storage", git = "https://github.com/recallnet/entanglement.git", rev = "c13e1a5c17ecfae2ac5f8953e5d7ac7f8793cc3e" }
+entangler = { package = "recall_entangler", git = "https://github.com/recallnet/entanglement.git", branch = "feat-iroh-33" }
+entangler_storage = { package = "recall_entangler_storage", git = "https://github.com/recallnet/entanglement.git", branch = "feat-iroh-33" }
 env_logger = "0.10"
 erased-serde = "0.3"
 ethers = { version = "2.0.13", features = ["abigen", "ws"] }
@@ -265,9 +265,9 @@ tendermint-proto = { version = "0.31" }
 [patch.crates-io]
 # Use below when working locally on entanglement and this repo simultaneously.
 # Assumes the entanglement checkout is in a sibling directory with the same name.
-[patch."https://github.com/recallnet/entanglement.git"]
-entangler = { package = "recall_entangler", path = "../entanglement/entangler" }
-entangler_storage = { package = "recall_entangler_storage", path = "../entanglement/storage" }
+# [patch."https://github.com/recallnet/entanglement.git"]
+# entangler = { package = "recall_entangler", path = "../entanglement/entangler" }
+# entangler_storage = { package = "recall_entangler_storage", path = "../entanglement/storage" }
 
 [profile.wasm]
 inherits = "release"
