@@ -5,7 +5,7 @@
 /// Metrics emitted by the Ethereum API facade.
 pub mod eth {
     // TODO - migrate these metrics to new observability architecture
-    use fendermint_eth_api::apis::RPC_METHOD_CALL_LATENCY_SECONDS;
+    use recall_fendermint_eth_api::apis::RPC_METHOD_CALL_LATENCY_SECONDS;
 
     pub fn register_metrics(registry: &prometheus::Registry) -> anyhow::Result<()> {
         registry.register(Box::new(RPC_METHOD_CALL_LATENCY_SECONDS.clone()))?;

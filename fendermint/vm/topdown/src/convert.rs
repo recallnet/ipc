@@ -5,7 +5,7 @@
 use crate::IPCParentFinality;
 use anyhow::anyhow;
 use ethers::types::U256;
-use ipc_actors_abis::{gateway_getter_facet, top_down_finality_facet};
+use recall_ipc_actors_abis::{gateway_getter_facet, top_down_finality_facet};
 
 impl TryFrom<IPCParentFinality> for top_down_finality_facet::ParentFinality {
     type Error = anyhow::Error;

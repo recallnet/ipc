@@ -4,7 +4,6 @@ use std::time::Instant;
 
 use async_trait::async_trait;
 use cid::Cid;
-use fendermint_vm_message::query::{ActorState, FvmQuery, GasEstimate, StateParams};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::RawBytes;
 use fvm_shared::{
@@ -12,6 +11,7 @@ use fvm_shared::{
 };
 use ipc_observability::emit;
 use num_traits::Zero;
+use recall_fendermint_vm_message::query::{ActorState, FvmQuery, GasEstimate, StateParams};
 
 use super::observe::{MsgExec, MsgExecPurpose};
 use crate::QueryInterpreter;

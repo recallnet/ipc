@@ -1,6 +1,6 @@
 [package]
 name = "ipc_ipld_resolver"
-version = "0.1.0"
+version.workspace = true
 description = "P2P library to resolve IPLD content across IPC subnets."
 authors.workspace = true
 edition.workspace = true
@@ -37,7 +37,7 @@ fvm_ipld_encoding = { workspace = true }
 fvm_shared = { workspace = true }
 fvm_ipld_blockstore = { workspace = true, optional = true }
 
-ipc-api = { path = "../../ipc/api", default-features = false }
+recall_ipc_api = { path = "../../ipc/api", default-features = false }
 ipc-observability = { workspace = true }
 
 iroh_manager = { path = "../../recall/iroh_manager" }

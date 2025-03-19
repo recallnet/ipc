@@ -6,12 +6,12 @@ mod manager;
 
 use async_trait::async_trait;
 use fvm_shared::clock::ChainEpoch;
-use ipc_api::subnet_id::SubnetID;
+use recall_ipc_api::subnet_id::SubnetID;
 
 use super::subnet::SubnetManager;
 pub use manager::EthSubnetManager;
 
-use ipc_actors_abis::subnet_actor_checkpointing_facet;
+use recall_ipc_actors_abis::subnet_actor_checkpointing_facet;
 
 #[async_trait]
 pub trait EthManager: SubnetManager {

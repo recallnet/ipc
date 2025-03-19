@@ -5,11 +5,11 @@ use std::collections::{BTreeMap, BTreeSet};
 use anyhow::Context;
 use cid::multihash::MultihashDigest;
 use cid::Cid;
-use fendermint_vm_genesis::{Actor, ActorMeta};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::tuple::*;
 use fvm_ipld_hamt::Hamt;
 use fvm_shared::{address::Address, ActorID, HAMT_BIT_WIDTH};
+use recall_fendermint_vm_genesis::{Actor, ActorMeta};
 
 use crate::{eam::EthAddress, system};
 

@@ -1,7 +1,7 @@
 [package]
 name = "fendermint_materializer"
 description = "Toolkit to instantiate testnets"
-version = "0.1.0"
+version.workspace = true
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -34,18 +34,18 @@ url = { workspace = true }
 arbitrary = { workspace = true, optional = true }
 quickcheck = { workspace = true, optional = true }
 
-ipc-api = { path = "../../../ipc/api" }
+recall_ipc_api = { path = "../../../ipc/api" }
 ipc-provider = { path = "../../../ipc/provider" }
-ipc_actors_abis = { path = "../../../contracts/binding" }
+recall_ipc_actors_abis = { path = "../../../contracts/binding" }
 
-fendermint_crypto = { path = "../../crypto" }
-fendermint_vm_actor_interface = { path = "../../vm/actor_interface" }
-fendermint_vm_core = { path = "../../vm/core" }
-fendermint_vm_genesis = { path = "../../vm/genesis" }
-fendermint_vm_encoding = { path = "../../vm/encoding" }
-fendermint_vm_message = { path = "../../vm/message" }
+recall_fendermint_crypto = { path = "../../crypto" }
+recall_fendermint_vm_actor_interface = { path = "../../vm/actor_interface" }
+recall_fendermint_vm_core = { path = "../../vm/core" }
+recall_fendermint_vm_genesis = { path = "../../vm/genesis" }
+recall_fendermint_vm_encoding = { path = "../../vm/encoding" }
+recall_fendermint_vm_message = { path = "../../vm/message" }
 fendermint_vm_interpreter = { path = "../../vm/interpreter" }
-fendermint_testing = { path = "..", optional = true }
+recall_fendermint_testing = { version = "0.1.0", path = "..", optional = true }
 
 
 [dev-dependencies]
@@ -62,7 +62,7 @@ tokio = { workspace = true }
 
 # Enable arb on self for tests.
 fendermint_materializer = { path = ".", features = ["arb"] }
-fendermint_testing = { path = "..", features = ["golden"] }
+recall_fendermint_testing = { version = "0.1.0", path = "..", features = ["golden"] }
 
 [features]
 default = []
@@ -70,6 +70,6 @@ arb = [
   "arbitrary",
   "quickcheck",
   "fvm_shared/arb",
-  "fendermint_testing/arb",
-  "fendermint_vm_genesis/arb",
+  "recall_fendermint_testing/arb",
+  "recall_fendermint_vm_genesis/arb",
 ]

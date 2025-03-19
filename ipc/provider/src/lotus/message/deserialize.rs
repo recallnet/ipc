@@ -5,8 +5,8 @@
 use fvm_shared::address::Address;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::econ::TokenAmount;
-use ipc_api::address::IPCAddress;
-use ipc_api::subnet_id::SubnetID;
+use recall_ipc_api::address::IPCAddress;
+use recall_ipc_api::subnet_id::SubnetID;
 use serde::de::{Error, MapAccess};
 use serde::{Deserialize, Deserializer};
 use std::fmt::Formatter;

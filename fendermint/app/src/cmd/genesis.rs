@@ -2,19 +2,19 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use anyhow::{anyhow, Context};
-use fendermint_crypto::PublicKey;
 use fvm_shared::address::Address;
 use ipc_provider::config::subnet::{EVMSubnet, SubnetConfig};
 use ipc_provider::IpcProvider;
+use recall_fendermint_crypto::PublicKey;
 use std::path::PathBuf;
 
-use fendermint_vm_actor_interface::eam::EthAddress;
-use fendermint_vm_core::Timestamp;
-use fendermint_vm_genesis::{
+use fendermint_vm_interpreter::genesis::{GenesisAppState, GenesisBuilder};
+use recall_fendermint_vm_actor_interface::eam::EthAddress;
+use recall_fendermint_vm_core::Timestamp;
+use recall_fendermint_vm_genesis::{
     ipc, Account, Actor, ActorMeta, Collateral, Genesis, Multisig, PermissionMode, SignerAddr,
     Validator, ValidatorKey,
 };
-use fendermint_vm_interpreter::genesis::{GenesisAppState, GenesisBuilder};
 
 use crate::cmd;
 use crate::options::genesis::*;

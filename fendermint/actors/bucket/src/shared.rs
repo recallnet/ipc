@@ -4,14 +4,14 @@
 
 use std::collections::HashMap;
 
-use fendermint_actor_blobs_shared::state::{Hash, PublicKey};
-use fendermint_actor_machine::{
-    GET_ADDRESS_METHOD, GET_METADATA_METHOD, INIT_METHOD, METHOD_CONSTRUCTOR,
-};
 use fvm_ipld_encoding::{strict_bytes, tuple::*};
 use fvm_shared::address::Address;
 use fvm_shared::clock::ChainEpoch;
 use num_derive::FromPrimitive;
+use recall_fendermint_actor_blobs_shared::state::{Hash, PublicKey};
+use recall_fendermint_actor_machine::{
+    GET_ADDRESS_METHOD, GET_METADATA_METHOD, INIT_METHOD, METHOD_CONSTRUCTOR,
+};
 use serde::{Deserialize, Serialize};
 
 pub use crate::state::{ObjectState, State};
@@ -28,13 +28,13 @@ pub enum Method {
     Init = INIT_METHOD,
     GetAddress = GET_ADDRESS_METHOD,
     GetMetadata = GET_METADATA_METHOD,
-    AddObject = frc42_dispatch::method_hash!("AddObject"),
-    DeleteObject = frc42_dispatch::method_hash!("DeleteObject"),
-    GetObject = frc42_dispatch::method_hash!("GetObject"),
-    ListObjects = frc42_dispatch::method_hash!("ListObjects"),
-    UpdateObjectMetadata = frc42_dispatch::method_hash!("UpdateObjectMetadata"),
+    AddObject = recall_frc42_dispatch::method_hash!("AddObject"),
+    DeleteObject = recall_frc42_dispatch::method_hash!("DeleteObject"),
+    GetObject = recall_frc42_dispatch::method_hash!("GetObject"),
+    ListObjects = recall_frc42_dispatch::method_hash!("ListObjects"),
+    UpdateObjectMetadata = recall_frc42_dispatch::method_hash!("UpdateObjectMetadata"),
     // EVM Interop
-    InvokeContract = frc42_dispatch::method_hash!("InvokeEVM"),
+    InvokeContract = recall_frc42_dispatch::method_hash!("InvokeEVM"),
 }
 
 /// Params for adding an object.

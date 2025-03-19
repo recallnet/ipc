@@ -1,7 +1,7 @@
 [package]
 name = "fendermint_vm_snapshot"
 description = "Produce and consume ledger snapshots"
-version = "0.1.0"
+version.workspace = true
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -37,14 +37,14 @@ fvm_ipld_encoding = { workspace = true }
 fvm_shared = { workspace = true, optional = true, features = ["arb"] }
 
 fendermint_vm_interpreter = { path = "../interpreter" }
-fendermint_vm_core = { path = "../core", optional = true }
-fendermint_testing = { path = "../../testing", features = ["arb"], optional = true }
+recall_fendermint_vm_core = { path = "../core", optional = true }
+recall_fendermint_testing = { version = "0.1.0", path = "../../testing", features = ["arb"], optional = true }
 
 [dev-dependencies]
 fvm = { workspace = true }
-fendermint_testing = { path = "../../testing", features = ["golden"] }
+recall_fendermint_testing = { path = "../../testing", features = ["golden"] }
 fendermint_vm_interpreter = { path = "../interpreter", features = ["bundle", "test-util"] }
-fendermint_vm_genesis = { path = "../genesis", features = ["arb"] }
+recall_fendermint_vm_genesis = { path = "../genesis", features = ["arb"] }
 fendermint_vm_snapshot = { path = ".", features = ["arb"] }
 
 [features]
@@ -53,6 +53,6 @@ arb = [
   "arbitrary",
   "quickcheck",
   "fvm_shared/arb",
-  "fendermint_vm_core",
-  "fendermint_testing/arb",
+  "recall_fendermint_vm_core",
+  "recall_fendermint_testing/arb",
 ]

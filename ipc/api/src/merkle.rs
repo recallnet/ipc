@@ -4,8 +4,8 @@
 //! This is a util handles the merkle tree root and proof generation.
 
 use anyhow::Context;
-use merkle_tree_rs::format::Raw;
-use merkle_tree_rs::standard::{LeafType, StandardMerkleTree};
+use recall_merkle_tree_rs::format::Raw;
+use recall_merkle_tree_rs::standard::{LeafType, StandardMerkleTree};
 use std::marker::PhantomData;
 
 pub type Hash = ethers::types::H256;

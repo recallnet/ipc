@@ -1,17 +1,17 @@
 // Copyright 2021-2023 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use fil_actor_eam::{EamActor, Method};
-use fil_actors_runtime::runtime::builtins::Type;
-use fil_actors_runtime::runtime::{ActorCode, Runtime};
-use fil_actors_runtime::ActorError;
-use fil_actors_runtime::EAM_ACTOR_ID;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::ipld_block::IpldBlock;
 use fvm_ipld_encoding::tuple::*;
 use fvm_shared::address::Address;
 use fvm_shared::{ActorID, MethodNum};
 use num_derive::FromPrimitive;
+use recall_fil_actor_eam::{EamActor, Method};
+use recall_fil_actors_runtime::runtime::builtins::Type;
+use recall_fil_actors_runtime::runtime::{ActorCode, Runtime};
+use recall_fil_actors_runtime::ActorError;
+use recall_fil_actors_runtime::EAM_ACTOR_ID;
 
 use crate::state::PermissionMode;
 pub use crate::state::PermissionModeParams;
@@ -20,7 +20,7 @@ pub use crate::state::State;
 mod state;
 
 #[cfg(feature = "fil-actor")]
-fil_actors_runtime::wasm_trampoline!(IPCEamActor);
+recall_fil_actors_runtime::wasm_trampoline!(IPCEamActor);
 
 pub const IPC_EAM_ACTOR_NAME: &str = "eam";
 pub const IPC_EAM_ACTOR_ID: ActorID = EAM_ACTOR_ID;
@@ -30,7 +30,7 @@ pub struct IPCEamActor;
 #[derive(FromPrimitive)]
 #[repr(u64)]
 pub enum ExtraMethods {
-    UpdateDeployers = frc42_dispatch::method_hash!("UpdateDeployers"),
+    UpdateDeployers = recall_frc42_dispatch::method_hash!("UpdateDeployers"),
 }
 
 impl IPCEamActor {
@@ -114,9 +114,9 @@ impl ActorCode for IPCEamActor {
         RT::Blockstore: Blockstore + Clone,
     {
         if method == Method::Constructor as u64 {
-            fil_actors_runtime::dispatch(rt, method, Self::constructor, params)
+            recall_fil_actors_runtime::dispatch(rt, method, Self::constructor, params)
         } else if method == ExtraMethods::UpdateDeployers as u64 {
-            fil_actors_runtime::dispatch(rt, method, Self::update_deployers, params)
+            recall_fil_actors_runtime::dispatch(rt, method, Self::update_deployers, params)
         } else {
             Self::ensure_deployer_allowed(rt)?;
             EamActor::invoke_method(rt, method, params)
@@ -131,23 +131,25 @@ pub struct ConstructorParams {
 
 #[cfg(test)]
 mod tests {
-    use fil_actor_eam::ext::evm::ConstructorParams;
-    use fil_actor_eam::ext::init::{Exec4Params, Exec4Return, EXEC4_METHOD};
-    use fil_actor_eam::{compute_address_create, CreateExternalParams, CreateParams, Return};
-    use fil_actors_evm_shared::address::EthAddress;
-    use fil_actors_runtime::runtime::builtins::Type;
-    use fil_actors_runtime::test_utils::{
-        expect_empty, MockRuntime, ETHACCOUNT_ACTOR_CODE_ID, EVM_ACTOR_CODE_ID,
-        SYSTEM_ACTOR_CODE_ID,
-    };
-    use fil_actors_runtime::INIT_ACTOR_ADDR;
-    use fil_actors_runtime::SYSTEM_ACTOR_ADDR;
     use fvm_ipld_encoding::ipld_block::IpldBlock;
     use fvm_ipld_encoding::RawBytes;
     use fvm_shared::address::Address;
     use fvm_shared::econ::TokenAmount;
     use fvm_shared::error::ExitCode;
     use fvm_shared::MethodNum;
+    use recall_fil_actor_eam::ext::evm::ConstructorParams;
+    use recall_fil_actor_eam::ext::init::{Exec4Params, Exec4Return, EXEC4_METHOD};
+    use recall_fil_actor_eam::{
+        compute_address_create, CreateExternalParams, CreateParams, Return,
+    };
+    use recall_fil_actors_evm_shared::address::EthAddress;
+    use recall_fil_actors_runtime::runtime::builtins::Type;
+    use recall_fil_actors_runtime::test_utils::{
+        expect_empty, MockRuntime, ETHACCOUNT_ACTOR_CODE_ID, EVM_ACTOR_CODE_ID,
+        SYSTEM_ACTOR_CODE_ID,
+    };
+    use recall_fil_actors_runtime::INIT_ACTOR_ADDR;
+    use recall_fil_actors_runtime::SYSTEM_ACTOR_ADDR;
 
     use crate::state::PermissionModeParams;
     use crate::{ConstructorParams as IPCConstructorParams, ExtraMethods, IPCEamActor, Method};

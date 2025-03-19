@@ -4,7 +4,7 @@ description = "Test utils for blobs"
 license.workspace = true
 edition.workspace = true
 authors.workspace = true
-version = "0.1.0"
+version.workspace = true
 
 [lib]
 ## lib is necessary for integration tests
@@ -17,4 +17,4 @@ tracing-subscriber = { workspace = true, features = ["env-filter"] }
 iroh-base = { workspace = true, features = ["key"] }
 fvm_shared = { workspace = true }
 
-fendermint_actor_blobs_shared = { path = "../shared" }
+recall_fendermint_actor_blobs_shared = { path = "../shared" }

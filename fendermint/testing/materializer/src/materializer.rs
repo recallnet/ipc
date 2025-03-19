@@ -7,7 +7,7 @@ use fvm_shared::{chainid::ChainID, econ::TokenAmount};
 use std::collections::BTreeMap;
 use url::Url;
 
-use fendermint_vm_genesis::Collateral;
+use recall_fendermint_vm_genesis::Collateral;
 
 use crate::{
     manifest::{Balance, CheckpointConfig, EnvMap},

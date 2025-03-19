@@ -10,7 +10,7 @@
 //!
 //! # Usage
 //! ```text
-//! cargo run -p fendermint_eth_api --release --example GREETER --
+//! cargo run -p recall_fendermint_eth_api --release --example GREETER --
 //! ```
 
 use std::{fmt::Debug, path::PathBuf, sync::Arc};

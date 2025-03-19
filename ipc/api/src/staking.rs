@@ -7,7 +7,7 @@ use crate::{eth_to_fil_amount, ethers_address_to_fil_address};
 use ethers::utils::hex;
 use fvm_shared::address::Address;
 use fvm_shared::econ::TokenAmount;
-use ipc_actors_abis::{lib_staking_change_log, subnet_actor_getter_facet};
+use recall_ipc_actors_abis::{lib_staking_change_log, subnet_actor_getter_facet};
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 

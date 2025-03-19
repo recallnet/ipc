@@ -10,7 +10,7 @@
 //!
 //! # Usage
 //! ```text
-//! cargo run -p fendermint_eth_api --release --example query_blockhash --
+//! cargo run -p recall_fendermint_eth_api --release --example query_blockhash --
 //! ```
 
 use anyhow::Context;

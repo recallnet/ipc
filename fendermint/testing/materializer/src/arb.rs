@@ -5,8 +5,8 @@ use ethers::{
     core::rand::{rngs::StdRng, SeedableRng},
     types::H160,
 };
-use fendermint_vm_core::chainid;
 use lazy_static::lazy_static;
+use recall_fendermint_vm_core::chainid;
 use std::{
     cmp::min,
     collections::BTreeMap,
@@ -14,12 +14,12 @@ use std::{
 };
 use url::Url;
 
-use fendermint_vm_genesis::Collateral;
 use fvm_shared::{
     bigint::{BigInt, Integer, Zero},
     econ::TokenAmount,
 };
 use quickcheck::{Arbitrary, Gen};
+use recall_fendermint_vm_genesis::Collateral;
 
 use crate::{
     manifest::{

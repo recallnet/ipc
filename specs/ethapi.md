@@ -16,7 +16,7 @@ It’s worth noting that CometBFT recommends deploying [sentry nodes](https://do
 
 As described above, we can interact with Fendermint through the CometBFT or the Ethereum API.
 
-For the former we can use the [`tendermint-rs`](https://github.com/informalsystems/tendermint-rs/tree/main/rpc) library, which contains a JSON-RPC client. This client forms the basis of our own `[fendermint_rpc](https://github.com/consensus-shipyard/ipc/tree/specs/fendermint/rpc)` crate, which contains the following abstractions:
+For the former we can use the [`tendermint-rs`](https://github.com/informalsystems/tendermint-rs/tree/main/rpc) library, which contains a JSON-RPC client. This client forms the basis of our own `[recall_fendermint_rpc](https://github.com/consensus-shipyard/ipc/tree/specs/fendermint/rpc)` crate, which contains the following abstractions:
 
 - `MessageFactory` and `SignedMessageFactory` to produce `ChainMessage` instances to be sent to using the following methods, bound to a particular account address and maintaining a `sequence`:
     - `transaction` constructs generic `Message` instances using `RawBytes` and `MethodNum`

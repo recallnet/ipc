@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use crate::parse::parse_eth_address;
 use clap::{Args, Subcommand};
 use fvm_shared::address::Address;
-use ipc_api::subnet_id::SubnetID;
+use recall_ipc_api::subnet_id::SubnetID;
 
 #[derive(Args, Debug)]
 pub struct DebugArgs {

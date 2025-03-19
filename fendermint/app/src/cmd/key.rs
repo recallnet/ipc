@@ -3,10 +3,10 @@
 
 use anyhow::{anyhow, Context};
 use fendermint_app_options::key::KeyShowPeerIdArgs;
-use fendermint_crypto::{from_b64, to_b64, PublicKey, SecretKey};
-use fendermint_vm_actor_interface::eam::EthAddress;
 use fvm_shared::address::Address;
 use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
+use recall_fendermint_crypto::{from_b64, to_b64, PublicKey, SecretKey};
+use recall_fendermint_vm_actor_interface::eam::EthAddress;
 use serde_json::json;
 use std::path::Path;
 use tendermint_config::NodeKey;
@@ -190,8 +190,8 @@ fn export(output_dir: &Path, name: &str, ext: &str, b64: &str) -> anyhow::Result
 
 #[cfg(test)]
 mod tests {
-    use fendermint_vm_genesis::ValidatorKey;
     use quickcheck_macros::quickcheck;
+    use recall_fendermint_vm_genesis::ValidatorKey;
 
     use crate::cmd::key::b64_to_public;
 

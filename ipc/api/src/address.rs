@@ -38,12 +38,12 @@ impl IPCAddress {
     /// Returns encoded bytes of Address
     #[cfg(feature = "fil-actor")]
     pub fn to_bytes(&self) -> Result<Vec<u8>, Error> {
-        Ok(fil_actors_runtime::cbor::serialize(self, "ipc-address")?.to_vec())
+        Ok(recall_fil_actors_runtime::cbor::serialize(self, "ipc-address")?.to_vec())
     }
 
     #[cfg(feature = "fil-actor")]
     pub fn from_bytes(bz: &[u8]) -> Result<Self, Error> {
-        let i: Self = fil_actors_runtime::cbor::deserialize(
+        let i: Self = recall_fil_actors_runtime::cbor::deserialize(
             &fvm_ipld_encoding::RawBytes::new(bz.to_vec()),
             "ipc-address",
         )?;

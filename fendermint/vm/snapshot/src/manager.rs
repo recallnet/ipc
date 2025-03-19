@@ -312,7 +312,6 @@ mod tests {
     use std::time::Duration;
 
     use async_stm::{atomically, retry};
-    use fendermint_vm_genesis::Genesis;
     use fendermint_vm_interpreter::fvm::{
         bundle::{bundle_path, contracts_path, custom_actors_bundle_path},
         state::{snapshot::Snapshot, FvmStateParams},
@@ -320,6 +319,7 @@ mod tests {
     };
     use fendermint_vm_interpreter::genesis::create_test_genesis_state;
     use quickcheck::Arbitrary;
+    use recall_fendermint_vm_genesis::Genesis;
 
     use crate::{manager::SnapshotParams, manifest, PARTS_DIR_NAME};
 

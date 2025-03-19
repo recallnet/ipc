@@ -14,17 +14,7 @@ use base64::Engine;
 use cid::Cid;
 use ethers::abi::Tokenize;
 use ethers::core::types as et;
-use fendermint_actor_eam::PermissionModeParams;
 use fendermint_eth_hardhat::{ContractSourceAndName, Hardhat, FQN};
-use fendermint_vm_actor_interface::diamond::{EthContract, EthContractMap};
-use fendermint_vm_actor_interface::eam::EthAddress;
-use fendermint_vm_actor_interface::ipc::IPC_CONTRACTS;
-use fendermint_vm_actor_interface::{
-    account, activity, adm, blob_reader, blobs, burntfunds, chainmetadata, cron, eam, gas_market,
-    init, ipc, recall_config, reward, system, EMPTY_ARR,
-};
-use fendermint_vm_core::Timestamp;
-use fendermint_vm_genesis::{ActorMeta, Collateral, Genesis, Power, PowerScale, Validator};
 use futures_util::io::Cursor;
 use fvm::engine::MultiEngine;
 use fvm_ipld_blockstore::Blockstore;
@@ -33,13 +23,23 @@ use fvm_ipld_encoding::CborStore;
 use fvm_shared::chainid::ChainID;
 use fvm_shared::econ::TokenAmount;
 use fvm_shared::version::NetworkVersion;
-use ipc_actors_abis::i_diamond::FacetCut;
 use num_traits::Zero;
+use recall_fendermint_actor_eam::PermissionModeParams;
+use recall_fendermint_vm_actor_interface::diamond::{EthContract, EthContractMap};
+use recall_fendermint_vm_actor_interface::eam::EthAddress;
+use recall_fendermint_vm_actor_interface::ipc::IPC_CONTRACTS;
+use recall_fendermint_vm_actor_interface::{
+    account, activity, adm, blob_reader, blobs, burntfunds, chainmetadata, cron, eam, gas_market,
+    init, ipc, recall_config, reward, system, EMPTY_ARR,
+};
+use recall_fendermint_vm_core::Timestamp;
+use recall_fendermint_vm_genesis::{ActorMeta, Collateral, Genesis, Power, PowerScale, Validator};
+use recall_ipc_actors_abis::i_diamond::FacetCut;
 
 use crate::fvm::state::snapshot::{derive_cid, StateTreeStreamer};
 use crate::fvm::state::{FvmGenesisState, FvmStateParams};
 use crate::fvm::store::memory::MemoryBlockstore;
-use fendermint_vm_genesis::ipc::{GatewayParams, IpcParams};
+use recall_fendermint_vm_genesis::ipc::{GatewayParams, IpcParams};
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use tokio_stream::StreamExt;
@@ -387,16 +387,17 @@ impl GenesisBuilder {
             .iter()
             .map(|(name, cid)| {
                 (
-                    fil_actor_adm::Kind::from_str(name).expect("failed to parse adm machine name"),
+                    recall_fil_actor_adm::Kind::from_str(name)
+                        .expect("failed to parse adm machine name"),
                     cid.to_owned(),
                 )
             })
             .collect();
-        let adm_state = fil_actor_adm::State::new(
+        let adm_state = recall_fil_actor_adm::State::new(
             &state.store(),
             machine_codes,
             // TODO: Wire this into the genesis file so it can be set and updated
-            fil_actor_adm::PermissionModeParams::Unrestricted,
+            recall_fil_actor_adm::PermissionModeParams::Unrestricted,
         )?;
         state
             .create_builtin_actor(
@@ -412,13 +413,13 @@ impl GenesisBuilder {
 
         // Initialize the chain metadata actor which handles saving metadata about the chain
         // (e.g. block hashes) which we can query.
-        let chainmetadata_state = fendermint_actor_chainmetadata::State::new(
+        let chainmetadata_state = recall_fendermint_actor_chainmetadata::State::new(
             &state.store(),
-            fendermint_actor_chainmetadata::DEFAULT_LOOKBACK_LEN,
+            recall_fendermint_actor_chainmetadata::DEFAULT_LOOKBACK_LEN,
         )?;
         state
             .create_custom_actor(
-                fendermint_actor_chainmetadata::CHAINMETADATA_ACTOR_NAME,
+                recall_fendermint_actor_chainmetadata::CHAINMETADATA_ACTOR_NAME,
                 chainmetadata::CHAINMETADATA_ACTOR_ID,
                 &chainmetadata_state,
                 TokenAmount::zero(),
@@ -427,13 +428,13 @@ impl GenesisBuilder {
             .context("failed to create chainmetadata actor")?;
 
         // Initialize the recall config actor.
-        let recall_config_state = fendermint_actor_recall_config::State {
+        let recall_config_state = recall_fendermint_actor_recall_config::State {
             admin: None,
-            config: fendermint_actor_recall_config_shared::RecallConfig::default(),
+            config: recall_fendermint_actor_recall_config_shared::RecallConfig::default(),
         };
         state
             .create_custom_actor(
-                fendermint_actor_recall_config::ACTOR_NAME,
+                recall_fendermint_actor_recall_config::ACTOR_NAME,
                 recall_config::RECALL_CONFIG_ACTOR_ID,
                 &recall_config_state,
                 TokenAmount::zero(),
@@ -442,10 +443,10 @@ impl GenesisBuilder {
             .context("failed to create recall config actor")?;
 
         // Initialize the blob actor.
-        let blobs_state = fendermint_actor_blobs::State::new(&state.store())?;
+        let blobs_state = recall_fendermint_actor_blobs::State::new(&state.store())?;
         state
             .create_custom_actor(
-                fendermint_actor_blobs::BLOBS_ACTOR_NAME,
+                recall_fendermint_actor_blobs::BLOBS_ACTOR_NAME,
                 blobs::BLOBS_ACTOR_ID,
                 &blobs_state,
                 TokenAmount::zero(),
@@ -456,15 +457,15 @@ impl GenesisBuilder {
         // Initialize the blob reader actor.
         state
             .create_custom_actor(
-                fendermint_actor_blob_reader::BLOB_READER_ACTOR_NAME,
+                recall_fendermint_actor_blob_reader::BLOB_READER_ACTOR_NAME,
                 blob_reader::BLOB_READER_ACTOR_ID,
-                &fendermint_actor_blob_reader::State::new(&state.store())?,
+                &recall_fendermint_actor_blob_reader::State::new(&state.store())?,
                 TokenAmount::zero(),
                 None,
             )
             .context("failed to create blob reader actor")?;
 
-        let eam_state = fendermint_actor_eam::State::new(
+        let eam_state = recall_fendermint_actor_eam::State::new(
             state.store(),
             PermissionModeParams::from(genesis.eam_permission_mode),
         )?;
@@ -472,7 +473,7 @@ impl GenesisBuilder {
             .replace_builtin_actor(
                 eam::EAM_ACTOR_NAME,
                 eam::EAM_ACTOR_ID,
-                fendermint_actor_eam::IPC_EAM_ACTOR_NAME,
+                recall_fendermint_actor_eam::IPC_EAM_ACTOR_NAME,
                 &eam_state,
                 TokenAmount::zero(),
                 None,
@@ -486,14 +487,14 @@ impl GenesisBuilder {
         let initial_base_fee = TokenAmount::from_atto(100);
         // We construct the actor state here for simplicity, but for better decoupling we should
         // be invoking the constructor instead.
-        let gas_market_state = fendermint_actor_gas_market_eip1559::State {
+        let gas_market_state = recall_fendermint_actor_gas_market_eip1559::State {
             base_fee: initial_base_fee,
             // If you need to customize the gas market constants, you can do so here.
-            constants: fendermint_actor_gas_market_eip1559::Constants::default(),
+            constants: recall_fendermint_actor_gas_market_eip1559::Constants::default(),
         };
         state
             .create_custom_actor(
-                fendermint_actor_gas_market_eip1559::ACTOR_NAME,
+                recall_fendermint_actor_gas_market_eip1559::ACTOR_NAME,
                 gas_market::GAS_MARKET_ACTOR_ID,
                 &gas_market_state,
                 TokenAmount::zero(),
@@ -501,10 +502,10 @@ impl GenesisBuilder {
             )
             .context("failed to create default eip1559 gas market actor")?;
 
-        let tracker_state = fendermint_actor_activity_tracker::State::new(state.store())?;
+        let tracker_state = recall_fendermint_actor_activity_tracker::State::new(state.store())?;
         state
             .create_custom_actor(
-                fendermint_actor_activity_tracker::IPC_ACTIVITY_TRACKER_ACTOR_NAME,
+                recall_fendermint_actor_activity_tracker::IPC_ACTIVITY_TRACKER_ACTOR_NAME,
                 activity::ACTIVITY_TRACKER_ACTOR_ID,
                 &tracker_state,
                 TokenAmount::zero(),
@@ -624,7 +625,7 @@ fn deploy_contracts(
     // IPC Gateway actor.
     let gateway_addr = {
         use ipc::gateway::ConstructorParameters;
-        use ipc_api::subnet_id::SubnetID;
+        use recall_ipc_api::subnet_id::SubnetID;
 
         let ipc_params = if let Some(p) = config.ipc_params {
             p.gateway.clone()

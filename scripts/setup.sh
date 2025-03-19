@@ -23,7 +23,7 @@ if [[ -z ${SKIP_BUILD+x} || "$SKIP_BUILD" == "" || "$SKIP_BUILD" == "false" ]]; 
   mkdir -p fendermint/builtin-actors/output
   cp builtin-actors/output/builtin-actors-mainnet.car fendermint/builtin-actors/output/bundle.car
   # These need to be built for release
-  cargo build --release -p fendermint_actors
+  cargo build --release -p recall_fendermint_actors
 fi
 cp fendermint/builtin-actors/output/bundle.car "$HOME/.fendermint/bundle.car"
 cp fendermint/actors/output/custom_actors_bundle.car "$HOME/.fendermint/custom_actors_bundle.car"

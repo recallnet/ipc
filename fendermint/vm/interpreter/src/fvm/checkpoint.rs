@@ -14,17 +14,17 @@ use crate::fvm::activity::ValidatorActivityTracker;
 use crate::fvm::exec::BlockEndEvents;
 use anyhow::{anyhow, Context};
 use ethers::abi::Tokenizable;
-use fendermint_crypto::PublicKey;
-use fendermint_crypto::SecretKey;
-use fendermint_vm_actor_interface::eam::EthAddress;
-use fendermint_vm_actor_interface::ipc::BottomUpCheckpoint;
-use fendermint_vm_genesis::{Power, Validator, ValidatorKey};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::{address::Address, chainid::ChainID};
-use ipc_actors_abis::checkpointing_facet as checkpoint;
-use ipc_actors_abis::gateway_getter_facet as getter;
-use ipc_api::staking::ConfigurationNumber;
 use ipc_observability::{emit, serde::HexEncodableBlockHash};
+use recall_fendermint_crypto::PublicKey;
+use recall_fendermint_crypto::SecretKey;
+use recall_fendermint_vm_actor_interface::eam::EthAddress;
+use recall_fendermint_vm_actor_interface::ipc::BottomUpCheckpoint;
+use recall_fendermint_vm_genesis::{Power, Validator, ValidatorKey};
+use recall_ipc_actors_abis::checkpointing_facet as checkpoint;
+use recall_ipc_actors_abis::gateway_getter_facet as getter;
+use recall_ipc_api::staking::ConfigurationNumber;
 use std::collections::HashMap;
 use std::time::Duration;
 use tendermint::block::Height;
@@ -490,8 +490,8 @@ fn into_power_map(value: PowerTable) -> HashMap<[u8; 65], Validator<Power>> {
 
 #[cfg(test)]
 mod tests {
-    use fendermint_vm_genesis::{Power, Validator};
     use quickcheck_macros::quickcheck;
+    use recall_fendermint_vm_genesis::{Power, Validator};
 
     use crate::fvm::checkpoint::{into_power_map, power_diff};
 

@@ -1,10 +1,10 @@
 [package]
-name = "fendermint_actor_bucket"
+name = "recall_fendermint_actor_bucket"
 description = "Actor for bucket object storage"
 license.workspace = true
 edition.workspace = true
 authors.workspace = true
-version = "0.1.0"
+version.workspace = true
 
 [lib]
 ## lib is necessary for integration tests
@@ -15,8 +15,8 @@ crate-type = ["cdylib", "lib"]
 anyhow = { workspace = true }
 blake3 = { workspace = true }
 cid = { workspace = true, default-features = false }
-fil_actors_runtime = { workspace = true }
-frc42_dispatch = { workspace = true }
+recall_fil_actors_runtime = { workspace = true }
+recall_frc42_dispatch = { workspace = true }
 fvm_ipld_blockstore = { workspace = true }
 fvm_ipld_encoding = { workspace = true }
 fvm_shared = { workspace = true }
@@ -25,14 +25,14 @@ num-traits = { workspace = true }
 recall_sol_facade = { workspace = true, features = ["bucket"] }
 serde = { workspace = true, features = ["derive"] }
 
-fendermint_actor_blobs_shared = { path = "../blobs/shared" }
-fendermint_actor_machine = { path = "../machine" }
-recall_ipld = { path = "../../../recall/ipld" }
-recall_actor_sdk = { path = "../../../recall/actor_sdk" }
+recall_fendermint_actor_blobs_shared = { workspace = true }
+recall_fendermint_actor_machine = { workspace = true }
+recall_ipld = { workspace = true }
+recall_actor_sdk = { workspace = true }
 
 [dev-dependencies]
-fil_actors_evm_shared = { workspace = true }
-fil_actors_runtime = { workspace = true, features = ["test_utils"] }
+recall_fil_actors_evm_shared = { workspace = true }
+recall_fil_actors_runtime = { workspace = true, features = ["test_utils"] }
 hex-literal = { workspace = true }
 quickcheck = { workspace = true }
 quickcheck_macros = { workspace = true }
@@ -40,4 +40,4 @@ quickcheck_macros = { workspace = true }
 fendermint_actor_blobs_testing = { path = "../blobs/testing" }
 
 [features]
-fil-actor = ["fil_actors_runtime/fil-actor"]
+fil-actor = ["recall_fil_actors_runtime/fil-actor"]

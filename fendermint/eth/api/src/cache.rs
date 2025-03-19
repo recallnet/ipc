@@ -16,9 +16,9 @@ use fvm_shared::{
     ActorID,
 };
 
-use fendermint_rpc::client::FendermintClient;
-use fendermint_rpc::query::QueryClient;
-use fendermint_vm_message::query::FvmQueryHeight;
+use recall_fendermint_rpc::client::FendermintClient;
+use recall_fendermint_rpc::query::QueryClient;
+use recall_fendermint_vm_message::query::FvmQueryHeight;
 
 use crate::state::ActorType;
 
@@ -196,8 +196,8 @@ mod tests {
     use crate::cache::AddressCache;
     use crate::state::ActorType;
     use cid::Cid;
-    use fendermint_rpc::FendermintClient;
     use fvm_shared::address::Address;
+    use recall_fendermint_rpc::FendermintClient;
     use std::str::FromStr;
     use tendermint_rpc::MockClient;
 

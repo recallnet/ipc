@@ -3,13 +3,13 @@
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 
-use fendermint_vm_core::chainid::HasChainID;
-use fendermint_vm_message::{
+use fvm_ipld_encoding::Error as IpldError;
+use fvm_shared::{chainid::ChainID, crypto::signature::Signature};
+use recall_fendermint_vm_core::chainid::HasChainID;
+use recall_fendermint_vm_message::{
     query::FvmQuery,
     signed::{chain_id_bytes, DomainHash, SignedMessage, SignedMessageError},
 };
-use fvm_ipld_encoding::Error as IpldError;
-use fvm_shared::{chainid::ChainID, crypto::signature::Signature};
 use serde::Serialize;
 
 use crate::{
@@ -86,7 +86,7 @@ impl SyntheticMessage {
         orig: &T,
         signature: Signature,
     ) -> Result<Self, IpldError> {
-        let orig_cid = fendermint_vm_message::cid(orig)?;
+        let orig_cid = recall_fendermint_vm_message::cid(orig)?;
         Ok(Self {
             message,
             orig_cid,

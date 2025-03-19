@@ -17,7 +17,7 @@ use std::ops::{Deref, DerefMut};
 ///
 /// # Example
 /// ```
-/// use ipc_types::{TCid, TLink};
+/// use recall_ipc_types::{TCid, TLink};
 /// use fvm_ipld_blockstore::MemoryBlockstore;
 /// use fvm_ipld_encoding::tuple::*;
 /// use fvm_ipld_encoding::Cbor;

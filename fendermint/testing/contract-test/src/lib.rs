@@ -3,12 +3,10 @@
 
 use anyhow::{anyhow, Context, Result};
 use byteorder::{BigEndian, WriteBytesExt};
-use fendermint_vm_core::Timestamp;
 use fvm_shared::clock::ChainEpoch;
+use recall_fendermint_vm_core::Timestamp;
 use std::{future::Future, sync::Arc};
 
-use fendermint_crypto::PublicKey;
-use fendermint_vm_genesis::Genesis;
 use fendermint_vm_interpreter::fvm::EndBlockOutput;
 use fendermint_vm_interpreter::genesis::{create_test_genesis_state, GenesisOutput};
 use fendermint_vm_interpreter::{
@@ -21,6 +19,8 @@ use fendermint_vm_interpreter::{
     ExecInterpreter,
 };
 use fvm::engine::MultiEngine;
+use recall_fendermint_crypto::PublicKey;
+use recall_fendermint_vm_genesis::Genesis;
 
 pub mod ipc;
 

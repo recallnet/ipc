@@ -158,11 +158,11 @@ pub fn list_parts(path: impl AsRef<Path>) -> anyhow::Result<Vec<PathBuf>> {
 #[cfg(feature = "arb")]
 mod arb {
 
-    use fendermint_testing::arb::{ArbCid, ArbTokenAmount};
-    use fendermint_vm_core::{chainid, Timestamp};
     use fendermint_vm_interpreter::fvm::state::FvmStateParams;
     use fvm_shared::version::NetworkVersion;
     use quickcheck::Arbitrary;
+    use recall_fendermint_testing::arb::{ArbCid, ArbTokenAmount};
+    use recall_fendermint_vm_core::{chainid, Timestamp};
 
     use super::SnapshotManifest;
 

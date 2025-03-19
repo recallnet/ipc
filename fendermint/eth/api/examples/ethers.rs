@@ -10,7 +10,7 @@
 //!
 //! # Usage
 //! ```text
-//! cargo run -p fendermint_eth_api --release --example ethers --
+//! cargo run -p recall_fendermint_eth_api --release --example ethers --
 //! ```
 //!
 //! A method can also be called directly with `curl`:

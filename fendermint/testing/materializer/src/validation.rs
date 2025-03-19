@@ -4,8 +4,8 @@ use anyhow::{anyhow, bail, Ok};
 use async_trait::async_trait;
 use either::Either;
 use ethers::types::H160;
-use fendermint_vm_genesis::Collateral;
 use fvm_shared::{chainid::ChainID, econ::TokenAmount};
+use recall_fendermint_vm_genesis::Collateral;
 use std::{
     collections::{BTreeMap, HashSet},
     fmt::Debug,
@@ -371,7 +371,7 @@ mod tests {
     // /// Run the tests with `RUST_LOG=info` to see the logs, for example:
     // ///
     // /// ```text
-    // /// RUST_LOG=info cargo test -p fendermint_testing_materializer prop_validation -- --nocapture
+    // /// RUST_LOG=info cargo test -p recall_fendermint_testing_materializer prop_validation -- --nocapture
     // /// ```
     // fn init_log() {
     //     let _ = env_logger::builder().is_test(true).try_init();

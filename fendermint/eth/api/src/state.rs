@@ -11,15 +11,15 @@ use std::time::Duration;
 use anyhow::{anyhow, Context};
 use cid::Cid;
 use ethers_core::types::{self as et};
-use fendermint_rpc::client::{FendermintClient, TendermintClient};
-use fendermint_rpc::query::QueryClient;
-use fendermint_vm_actor_interface::{evm, system};
-use fendermint_vm_message::query::{ActorState, FvmQueryHeight};
-use fendermint_vm_message::signed::DomainHash;
-use fendermint_vm_message::{chain::ChainMessage, conv::from_eth::to_fvm_address};
 use fvm_ipld_encoding::{de::DeserializeOwned, RawBytes};
 use fvm_shared::{chainid::ChainID, econ::TokenAmount, error::ExitCode, message::Message};
 use rand::Rng;
+use recall_fendermint_rpc::client::{FendermintClient, TendermintClient};
+use recall_fendermint_rpc::query::QueryClient;
+use recall_fendermint_vm_actor_interface::{evm, system};
+use recall_fendermint_vm_message::query::{ActorState, FvmQueryHeight};
+use recall_fendermint_vm_message::signed::DomainHash;
+use recall_fendermint_vm_message::{chain::ChainMessage, conv::from_eth::to_fvm_address};
 use tendermint::block::Height;
 use tendermint_rpc::query::Query;
 use tendermint_rpc::{
@@ -56,7 +56,7 @@ pub type Nonce = u64;
 // Made generic in the client type so we can mock it if we want to test API
 // methods without having to spin up a server. In those tests the methods
 // below would not be used, so those aren't generic; we'd directly invoke
-// e.g. `fendermint_eth_api::apis::eth::accounts` with some mock client.
+// e.g. `recall_fendermint_eth_api::apis::eth::accounts` with some mock client.
 pub struct JsonRpcState<C> {
     pub client: FendermintClient<C>,
     pub addr_cache: AddressCache<C>,
@@ -446,7 +446,7 @@ where
 
         tracing::debug!(addr = ?address, method_num, data = hex::encode(&result.value.data), "evm actor response");
 
-        let data = fendermint_rpc::response::decode_bytes(&result.value)
+        let data = recall_fendermint_rpc::response::decode_bytes(&result.value)
             .context("failed to decode data as bytes")?;
 
         if data.is_empty() {

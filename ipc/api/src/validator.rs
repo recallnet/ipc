@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 use fvm_shared::{address::Address, econ::TokenAmount};
-use ipc_actors_abis::subnet_actor_getter_facet;
+use recall_ipc_actors_abis::subnet_actor_getter_facet;
 
 use crate::{
     eth_to_fil_amount, ethers_address_to_fil_address,

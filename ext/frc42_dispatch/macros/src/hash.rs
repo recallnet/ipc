@@ -6,7 +6,7 @@
 //
 // License headers added post-fork.
 use blake2b_simd::blake2b;
-use frc42_hasher::hash::Hasher;
+use recall_frc42_hasher::hash::Hasher;
 
 pub struct Blake2bHasher {}
 impl Hasher for Blake2bHasher {

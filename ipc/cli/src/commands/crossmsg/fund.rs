@@ -6,8 +6,8 @@ use async_trait::async_trait;
 use clap::Args;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::econ::TokenAmount;
-use ipc_api::subnet_id::SubnetID;
 use num_traits::Num;
+use recall_ipc_api::subnet_id::SubnetID;
 use std::{fmt::Debug, str::FromStr};
 
 use crate::{

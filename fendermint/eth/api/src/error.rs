@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use ethers_contract::{ContractRevert, EthError};
-use fendermint_vm_actor_interface::ipc::subnet::SubnetActorErrors;
 use fvm_shared::error::ExitCode;
 use lazy_static::lazy_static;
+use recall_fendermint_vm_actor_interface::ipc::subnet::SubnetActorErrors;
 use regex::Regex;
 use serde::Serialize;
 

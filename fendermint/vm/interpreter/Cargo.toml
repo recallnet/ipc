@@ -1,7 +1,7 @@
 [package]
 name = "fendermint_vm_interpreter"
 description = "Execute messages using the FVM"
-version = "0.1.0"
+version.workspace = true
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -14,7 +14,7 @@ async-trait = { workspace = true }
 base64 = { workspace = true }
 cid = { workspace = true }
 ethers = { workspace = true }
-fil_actor_adm = { workspace = true }
+recall_fil_actor_adm = { workspace = true }
 futures-core = { workspace = true }
 futures-util = { workspace = true }
 fvm = { workspace = true }
@@ -23,8 +23,8 @@ fvm_ipld_car = { workspace = true }
 fvm_ipld_encoding = { workspace = true }
 fvm_shared = { workspace = true }
 hex = { workspace = true }
-ipc-api = { workspace = true }
-ipc_actors_abis = { workspace = true }
+recall_ipc_api = { workspace = true }
+recall_ipc_actors_abis = { workspace = true }
 ipc-observability = { workspace = true }
 iroh = { workspace = true }
 iroh-base = { workspace = true }
@@ -47,37 +47,37 @@ tokio-stream = { workspace = true }
 tokio-util = { workspace = true }
 tracing = { workspace = true }
 
-fendermint_actors_api = { workspace = true }
-fendermint_actor_activity_tracker = { path = "../../actors/activity-tracker" }
-fendermint_actor_blobs = { path = "../../actors/blobs" }
-fendermint_actor_blob_reader = { path = "../../actors/blob_reader" }
-fendermint_actor_blobs_shared = { path = "../../actors/blobs/shared" }
-fendermint_actor_bucket = { path = "../../actors/bucket" }
-fendermint_actor_chainmetadata = { path = "../../actors/chainmetadata" }
-fendermint_actor_eam = { path = "../../actors/eam" }
-fendermint_actor_gas_market_eip1559 = { path = "../../actors/gas_market/eip1559" }
-fendermint_actor_recall_config = { path = "../../actors/recall_config" }
-fendermint_actor_recall_config_shared = { path = "../../actors/recall_config/shared" }
-fendermint_actor_timehub = { path = "../../actors/timehub" }
-fendermint_actors = { path = "../../actors" }
-fendermint_crypto = { path = "../../crypto" }
+recall_fendermint_actors_api = { workspace = true }
+recall_fendermint_actor_activity_tracker = { workspace = true }
+recall_fendermint_actor_blobs = { workspace = true }
+recall_fendermint_actor_blob_reader = { workspace = true }
+recall_fendermint_actor_blobs_shared = { workspace = true }
+recall_fendermint_actor_bucket = { workspace = true }
+recall_fendermint_actor_chainmetadata = { path = "../../actors/chainmetadata" }
+recall_fendermint_actor_eam = { workspace = true }
+recall_fendermint_actor_gas_market_eip1559 = { path = "../../actors/gas_market/eip1559" }
+recall_fendermint_actor_recall_config = { workspace = true }
+recall_fendermint_actor_recall_config_shared = { workspace = true }
+recall_fendermint_actor_timehub = { workspace = true }
+recall_fendermint_actors = { path = "../../actors" }
+recall_fendermint_crypto = { workspace = true }
 fendermint_eth_hardhat = { path = "../../eth/hardhat" }
-fendermint_rpc = { path = "../../rpc" }
-fendermint_testing = { path = "../../testing", optional = true }
+recall_fendermint_rpc = { workspace = true }
+recall_fendermint_testing = { workspace = true, optional = true }
 fendermint_tracing = { path = "../../tracing" }
-fendermint_vm_actor_interface = { path = "../actor_interface" }
-fendermint_vm_core = { path = "../core" }
-fendermint_vm_encoding = { path = "../encoding" }
+recall_fendermint_vm_actor_interface = { path = "../actor_interface" }
+recall_fendermint_vm_core = { path = "../core" }
+recall_fendermint_vm_encoding = { path = "../encoding" }
 fendermint_vm_event = { path = "../event" }
-fendermint_vm_genesis = { path = "../genesis" }
+recall_fendermint_vm_genesis = { path = "../genesis" }
 fendermint_vm_iroh_resolver = { path = "../iroh_resolver" }
-fendermint_vm_message = { path = "../message" }
+recall_fendermint_vm_message = { workspace = true }
 fendermint_vm_resolver = { path = "../resolver" }
 fendermint_vm_topdown = { path = "../topdown" }
 recall_executor = { path = "../../../recall/executor" }
 recall_kernel = { path = "../../../recall/kernel" }
 
-merkle-tree-rs = { path = "../../../ext/merkle-tree-rs" }
+recall_merkle_tree_rs = { workspace = true }
 
 [dev-dependencies]
 fvm = { workspace = true, features = ["arb", "testing"] }
@@ -87,10 +87,10 @@ quickcheck = { workspace = true }
 quickcheck_macros = { workspace = true }
 tempfile = { workspace = true }
 
-fendermint_testing = { path = "../../testing", features = ["golden"] }
-fendermint_vm_genesis = { path = "../genesis", features = ["arb"] }
+recall_fendermint_testing = { path = "../../testing", features = ["golden"] }
+recall_fendermint_vm_genesis = { path = "../genesis", features = ["arb"] }
 fendermint_vm_interpreter = { path = ".", features = ["arb"] }
-fendermint_vm_message = { path = "../message", features = ["arb"] }
+recall_fendermint_vm_message = { path = "../message", features = ["arb"] }
 
 [features]
 default = []
@@ -99,7 +99,7 @@ arb = [
     "arbitrary",
     "quickcheck",
     "fvm_shared/arb",
-    "fendermint_testing/arb",
+    "recall_fendermint_testing/arb",
     "rand",
 ]
 test-util = []

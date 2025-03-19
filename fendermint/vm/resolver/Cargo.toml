@@ -1,7 +1,7 @@
 [package]
 name = "fendermint_vm_resolver"
 description = "Resolve IPLD content in messages"
-version = "0.1.0"
+version.workspace = true
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -16,7 +16,7 @@ tracing = { workspace = true }
 tokio = { workspace = true }
 
 cid = { workspace = true }
-ipc-api = { workspace = true }
+recall_ipc_api = { workspace = true }
 ipc_ipld_resolver = { workspace = true }
 
 [dev-dependencies]

@@ -8,7 +8,7 @@ use async_stm::{
     Stm, TVar,
 };
 use cid::Cid;
-use ipc_api::subnet_id::SubnetID;
+use recall_ipc_api::subnet_id::SubnetID;
 
 /// CIDs we need to resolve from a specific source subnet, or our own.
 pub type ResolveKey = (SubnetID, Cid);
@@ -184,7 +184,7 @@ where
 mod tests {
     use async_stm::{atomically, queues::TQueueLike};
     use cid::Cid;
-    use ipc_api::subnet_id::SubnetID;
+    use recall_ipc_api::subnet_id::SubnetID;
 
     #[derive(Clone, Hash, Eq, PartialEq, Debug)]
     struct TestItem {

@@ -4,7 +4,7 @@
 
 use async_trait::async_trait;
 use clap::Args;
-use ipc_api::subnet_id::SubnetID;
+use recall_ipc_api::subnet_id::SubnetID;
 use std::{fmt::Debug, str::FromStr};
 
 use crate::{
