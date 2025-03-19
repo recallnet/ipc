@@ -1,12 +1,15 @@
 // Copyright 2025 Recall Contributors
+// Copyright 2022-2024 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::path::Path;
+use std::time::Duration;
 
 use anyhow::Result;
 use iroh::protocol::Router;
 use iroh::Endpoint;
 use iroh_blobs::net_protocol::Blobs;
+use iroh_blobs::store::GcConfig;
 use iroh_blobs::util::fs::load_secret_key;
 use tracing::info;
 
@@ -35,9 +38,14 @@ impl BlobsWrapper {
     }
 }
 
+/// GC interval duration.
+const GC_DURATION: Duration = Duration::from_secs(300);
+
 impl IrohNode {
     /// Creates a new persistent iroh node in the specified location.
     pub async fn persistent(path: impl AsRef<Path>) -> Result<Self> {
+        // TODO: enable metrics
+
         let root = path.as_ref();
         info!("creating persistent iroh node in {}", root.display());
 
@@ -53,9 +61,10 @@ impl IrohNode {
             .bind()
             .await?;
         let blobs = Blobs::persistent(path).await?.build(&endpoint);
-
-        // TODO: enable metrics
-        // TODO: enable GC with interval `300`
+        blobs.start_gc(GcConfig {
+            period: GC_DURATION,
+            done_callback: None,
+        })?;
 
         let router = Router::builder(endpoint)
             .accept(iroh_blobs::ALPN, blobs.clone())
@@ -73,6 +82,11 @@ impl IrohNode {
         info!("creating inmemory iroh node");
         let endpoint = Endpoint::builder().discovery_n0().bind().await?;
         let blobs = Blobs::memory().build(&endpoint);
+        blobs.start_gc(GcConfig {
+            period: GC_DURATION,
+            done_callback: None,
+        })?;
+
         let router = Router::builder(endpoint)
             .accept(iroh_blobs::ALPN, blobs.clone())
             .spawn()
