@@ -1,5 +1,5 @@
 [package]
-name = "iroh-manager"
+name = "iroh_manager"
 version = "0.1.0"
 authors.workspace = true
 edition.workspace = true

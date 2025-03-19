@@ -698,7 +698,7 @@ async fn download_blob(
     .await?;
 
     // Verify downloaded size of user blob matches the expected size
-    let (_, size_actual) = get_blob_hash_and_size(&iroh, seq_hash).await?;
+    let (_, size_actual) = get_blob_hash_and_size(iroh, seq_hash).await?;
     if size != size_actual {
         return Err(anyhow!(
             "downloaded blob size {} does not match expected size {}",
@@ -722,7 +722,7 @@ async fn read_blob(
     offset: u32,
     len: u32,
 ) -> anyhow::Result<bytes::Bytes> {
-    let (hash, _) = get_blob_hash_and_size(&iroh, hash).await?;
+    let (hash, _) = get_blob_hash_and_size(iroh, hash).await?;
     let len = ReadAtLen::AtMost(len as u64);
     let res = iroh.read_at_to_bytes(hash, offset as u64, len).await?;
     debug!("read blob {}: {:?}", hash, res);

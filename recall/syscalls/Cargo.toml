@@ -17,4 +17,4 @@ tokio = { workspace = true }
 tracing = { workspace = true }
 
 recall_kernel_ops = { path = "../kernel/ops" }
-iroh-manager = { path = "../iroh_manager" }
+iroh_manager = { path = "../iroh_manager" }
