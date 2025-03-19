@@ -2850,24 +2850,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "entangler"
-version = "0.1.0"
-source = "git+https://github.com/recallnet/entanglement.git?rev=c13e1a5c17ecfae2ac5f8953e5d7ac7f8793cc3e#c13e1a5c17ecfae2ac5f8953e5d7ac7f8793cc3e"
-dependencies = [
- "anyhow",
- "async-trait",
- "bytes",
- "cid",
- "futures",
- "iroh",
- "serde",
- "serde_json",
- "storage",
- "thiserror 2.0.11",
- "tokio",
-]
-
-[[package]]
 name = "enum-as-inner"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3780,7 +3762,6 @@ dependencies = [
  "base64 0.21.7",
  "bytes",
  "cid",
- "entangler",
  "ethers",
  "fendermint_abci",
  "fendermint_actor_blobs_shared",
@@ -3841,10 +3822,11 @@ dependencies = [
  "quickcheck",
  "quickcheck_macros",
  "rand_chacha",
+ "recall_entangler",
+ "recall_entangler_storage",
  "serde",
  "serde_json",
  "serde_with 2.3.3",
- "storage",
  "tempfile",
  "tendermint 0.31.1",
  "tendermint-config 0.33.2",
@@ -10380,6 +10362,45 @@ dependencies = [
 ]
 
 [[package]]
+name = "recall_entangler"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "12a7d792aa05d6c9e0518b0c5c4ab88765ef758fba24fe7905f92517cdb3a05c"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "bytes",
+ "cid",
+ "futures",
+ "iroh",
+ "recall_entangler_storage",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.11",
+ "tokio",
+]
+
+[[package]]
+name = "recall_entangler_storage"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dab3cfcdadb43d99bdb4dd54852a8ae628422bc8bab51efbbe59224c2d4354ae"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "bytes",
+ "cid",
+ "futures",
+ "futures-lite 2.5.0",
+ "iroh",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.11",
+ "tokio",
+ "uuid 1.15.1",
+]
+
+[[package]]
 name = "recall_executor"
 version = "0.1.0"
 dependencies = [
@@ -12005,25 +12026,6 @@ name = "static_assertions"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
-
-[[package]]
-name = "storage"
-version = "0.1.0"
-source = "git+https://github.com/recallnet/entanglement.git?rev=c13e1a5c17ecfae2ac5f8953e5d7ac7f8793cc3e#c13e1a5c17ecfae2ac5f8953e5d7ac7f8793cc3e"
-dependencies = [
- "anyhow",
- "async-trait",
- "bytes",
- "cid",
- "futures",
- "futures-lite 2.5.0",
- "iroh",
- "serde",
- "serde_json",
- "thiserror 2.0.11",
- "tokio",
- "uuid 1.15.1",
-]
 
 [[package]]
 name = "storage-proofs-core"
