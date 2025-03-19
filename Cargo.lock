@@ -3817,6 +3817,7 @@ dependencies = [
  "ipc_ipld_resolver",
  "iroh",
  "iroh-base",
+ "iroh_manager",
  "k256 0.11.6",
  "lazy_static",
  "libipld",
@@ -6710,6 +6711,7 @@ dependencies = [
  "serde_json",
  "thiserror 1.0.69",
  "tokio",
+ "uuid 1.15.1",
 ]
 
 [[package]]
@@ -7122,6 +7124,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "iroh",
+ "num-traits",
 ]
 
 [[package]]

@@ -5,7 +5,11 @@
 use std::net::ToSocketAddrs;
 
 use anyhow::anyhow;
+use iroh::blobs::hashseq::HashSeq;
+use iroh::blobs::Hash;
+use iroh::client::blobs::BlobStatus;
 use iroh::client::Iroh;
+use num_traits::Zero;
 
 #[derive(Clone, Debug)]
 pub struct IrohManager {
@@ -37,4 +41,55 @@ impl IrohManager {
             Err(anyhow!("iroh node address is not configured"))
         }
     }
+}
+
+pub async fn extract_blob_hash_and_size(
+    iroh: &Iroh,
+    seq_hash: Hash,
+) -> Result<(Hash, u64), anyhow::Error> {
+    let status = iroh.blobs().status(seq_hash).await.map_err(|e| {
+        anyhow!(
+            "failed to get status for hash sequence object: {} {}",
+            seq_hash,
+            e
+        )
+    })?;
+
+    let BlobStatus::Complete { size } = status else {
+        return Err(anyhow!(
+            "hash sequence object {} is not available",
+            seq_hash
+        ));
+    };
+
+    if size.is_zero() {
+        return Err(anyhow!("hash sequence object {} has zero size", seq_hash));
+    }
+
+    let res = iroh
+        .blobs()
+        .read_to_bytes(seq_hash)
+        .await
+        .map_err(|e| anyhow!("failed to read hash sequence object: {} {}", seq_hash, e))?;
+
+    let hash_seq = HashSeq::try_from(res)
+        .map_err(|e| anyhow!("failed to parse hash sequence object: {} {}", seq_hash, e))?;
+
+    let blob_hash = hash_seq.get(0).ok_or_else(|| {
+        anyhow!(
+            "failed to get hash with index 0 from hash sequence object: {}",
+            seq_hash
+        )
+    })?;
+
+    let status = iroh
+        .blobs()
+        .status(blob_hash)
+        .await
+        .map_err(|e| anyhow!("failed to read object: {} {}", blob_hash, e))?;
+
+    let BlobStatus::Complete { size } = status else {
+        return Err(anyhow!("object {} is not available", blob_hash));
+    };
+    Ok((blob_hash, size))
 }
