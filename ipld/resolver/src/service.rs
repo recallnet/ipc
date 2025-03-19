@@ -17,7 +17,7 @@ use ipc_api::subnet_id::SubnetID;
 use ipc_observability::emit;
 use iroh::blobs::hashseq::HashSeq;
 use iroh::blobs::Hash;
-use iroh::client::blobs::{BlobStatus, ReadAtLen};
+use iroh::client::blobs::ReadAtLen;
 use iroh::client::Iroh;
 use iroh::net::NodeAddr;
 use iroh_manager::{extract_blob_hash_and_size, IrohManager};
@@ -35,7 +35,6 @@ use libp2p::{identify, ping};
 use libp2p_bitswap::{BitswapResponse, BitswapStore};
 use libp2p_mplex::MplexConfig;
 use log::{debug, error, info, warn};
-use num_traits::Zero;
 use prometheus::Registry;
 use rand::seq::SliceRandom;
 use serde::de::DeserializeOwned;
@@ -725,14 +724,13 @@ async fn download_blob(
 
         // Verify user blob size
         // The first hash in the sequence is the user blob for which we have the size
-        if i == 0 {
-            if res.local_size + res.downloaded_size != size {
-                return Err(anyhow!(
-                    "downloaded blob size {} does not match expected size {}",
-                    res.local_size + res.downloaded_size,
-                    size
-                ));
-            }
+        let size_resolved = res.local_size + res.downloaded_size;
+        if i == 0 && size_resolved != size {
+            return Err(anyhow!(
+                "downloaded blob size {} does not match expected size {}",
+                size_resolved,
+                size
+            ));
         }
     }
 

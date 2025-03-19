@@ -58,8 +58,9 @@ impl Actor {
         validate_metadata(&params.metadata)?;
 
         let sub = if let Some(object) = state.get(rt.store(), &key)? {
-            // If we have existing blob
-            if params.overwrite {
+            // If we have existing blob and it's not expired
+            let expired = object.expiry <= rt.curr_epoch();
+            if params.overwrite || expired {
                 // Overwrite if the flag is passed
                 overwrite_blob(
                     rt,
@@ -100,6 +101,7 @@ impl Actor {
                 key,
                 params.hash,
                 params.size,
+                sub.expiry,
                 params.metadata.clone(),
                 params.overwrite,
             )
@@ -176,6 +178,7 @@ impl Actor {
     ) -> Result<ListObjectsReturn, ActorError> {
         rt.validate_immediate_caller_accept_any()?;
 
+        let current_epoch = rt.curr_epoch();
         let mut objects = Vec::new();
         let start_key = params.start_key.map(BytesKey::from);
         let state = rt.state::<State>()?;
@@ -186,7 +189,9 @@ impl Actor {
             start_key.as_ref(),
             params.limit,
             |key: Vec<u8>, object_state: ObjectState| -> anyhow::Result<(), ActorError> {
-                objects.push((key, object_state));
+                if object_state.expiry > current_epoch {
+                    objects.push((key, object_state));
+                }
                 Ok(())
             },
         )?;
@@ -257,6 +262,7 @@ impl Actor {
                 key,
                 object.hash,
                 object.size,
+                object.expiry,
                 object.metadata.clone(),
                 true,
             )?;
@@ -287,7 +293,7 @@ fn build_object(
 ) -> anyhow::Result<Option<Object>, ActorError> {
     match blob.status {
         BlobStatus::Resolved => {
-            let expiry = blob.subscribers.get(&sub_id).cloned().ok_or_else(|| {
+            blob.subscribers.get(&sub_id).cloned().ok_or_else(|| {
                 ActorError::illegal_state(format!(
                     "owner {} is not subscribed to blob {}; this should not happen",
                     subscriber, object_state.hash
@@ -297,7 +303,7 @@ fn build_object(
                 hash: object_state.hash,
                 recovery_hash: blob.metadata_hash,
                 size: blob.size,
-                expiry,
+                expiry: object_state.expiry,
                 metadata: object_state.metadata.clone(),
             }))
         }
@@ -680,7 +686,14 @@ mod tests {
             })
             .unwrap(),
             TokenAmount::from_whole(0),
-            IpldBlock::serialize_cbor(&Subscription::default()).unwrap(),
+            IpldBlock::serialize_cbor(&Subscription {
+                added: 0,
+                expiry: ChainEpoch::from(3600),
+                source: add_params.source,
+                delegate: None,
+                failed: false,
+            })
+            .unwrap(),
             ExitCode::OK,
         );
         expect_emitted_add_event(&rt, &add_params);
@@ -861,7 +874,14 @@ mod tests {
             })
             .unwrap(),
             TokenAmount::from_whole(0),
-            IpldBlock::serialize_cbor(&Subscription::default()).unwrap(),
+            IpldBlock::serialize_cbor(&Subscription {
+                added: 0,
+                expiry: ttl,
+                source: add_params.source,
+                delegate: None,
+                failed: false,
+            })
+            .unwrap(),
             ExitCode::OK,
         );
         expect_emitted_add_event(&rt, &add_params);
@@ -955,7 +975,14 @@ mod tests {
             })
             .unwrap(),
             TokenAmount::from_whole(0),
-            IpldBlock::serialize_cbor(&Subscription::default()).unwrap(),
+            IpldBlock::serialize_cbor(&Subscription {
+                added: 0,
+                expiry: ttl,
+                source: add_params.source,
+                delegate: None,
+                failed: false,
+            })
+            .unwrap(),
             ExitCode::OK,
         );
         expect_emitted_add_event(&rt, &add_params);
