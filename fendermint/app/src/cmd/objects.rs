@@ -10,8 +10,6 @@ use std::{convert::Infallible, net::ToSocketAddrs, num::ParseIntError};
 use anyhow::anyhow;
 use anyhow::Context;
 use bytes::Buf;
-use entangler::{ChunkRange, Config, EntanglementResult, Entangler};
-use entangler_storage::iroh::IrohStorage as EntanglerIrohStorage;
 use fendermint_actor_bucket::{GetParams, Object};
 use fendermint_app_settings::objects::ObjectsSettings;
 use fendermint_rpc::{client::FendermintClient, message::GasParams, QueryClient};
@@ -31,6 +29,8 @@ use iroh_manager::{get_blob_hash_and_size, IrohManager};
 use lazy_static::lazy_static;
 use mime_guess::get_mime_extensions_str;
 use prometheus::{register_histogram, register_int_counter, Histogram, IntCounter};
+use recall_entangler::{ChunkRange, Config, EntanglementResult, Entangler};
+use recall_entangler_storage::iroh::IrohStorage as EntanglerIrohStorage;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tracing::{debug, info};
@@ -548,7 +548,7 @@ async fn tag_entangled_data(
 
 fn new_entangler(
     iroh: iroh::client::Iroh,
-) -> Result<Entangler<EntanglerIrohStorage>, entangler::Error> {
+) -> Result<Entangler<EntanglerIrohStorage>, recall_entangler::Error> {
     Entangler::new(
         EntanglerIrohStorage::from_client(iroh),
         Config::new(ENTANGLER_ALPHA, ENTANGLER_S, ENTANGLER_P),
