@@ -2,24 +2,31 @@
 // Copyright 2022-2024 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::sync::LazyLock;
+use std::io::Write;
+use std::path::PathBuf;
+use std::sync::{LazyLock, Mutex};
 
 use fvm::kernel::{ExecutionError, Result, SyscallError};
 use fvm::syscalls::Context;
 use fvm_shared::error::ErrorNumber;
 use iroh_blobs::Hash;
-use iroh_manager::IrohManager;
+use iroh_manager::DEL_FILE;
 use recall_kernel_ops::RecallOps;
-use tokio::spawn;
 
 pub const MODULE_NAME: &str = "recall";
 pub const HASHRM_SYSCALL_FUNCTION_NAME: &str = "hash_rm";
 
 const ENV_IROH_PATH: &str = "IROH_SYSCALL_PATH";
-static IROH_INSTANCE: LazyLock<Option<IrohManager>> = LazyLock::new(|| {
-    let iroh_path = std::env::var(ENV_IROH_PATH).ok()?;
-    let manager = IrohManager::new(iroh_path);
-    Some(manager)
+
+static IROH_DEL_FILE: LazyLock<Option<Mutex<std::fs::File>>> = LazyLock::new(|| {
+    let iroh_path = PathBuf::from(std::env::var(ENV_IROH_PATH).ok()?);
+    let file = std::fs::OpenOptions::new()
+        .create(true)
+        .write(true)
+        .append(true)
+        .open(iroh_path.join(DEL_FILE))
+        .ok()?;
+    Some(Mutex::new(file))
 });
 
 fn hash_source(bytes: &[u8]) -> Result<[u8; 32]> {
@@ -30,30 +37,18 @@ fn hash_source(bytes: &[u8]) -> Result<[u8; 32]> {
 
 pub fn hash_rm(context: Context<'_, impl RecallOps>, hash_offset: u32) -> Result<()> {
     let hash_bytes = context.memory.try_slice(hash_offset, 32)?;
-    let hash = Hash::from_bytes(hash_source(hash_bytes)?);
+    let seq_hash = Hash::from_bytes(hash_source(hash_bytes)?);
 
-    // Don't block the chain with this.
-    spawn(async move {
-        let Some(iroh) = &*IROH_INSTANCE else {
-            tracing::error!("iroh instance has not been configured");
-            return;
-        };
-        let iroh_client = match iroh.blobs_client().await {
-            Ok(client) => client,
-            Err(e) => {
-                tracing::error!(hash = ?hash, error = e.to_string(), "failed to initialize Iroh client");
-                return;
-            }
-        };
-        // Deleting the tag will trigger deletion of the blob if it was the last reference.
-        // TODO: this needs to be tagged with a "user id"
-        let tag = iroh_blobs::Tag(format!("stored-seq-{hash}").into());
-        match iroh_client.tags().delete(tag.clone()).await {
-            Ok(_) => tracing::debug!(tag = ?tag, hash = ?hash, "removed content from Iroh"),
-            Err(e) => {
-                tracing::warn!(tag = ?tag, hash = ?hash, error = e.to_string(), "deleting tag from Iroh failed");
-            }
-        }
-    });
+    let Some(del_file) = &*IROH_DEL_FILE else {
+        tracing::error!("iroh instance has not been configured");
+        return Ok(());
+    };
+    let mut del_file = del_file.lock().expect("poisoned lock");
+
+    // Appending the tag will trigger deletion of the blob if it was the last reference.
+    if let Err(err) = writeln!(del_file, "stored-seq-{seq_hash}") {
+        tracing::warn!(hash = ?seq_hash, error = err.to_string(), "deleting tag from Iroh failed");
+    }
+
     Ok(())
 }
