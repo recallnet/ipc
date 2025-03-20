@@ -16,7 +16,6 @@ extend = [
     { path = "../../../infra/fendermint/scripts/ethapi.toml" },
     { path = "../../../infra/fendermint/scripts/fendermint.toml" },
     { path = "../../../infra/fendermint/scripts/promtail.toml" },
-    { path = "../../../infra/fendermint/scripts/iroh.toml" },
     { path = "./fendermint.toml" },
 ]
 
