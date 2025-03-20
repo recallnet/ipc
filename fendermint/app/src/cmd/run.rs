@@ -562,7 +562,7 @@ fn to_resolver_config(
             rate_limit_bytes: r.content.rate_limit_bytes,
             rate_limit_period: r.content.rate_limit_period,
         },
-        iroh_path: Some(iroh_path),
+        iroh_path,
     };
 
     Ok(config)

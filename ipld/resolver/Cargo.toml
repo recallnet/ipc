@@ -49,6 +49,7 @@ env_logger = { workspace = true }
 fvm_ipld_hamt = { workspace = true }
 multihash = { workspace = true }
 quickcheck_macros = { workspace = true }
+tempfile = { workspace = true }
 
 ipc_ipld_resolver = { path = ".", features = ["arb"] }
 
