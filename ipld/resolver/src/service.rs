@@ -99,7 +99,7 @@ pub struct Config {
     pub membership: MembershipConfig,
     pub connection: ConnectionConfig,
     pub content: ContentConfig,
-    pub iroh_path: Option<PathBuf>,
+    pub iroh_path: PathBuf,
 }
 
 /// Internal requests to enqueue to the [`Service`]
@@ -211,9 +211,8 @@ where
         let (request_tx, request_rx) = mpsc::unbounded_channel();
         let (event_tx, _) = broadcast::channel(config.connection.event_buffer_capacity as usize);
 
-        let iroh_path = config
-            .iroh_path
-            .ok_or_else(|| anyhow::anyhow!("missing iroh configuration"))?;
+        let iroh_path = config.iroh_path;
+
         let service = Self {
             peer_id,
             listen_addr: config.connection.listen_addr,
