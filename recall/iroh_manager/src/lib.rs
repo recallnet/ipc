@@ -7,7 +7,7 @@ pub type IrohBlobsClient = iroh_blobs::rpc::client::blobs::MemClient;
 mod manager;
 mod node;
 
-pub use self::manager::IrohManager;
+pub use self::manager::{IrohManager, DEL_FILE};
 pub use self::node::IrohNode;
 
 use anyhow::{anyhow, Result};

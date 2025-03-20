@@ -226,7 +226,7 @@ where
                 config.connection.expected_peer_count,
             ),
             max_peers_per_query: config.connection.max_peers_per_query as usize,
-            iroh: IrohManager::new(iroh_path),
+            iroh: IrohManager::new(iroh_path).await?,
         };
 
         Ok(service)
@@ -529,20 +529,12 @@ where
         node_addr: NodeAddr,
         response_channel: ResponseChannel,
     ) {
-        let iroh = self.iroh.clone();
+        let client = self.iroh.blobs_client().clone();
         tokio::spawn(async move {
-            match iroh.blobs_client().await {
-                Ok(client) => {
-                    let res = download_blob(&client, hash, size, node_addr).await;
-                    match res {
-                        Ok(_) => send_resolve_result(response_channel, Ok(())),
-                        Err(e) => send_resolve_result(response_channel, Err(anyhow!(e))),
-                    }
-                }
-                Err(e) => warn!(
-                    "cannot resolve {}; failed to create iroh client ({})",
-                    hash, e
-                ),
+            let res = download_blob(&client, hash, size, node_addr).await;
+            match res {
+                Ok(_) => send_resolve_result(response_channel, Ok(())),
+                Err(e) => send_resolve_result(response_channel, Err(anyhow!(e))),
             }
         });
     }
@@ -555,20 +547,12 @@ where
         len: u32,
         response_channel: ReadRequestResponseChannel,
     ) {
-        let iroh = self.iroh.clone();
+        let client = self.iroh.blobs_client().clone();
         tokio::spawn(async move {
-            match iroh.blobs_client().await {
-                Ok(client) => {
-                    let res = read_blob(&client, hash, offset, len).await;
-                    match res {
-                        Ok(bytes) => send_read_request_result(response_channel, Ok(bytes)),
-                        Err(e) => send_read_request_result(response_channel, Err(anyhow!(e))),
-                    }
-                }
-                Err(e) => warn!(
-                    "cannot resolve read request {}; failed to create iroh client ({})",
-                    hash, e
-                ),
+            let res = read_blob(&client, hash, offset, len).await;
+            match res {
+                Ok(bytes) => send_read_request_result(response_channel, Ok(bytes)),
+                Err(e) => send_read_request_result(response_channel, Err(anyhow!(e))),
             }
         });
     }

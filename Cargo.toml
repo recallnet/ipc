@@ -149,6 +149,8 @@ multihash = { version = "0.18.1", default-features = false, features = [
     "sha3",
     "blake3",
 ] }
+n0-future = "0.1.2"
+notify = "8.0.0"
 num-bigint = "0.4"
 num-derive = "0.3"
 num-traits = "0.2"
