@@ -24,6 +24,7 @@ use ipc_api::ethers_address_to_fil_address;
 
 use iroh::NodeAddr;
 use iroh_blobs::hashseq::HashSeq;
+use iroh_blobs::BlobFormat;
 use iroh_blobs::{rpc::client::blobs::BlobStatus, util::SetTagOption, Hash};
 use iroh_manager::{get_blob_hash_and_size, IrohNode};
 use lazy_static::lazy_static;
@@ -488,7 +489,10 @@ async fn tag_entangled_data(
 
     // make a hash sequence object from the hashes and upload it to iroh
     let hash_seq = hashes.into_iter().collect::<HashSeq>();
-    let temp_tag = batch.add_bytes(hash_seq).await?;
+
+    let temp_tag = batch
+        .add_bytes_with_opts(hash_seq, BlobFormat::HashSeq)
+        .await?;
     let hash_seq_hash = *temp_tag.hash();
 
     debug!(
@@ -596,8 +600,8 @@ async fn handle_object_download<F: QueryClient + Send + Sync>(
 
     match maybe_object {
         Some(object) => {
-            let hash = Hash::from_bytes(object.hash.0);
-            let (hash, size) = get_blob_hash_and_size(iroh.blobs_client(), hash)
+            let seq_hash = Hash::from_bytes(object.hash.0);
+            let (hash, size) = get_blob_hash_and_size(iroh.blobs_client(), seq_hash)
                 .await
                 .map_err(|e| {
                     Rejection::from(BadRequest {
@@ -949,7 +953,10 @@ mod tests {
         .collect::<HashSeq>();
 
         let batch = iroh.blobs_client().batch().await.unwrap();
-        let temp_tag = batch.add_bytes(hash_seq).await.unwrap();
+        let temp_tag = batch
+            .add_bytes_with_opts(hash_seq, BlobFormat::HashSeq)
+            .await
+            .unwrap();
         let hash_seq_hash = *temp_tag.hash();
 
         // Add a tag to the hash sequence as expected by the system
