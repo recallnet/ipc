@@ -140,6 +140,7 @@ impl ActorCode for ReadReqActor {
 mod tests {
     use super::*;
 
+    use fendermint_actor_blobs_testing::new_hash;
     use fendermint_actor_machine::events::to_actor_event;
     use fil_actors_evm_shared::address::EthAddress;
     use fil_actors_runtime::test_utils::{
@@ -147,17 +148,6 @@ mod tests {
     };
     use fvm_ipld_encoding::ipld_block::IpldBlock;
     use fvm_shared::address::Address;
-    use rand::RngCore;
-
-    pub fn new_hash(size: usize) -> (Hash, u64) {
-        let mut rng = rand::thread_rng();
-        let mut data = vec![0u8; size];
-        rng.fill_bytes(&mut data);
-        (
-            Hash(*iroh_base::hash::Hash::new(&data).as_bytes()),
-            size as u64,
-        )
-    }
 
     pub fn construct_and_verify() -> MockRuntime {
         let rt = MockRuntime {

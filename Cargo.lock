@@ -3493,6 +3493,7 @@ name = "fendermint_actor_blob_reader"
 version = "0.1.0"
 dependencies = [
  "fendermint_actor_blobs_shared",
+ "fendermint_actor_blobs_testing",
  "fendermint_actor_machine",
  "fil_actors_evm_shared",
  "fil_actors_runtime",
@@ -3501,11 +3502,9 @@ dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared",
  "hex-literal 0.4.1",
- "iroh-base",
  "log",
  "num-derive 0.3.3",
  "num-traits",
- "rand",
  "recall_ipld",
  "recall_sol_facade",
  "serde",
