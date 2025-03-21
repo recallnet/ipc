@@ -11,21 +11,13 @@ use fendermint_actor_machine::{Kind, MachineAddress, MachineState};
 use fil_actors_runtime::ActorError;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::tuple::*;
-use fvm_ipld_hamt::{BytesKey, Config, Hamt};
-use fvm_shared::{address::Address, clock::ChainEpoch};
+use fvm_shared::address::Address;
+use fvm_shared::clock::ChainEpoch;
+use recall_ipld::hamt;
+use recall_ipld::hamt::{BytesKey, DEFAULT_HAMT_CONFIG};
 use serde::{Deserialize, Serialize};
 
 const MAX_LIST_LIMIT: usize = 1000;
-
-const HAMT_CONFIG: Config = Config {
-    bit_width: 5,
-    min_data_depth: 2,
-    max_array_width: 1,
-};
-
-fn state_error(e: fvm_ipld_hamt::Error) -> ActorError {
-    ActorError::illegal_state(e.to_string())
-}
 
 fn utf8_error(e: FromUtf8Error) -> ActorError {
     ActorError::illegal_argument(e.to_string())
@@ -50,15 +42,16 @@ impl MachineState for State {
         owner: Address,
         metadata: HashMap<String, String>,
     ) -> anyhow::Result<Self, ActorError> {
-        let root = match Hamt::<_, ObjectState>::new_with_config(store, HAMT_CONFIG).flush() {
-            Ok(cid) => cid,
-            Err(e) => {
-                return Err(ActorError::illegal_state(format!(
-                    "bucket actor failed to create empty Hamt: {}",
-                    e
-                )));
-            }
-        };
+        let root =
+            match hamt::Map::<_, BytesKey, ObjectState>::flush_empty(store, DEFAULT_HAMT_CONFIG) {
+                Ok(cid) => cid,
+                Err(e) => {
+                    return Err(ActorError::illegal_state(format!(
+                        "bucket actor failed to create empty Hamt: {}",
+                        e
+                    )));
+                }
+            };
         Ok(Self {
             address: Default::default(),
             owner,
@@ -122,8 +115,12 @@ impl State {
         metadata: HashMap<String, String>,
         overwrite: bool,
     ) -> anyhow::Result<Cid, ActorError> {
-        let mut hamt = Hamt::<_, ObjectState>::load_with_config(&self.root, store, HAMT_CONFIG)
-            .map_err(state_error)?;
+        let mut hamt = hamt::Map::<_, BytesKey, ObjectState>::load(
+            store,
+            &self.root,
+            DEFAULT_HAMT_CONFIG,
+            "bucket".to_string(),
+        )?;
         let object = ObjectState {
             hash,
             size,
@@ -131,11 +128,11 @@ impl State {
             metadata,
         };
         if overwrite {
-            hamt.set(key, object).map_err(state_error)?;
+            hamt.set(&key, object)?;
         } else {
-            hamt.set_if_absent(key, object).map_err(state_error)?;
+            hamt.set_if_absent(&key, object)?;
         }
-        self.root = hamt.flush().map_err(state_error)?;
+        self.root = hamt.flush()?;
         Ok(self.root)
     }
 
@@ -144,14 +141,16 @@ impl State {
         store: &BS,
         key: &BytesKey,
     ) -> anyhow::Result<(ObjectState, Cid), ActorError> {
-        let mut hamt = Hamt::<_, ObjectState>::load_with_config(&self.root, store, HAMT_CONFIG)
-            .map_err(state_error)?;
+        let mut hamt = hamt::Map::<_, BytesKey, ObjectState>::load(
+            store,
+            &self.root,
+            DEFAULT_HAMT_CONFIG,
+            "bucket".to_string(),
+        )?;
         let object = hamt
-            .delete(key)
-            .map_err(state_error)?
-            .map(|o| o.1)
+            .delete(key)?
             .ok_or(ActorError::not_found("key not found".into()))?;
-        self.root = hamt.flush().map_err(state_error)?;
+        self.root = hamt.flush()?;
         Ok((object, self.root))
     }
 
@@ -160,9 +159,13 @@ impl State {
         store: &BS,
         key: &BytesKey,
     ) -> anyhow::Result<Option<ObjectState>, ActorError> {
-        let hamt = Hamt::<_, ObjectState>::load_with_config(&self.root, store, HAMT_CONFIG)
-            .map_err(state_error)?;
-        let object = hamt.get(key).map(|v| v.cloned()).map_err(state_error)?;
+        let hamt = hamt::Map::<_, BytesKey, ObjectState>::load(
+            store,
+            &self.root,
+            DEFAULT_HAMT_CONFIG,
+            "bucket".to_string(),
+        )?;
+        let object = hamt.get(key).map(|v| v.cloned())?;
         Ok(object)
     }
 
@@ -178,8 +181,12 @@ impl State {
     where
         F: FnMut(Vec<u8>, ObjectState) -> anyhow::Result<(), ActorError>,
     {
-        let hamt = Hamt::<_, ObjectState>::load_with_config(&self.root, store, HAMT_CONFIG)
-            .map_err(state_error)?;
+        let hamt = hamt::Map::<_, BytesKey, ObjectState>::load(
+            store,
+            &self.root,
+            DEFAULT_HAMT_CONFIG,
+            "bucket".to_string(),
+        )?;
         let mut common_prefixes = std::collections::BTreeSet::<Vec<u8>>::new();
         let limit = if limit == 0 {
             MAX_LIST_LIMIT
@@ -187,28 +194,25 @@ impl State {
             (limit as usize).min(MAX_LIST_LIMIT)
         };
 
-        let (_, next_key) = hamt
-            .for_each_ranged(start_key, Some(limit), |k, v| {
-                let key = k.0.clone();
-                if !prefix.is_empty() && !key.starts_with(&prefix) {
-                    return Ok(());
+        let (_, next_key) = hamt.for_each_ranged(start_key, Some(limit), |k, v| {
+            let key = k.0.clone();
+            if !prefix.is_empty() && !key.starts_with(&prefix) {
+                return Ok(false);
+            }
+            if !delimiter.is_empty() {
+                let utf8_prefix = String::from_utf8(prefix.clone()).map_err(utf8_error)?;
+                let prefix_length = utf8_prefix.len();
+                let utf8_key = String::from_utf8(key.clone()).map_err(utf8_error)?;
+                let utf8_delimiter = String::from_utf8(delimiter.clone()).map_err(utf8_error)?;
+                if let Some(index) = utf8_key[prefix_length..].find(&utf8_delimiter) {
+                    let subset = utf8_key[..=(index + prefix_length)].as_bytes().to_owned();
+                    common_prefixes.insert(subset);
+                    return Ok(false);
                 }
-                if !delimiter.is_empty() {
-                    let utf8_prefix = String::from_utf8(prefix.clone()).map_err(utf8_error)?;
-                    let prefix_length = utf8_prefix.len();
-                    let utf8_key = String::from_utf8(key.clone()).map_err(utf8_error)?;
-                    let utf8_delimiter =
-                        String::from_utf8(delimiter.clone()).map_err(utf8_error)?;
-                    if let Some(index) = utf8_key[prefix_length..].find(&utf8_delimiter) {
-                        let subset = utf8_key[..=(index + prefix_length)].as_bytes().to_owned();
-                        common_prefixes.insert(subset);
-                        return Ok(());
-                    }
-                }
-                collector(key, v.to_owned())?;
-                Ok(())
-            })
-            .map_err(state_error)?;
+            }
+            collector(key, v.to_owned())?;
+            Ok(true)
+        })?;
 
         let common_prefixes = common_prefixes.into_iter().collect();
         Ok((common_prefixes, next_key))
@@ -700,5 +704,62 @@ mod tests {
         assert!(result.is_ok());
         let result = result.unwrap();
         assert_eq!(result.0.len(), 1);
+    }
+
+    #[test]
+    fn test_list_with_prefix_and_without_and_limit() {
+        let store = MemoryBlockstore::default();
+        let mut state = State::new(&store, Address::new_id(100), HashMap::new()).unwrap();
+
+        let one = BytesKey("test/hello".as_bytes().to_vec());
+        let hash = new_hash(256);
+        state
+            .add(
+                &store,
+                one.clone(),
+                hash.0,
+                8,
+                123456789,
+                HashMap::<String, String>::new(),
+                false,
+            )
+            .unwrap();
+        let two = BytesKey("hello".as_bytes().to_vec());
+        let hash = new_hash(256);
+        state
+            .add(
+                &store,
+                two.clone(),
+                hash.0,
+                8,
+                123456789,
+                HashMap::<String, String>::new(),
+                false,
+            )
+            .unwrap();
+
+        // List with prefix and limit 1
+        let result = list(
+            &state,
+            &store,
+            "test/".as_bytes().to_vec(),
+            "/".as_bytes().to_vec(),
+            None,
+            1,
+        );
+        assert!(result.is_ok());
+        let result = result.unwrap();
+        assert_eq!(result.0.len(), 1);
+        assert_eq!(
+            result.0.first().unwrap().0,
+            "test/hello".as_bytes().to_vec(),
+        );
+
+        // List without prefix and limit 1
+        let result = list(&state, &store, vec![], "/".as_bytes().to_vec(), None, 1);
+        assert!(result.is_ok());
+        let result = result.unwrap();
+        assert_eq!(result.0.len(), 1);
+        assert_eq!(result.0.first().unwrap().0, "hello".as_bytes().to_vec());
     }
 }
