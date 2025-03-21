@@ -24,11 +24,11 @@ impl<'a> MachineCreated<'a> {
     }
 }
 impl TryIntoEVMEvent for MachineCreated<'_> {
-    type Target = sol::Event;
+    type Target = sol::Events;
     fn try_into_evm_event(self) -> Result<Self::Target, anyhow::Error> {
         let owner: H160 = self.owner.try_into()?;
         let metadata = fvm_ipld_encoding::to_vec(self.metadata)?;
-        Ok(sol::Event::MachineCreated(sol::MachineCreated {
+        Ok(sol::Events::MachineCreated(sol::MachineCreated {
             kind: self.kind as u8,
             owner: owner.into(),
             metadata: metadata.into(),
@@ -49,10 +49,10 @@ impl MachineInitialized {
     }
 }
 impl TryIntoEVMEvent for MachineInitialized {
-    type Target = sol::Event;
+    type Target = sol::Events;
     fn try_into_evm_event(self) -> Result<Self::Target, anyhow::Error> {
         let machine_address: H160 = self.machine_address.try_into()?;
-        Ok(sol::Event::MachineInitialized(sol::MachineInitialized {
+        Ok(sol::Events::MachineInitialized(sol::MachineInitialized {
             kind: self.kind as u8,
             machineAddress: machine_address.into(),
         }))

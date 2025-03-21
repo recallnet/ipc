@@ -34,11 +34,11 @@ impl CreditPurchased {
     }
 }
 impl TryIntoEVMEvent for CreditPurchased {
-    type Target = sol::Event;
+    type Target = sol::Events;
     fn try_into_evm_event(self) -> Result<Self::Target, Error> {
         let from: H160 = self.from.try_into()?;
         let amount = token_to_biguint(Some(self.amount));
-        Ok(sol::Event::CreditPurchased(sol::CreditPurchased {
+        Ok(sol::Events::CreditPurchased(sol::CreditPurchased {
             from: from.into(),
             amount: BigUintWrapper(amount).into(),
         }))
@@ -53,13 +53,13 @@ pub struct CreditApproved {
     pub expiry: Option<ChainEpoch>,
 }
 impl TryIntoEVMEvent for CreditApproved {
-    type Target = sol::Event;
-    fn try_into_evm_event(self) -> Result<sol::Event, Error> {
+    type Target = sol::Events;
+    fn try_into_evm_event(self) -> Result<sol::Events, Error> {
         let from: H160 = self.from.try_into()?;
         let to: H160 = self.to.try_into()?;
         let credit_limit = token_to_biguint(self.credit_limit);
         let gas_fee_limit = token_to_biguint(self.gas_fee_limit);
-        Ok(sol::Event::CreditApproved(sol::CreditApproved {
+        Ok(sol::Events::CreditApproved(sol::CreditApproved {
             from: from.into(),
             to: to.into(),
             creditLimit: BigUintWrapper(credit_limit).into(),
@@ -79,11 +79,11 @@ impl CreditRevoked {
     }
 }
 impl TryIntoEVMEvent for CreditRevoked {
-    type Target = sol::Event;
-    fn try_into_evm_event(self) -> Result<sol::Event, Error> {
+    type Target = sol::Events;
+    fn try_into_evm_event(self) -> Result<sol::Events, Error> {
         let from: H160 = self.from.try_into()?;
         let to: H160 = self.to.try_into()?;
-        Ok(sol::Event::CreditRevoked(sol::CreditRevoked {
+        Ok(sol::Events::CreditRevoked(sol::CreditRevoked {
             from: from.into(),
             to: to.into(),
         }))
@@ -96,10 +96,10 @@ pub struct CreditDebited {
     pub more_accounts: bool,
 }
 impl TryIntoEVMEvent for CreditDebited {
-    type Target = sol::Event;
-    fn try_into_evm_event(self) -> Result<sol::Event, Error> {
+    type Target = sol::Events;
+    fn try_into_evm_event(self) -> Result<sol::Events, Error> {
         let amount = token_to_biguint(Some(self.amount));
-        Ok(sol::Event::CreditDebited(sol::CreditDebited {
+        Ok(sol::Events::CreditDebited(sol::CreditDebited {
             amount: BigUintWrapper(amount).into(),
             numAccounts: U256::from(self.num_accounts),
             moreAccounts: self.more_accounts,

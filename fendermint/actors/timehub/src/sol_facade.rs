@@ -23,10 +23,10 @@ impl EventPushed {
     }
 }
 impl TryIntoEVMEvent for EventPushed {
-    type Target = sol::Event;
+    type Target = sol::Events;
 
     fn try_into_evm_event(self) -> Result<Self::Target, Error> {
-        Ok(sol::Event::EventPushed(sol::EventPushed {
+        Ok(sol::Events::EventPushed(sol::EventPushed {
             index: U256::from(self.index),
             timestamp: U256::from(self.timestamp),
             cid: self.cid.to_bytes().into(),

@@ -27,11 +27,11 @@ impl<'a> ObjectAdded<'a> {
     }
 }
 impl TryIntoEVMEvent for ObjectAdded<'_> {
-    type Target = sol::Event;
+    type Target = sol::Events;
 
     fn try_into_evm_event(self) -> Result<Self::Target, Error> {
         let metadata = fvm_ipld_encoding::to_vec(self.metadata)?;
-        Ok(sol::Event::ObjectAdded(sol::ObjectAdded {
+        Ok(sol::Events::ObjectAdded(sol::ObjectAdded {
             key: self.key.clone().into(),
             blobHash: self.blob_hash.0.into(),
             metadata: metadata.into(),
@@ -49,10 +49,10 @@ impl<'a> ObjectMetadataUpdated<'a> {
     }
 }
 impl<'a> TryIntoEVMEvent for ObjectMetadataUpdated<'a> {
-    type Target = sol::Event;
+    type Target = sol::Events;
     fn try_into_evm_event(self) -> Result<Self::Target, Error> {
         let metadata = fvm_ipld_encoding::to_vec(self.metadata)?;
-        Ok(sol::Event::ObjectMetadataUpdated(
+        Ok(sol::Events::ObjectMetadataUpdated(
             sol::ObjectMetadataUpdated {
                 key: self.key.clone().into(),
                 metadata: metadata.into(),
@@ -71,9 +71,9 @@ impl<'a> ObjectDeleted<'a> {
     }
 }
 impl TryIntoEVMEvent for ObjectDeleted<'_> {
-    type Target = sol::Event;
+    type Target = sol::Events;
     fn try_into_evm_event(self) -> Result<Self::Target, Error> {
-        Ok(sol::Event::ObjectDeleted(sol::ObjectDeleted {
+        Ok(sol::Events::ObjectDeleted(sol::ObjectDeleted {
             key: self.key.clone().into(),
             blobHash: self.blob_hash.0.into(),
         }))

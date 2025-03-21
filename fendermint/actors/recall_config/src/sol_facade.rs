@@ -19,10 +19,10 @@ impl ConfigAdminSet {
     }
 }
 impl TryIntoEVMEvent for ConfigAdminSet {
-    type Target = sol::Event;
+    type Target = sol::Events;
     fn try_into_evm_event(self) -> Result<Self::Target, anyhow::Error> {
         let admin: H160 = self.admin.try_into()?;
-        Ok(sol::Event::ConfigAdminSet(sol::ConfigAdminSet {
+        Ok(sol::Events::ConfigAdminSet(sol::ConfigAdminSet {
             admin: admin.into(),
         }))
     }
@@ -38,9 +38,9 @@ pub struct ConfigSet {
     pub account_debit_batch_size: u64,
 }
 impl TryIntoEVMEvent for ConfigSet {
-    type Target = sol::Event;
+    type Target = sol::Events;
     fn try_into_evm_event(self) -> Result<Self::Target, anyhow::Error> {
-        Ok(sol::Event::ConfigSet(sol::ConfigSet {
+        Ok(sol::Events::ConfigSet(sol::ConfigSet {
             blobCapacity: U256::from(self.blob_capacity),
             tokenCreditRate: BigUintWrapper(self.token_credit_rate.rate().clone()).into(),
             blobCreditDebitInterval: U256::from(self.blob_credit_debit_interval),

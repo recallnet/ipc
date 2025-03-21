@@ -32,11 +32,11 @@ pub struct BlobAdded<'a> {
 }
 
 impl TryIntoEVMEvent for BlobAdded<'_> {
-    type Target = sol::Event;
+    type Target = sol::Events;
 
     fn try_into_evm_event(self) -> Result<Self::Target, anyhow::Error> {
         let subscriber: H160 = self.subscriber.try_into()?;
-        Ok(sol::Event::BlobAdded(sol::BlobAdded {
+        Ok(sol::Events::BlobAdded(sol::BlobAdded {
             subscriber: subscriber.into(),
             hash: self.hash.0.into(),
             size: U256::from(self.size),
@@ -52,10 +52,10 @@ pub struct BlobPending<'a> {
     pub source: &'a PublicKey,
 }
 impl TryIntoEVMEvent for BlobPending<'_> {
-    type Target = sol::Event;
-    fn try_into_evm_event(self) -> Result<sol::Event, anyhow::Error> {
+    type Target = sol::Events;
+    fn try_into_evm_event(self) -> Result<sol::Events, anyhow::Error> {
         let subscriber: H160 = self.subscriber.try_into()?;
-        Ok(sol::Event::BlobPending(sol::BlobPending {
+        Ok(sol::Events::BlobPending(sol::BlobPending {
             subscriber: subscriber.into(),
             hash: self.hash.0.into(),
             sourceId: self.source.0.into(),
@@ -69,10 +69,10 @@ pub struct BlobFinalized<'a> {
     pub resolved: bool,
 }
 impl TryIntoEVMEvent for BlobFinalized<'_> {
-    type Target = sol::Event;
-    fn try_into_evm_event(self) -> Result<sol::Event, anyhow::Error> {
+    type Target = sol::Events;
+    fn try_into_evm_event(self) -> Result<sol::Events, anyhow::Error> {
         let subscriber: H160 = self.subscriber.try_into()?;
-        Ok(sol::Event::BlobFinalized(sol::BlobFinalized {
+        Ok(sol::Events::BlobFinalized(sol::BlobFinalized {
             subscriber: subscriber.into(),
             hash: self.hash.0.into(),
             resolved: self.resolved,
@@ -87,10 +87,10 @@ pub struct BlobDeleted<'a> {
     pub bytes_released: u64,
 }
 impl TryIntoEVMEvent for BlobDeleted<'_> {
-    type Target = sol::Event;
-    fn try_into_evm_event(self) -> Result<sol::Event, anyhow::Error> {
+    type Target = sol::Events;
+    fn try_into_evm_event(self) -> Result<sol::Events, anyhow::Error> {
         let subscriber: H160 = self.subscriber.try_into()?;
-        Ok(sol::Event::BlobDeleted(sol::BlobDeleted {
+        Ok(sol::Events::BlobDeleted(sol::BlobDeleted {
             subscriber: subscriber.into(),
             hash: self.hash.0.into(),
             size: U256::from(self.size),

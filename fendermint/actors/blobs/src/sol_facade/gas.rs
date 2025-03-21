@@ -17,10 +17,10 @@ impl GasSponsorSet {
     }
 }
 impl TryIntoEVMEvent for GasSponsorSet {
-    type Target = sol::Event;
+    type Target = sol::Events;
     fn try_into_evm_event(self) -> Result<Self::Target, Error> {
         let sponsor: H160 = self.sponsor.try_into()?;
-        Ok(sol::Event::GasSponsorSet(sol::GasSponsorSet {
+        Ok(sol::Events::GasSponsorSet(sol::GasSponsorSet {
             sponsor: sponsor.into(),
         }))
     }
@@ -33,8 +33,8 @@ impl GasSponsorUnset {
     }
 }
 impl TryIntoEVMEvent for GasSponsorUnset {
-    type Target = sol::Event;
-    fn try_into_evm_event(self) -> Result<sol::Event, Error> {
-        Ok(sol::Event::GasSponsorUnset(sol::GasSponsorUnset {}))
+    type Target = sol::Events;
+    fn try_into_evm_event(self) -> Result<sol::Events, Error> {
+        Ok(sol::Events::GasSponsorUnset(sol::GasSponsorUnset {}))
     }
 }

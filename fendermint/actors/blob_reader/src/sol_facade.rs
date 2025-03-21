@@ -19,11 +19,11 @@ pub struct ReadRequestOpened<'a> {
     pub method_num: MethodNum,
 }
 impl TryIntoEVMEvent for ReadRequestOpened<'_> {
-    type Target = sol::Event;
+    type Target = sol::Events;
 
     fn try_into_evm_event(self) -> Result<Self::Target, anyhow::Error> {
         let callback_address: H160 = self.callback.try_into()?;
-        Ok(sol::Event::ReadRequestOpened(sol::ReadRequestOpened {
+        Ok(sol::Events::ReadRequestOpened(sol::ReadRequestOpened {
             id: self.id.0.into(),
             blobHash: self.blob_hash.0.into(),
             readOffset: U256::from(self.read_offset),
@@ -43,9 +43,9 @@ impl<'a> ReadRequestPending<'a> {
     }
 }
 impl TryIntoEVMEvent for ReadRequestPending<'_> {
-    type Target = sol::Event;
+    type Target = sol::Events;
     fn try_into_evm_event(self) -> Result<Self::Target, anyhow::Error> {
-        Ok(sol::Event::ReadRequestPending(sol::ReadRequestPending {
+        Ok(sol::Events::ReadRequestPending(sol::ReadRequestPending {
             id: self.id.0.into(),
         }))
     }
@@ -60,9 +60,9 @@ impl<'a> ReadRequestClosed<'a> {
     }
 }
 impl TryIntoEVMEvent for ReadRequestClosed<'_> {
-    type Target = sol::Event;
+    type Target = sol::Events;
     fn try_into_evm_event(self) -> Result<Self::Target, anyhow::Error> {
-        Ok(sol::Event::ReadRequestClosed(sol::ReadRequestClosed {
+        Ok(sol::Events::ReadRequestClosed(sol::ReadRequestClosed {
             id: self.id.0.into(),
         }))
     }
