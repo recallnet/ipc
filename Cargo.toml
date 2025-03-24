@@ -150,7 +150,6 @@ multihash = { version = "0.18.1", default-features = false, features = [
     "blake3",
 ] }
 n0-future = "0.1.2"
-notify = "8.0.0"
 num-bigint = "0.4"
 num-derive = "0.3"
 num-traits = "0.2"
@@ -164,6 +163,8 @@ prost = { version = "0.11" }
 quickcheck = "1"
 quickcheck_async = "0.1"
 quickcheck_macros = "1"
+quic-rpc = { version = "0.19", features = ["quinn-transport"] }
+iroh-quinn = { version = "0.13" }
 rand = "0.8"
 rand_chacha = "0.3"
 regex = "1"

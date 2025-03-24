@@ -13,7 +13,8 @@ iroh-blobs = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
 n0-future = { workspace = true}
-notify = {workspace = true }
+quic-rpc= { workspace = true, features = ["quinn-transport", "test-utils"] }
+iroh-quinn = { workspace = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }

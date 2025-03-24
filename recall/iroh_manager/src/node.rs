@@ -9,8 +9,10 @@ use anyhow::Result;
 use iroh::protocol::Router;
 use iroh::Endpoint;
 use iroh_blobs::net_protocol::Blobs;
+use iroh_blobs::rpc::proto::RpcService;
 use iroh_blobs::store::GcConfig;
 use iroh_blobs::util::fs::load_secret_key;
+use quic_rpc::server::{ChannelTypes, RpcChannel, RpcServerError};
 use tracing::info;
 
 use crate::IrohBlobsClient;
@@ -20,11 +22,11 @@ use crate::IrohBlobsClient;
 #[derive(Debug, Clone)]
 pub struct IrohNode {
     router: Router,
-    blobs: BlobsWrapper,
+    pub(crate) blobs: BlobsWrapper,
 }
 
 #[derive(Debug, Clone)]
-enum BlobsWrapper {
+pub(crate) enum BlobsWrapper {
     Mem(Blobs<iroh_blobs::store::mem::Store>),
     Fs(Blobs<iroh_blobs::store::fs::Store>),
 }
@@ -34,6 +36,20 @@ impl BlobsWrapper {
         match self {
             BlobsWrapper::Mem(b) => b.client(),
             BlobsWrapper::Fs(b) => b.client(),
+        }
+    }
+
+    pub(crate) async fn handle_rpc_request<C>(
+        self,
+        msg: iroh_blobs::rpc::proto::Request,
+        chan: RpcChannel<RpcService, C>,
+    ) -> std::result::Result<(), RpcServerError<C>>
+    where
+        C: ChannelTypes<RpcService>,
+    {
+        match self {
+            BlobsWrapper::Mem(b) => b.handle_rpc_request(msg, chan).await,
+            BlobsWrapper::Fs(b) => b.handle_rpc_request(msg, chan).await,
         }
     }
 }

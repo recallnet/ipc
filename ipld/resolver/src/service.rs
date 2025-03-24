@@ -149,7 +149,7 @@ where
     background_lookup_filter: BloomFilter,
     /// To limit the number of peers contacted in a Bitswap resolution attempt.
     max_peers_per_query: usize,
-    /// Iroh client
+    /// Iroh node
     iroh: IrohManager,
 }
 
@@ -239,6 +239,11 @@ where
     /// which weren't initiated by the `Client`.
     pub fn client(&self) -> Client<V> {
         Client::new(self.request_tx.clone())
+    }
+
+    /// Returns a reference to the iroh node.
+    pub fn iroh(&self) -> &IrohManager {
+        &self.iroh
     }
 
     /// Create a new [`broadcast::Receiver`] instance bound to this `Service`,

@@ -2,43 +2,47 @@
 // Copyright 2022-2024 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::path::{Path, PathBuf};
+use std::net::SocketAddr;
+use std::path::Path;
 
 use anyhow::Result;
+use iroh_blobs::rpc::proto::RpcService;
 use n0_future::task::AbortOnDropHandle;
-use notify::{Config, Event, RecommendedWatcher, RecursiveMode, Watcher};
-use tokio::io::{AsyncBufReadExt, AsyncSeekExt, BufReader};
-use tokio::runtime::Handle;
-use tokio::sync::mpsc;
-use tracing::{debug, error, info, warn};
+use quic_rpc::client::QuinnConnector;
 
 use crate::{IrohBlobsClient, IrohNode};
 
 #[derive(Debug)]
 pub struct IrohManager {
     client: IrohNode,
-    _cleanup_task: AbortOnDropHandle<()>,
+    server_key: Vec<u8>,
+    rpc_addr: SocketAddr,
+    _rpc_task: AbortOnDropHandle<()>,
 }
-
-/// Append to this file to trigger deletions
-pub const DEL_FILE: &str = "delete_me.log";
 
 impl IrohManager {
     pub async fn new(path: impl AsRef<Path>) -> Result<Self> {
         let storage_path = path.as_ref().to_path_buf();
         let client = IrohNode::persistent(&storage_path).await?;
-        let blobs_client = client.blobs_client().clone();
 
-        let sp = storage_path.clone();
-        let cleanup_task = tokio::task::spawn(async move {
-            if let Err(err) = run_cleanup(sp, blobs_client).await {
-                error!("iroh cleanup task failed: {:?}", err);
-            }
-        });
+        // setup an RPC listener
+        let rpc_addr: SocketAddr = "127.0.0.1:0".parse()?;
+
+        let (config, server_key) = quic_rpc::transport::quinn::configure_server()?;
+        let endpoint = iroh_quinn::Endpoint::server(config, rpc_addr)?;
+        let local_addr = endpoint.local_addr()?;
+        let rpc_server = quic_rpc::transport::quinn::QuinnListener::new(endpoint)?;
+        let rpc_server =
+            quic_rpc::RpcServer::<iroh_blobs::rpc::proto::RpcService, _>::new(rpc_server);
+        let blobs = client.blobs.clone();
+        let rpc_task = rpc_server
+            .spawn_accept_loop(move |msg, chan| blobs.clone().handle_rpc_request(msg, chan));
 
         Ok(Self {
             client,
-            _cleanup_task: AbortOnDropHandle::new(cleanup_task),
+            server_key,
+            rpc_addr: local_addr,
+            _rpc_task: rpc_task,
         })
     }
 
@@ -46,93 +50,36 @@ impl IrohManager {
     pub fn blobs_client(&self) -> &IrohBlobsClient {
         self.client.blobs_client()
     }
-}
 
-async fn run_cleanup(storage_path: PathBuf, blobs: IrohBlobsClient) -> Result<()> {
-    let path = storage_path.join(DEL_FILE);
-    info!("opening file for cleanup: {}", path.display());
-
-    let mut file = tokio::fs::OpenOptions::new()
-        .read(true)
-        .create(true)
-        .write(true)
-        .open(&path)
-        .await?;
-    let mut pos = tokio::fs::metadata(&path).await?.len();
-    let rt = Handle::try_current()?;
-
-    let (mut watcher, mut rx) = async_watcher(rt)?;
-
-    watcher.watch(path.as_ref(), RecursiveMode::NonRecursive)?;
-
-    let tags = blobs.tags();
-    // watch
-    while let Some(res) = rx.recv().await {
-        match res {
-            Ok(_event) => {
-                // ignore any event that didn't change the pos
-                if file.metadata().await?.len() == pos {
-                    continue;
-                }
-
-                // read from pos to end of file
-                if pos > 0 {
-                    file.seek(std::io::SeekFrom::Start(pos + 1)).await?;
-                }
-
-                // update pos to end of file
-                pos = file.metadata().await?.len();
-
-                let reader = BufReader::new(&mut file);
-                let mut lines = reader.lines();
-                loop {
-                    let Ok(Some(line)) = lines.next_line().await else {
-                        break;
-                    };
-                    debug!("found line: {:?}", line);
-                    match tags.delete(line.as_bytes()).await {
-                        Ok(()) => {
-                            debug!("deleted tag {}", line);
-                        }
-                        Err(err) => {
-                            warn!("failed to delete tag {}: {:?}", line, err);
-                        }
-                    }
-                }
-            }
-            Err(error) => println!("{error:?}"),
-        }
+    /// Returns the key for the RPC client.
+    pub fn rpc_key(&self) -> &[u8] {
+        &self.server_key
     }
 
-    Ok(())
+    pub fn rpc_addr(&self) -> SocketAddr {
+        self.rpc_addr
+    }
 }
 
-fn async_watcher(
-    rt: Handle,
-) -> notify::Result<(RecommendedWatcher, mpsc::Receiver<notify::Result<Event>>)> {
-    let (tx, rx) = mpsc::channel(1);
+pub type BlobsRpcClient = iroh_blobs::rpc::client::blobs::Client<QuinnConnector<RpcService>>;
 
-    // Automatically select the best implementation for your platform.
-    // You can also access each implementation directly e.g. INotifyWatcher.
-    let watcher = RecommendedWatcher::new(
-        move |res| {
-            let tx = tx.clone();
-            rt.block_on(async move {
-                tx.send(res).await.ok();
-            })
-        },
-        Config::default(),
-    )?;
-
-    Ok((watcher, rx))
+/// Connect to the given rpc listening on this address, with this key.
+pub async fn connect(remote_addr: SocketAddr, key: &[u8]) -> Result<BlobsRpcClient> {
+    let bind_addr: SocketAddr = "127.0.0.1:0".parse()?;
+    let client = quic_rpc::transport::quinn::make_client_endpoint(bind_addr, &[key])?;
+    let client = QuinnConnector::<iroh_blobs::rpc::proto::RpcService>::new(
+        client,
+        remote_addr,
+        "localhost".to_string(),
+    );
+    let client = quic_rpc::RpcClient::<iroh_blobs::rpc::proto::RpcService, _>::new(client);
+    let client = iroh_blobs::rpc::client::blobs::Client::new(client);
+    Ok(client)
 }
 
 #[cfg(test)]
 mod tests {
-    use std::time::Duration;
-
     use n0_future::StreamExt;
-    use tokio::io::AsyncWriteExt;
 
     use super::*;
 
@@ -160,31 +107,20 @@ mod tests {
             .await?;
         assert_eq!(existing_tags.len(), 10);
 
-        // create file and start appending to it
-        let p = dir.path().to_path_buf();
         let t = tags.clone();
+        let rpc_key = iroh.rpc_key().to_vec();
+        let rpc_addr = iroh.rpc_addr();
         let task = tokio::task::spawn(async move {
-            let path = p.join(DEL_FILE);
-            info!("writing to {}", path.display());
-            let mut file = tokio::fs::OpenOptions::new()
-                .create(true)
-                .write(true)
-                .append(true)
-                .open(path)
-                .await?;
+            let client = connect(rpc_addr, &rpc_key).await?;
 
             for tag in t {
-                file.write_all(tag.as_bytes()).await?;
-                file.write_all(b"\n").await?;
+                client.tags().delete(tag).await?;
             }
 
             anyhow::Ok(())
         });
 
         task.await??;
-
-        // wait for the tags to be deleted
-        tokio::time::sleep(Duration::from_secs(3)).await;
 
         let existing_tags: Vec<_> = iroh
             .blobs_client()

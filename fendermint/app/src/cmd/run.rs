@@ -51,9 +51,6 @@ use fendermint_vm_iroh_resolver::observe::{
 
 cmd! {
   RunArgs(self, settings) {
-      // this env var must be set for the blobs_syscall to work. the CLI has a default and accepts
-      // an override via the env variable, but it doesn't require it's set, so we ensure it here
-      std::env::set_var("IROH_SYSCALL_PATH", self.iroh_path.clone());
       run(settings, self.iroh_path.clone()).await
   }
 }
@@ -192,6 +189,12 @@ async fn run(settings: Settings, iroh_path: PathBuf) -> anyhow::Result<()> {
             iroh_path,
         )
         .await?;
+
+        // set iroh RPC config for SYSCALL
+        let rpc_addr = service.iroh().rpc_addr().to_string();
+        std::env::set_var("IROH_SYSCALL_RPC_ADDR", rpc_addr);
+        let rpc_key = hex::encode(service.iroh().rpc_key());
+        std::env::set_var("IROH_SYSCALL_RPC_KEY", rpc_key);
 
         // Register all metrics from the IPLD resolver stack
         if let Some(ref registry) = metrics_registry {
