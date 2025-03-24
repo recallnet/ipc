@@ -9,8 +9,7 @@ use fendermint_actor_machine::{
     GET_ADDRESS_METHOD, GET_METADATA_METHOD, INIT_METHOD, METHOD_CONSTRUCTOR,
 };
 use fvm_ipld_encoding::{strict_bytes, tuple::*};
-use fvm_shared::address::Address;
-use fvm_shared::clock::ChainEpoch;
+use fvm_shared::{address::Address, clock::ChainEpoch};
 use num_derive::FromPrimitive;
 use serde::{Deserialize, Serialize};
 

@@ -2,20 +2,17 @@
 // Copyright 2021-2023 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::collections::HashSet;
 use std::error::Error;
 use std::str::from_utf8;
 
 use fendermint_actor_blobs_shared::state::{
-    Blob, BlobStatus, BlobSubscribers, Credit, Hash, PublicKey, Subscription, SubscriptionGroup,
-    SubscriptionId,
+    Blob, BlobRequest, BlobStatus, BlobSubscribers, Credit, Hash, PublicKey, Subscription,
+    SubscriptionGroup, SubscriptionId,
 };
 use fendermint_actor_recall_config_shared::RecallConfig;
 use fil_actors_runtime::ActorError;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_shared::bigint::BigInt;
-use fvm_shared::econ::TokenAmount;
-use fvm_shared::{address::Address, clock::ChainEpoch};
+use fvm_shared::{address::Address, bigint::BigInt, clock::ChainEpoch, econ::TokenAmount};
 use log::debug;
 use num_traits::{ToPrimitive, Zero};
 use recall_ipld::hamt::BytesKey;
@@ -26,8 +23,7 @@ use crate::state::credit::CommitCapacityParams;
 use crate::state::expiries::ExpiryUpdate;
 use crate::State;
 
-type BlobSourcesResult =
-    anyhow::Result<Vec<(Hash, u64, HashSet<(Address, SubscriptionId, PublicKey)>)>, ActorError>;
+type BlobSourcesResult = anyhow::Result<Vec<BlobRequest>, ActorError>;
 
 impl State {
     /// Adds a blob.
@@ -779,7 +775,7 @@ impl State {
         subscriber: Address,
         current_epoch: ChainEpoch,
         starting_hash: Option<Hash>,
-        limit: Option<usize>,
+        limit: Option<u32>,
     ) -> anyhow::Result<(u32, Option<Hash>, Vec<Hash>), ActorError> {
         let new_ttl = self.get_account_max_ttl(config, store, subscriber)?;
         let mut deleted_blobs = Vec::new();
@@ -799,7 +795,7 @@ impl State {
 
         let (_, next_key) = blobs.for_each_ranged(
             starting_key.as_ref(),
-            limit,
+            limit.map(|l| l as usize),
             |hash, blob| -> Result<(), ActorError> {
                 let subscribers = blob.subscribers.hamt(store)?;
                 if let Some(group) = subscribers.get(&subscriber)? {

@@ -10,23 +10,23 @@ use fendermint_actor_blobs_shared::params::{
 use fendermint_actor_blobs_shared::state::{
     AccountInfo, BlobInfo, Credit, CreditApproval, Subscription,
 };
-use fendermint_actor_machine::{
-    caller::{Caller, CallerOption},
-    events::emit_evm_event,
-    util::{to_delegated_address, token_to_biguint},
-};
 use fendermint_actor_recall_config_shared::get_config;
 use fil_actors_runtime::{extract_send_result, runtime::Runtime, ActorError};
 use fvm_shared::{econ::TokenAmount, METHOD_SEND};
 use num_traits::Zero;
-use recall_sol_facade::{
-    blobs::{blob_added, blob_deleted},
-    credit::{credit_approved, credit_purchased, credit_revoked},
-    gas::{gas_sponsor_set, gas_sponsor_unset},
+use recall_actor_sdk::{
+    caller::{Caller, CallerOption},
+    evm::emit_evm_event,
+    util::to_delegated_address,
 };
 
 use crate::actor::{delete_from_disc, BlobsActor};
 use crate::caller::DelegationOptions;
+use crate::sol_facade::{
+    blobs as sol_blobs,
+    credit::{CreditApproved, CreditPurchased, CreditRevoked},
+    gas::{GasSponsorSet, GasSponsorUnset},
+};
 use crate::state::blobs::{AddBlobStateParams, DeleteBlobStateParams};
 use crate::State;
 
@@ -59,10 +59,7 @@ impl BlobsActor {
 
         emit_evm_event(
             rt,
-            credit_purchased(
-                caller.event_address(),
-                token_to_biguint(Some(credit_amount)),
-            ),
+            CreditPurchased::new(caller.event_address(), credit_amount),
         )?;
 
         AccountInfo::from(rt, account)
@@ -112,18 +109,15 @@ impl BlobsActor {
             approval
         })?;
 
-        let event_credit_limit = token_to_biguint(approval.credit_limit.clone());
-        let event_gas_fee_limit = token_to_biguint(approval.gas_allowance_limit.clone());
-        let event_expiry = approval.expiry.unwrap_or_default() as u64;
         emit_evm_event(
             rt,
-            credit_approved(
-                from_caller.event_address(),
-                to_caller.event_address(),
-                event_credit_limit,
-                event_gas_fee_limit,
-                event_expiry,
-            ),
+            CreditApproved {
+                from: from_caller.event_address(),
+                to: to_caller.event_address(),
+                credit_limit: approval.credit_limit.clone(),
+                gas_fee_limit: approval.gas_allowance_limit.clone(),
+                expiry: approval.expiry,
+            },
         )?;
 
         Ok(approval)
@@ -150,7 +144,7 @@ impl BlobsActor {
 
         emit_evm_event(
             rt,
-            credit_revoked(from_caller.event_address(), to_caller.event_address()),
+            CreditRevoked::new(from_caller.event_address(), to_caller.event_address()),
         )?;
 
         Ok(())
@@ -182,9 +176,9 @@ impl BlobsActor {
         })?;
 
         if let Some(sponsor) = caller.sponsor_address() {
-            emit_evm_event(rt, gas_sponsor_set(sponsor))?;
+            emit_evm_event(rt, GasSponsorSet::mew(sponsor))?;
         } else {
-            emit_evm_event(rt, gas_sponsor_unset())?;
+            emit_evm_event(rt, GasSponsorUnset::new())?;
         }
 
         Ok(())
@@ -281,13 +275,13 @@ impl BlobsActor {
 
         emit_evm_event(
             rt,
-            blob_added(
-                caller.event_address(),
-                &params.hash.0,
-                params.size,
-                sub.expiry as u64,
-                capacity_used,
-            ),
+            sol_blobs::BlobAdded {
+                subscriber: caller.event_address(),
+                hash: &params.hash,
+                size: params.size,
+                expiry: sub.expiry,
+                bytes_used: capacity_used,
+            },
         )?;
 
         Ok(sub)
@@ -336,12 +330,12 @@ impl BlobsActor {
 
         emit_evm_event(
             rt,
-            blob_deleted(
-                caller.event_address(),
-                &params.hash.0,
+            sol_blobs::BlobDeleted {
+                subscriber: caller.event_address(),
+                hash: &params.hash,
                 size,
-                capacity_released,
-            ),
+                bytes_released: capacity_released,
+            },
         )?;
 
         Ok(())
@@ -420,23 +414,23 @@ impl BlobsActor {
         if overwrite {
             emit_evm_event(
                 rt,
-                blob_deleted(
-                    caller.event_address(),
-                    &params.old_hash.0,
-                    delete_size,
-                    capacity_released,
-                ),
+                sol_blobs::BlobDeleted {
+                    subscriber: caller.event_address(),
+                    hash: &params.old_hash,
+                    size: delete_size,
+                    bytes_released: capacity_released,
+                },
             )?;
         }
         emit_evm_event(
             rt,
-            blob_added(
-                caller.event_address(),
-                &add_hash.0,
-                add_size,
-                sub.expiry as u64,
-                capacity_used,
-            ),
+            sol_blobs::BlobAdded {
+                subscriber: caller.event_address(),
+                hash: &add_hash,
+                size: add_size,
+                expiry: sub.expiry,
+                bytes_used: capacity_used,
+            },
         )?;
 
         Ok(sub)

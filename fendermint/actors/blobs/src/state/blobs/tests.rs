@@ -1499,7 +1499,7 @@ fn test_trim_blob_expiries() {
         name: &'static str,
         account_ttl: TtlStatus,
         expected_ttls: Vec<ChainEpoch>,
-        limit: Option<usize>, // None means process all at once
+        limit: Option<u32>, // None means process all at once
     }
 
     let test_cases = vec![
@@ -1667,7 +1667,7 @@ fn test_trim_blob_expiries_pagination() {
     // Test cases for pagination
     struct PaginationTest {
         name: &'static str,
-        limit: Option<usize>,
+        limit: Option<u32>,
         start: Option<usize>,
         expected_next_key: Option<usize>,
         expected_processed: usize,

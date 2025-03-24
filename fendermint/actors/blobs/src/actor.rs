@@ -11,7 +11,9 @@ use fil_actors_runtime::{
 };
 use fvm_ipld_encoding::ipld_block::IpldBlock;
 use fvm_shared::MethodNum;
+use recall_actor_sdk::evm::{InputData, InvokeContractParams, InvokeContractReturn};
 
+use crate::sol_facade::{blobs as sol_blobs, credit as sol_credit, AbiCall, AbiCallRuntime};
 use crate::{State, BLOBS_ACTOR_NAME};
 
 mod admin;
@@ -41,6 +43,110 @@ impl BlobsActor {
         rt.validate_immediate_caller_is(std::iter::once(&SYSTEM_ACTOR_ADDR))?;
         let state = State::new(rt.store())?;
         rt.create(&state)
+    }
+
+    fn invoke_contract(
+        rt: &impl Runtime,
+        params: InvokeContractParams,
+    ) -> Result<InvokeContractReturn, ActorError> {
+        let input_data: InputData = params.try_into()?;
+        if sol_blobs::can_handle(&input_data) {
+            let output_data = match sol_blobs::parse_input(&input_data)? {
+                sol_blobs::Calls::addBlob(call) => {
+                    let params = call.params(rt)?;
+                    Self::add_blob(rt, params)?;
+                    call.returns(())
+                }
+                sol_blobs::Calls::deleteBlob(call) => {
+                    let params = call.params(rt)?;
+                    Self::delete_blob(rt, params)?;
+                    call.returns(())
+                }
+                sol_blobs::Calls::getBlob(call) => {
+                    let params = call.params()?;
+                    let blob = Self::get_blob(rt, params)?;
+                    call.returns(blob)?
+                }
+                sol_blobs::Calls::getStats(call) => {
+                    let stats = Self::get_stats(rt)?;
+                    call.returns(stats)
+                }
+                sol_blobs::Calls::overwriteBlob(call) => {
+                    let params = call.params(rt)?;
+                    Self::overwrite_blob(rt, params)?;
+                    call.returns(())
+                }
+                sol_blobs::Calls::trimBlobExpiries(call) => {
+                    let params = call.params();
+                    let cursor = Self::trim_blob_expiries(rt, params)?;
+                    call.returns(cursor)
+                }
+            };
+            Ok(InvokeContractReturn { output_data })
+        } else if sol_credit::can_handle(&input_data) {
+            let output_data = match sol_credit::parse_input(&input_data)? {
+                sol_credit::Calls::buyCredit_0(call) => {
+                    // function buyCredit() external payable;
+                    let params = call.params(rt);
+                    Self::buy_credit(rt, params)?;
+                    call.returns(())
+                }
+                sol_credit::Calls::buyCredit_1(call) => {
+                    // function buyCredit(address recipient) external payable;
+                    let params = call.params();
+                    Self::buy_credit(rt, params)?;
+                    call.returns(())
+                }
+                sol_credit::Calls::approveCredit_0(call) => {
+                    let params = call.params(rt);
+                    Self::approve_credit(rt, params)?;
+                    call.returns(())
+                }
+                sol_credit::Calls::approveCredit_1(call) => {
+                    let params = call.params(rt);
+                    Self::approve_credit(rt, params)?;
+                    call.returns(())
+                }
+                sol_credit::Calls::approveCredit_2(call) => {
+                    let params = call.params(rt);
+                    Self::approve_credit(rt, params)?;
+                    call.returns(())
+                }
+                sol_credit::Calls::revokeCredit_0(call) => {
+                    let params = call.params(rt);
+                    Self::revoke_credit(rt, params)?;
+                    call.returns(())
+                }
+                sol_credit::Calls::revokeCredit_1(call) => {
+                    let params = call.params(rt);
+                    Self::revoke_credit(rt, params)?;
+                    call.returns(())
+                }
+                sol_credit::Calls::setAccountSponsor(call) => {
+                    let params = call.params(rt);
+                    Self::set_account_sponsor(rt, params)?;
+                    call.returns(())
+                }
+                sol_credit::Calls::getAccount(call) => {
+                    let params = call.params();
+                    let account_info = Self::get_account(rt, params)?;
+                    call.returns(account_info)?
+                }
+                sol_credit::Calls::getCreditApproval(call) => {
+                    let params = call.params();
+                    let credit_approval = Self::get_credit_approval(rt, params)?;
+                    call.returns(credit_approval)
+                }
+                sol_credit::Calls::setAccountStatus(call) => {
+                    let params = call.params()?;
+                    Self::set_account_status(rt, params)?;
+                    call.returns(())
+                }
+            };
+            Ok(InvokeContractReturn { output_data })
+        } else {
+            Err(actor_error!(illegal_argument, "invalid call".to_string()))
+        }
     }
 
     /// Fallback method for unimplemented method numbers.
@@ -96,6 +202,10 @@ impl ActorCode for BlobsActor {
 
         // Metrics methods
         GetStats => get_stats,
+
+        // EVM interop
+        InvokeContract => invoke_contract,
+
         _ => fallback,
     }
 }
@@ -104,7 +214,7 @@ impl ActorCode for BlobsActor {
 fn delete_from_disc(hash: Hash) -> Result<(), ActorError> {
     #[cfg(feature = "fil-actor")]
     {
-        recall_actor_sdk::hash_rm(hash.0).map_err(|en| {
+        recall_actor_sdk::storage::delete_blob(hash.0).map_err(|en| {
             ActorError::unspecified(format!("failed to delete blob from disc: {:?}", en))
         })?;
         log::debug!("deleted blob {} from disc", hash);

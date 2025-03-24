@@ -4,7 +4,6 @@
 
 use fendermint_actor_blobs_shared::params::{AddBlobParams, BuyCreditParams};
 use fendermint_actor_blobs_shared::Method;
-use fendermint_actor_machine::{events::to_actor_event, util::token_to_biguint};
 use fendermint_actor_recall_config_shared::{RecallConfig, RECALL_CONFIG_ACTOR_ADDR};
 use fil_actors_runtime::test_utils::{expect_empty, MockRuntime, SYSTEM_ACTOR_CODE_ID};
 use fil_actors_runtime::SYSTEM_ACTOR_ADDR;
@@ -15,12 +14,13 @@ use fvm_shared::{
     MethodNum,
 };
 use num_traits::Zero;
-use recall_sol_facade::{
-    blobs::blob_added,
-    credit::{credit_approved, credit_purchased, credit_revoked},
-};
+use recall_actor_sdk::evm::to_actor_event;
 
 use crate::actor::BlobsActor;
+use crate::sol_facade::{
+    blobs as sol_blobs,
+    credit::{CreditApproved, CreditPurchased, CreditRevoked},
+};
 use crate::State;
 
 pub fn construct_and_verify() -> MockRuntime {
@@ -58,8 +58,7 @@ pub fn expect_emitted_purchase_event(
     params: &BuyCreditParams,
     amount: TokenAmount,
 ) {
-    let event = to_actor_event(credit_purchased(params.0, token_to_biguint(Some(amount))).unwrap())
-        .unwrap();
+    let event = to_actor_event(CreditPurchased::new(params.0, amount)).unwrap();
     rt.expect_emitted_event(event);
 }
 
@@ -71,17 +70,19 @@ pub fn expect_emitted_approve_event(
     gas_fee_limit: Option<TokenAmount>,
     expiry: ChainEpoch,
 ) {
-    let credit_limit = token_to_biguint(credit_limit);
-    let gas_fee_limit = token_to_biguint(gas_fee_limit);
-    let event = to_actor_event(
-        credit_approved(from, to, credit_limit, gas_fee_limit, expiry as u64).unwrap(),
-    )
+    let event = to_actor_event(CreditApproved {
+        from,
+        to,
+        credit_limit,
+        gas_fee_limit,
+        expiry: Some(expiry),
+    })
     .unwrap();
     rt.expect_emitted_event(event);
 }
 
 pub fn expect_emitted_revoke_event(rt: &MockRuntime, from: Address, to: Address) {
-    let event = to_actor_event(credit_revoked(from, to).unwrap()).unwrap();
+    let event = to_actor_event(CreditRevoked::new(from, to)).unwrap();
     rt.expect_emitted_event(event);
 }
 
@@ -92,16 +93,13 @@ pub fn expect_emitted_add_event(
     subscriber: Address,
     used: u64,
 ) {
-    let event = to_actor_event(
-        blob_added(
-            subscriber,
-            &params.hash.0,
-            params.size,
-            (params.ttl.unwrap_or(86400) + current_epoch) as u64,
-            used,
-        )
-        .unwrap(),
-    )
+    let event = to_actor_event(sol_blobs::BlobAdded {
+        subscriber,
+        hash: &params.hash,
+        size: params.size,
+        expiry: params.ttl.unwrap_or(86400) + current_epoch,
+        bytes_used: used,
+    })
     .unwrap();
     rt.expect_emitted_event(event);
 }

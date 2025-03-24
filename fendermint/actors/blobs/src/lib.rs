@@ -5,6 +5,7 @@
 mod actor;
 mod caller;
 mod shared;
+mod sol_facade;
 mod state;
 #[cfg(test)]
 mod testing;

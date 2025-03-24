@@ -4,9 +4,9 @@
 
 use fendermint_actor_blobs_shared::params::{SetAccountStatusParams, TrimBlobExpiriesParams};
 use fendermint_actor_blobs_shared::state::Hash;
-use fendermint_actor_machine::caller::{Caller, CallerOption};
 use fendermint_actor_recall_config_shared::{get_config, require_caller_is_admin};
 use fil_actors_runtime::{runtime::Runtime, ActorError};
+use recall_actor_sdk::caller::{Caller, CallerOption};
 
 use crate::actor::{delete_from_disc, BlobsActor};
 use crate::State;

@@ -11,21 +11,17 @@ use fendermint_actor_blobs_shared::params::{
 use fendermint_actor_blobs_shared::state::{
     BlobStatus, Credit, GasAllowance, Hash, PublicKey, SubscriptionId,
 };
-use fendermint_actor_machine::{
-    caller::{Caller, CallerOption},
-    events::emit_evm_event,
-    util::token_to_biguint,
-};
 use fendermint_actor_recall_config_shared::get_config;
 use fil_actors_runtime::{runtime::Runtime, ActorError, SYSTEM_ACTOR_ADDR};
 use fvm_shared::{address::Address, error::ExitCode};
 use num_traits::Zero;
-use recall_sol_facade::{
-    blobs::{blob_finalized, blob_pending},
-    credit::credit_debited as credit_debited_event,
+use recall_actor_sdk::{
+    caller::{Caller, CallerOption},
+    evm::emit_evm_event,
 };
 
 use crate::actor::{delete_from_disc, BlobsActor};
+use crate::sol_facade::{blobs as sol_blobs, credit::CreditDebited};
 use crate::state::blobs::FinalizeBlobStateParams;
 use crate::State;
 
@@ -157,7 +153,11 @@ impl BlobsActor {
 
         emit_evm_event(
             rt,
-            blob_pending(caller.event_address(), &params.hash.0, &params.source.0),
+            sol_blobs::BlobPending {
+                subscriber: caller.event_address(),
+                hash: &params.hash,
+                source: &params.source,
+            },
         )
     }
 
@@ -184,7 +184,11 @@ impl BlobsActor {
 
         emit_evm_event(
             rt,
-            blob_finalized(caller.event_address(), &params.hash.0, event_resolved),
+            sol_blobs::BlobFinalized {
+                subscriber: caller.event_address(),
+                hash: &params.hash,
+                resolved: event_resolved,
+            },
         )
     }
 
@@ -212,11 +216,11 @@ impl BlobsActor {
 
         emit_evm_event(
             rt,
-            credit_debited_event(
-                token_to_biguint(Some(credit_debited)),
+            CreditDebited {
+                amount: credit_debited,
                 num_accounts,
                 more_accounts,
-            ),
+            },
         )?;
 
         Ok(())
