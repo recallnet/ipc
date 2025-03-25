@@ -54,6 +54,7 @@ impl ExpiryKey {
     }
 }
 
+/// Type used as the root of [`ExpiriesState`].
 type PerChainEpochRoot = hamt::Root<Address, hamt::Root<ExpiryKey, ()>>;
 
 /// AMT wrapper for expiry index state.

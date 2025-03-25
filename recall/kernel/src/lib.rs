@@ -72,7 +72,7 @@ where
         DefaultKernel::<K::CallManager>::link_syscalls(linker)?;
         linker.link_syscall(
             recall_syscalls::MODULE_NAME,
-            recall_syscalls::HASHRM_SYSCALL_FUNCTION_NAME,
+            recall_syscalls::DELETE_BLOB_SYSCALL_FUNCTION_NAME,
             recall_syscalls::delete_blob,
         )?;
 

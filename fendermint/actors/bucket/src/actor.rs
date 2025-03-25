@@ -4,6 +4,9 @@
 
 use std::collections::HashMap;
 
+use fendermint_actor_blobs_shared::params::{
+    AddBlobParams, DeleteBlobParams, GetBlobParams, OverwriteBlobParams,
+};
 use fendermint_actor_blobs_shared::{
     add_blob, delete_blob, get_blob, has_credit_approval, overwrite_blob,
     state::{BlobInfo, BlobStatus, SubscriptionId},
@@ -64,15 +67,19 @@ impl Actor {
                 // Overwrite if the flag is passed
                 overwrite_blob(
                     rt,
-                    from,
-                    object.hash,
-                    sub_id,
-                    params.hash,
-                    Some(state.owner),
-                    params.source,
-                    params.recovery_hash,
-                    params.size,
-                    params.ttl,
+                    OverwriteBlobParams {
+                        old_hash: object.hash,
+                        add: AddBlobParams {
+                            from,
+                            sponsor: Some(state.owner),
+                            source: params.source,
+                            hash: params.hash,
+                            metadata_hash: params.recovery_hash,
+                            id: sub_id,
+                            size: params.size,
+                            ttl: params.ttl,
+                        },
+                    },
                 )?
             } else {
                 // Return an error if no overwrite flag gets passed
@@ -84,14 +91,16 @@ impl Actor {
             // No object found, just a new blob
             add_blob(
                 rt,
-                params.from,
-                sub_id,
-                params.hash,
-                Some(state.owner),
-                params.source,
-                params.recovery_hash,
-                params.size,
-                params.ttl,
+                AddBlobParams {
+                    from,
+                    sponsor: Some(state.owner),
+                    source: params.source,
+                    hash: params.hash,
+                    metadata_hash: params.recovery_hash,
+                    id: sub_id,
+                    size: params.size,
+                    ttl: params.ttl,
+                },
             )?
         };
 
@@ -142,7 +151,15 @@ impl Actor {
             .ok_or(ActorError::illegal_state("object not found".into()))?;
 
         // Delete blob for object
-        delete_blob(rt, from, sub_id, object.hash, Some(state.owner))?;
+        delete_blob(
+            rt,
+            DeleteBlobParams {
+                from,
+                sponsor: Some(state.owner),
+                hash: object.hash,
+                id: sub_id,
+            },
+        )?;
 
         rt.transaction(|st: &mut State, rt| st.delete(rt.store(), &key))?;
 
@@ -160,7 +177,7 @@ impl Actor {
         let sub_id = get_blob_id(&state, &params.0)?;
         let key = BytesKey(params.0);
         if let Some(object_state) = state.get(rt.store(), &key)? {
-            if let Some(blob) = get_blob(rt, object_state.hash)? {
+            if let Some(blob) = get_blob(rt, GetBlobParams(object_state.hash))? {
                 let object = build_object(&blob, &object_state, sub_id, owner)?;
                 Ok(object)
             } else {

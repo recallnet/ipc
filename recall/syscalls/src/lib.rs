@@ -14,7 +14,7 @@ use recall_kernel_ops::RecallOps;
 use tokio::{spawn, sync::Mutex};
 
 pub const MODULE_NAME: &str = "recall";
-pub const HASHRM_SYSCALL_FUNCTION_NAME: &str = "hash_rm";
+pub const DELETE_BLOB_SYSCALL_FUNCTION_NAME: &str = "delete_blob";
 
 const ENV_IROH_ADDR: &str = "IROH_RPC_ADDR";
 static IROH_INSTANCE: Lazy<Arc<Mutex<IrohManager>>> = Lazy::new(|| {

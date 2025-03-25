@@ -43,6 +43,7 @@ pub struct State {
 }
 
 impl State {
+    /// Creates a new [`State`].
     pub fn new<BS: Blockstore>(store: &BS) -> anyhow::Result<Self, ActorError> {
         Ok(Self {
             capacity_used: 0,
@@ -57,6 +58,7 @@ impl State {
         })
     }
 
+    /// Returns stats about the current actor state.
     pub fn get_stats(&self, config: &RecallConfig, balance: TokenAmount) -> GetStatsReturn {
         GetStatsReturn {
             balance,
@@ -234,7 +236,7 @@ mod tests {
                         blob.added = Some(epoch);
 
                         // Determine how much credit should get committed for this blob
-                        let credit = Credit::from_whole(state.get_storage_cost(ttl, &blob.size));
+                        let credit = state.get_storage_cost(ttl, &blob.size);
                         // Track credit amount for user, assuming the whole committed amount gets debited
                         credit_used
                             .entry(user)

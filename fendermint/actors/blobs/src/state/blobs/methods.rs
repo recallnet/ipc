@@ -23,16 +23,21 @@ use crate::state::credit::CommitCapacityParams;
 use crate::state::expiries::ExpiryUpdate;
 use crate::State;
 
+/// Return type for blob queues.
 type BlobSourcesResult = anyhow::Result<Vec<BlobRequest>, ActorError>;
 
 impl State {
-    /// Adds a blob.
-    /// - Subscriber is either the caller or a designated sponsor
-    /// - Subscriber's account/credits are used for:
-    ///   - Initial storage transaction
-    ///   - Ongoing storage costs over time
-    /// - Typically managed by a wrapping Actor (e.g., Buckets, Timehub) that owns
-    ///   the subscription
+    /// Adds or updates a blob subscription.
+    ///
+    /// This method handles the entire process of adding a new blob or updating an existing
+    /// blob subscription, including
+    /// - Managing subscriber and sponsorship relationships
+    /// - Handling blob creation or update
+    /// - Processing subscription groups and expiry tracking
+    /// - Managing capacity accounting and credit commitments
+    /// - Updating blob status and indexing
+    ///
+    /// Flushes state to the blockstore.
     pub fn add_blob<BS: Blockstore>(
         &mut self,
         store: &BS,
@@ -80,9 +85,8 @@ impl State {
                         // Return over-debited credit.
                         // The refund extends up to the current epoch because we need to
                         // account for the charge that will happen below at the current epoch.
-                        let return_credits = Credit::from_whole(
-                            self.get_storage_cost(params.epoch - group_expiry, &params.size),
-                        );
+                        let return_credits =
+                            self.get_storage_cost(params.epoch - group_expiry, &params.size);
                         self.return_committed_credit_for_caller(&mut caller, &return_credits);
                     }
                 }
@@ -93,9 +97,8 @@ impl State {
                 // When adding, the new group expiry will always contain a value.
                 let new_group_expiry = new_group_expiry.unwrap();
                 let group_expiry = group_expiry.map_or(params.epoch, |e| e.max(params.epoch));
-                credit_required = Credit::from_whole(
-                    self.get_storage_cost(new_group_expiry - group_expiry, &params.size),
-                );
+                credit_required =
+                    self.get_storage_cost(new_group_expiry - group_expiry, &params.size);
 
                 // Add / update subscription
                 let mut group_hamt = group.hamt(store)?;
@@ -165,7 +168,7 @@ impl State {
                 // One or more accounts have already committed credit.
                 // However, we still need to reserve the full required credit from the new
                 // subscriber, as the existing account(s) may decide to change the expiry or cancel.
-                credit_required = Credit::from_whole(self.get_storage_cost(ttl, &params.size));
+                credit_required = self.get_storage_cost(ttl, &params.size);
 
                 // Add new subscription
                 let sub = Subscription {
@@ -224,7 +227,7 @@ impl State {
 
             // New blob increases network capacity as well.
             new_subnet_capacity = params.size;
-            credit_required = Credit::from_whole(self.get_storage_cost(ttl, &params.size));
+            credit_required = self.get_storage_cost(ttl, &params.size);
 
             // Create new blob
             let sub = Subscription {
@@ -321,6 +324,7 @@ impl State {
         Ok((sub, token_rebate))
     }
 
+    /// Retuns a [`Blob`] by hash.
     pub fn get_blob<BS: Blockstore>(
         &self,
         store: &BS,
@@ -330,6 +334,7 @@ impl State {
         blobs.get(&hash)
     }
 
+    /// Returns [`BlobStatus`] by hash.
     pub fn get_blob_status<BS: Blockstore>(
         &self,
         store: &BS,
@@ -377,6 +382,10 @@ impl State {
         }
     }
 
+    /// Retrieves a page of newly added blobs that need to be resolved.
+    ///
+    /// This method fetches blobs from the "added" queue, which contains blobs that have been
+    /// added to the system but haven't yet been successfully resolved and stored.
     pub fn get_added_blobs<BS: Blockstore>(&self, store: &BS, size: u32) -> BlobSourcesResult {
         let blobs = self.blobs.hamt(store)?;
         self.added
@@ -391,6 +400,10 @@ impl State {
             .collect()
     }
 
+    /// Retrieves a page of blobs that are pending resolve.
+    ///
+    /// This method fetches blobs from the "pending" queue, which contains blobs that are
+    /// actively being resolved but are still in a pending state.
     pub fn get_pending_blobs<BS: Blockstore>(&self, store: &BS, size: u32) -> BlobSourcesResult {
         let blobs = self.blobs.hamt(store)?;
         self.pending
@@ -405,6 +418,13 @@ impl State {
             .collect()
     }
 
+    /// Marks a blob as pending resolution.
+    ///
+    /// This method transitions a blob from 'added' to 'pending' state, indicating that its
+    /// resolution process has started. It updates the blob's status and moves it from the
+    /// 'added' queue to the 'pending' queue.
+    ///
+    /// Flushes state to the blockstore.
     pub fn set_blob_pending<BS: Blockstore>(
         &mut self,
         store: &BS,
@@ -443,6 +463,13 @@ impl State {
         Ok(())
     }
 
+    /// Finalizes a blob's resolution process with a success or failure status.
+    ///
+    /// This method completes the blob resolution process by setting its final status
+    /// (resolved or failed). For failed blobs, it handles refunding of credits and capacity
+    /// reclamation as needed. The method also removes the blob from the pending queue.
+    ///
+    /// Flushes state to the blockstore.
     pub fn finalize_blob<BS: Blockstore>(
         &mut self,
         store: &BS,
@@ -520,10 +547,9 @@ impl State {
                 let cutoff = next_min_added
                     .unwrap_or(last_debit_epoch)
                     .min(last_debit_epoch);
-                let refund_credits =
-                    Credit::from_whole(self.get_storage_cost(cutoff - sub.added, &size));
+                let refund_credits = self.get_storage_cost(cutoff - sub.added, &size);
                 let correction_credits = if cutoff > group_expiry {
-                    Credit::from_whole(self.get_storage_cost(cutoff - group_expiry, &size))
+                    self.get_storage_cost(cutoff - group_expiry, &size)
                 } else {
                     Credit::zero()
                 };
@@ -535,11 +561,11 @@ impl State {
 
             // Release credits considering other subscriptions may still be pending.
             let reclaim_credits = if last_debit_epoch < group_expiry {
-                Credit::from_whole(self.get_storage_cost(
+                self.get_storage_cost(
                     group_expiry
                         - new_group_expiry.map_or(last_debit_epoch, |e| e.max(last_debit_epoch)),
                     &size,
-                ))
+                )
             } else {
                 Credit::zero()
             };
@@ -580,6 +606,17 @@ impl State {
         Ok(())
     }
 
+    /// Deletes a blob subscription or the entire blob if it has no remaining subscriptions.
+    ///
+    /// This method handles the process of deleting a blob subscription for a specific caller,
+    /// which may include:
+    /// - Removing the caller's subscription from the blob's subscriber list
+    /// - Refunding unused storage credits to the subscriber
+    /// - Releasing committed capacity from the subscriber's account
+    /// - Removing the blob entirely if no subscriptions remain
+    /// - Cleaning up related queue entries and indexes
+    ///
+    /// Flushes state to the blockstore.
     pub fn delete_blob<BS: Blockstore>(
         &mut self,
         store: &BS,
@@ -650,9 +687,8 @@ impl State {
             } else if last_debit_epoch != debit_epoch {
                 // The account was debited after this blob's expiry
                 // Return over-debited credit
-                let return_credits = Credit::from_whole(
-                    self.get_storage_cost(last_debit_epoch - group_expiry, &blob.size),
-                );
+                let return_credits =
+                    self.get_storage_cost(last_debit_epoch - group_expiry, &blob.size);
                 self.return_committed_credit_for_caller(&mut caller, &return_credits);
             }
         }
@@ -676,9 +712,7 @@ impl State {
                     if last_debit_epoch < group_expiry {
                         let reclaim_duration_start =
                             new_group_expiry.map_or(last_debit_epoch, |e| e.max(last_debit_epoch));
-                        Credit::from_whole(
-                            self.get_storage_cost(group_expiry - reclaim_duration_start, &size),
-                        )
+                        self.get_storage_cost(group_expiry - reclaim_duration_start, &size)
                     } else {
                         Credit::zero()
                     }
@@ -764,10 +798,13 @@ impl State {
     }
 
     /// Adjusts all subscriptions for `account` according to its max TTL.
+    ///
     /// Returns the number of subscriptions processed and the next key to continue iteration.
     /// If `starting_hash` is `None`, iteration starts from the beginning.
     /// If `limit` is `None`, all subscriptions are processed.
     /// If `limit` is not `None`, iteration stops after examining `limit` blobs.
+    ///
+    /// Flushes state to the blockstore.
     pub fn trim_blob_expiries<BS: Blockstore>(
         &mut self,
         config: &RecallConfig,
@@ -793,6 +830,7 @@ impl State {
             ))
         }
 
+        // Walk blobs
         let (_, next_key) = blobs.for_each_ranged(
             starting_key.as_ref(),
             limit.map(|l| l as usize),
@@ -865,10 +903,13 @@ impl State {
         blob_capacity_total.saturating_sub(self.capacity_used)
     }
 
-    pub(crate) fn get_storage_cost(&self, duration: i64, size: &u64) -> BigInt {
-        duration * BigInt::from(*size)
+    /// Returns the [`Credit`] storage cost for the given duration and size.
+    pub(crate) fn get_storage_cost(&self, duration: i64, size: &u64) -> Credit {
+        Credit::from_whole(duration * BigInt::from(*size))
     }
 
+    /// Returns the current [`Credit`] debit amount based on the caller's current capacity used
+    /// and the given duration.
     pub(crate) fn get_debit_for_caller<BS: Blockstore>(
         &self,
         caller: &Caller<BS>,
@@ -877,6 +918,7 @@ impl State {
         Credit::from_whole(BigInt::from(caller.subscriber().capacity_used) * duration)
     }
 
+    /// Returns an account's current max allowed blob TTL by address.
     pub(crate) fn get_account_max_ttl<BS: Blockstore>(
         &self,
         config: &RecallConfig,

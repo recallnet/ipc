@@ -45,6 +45,7 @@ impl BlobsActor {
         rt.create(&state)
     }
 
+    /// Invokes actor methods with EVM calldata.
     fn invoke_contract(
         rt: &impl Runtime,
         params: InvokeContractParams,
@@ -174,6 +175,9 @@ impl ActorCode for BlobsActor {
     actor_dispatch! {
         Constructor => constructor,
 
+        // EVM interop
+        InvokeContract => invoke_contract,
+
         // User methods
         BuyCredit => buy_credit,
         ApproveCredit => approve_credit,
@@ -202,9 +206,6 @@ impl ActorCode for BlobsActor {
 
         // Metrics methods
         GetStats => get_stats,
-
-        // EVM interop
-        InvokeContract => invoke_contract,
 
         _ => fallback,
     }

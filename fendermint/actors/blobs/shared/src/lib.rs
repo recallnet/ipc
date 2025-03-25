@@ -2,30 +2,28 @@
 // Copyright 2021-2023 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::collections::HashSet;
-
-use fil_actors_runtime::runtime::Runtime;
-use fil_actors_runtime::{deserialize_block, extract_send_result, ActorError};
+use fil_actors_runtime::{deserialize_block, extract_send_result, runtime::Runtime, ActorError};
 use fvm_ipld_encoding::ipld_block::IpldBlock;
-use fvm_shared::address::Address;
-use fvm_shared::clock::ChainEpoch;
-use fvm_shared::econ::TokenAmount;
-use fvm_shared::sys::SendFlags;
-use fvm_shared::{ActorID, MethodNum, METHOD_CONSTRUCTOR};
+use fvm_shared::{address::Address, sys::SendFlags, ActorID, MethodNum, METHOD_CONSTRUCTOR};
 use num_derive::FromPrimitive;
 
-use crate::state::{Account, Credit, CreditApproval, Subscription};
+use crate::state::{CreditApproval, Subscription};
 
 pub mod params;
 pub mod state;
 
+/// The unique identifier for the blob actor in the system.
 pub const BLOBS_ACTOR_ID: ActorID = 66;
+/// The address of the blob actor, derived from its actor ID.
 pub const BLOBS_ACTOR_ADDR: Address = Address::new_id(BLOBS_ACTOR_ID);
 
 #[derive(FromPrimitive)]
 #[repr(u64)]
 pub enum Method {
     Constructor = METHOD_CONSTRUCTOR,
+
+    // EVM Interop
+    InvokeContract = frc42_dispatch::method_hash!("InvokeEVM"),
 
     // User methods
     BuyCredit = frc42_dispatch::method_hash!("BuyCredit"),
@@ -55,44 +53,9 @@ pub enum Method {
 
     // Metrics methods
     GetStats = frc42_dispatch::method_hash!("GetStats"),
-
-    // EVM Interop
-    InvokeContract = frc42_dispatch::method_hash!("InvokeEVM"),
 }
 
-pub fn buy_credit(rt: &impl Runtime, to: Address) -> Result<Account, ActorError> {
-    deserialize_block(extract_send_result(rt.send_simple(
-        &BLOBS_ACTOR_ADDR,
-        Method::BuyCredit as MethodNum,
-        IpldBlock::serialize_cbor(&params::BuyCreditParams(to))?,
-        rt.message().value_received(),
-    ))?)
-}
-
-pub fn approve_credit(
-    rt: &impl Runtime,
-    from: Address,
-    to: Address,
-    caller_allowlist: Option<HashSet<Address>>,
-    credit_limit: Option<Credit>,
-    gas_fee_limit: Option<TokenAmount>,
-    ttl: Option<ChainEpoch>,
-) -> Result<CreditApproval, ActorError> {
-    deserialize_block(extract_send_result(rt.send_simple(
-        &BLOBS_ACTOR_ADDR,
-        Method::ApproveCredit as MethodNum,
-        IpldBlock::serialize_cbor(&params::ApproveCreditParams {
-            from,
-            to,
-            caller_allowlist,
-            credit_limit,
-            gas_fee_limit,
-            ttl,
-        })?,
-        rt.message().value_received(),
-    ))?)
-}
-
+/// Returns a credit approval from one account to another if it exists.
 pub fn get_credit_approval(
     rt: &impl Runtime,
     from: Address,
@@ -126,47 +89,12 @@ pub fn has_credit_approval(
     }
 }
 
-pub fn revoke_credit(
-    rt: &impl Runtime,
-    from: Address,
-    to: Address,
-    for_caller: Option<Address>,
-) -> Result<(), ActorError> {
-    extract_send_result(rt.send_simple(
-        &BLOBS_ACTOR_ADDR,
-        Method::RevokeCredit as MethodNum,
-        IpldBlock::serialize_cbor(&params::RevokeCreditParams {
-            from,
-            to,
-            for_caller,
-        })?,
-        rt.message().value_received(),
-    ))?;
-    Ok(())
-}
-
-#[allow(clippy::too_many_arguments)]
+/// Adds a blob.
 pub fn add_blob(
     rt: &impl Runtime,
-    from: Address,
-    sub_id: state::SubscriptionId,
-    hash: state::Hash,
-    sponsor: Option<Address>,
-    source: state::PublicKey,
-    metadata_hash: state::Hash,
-    size: u64,
-    ttl: Option<ChainEpoch>,
+    params: params::AddBlobParams,
 ) -> Result<Subscription, ActorError> {
-    let params = IpldBlock::serialize_cbor(&params::AddBlobParams {
-        sponsor,
-        source,
-        hash,
-        metadata_hash,
-        id: sub_id,
-        size,
-        ttl,
-        from,
-    })?;
+    let params = IpldBlock::serialize_cbor(&params)?;
     deserialize_block(extract_send_result(rt.send_simple(
         &BLOBS_ACTOR_ADDR,
         Method::AddBlob as MethodNum,
@@ -175,71 +103,41 @@ pub fn add_blob(
     ))?)
 }
 
+/// Returns information about a blob.
 pub fn get_blob(
     rt: &impl Runtime,
-    hash: state::Hash,
+    params: params::GetBlobParams,
 ) -> Result<Option<state::BlobInfo>, ActorError> {
     deserialize_block(extract_send_result(rt.send(
         &BLOBS_ACTOR_ADDR,
         Method::GetBlob as MethodNum,
-        IpldBlock::serialize_cbor(&params::GetBlobParams(hash))?,
+        IpldBlock::serialize_cbor(&params)?,
         rt.message().value_received(),
         None,
         SendFlags::READ_ONLY,
     ))?)
 }
 
-pub fn delete_blob(
-    rt: &impl Runtime,
-    from: Address,
-    sub_id: state::SubscriptionId,
-    hash: state::Hash,
-    sponsor: Option<Address>,
-) -> Result<(), ActorError> {
+/// Deletes a blob.
+pub fn delete_blob(rt: &impl Runtime, params: params::DeleteBlobParams) -> Result<(), ActorError> {
     extract_send_result(rt.send_simple(
         &BLOBS_ACTOR_ADDR,
         Method::DeleteBlob as MethodNum,
-        IpldBlock::serialize_cbor(&params::DeleteBlobParams {
-            sponsor,
-            hash,
-            id: sub_id,
-            from,
-        })?,
+        IpldBlock::serialize_cbor(&params)?,
         rt.message().value_received(),
     ))?;
     Ok(())
 }
 
 /// Overwrite a blob, i.e., delete one and add another in a single call.
-#[allow(clippy::too_many_arguments)]
 pub fn overwrite_blob(
     rt: &impl Runtime,
-    from: Address,
-    old_hash: state::Hash,
-    sub_id: state::SubscriptionId,
-    hash: state::Hash,
-    sponsor: Option<Address>,
-    source: state::PublicKey,
-    metadata_hash: state::Hash,
-    size: u64,
-    ttl: Option<ChainEpoch>,
+    params: params::OverwriteBlobParams,
 ) -> Result<Subscription, ActorError> {
     deserialize_block(extract_send_result(rt.send_simple(
         &BLOBS_ACTOR_ADDR,
         Method::OverwriteBlob as MethodNum,
-        IpldBlock::serialize_cbor(&params::OverwriteBlobParams {
-            old_hash,
-            add: params::AddBlobParams {
-                sponsor,
-                id: sub_id,
-                source,
-                hash,
-                metadata_hash,
-                size,
-                ttl,
-                from,
-            },
-        })?,
+        IpldBlock::serialize_cbor(&params)?,
         rt.message().value_received(),
     ))?)
 }

@@ -16,6 +16,7 @@ use crate::state::DeleteBlobStateParams;
 use crate::State;
 
 impl State {
+    /// Returns an [`Account'] by address.
     pub fn get_account<BS: Blockstore>(
         &self,
         store: &BS,
@@ -25,6 +26,9 @@ impl State {
         accounts.get(&address)
     }
 
+    /// Sets an account's [`TtlStatus`] by address.
+    ///
+    /// Flushes state to the blockstore.
     pub fn set_account_status<BS: Blockstore>(
         &mut self,
         store: &BS,
@@ -56,6 +60,20 @@ impl State {
         Ok(())
     }
 
+    /// Debits accounts for their blob usage and cleans up expired blob subscriptions.
+    ///
+    /// This method performs two main operations:
+    /// 1. Deletes expired blob subscriptions based on the current epoch
+    /// 2. Debits a batch of accounts for their ongoing blob storage usage
+    ///
+    /// The debiting process works in cycles, processing a subset of accounts in each call
+    /// to avoid excessive computation in a single pass. The number of accounts processed
+    /// in each batch is controlled by the subnet config parameter `account_debit_batch_size`.
+    /// Similarly, expired blob deletion is controlled by `blob_delete_batch_size`.
+    ///
+    /// Flushes state to the blockstore.
+    ///
+    /// TODO: Break this into two methods called by a `cron_tick` actor method.
     pub fn debit_accounts<BS: Blockstore>(
         &mut self,
         store: &BS,

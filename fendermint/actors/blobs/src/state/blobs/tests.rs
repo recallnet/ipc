@@ -1586,11 +1586,8 @@ fn test_trim_blob_expiries() {
                 )
                 .unwrap();
 
-            total_cost += Credit::from_whole(
-                state.get_storage_cost(ttl.unwrap_or(config.blob_default_ttl), &size),
-            );
-            expected_credits +=
-                Credit::from_whole(state.get_storage_cost(tc.expected_ttls[i], &size));
+            total_cost += state.get_storage_cost(ttl.unwrap_or(config.blob_default_ttl), &size);
+            expected_credits += state.get_storage_cost(tc.expected_ttls[i], &size);
         }
 
         let account = state.get_account(&store, caller).unwrap().unwrap();
