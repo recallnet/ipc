@@ -2,11 +2,12 @@
 // Copyright 2022-2024 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::collections::HashMap;
+
 use anyhow::Error;
 use fendermint_actor_blobs_shared::state::Hash;
-use recall_actor_sdk::TryIntoEVMEvent;
+use recall_actor_sdk::evm::TryIntoEVMEvent;
 use recall_sol_facade::bucket as sol;
-use std::collections::HashMap;
 
 pub struct ObjectAdded<'a> {
     pub key: &'a Vec<u8>,

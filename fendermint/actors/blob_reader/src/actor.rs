@@ -10,7 +10,7 @@ use fil_actors_runtime::{
 };
 use fvm_ipld_encoding::ipld_block::IpldBlock;
 use fvm_shared::MethodNum;
-use recall_actor_sdk::emit_evm_event;
+use recall_actor_sdk::evm::emit_evm_event;
 
 use crate::shared::{
     CloseReadRequestParams, GetOpenReadRequestsParams, GetReadRequestStatusParams, Method,
@@ -97,7 +97,6 @@ impl ReadReqActor {
         params: SetReadRequestPendingParams,
     ) -> Result<(), ActorError> {
         rt.validate_immediate_caller_is(std::iter::once(&SYSTEM_ACTOR_ADDR))?;
-
         rt.transaction(|st: &mut State, _| st.set_read_request_pending(rt.store(), params.0))?;
         emit_evm_event(rt, ReadRequestPending::new(&params.0))
     }
@@ -139,25 +138,14 @@ impl ActorCode for ReadReqActor {
 mod tests {
     use super::*;
     use crate::sol_facade::ReadRequestClosed;
-
+    use fendermint_actor_blobs_testing::new_hash;
     use fil_actors_evm_shared::address::EthAddress;
     use fil_actors_runtime::test_utils::{
         expect_empty, MockRuntime, ETHACCOUNT_ACTOR_CODE_ID, SYSTEM_ACTOR_CODE_ID,
     };
     use fvm_ipld_encoding::ipld_block::IpldBlock;
     use fvm_shared::address::Address;
-    use rand::RngCore;
-    use recall_actor_sdk::to_actor_event;
-
-    pub fn new_hash(size: usize) -> (Hash, u64) {
-        let mut rng = rand::thread_rng();
-        let mut data = vec![0u8; size];
-        rng.fill_bytes(&mut data);
-        (
-            Hash(*iroh_base::hash::Hash::new(&data).as_bytes()),
-            size as u64,
-        )
-    }
+    use recall_actor_sdk::evm::to_actor_event;
 
     pub fn construct_and_verify() -> MockRuntime {
         let rt = MockRuntime {
