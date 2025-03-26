@@ -40,7 +40,7 @@ tracing = { workspace = true }
 url = { workspace = true }
 zeroize = { workspace = true }
 
-fil_actors_runtime = { workspace = true }
+recall_fil_actors_runtime = { workspace = true }
 fvm_ipld_encoding = { workspace = true }
 fvm_shared = { workspace = true, features  = ["crypto"] }
 

@@ -11,7 +11,7 @@ crate-type = ["cdylib", "lib"]
 
 [dependencies]
 cid = { workspace = true, default-features = false }
-fil_actors_runtime = { workspace = true, optional = true, features = [
+recall_fil_actors_runtime = { workspace = true, optional = true, features = [
     "fil-actor",
 ] }
 fvm_shared = { workspace = true }
