@@ -735,7 +735,7 @@ mod tests {
         );
         assert!(result.is_err_and(|e| { e.msg().eq("key exists; use overwrite") }));
         let state2 = rt.state::<State>().unwrap();
-        assert_eq!(state2.root, state.root);
+        assert_eq!(state2.objects.root, state.objects.root);
         rt.verify();
     }
 

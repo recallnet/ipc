@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::collections::HashMap;
+use std::fmt::{Debug, Display, Formatter};
 use std::string::FromUtf8Error;
 
 use cid::Cid;
@@ -14,7 +15,8 @@ use fvm_ipld_encoding::tuple::*;
 use fvm_shared::address::Address;
 use fvm_shared::clock::ChainEpoch;
 use recall_ipld::hamt;
-use recall_ipld::hamt::{BytesKey, DEFAULT_HAMT_CONFIG};
+use recall_ipld::hamt::map::TrackedFlushResult;
+use recall_ipld::hamt::{BytesKey, MapKey};
 use serde::{Deserialize, Serialize};
 
 const MAX_LIST_LIMIT: usize = 1000;
@@ -30,32 +32,21 @@ pub struct State {
     pub address: MachineAddress,
     /// The machine robust owner address.
     pub owner: Address,
-    /// The root cid of the Hamt.
-    pub root: Cid,
+    /// The objects Hamt.
+    pub objects: ObjectsState,
     /// User-defined metadata (e.g., bucket name, etc.).
     pub metadata: HashMap<String, String>,
 }
-
 impl MachineState for State {
     fn new<BS: Blockstore>(
         store: &BS,
         owner: Address,
         metadata: HashMap<String, String>,
     ) -> anyhow::Result<Self, ActorError> {
-        let root =
-            match hamt::Map::<_, BytesKey, ObjectState>::flush_empty(store, DEFAULT_HAMT_CONFIG) {
-                Ok(cid) => cid,
-                Err(e) => {
-                    return Err(ActorError::illegal_state(format!(
-                        "bucket actor failed to create empty Hamt: {}",
-                        e
-                    )));
-                }
-            };
         Ok(Self {
             address: Default::default(),
+            objects: ObjectsState::new(store)?,
             owner,
-            root,
             metadata,
         })
     }
@@ -115,12 +106,8 @@ impl State {
         metadata: HashMap<String, String>,
         overwrite: bool,
     ) -> anyhow::Result<Cid, ActorError> {
-        let mut hamt = hamt::Map::<_, BytesKey, ObjectState>::load(
-            store,
-            &self.root,
-            DEFAULT_HAMT_CONFIG,
-            "bucket".to_string(),
-        )?;
+        let object_key = ObjectKey(key.clone());
+        let mut objects = self.objects.hamt(store)?;
         let object = ObjectState {
             hash,
             size,
@@ -128,12 +115,12 @@ impl State {
             metadata,
         };
         if overwrite {
-            hamt.set(&key, object)?;
+            objects.set(&object_key, object)?;
         } else {
-            hamt.set_if_absent(&key, object)?;
+            objects.set_if_absent(&object_key, object)?;
         }
-        self.root = hamt.flush()?;
-        Ok(self.root)
+        self.objects.save_tracked(objects.flush_tracked()?);
+        Ok(*self.objects.root.cid())
     }
 
     pub fn delete<BS: Blockstore>(
@@ -141,17 +128,15 @@ impl State {
         store: &BS,
         key: &BytesKey,
     ) -> anyhow::Result<(ObjectState, Cid), ActorError> {
-        let mut hamt = hamt::Map::<_, BytesKey, ObjectState>::load(
-            store,
-            &self.root,
-            DEFAULT_HAMT_CONFIG,
-            "bucket".to_string(),
-        )?;
-        let object = hamt
-            .delete(key)?
-            .ok_or(ActorError::not_found("key not found".into()))?;
-        self.root = hamt.flush()?;
-        Ok((object, self.root))
+        let mut objects = self.objects.hamt(store)?;
+        let object_key = ObjectKey(key.clone());
+        let (tracked_result, object) = objects.delete_and_flush_tracked(&object_key)?;
+        self.objects.save_tracked(tracked_result);
+
+        match object {
+            Some(object) => Ok((object, self.objects.root.cid().to_owned())),
+            None => Err(ActorError::not_found("key not found".into())),
+        }
     }
 
     pub fn get<BS: Blockstore>(
@@ -159,13 +144,8 @@ impl State {
         store: &BS,
         key: &BytesKey,
     ) -> anyhow::Result<Option<ObjectState>, ActorError> {
-        let hamt = hamt::Map::<_, BytesKey, ObjectState>::load(
-            store,
-            &self.root,
-            DEFAULT_HAMT_CONFIG,
-            "bucket".to_string(),
-        )?;
-        let object = hamt.get(key).map(|v| v.cloned())?;
+        let object_key = ObjectKey(key.clone());
+        let object = self.objects.hamt(store)?.get(&object_key)?;
         Ok(object)
     }
 
@@ -181,12 +161,7 @@ impl State {
     where
         F: FnMut(Vec<u8>, ObjectState) -> anyhow::Result<(), ActorError>,
     {
-        let hamt = hamt::Map::<_, BytesKey, ObjectState>::load(
-            store,
-            &self.root,
-            DEFAULT_HAMT_CONFIG,
-            "bucket".to_string(),
-        )?;
+        let objects = self.objects.hamt(store)?;
         let mut common_prefixes = std::collections::BTreeSet::<Vec<u8>>::new();
         let limit = if limit == 0 {
             MAX_LIST_LIMIT
@@ -194,8 +169,8 @@ impl State {
             (limit as usize).min(MAX_LIST_LIMIT)
         };
 
-        let (_, next_key) = hamt.for_each_ranged(start_key, Some(limit), |k, v| {
-            let key = k.0.clone();
+        let (_, next_key) = objects.for_each_ranged(start_key, Some(limit), |k, v| {
+            let key = k.0 .0.clone();
             if !prefix.is_empty() && !key.starts_with(&prefix) {
                 return Ok(false);
             }
@@ -215,7 +190,58 @@ impl State {
         })?;
 
         let common_prefixes = common_prefixes.into_iter().collect();
-        Ok((common_prefixes, next_key))
+        Ok((common_prefixes, next_key.map(|key| key.0)))
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct ObjectKey(pub BytesKey);
+
+impl MapKey for ObjectKey {
+    fn from_bytes(b: &[u8]) -> Result<Self, String> {
+        Ok(ObjectKey(BytesKey(b.to_vec())))
+    }
+
+    fn to_bytes(&self) -> Result<Vec<u8>, String> {
+        Ok(self.0 .0.to_vec())
+    }
+}
+
+impl Display for ObjectKey {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        write!(f, "{}", String::from_utf8_lossy(&self.0 .0))
+    }
+}
+
+#[derive(Debug, Serialize_tuple, Deserialize_tuple)]
+pub struct ObjectsState {
+    pub root: hamt::Root<ObjectKey, ObjectState>,
+    size: u64,
+}
+
+impl ObjectsState {
+    pub fn new<BS: Blockstore>(store: &BS) -> Result<Self, ActorError> {
+        let root = hamt::Root::<ObjectKey, ObjectState>::new(store, "objects")?;
+        Ok(Self { root, size: 0 })
+    }
+
+    pub fn hamt<BS: Blockstore>(
+        &self,
+        store: BS,
+    ) -> Result<hamt::map::Hamt<BS, ObjectKey, ObjectState>, ActorError> {
+        self.root.hamt(store, self.size)
+    }
+
+    pub fn save_tracked(
+        &mut self,
+        tracked_flush_result: TrackedFlushResult<ObjectKey, ObjectState>,
+    ) {
+        self.root = tracked_flush_result.root;
+        self.size = tracked_flush_result.size
+    }
+
+    pub fn len(&self) -> u64 {
+        self.size
     }
 }
 
@@ -330,7 +356,7 @@ mod tests {
         let state = State::new(&store, Address::new_id(100), HashMap::new());
         assert!(state.is_ok());
         assert_eq!(
-            state.unwrap().root,
+            *state.unwrap().objects.root.cid(),
             Cid::from_str("bafy2bzaceamp42wmmgr2g2ymg46euououzfyck7szknvfacqscohrvaikwfay")
                 .unwrap()
         );
@@ -353,7 +379,10 @@ mod tests {
             )
             .is_ok());
 
-        assert_eq!(state.root, Cid::from_str(OBJECT_ONE_CID).unwrap());
+        assert_eq!(
+            *state.objects.root.cid(),
+            Cid::from_str(OBJECT_ONE_CID).unwrap()
+        );
     }
 
     #[quickcheck]

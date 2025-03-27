@@ -6,6 +6,8 @@
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
+use crate::hamt::BytesKey;
+use crate::Hasher;
 use anyhow::anyhow;
 use cid::Cid;
 use fil_actors_runtime::{ActorError, AsActorError};
@@ -17,8 +19,6 @@ use fvm_shared::error::ExitCode;
 use integer_encoding::VarInt;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
-use crate::hamt::BytesKey;
-use crate::Hasher;
 
 /// Wraps a HAMT to provide a convenient map API.
 /// Any errors are returned with exit code indicating illegal state.
@@ -29,7 +29,7 @@ where
     K: MapKey,
     V: DeserializeOwned + Serialize,
 {
-    hamt: hamt::Hamt<BS, V, hamt::BytesKey, Hasher>,
+    hamt: hamt::Hamt<BS, V, BytesKey, Hasher>,
     name: String,
     key_type: PhantomData<K>,
 }
@@ -38,17 +38,6 @@ pub trait MapKey: Sized + Debug {
     fn from_bytes(b: &[u8]) -> Result<Self, String>;
     fn to_bytes(&self) -> Result<Vec<u8>, String>;
 }
-
-impl MapKey for BytesKey {
-    fn from_bytes(b: &[u8]) -> Result<Self, String> {
-        Ok(BytesKey(b.to_vec()))
-    }
-
-    fn to_bytes(&self) -> Result<Vec<u8>, String> {
-        Ok(self.0.to_vec())
-    }
-}
-
 
 pub type Config = hamt::Config;
 
@@ -243,24 +232,25 @@ where
         let mut iter = match starting_key {
             Some(key) => self.hamt.iter_from(key)?,
             None => self.hamt.iter(),
-        }.fuse();
+        }
+        .fuse();
 
         let mut traversed = 0usize;
         let limit = max.unwrap_or(usize::MAX);
         loop {
             if traversed >= limit {
-                break
+                break;
             }
 
             match iter.next() {
                 Some(res) => {
                     let (k, v) = res?;
                     if !(f)(k, v)? {
-                        continue
+                        continue;
                     }
                     traversed += 1;
                 }
-                None => break
+                None => break,
             }
         }
         let next = iter.next().transpose()?.map(|kv| kv.0).cloned();
