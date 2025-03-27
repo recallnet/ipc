@@ -14,7 +14,7 @@ async-trait = { workspace = true }
 base64 = { workspace = true }
 cid = { workspace = true }
 ethers = { workspace = true }
-fil_actor_adm = { workspace = true }
+recall_fil_actor_adm = { workspace = true }
 futures-core = { workspace = true }
 futures-util = { workspace = true }
 fvm = { workspace = true }

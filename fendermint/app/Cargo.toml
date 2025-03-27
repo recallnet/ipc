@@ -92,8 +92,8 @@ ipc-provider = { workspace = true }
 ipc_ipld_resolver = { workspace = true }
 ipc-observability = { workspace = true }
 
-entangler = { workspace = true }
-entangler_storage = { workspace = true }
+recall_entangler = { workspace = true }
+recall_entangler_storage = { workspace = true }
 
 iroh_manager = { path = "../../recall/iroh_manager" }
 

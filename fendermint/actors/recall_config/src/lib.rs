@@ -6,7 +6,7 @@ use fendermint_actor_blobs_shared::state::TokenCreditRate;
 use fendermint_actor_recall_config_shared::{
     Method, RecallConfig, SetAdminParams, SetConfigParams,
 };
-use fil_actors_runtime::{
+use recall_fil_actors_runtime::{
     actor_dispatch, actor_error,
     runtime::{ActorCode, Runtime},
     ActorError, SYSTEM_ACTOR_ADDR,
@@ -22,7 +22,7 @@ use crate::sol_facade::{ConfigAdminSet, ConfigSet};
 mod sol_facade;
 
 #[cfg(feature = "fil-actor")]
-fil_actors_runtime::wasm_trampoline!(Actor);
+recall_fil_actors_runtime::wasm_trampoline!(Actor);
 
 pub const ACTOR_NAME: &str = "recall_config";
 
@@ -228,8 +228,8 @@ mod tests {
     use super::*;
 
     use fendermint_actor_recall_config_shared::{RecallConfig, RECALL_CONFIG_ACTOR_ID};
-    use fil_actors_evm_shared::address::EthAddress;
-    use fil_actors_runtime::test_utils::{
+    use recall_fil_actors_evm_shared::address::EthAddress;
+    use recall_fil_actors_runtime::test_utils::{
         expect_empty, MockRuntime, ETHACCOUNT_ACTOR_CODE_ID, SYSTEM_ACTOR_CODE_ID,
     };
     use fvm_ipld_encoding::ipld_block::IpldBlock;

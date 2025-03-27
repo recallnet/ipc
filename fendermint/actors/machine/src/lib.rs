@@ -4,8 +4,8 @@
 
 use std::collections::HashMap;
 
-pub use fil_actor_adm::Kind;
-use fil_actors_runtime::{
+pub use recall_fil_actor_adm::Kind;
+use recall_fil_actors_runtime::{
     actor_error, runtime::Runtime, ActorError, ADM_ACTOR_ADDR, FIRST_EXPORTED_METHOD_NUMBER,
     INIT_ACTOR_ADDR,
 };
