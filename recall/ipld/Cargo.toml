@@ -22,4 +22,4 @@ integer-encoding = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 
 [features]
-fil-actor = ["fil_actors_runtime/fil-actor"]
+fil-actor = ["recall_fil_actors_runtime/fil-actor"]

@@ -14,7 +14,7 @@ use fendermint_actor_blobs_shared::state::{
 };
 use fendermint_actor_blobs_shared::Method;
 use fendermint_actor_recall_config_shared::{get_config, require_caller_is_admin};
-use fil_actors_runtime::{
+use recall_fil_actors_runtime::{
     actor_dispatch, actor_error, extract_send_result,
     runtime::{ActorCode, Runtime},
     ActorError, FIRST_EXPORTED_METHOD_NUMBER, SYSTEM_ACTOR_ADDR,
@@ -34,7 +34,7 @@ use crate::state::AccountInfo;
 use crate::{State, BLOBS_ACTOR_NAME};
 
 #[cfg(feature = "fil-actor")]
-fil_actors_runtime::wasm_trampoline!(BlobsActor);
+recall_fil_actors_runtime::wasm_trampoline!(BlobsActor);
 
 /// Singleton actor for managing blob storage.
 ///
@@ -948,8 +948,8 @@ mod tests {
     use fendermint_actor_blobs_shared::state::SubscriptionId;
     use fendermint_actor_blobs_testing::{new_hash, new_pk};
     use fendermint_actor_recall_config_shared::{RecallConfig, RECALL_CONFIG_ACTOR_ADDR};
-    use fil_actors_evm_shared::address::EthAddress;
-    use fil_actors_runtime::test_utils::{
+    use recall_fil_actors_evm_shared::address::EthAddress;
+    use recall_fil_actors_runtime::test_utils::{
         expect_empty, MockRuntime, ETHACCOUNT_ACTOR_CODE_ID, EVM_ACTOR_CODE_ID,
         SYSTEM_ACTOR_CODE_ID,
     };

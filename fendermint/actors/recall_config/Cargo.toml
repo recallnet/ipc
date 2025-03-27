@@ -26,9 +26,9 @@ fendermint_actor_recall_config_shared = { path = "../recall_config/shared" }
 fendermint_actor_machine = { path = "../machine" }
 
 [dev-dependencies]
-fil_actors_evm_shared = { workspace = true }
+recall_fil_actors_evm_shared = { workspace = true }
 recall_fil_actors_runtime = { workspace = true, features = ["test_utils"] }
 hex-literal = { workspace = true }
 
 [features]
-fil-actor = ["fil_actors_runtime/fil-actor"]
+fil-actor = ["recall_fil_actors_runtime/fil-actor"]

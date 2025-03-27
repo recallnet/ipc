@@ -3455,8 +3455,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "cid",
- "fil_actors_evm_shared",
- "fil_actors_runtime",
  "frc42_dispatch",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding",
@@ -3466,6 +3464,8 @@ dependencies = [
  "multihash 0.18.1",
  "num-derive 0.3.3",
  "num-traits",
+ "recall_fil_actors_evm_shared",
+ "recall_fil_actors_runtime",
  "serde",
  "serde_tuple",
 ]
@@ -3477,8 +3477,6 @@ dependencies = [
  "anyhow",
  "fendermint_actor_blobs_shared",
  "fendermint_actor_machine",
- "fil_actors_evm_shared",
- "fil_actors_runtime",
  "frc42_dispatch",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding",
@@ -3490,6 +3488,8 @@ dependencies = [
  "num-traits",
  "rand",
  "recall_actor_sdk",
+ "recall_fil_actors_evm_shared",
+ "recall_fil_actors_runtime",
  "recall_ipld",
  "recall_sol_facade",
  "serde",
@@ -3504,8 +3504,6 @@ dependencies = [
  "fendermint_actor_blobs_testing",
  "fendermint_actor_machine",
  "fendermint_actor_recall_config_shared",
- "fil_actors_evm_shared",
- "fil_actors_runtime",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding",
  "fvm_shared",
@@ -3514,6 +3512,8 @@ dependencies = [
  "num-traits",
  "rand",
  "recall_actor_sdk",
+ "recall_fil_actors_evm_shared",
+ "recall_fil_actors_runtime",
  "recall_ipld",
  "recall_sol_facade",
  "serde",
@@ -3525,13 +3525,13 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "data-encoding",
- "fil_actors_runtime",
  "frc42_dispatch",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding",
  "fvm_shared",
  "num-derive 0.3.3",
  "num-traits",
+ "recall_fil_actors_runtime",
  "recall_ipld",
  "serde",
 ]
@@ -3557,8 +3557,6 @@ dependencies = [
  "fendermint_actor_blobs_shared",
  "fendermint_actor_blobs_testing",
  "fendermint_actor_machine",
- "fil_actors_evm_shared",
- "fil_actors_runtime",
  "frc42_dispatch",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding",
@@ -3570,6 +3568,8 @@ dependencies = [
  "quickcheck",
  "quickcheck_macros",
  "recall_actor_sdk",
+ "recall_fil_actors_evm_shared",
+ "recall_fil_actors_runtime",
  "recall_ipld",
  "recall_sol_facade",
  "serde",
@@ -3581,7 +3581,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "cid",
- "fil_actors_runtime",
  "frc42_dispatch",
  "fvm_ipld_amt",
  "fvm_ipld_blockstore",
@@ -3589,6 +3588,7 @@ dependencies = [
  "fvm_shared",
  "num-derive 0.3.3",
  "num-traits",
+ "recall_fil_actors_runtime",
  "serde",
  "serde_tuple",
 ]
@@ -3599,9 +3599,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "cid",
- "fil_actor_eam",
- "fil_actors_evm_shared",
- "fil_actors_runtime",
  "frc42_dispatch",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding",
@@ -3611,6 +3608,9 @@ dependencies = [
  "multihash 0.18.1",
  "num-derive 0.3.3",
  "num-traits",
+ "recall_fil_actor_eam",
+ "recall_fil_actors_evm_shared",
+ "recall_fil_actors_runtime",
  "serde",
 ]
 
@@ -3621,8 +3621,6 @@ dependencies = [
  "anyhow",
  "cid",
  "fendermint_actors_api",
- "fil_actors_evm_shared",
- "fil_actors_runtime",
  "frc42_dispatch",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding",
@@ -3632,6 +3630,8 @@ dependencies = [
  "multihash 0.18.1",
  "num-derive 0.3.3",
  "num-traits",
+ "recall_fil_actors_evm_shared",
+ "recall_fil_actors_runtime",
  "serde",
 ]
 
@@ -3640,13 +3640,13 @@ name = "fendermint_actor_machine"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "fil_actor_adm",
- "fil_actors_runtime",
  "frc42_dispatch",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding",
  "fvm_shared",
  "recall_actor_sdk",
+ "recall_fil_actor_adm",
+ "recall_fil_actors_runtime",
  "recall_sol_facade",
  "serde",
 ]
@@ -3659,13 +3659,13 @@ dependencies = [
  "fendermint_actor_blobs_shared",
  "fendermint_actor_machine",
  "fendermint_actor_recall_config_shared",
- "fil_actors_evm_shared",
- "fil_actors_runtime",
  "fvm_ipld_encoding",
  "fvm_shared",
  "hex-literal 0.4.1",
  "num-traits",
  "recall_actor_sdk",
+ "recall_fil_actors_evm_shared",
+ "recall_fil_actors_runtime",
  "recall_sol_facade",
  "serde",
 ]
@@ -3675,12 +3675,12 @@ name = "fendermint_actor_recall_config_shared"
 version = "0.1.0"
 dependencies = [
  "fendermint_actor_blobs_shared",
- "fil_actors_runtime",
  "frc42_dispatch",
  "fvm_ipld_encoding",
  "fvm_shared",
  "num-derive 0.3.3",
  "num-traits",
+ "recall_fil_actors_runtime",
  "serde",
 ]
 
@@ -3692,8 +3692,6 @@ dependencies = [
  "cid",
  "fendermint_actor_blobs_shared",
  "fendermint_actor_machine",
- "fil_actors_evm_shared",
- "fil_actors_runtime",
  "frc42_dispatch",
  "fvm_ipld_amt",
  "fvm_ipld_blockstore",
@@ -3703,6 +3701,8 @@ dependencies = [
  "num-derive 0.3.3",
  "num-traits",
  "recall_actor_sdk",
+ "recall_fil_actors_evm_shared",
+ "recall_fil_actors_runtime",
  "recall_sol_facade",
  "serde",
  "tracing",
@@ -3724,10 +3724,10 @@ dependencies = [
  "fendermint_actor_recall_config",
  "fendermint_actor_timehub",
  "fil_actor_bundler",
- "fil_actors_runtime",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding",
  "num-traits",
+ "recall_fil_actors_runtime",
  "toml 0.8.19",
 ]
 
@@ -3737,8 +3737,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "cid",
- "fil_actors_evm_shared",
- "fil_actors_runtime",
  "frc42_dispatch",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding",
@@ -3748,6 +3746,8 @@ dependencies = [
  "multihash 0.18.1",
  "num-derive 0.3.3",
  "num-traits",
+ "recall_fil_actors_evm_shared",
+ "recall_fil_actors_runtime",
  "serde",
 ]
 
@@ -3960,7 +3960,6 @@ dependencies = [
  "fendermint_testing",
  "fendermint_vm_actor_interface",
  "fendermint_vm_message",
- "fil_actors_evm_shared",
  "futures",
  "fvm_ipld_encoding",
  "fvm_shared",
@@ -3973,6 +3972,7 @@ dependencies = [
  "quickcheck",
  "quickcheck_macros",
  "rand",
+ "recall_fil_actors_evm_shared",
  "regex",
  "serde",
  "serde_json",
@@ -4157,7 +4157,6 @@ dependencies = [
  "fendermint_actor_machine",
  "fendermint_crypto",
  "fendermint_vm_genesis",
- "fil_actors_evm_shared",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding",
  "fvm_ipld_hamt",
@@ -4172,6 +4171,7 @@ dependencies = [
  "quickcheck",
  "quickcheck_macros",
  "rand",
+ "recall_fil_actors_evm_shared",
  "serde",
  "serde_tuple",
  "tracing",
@@ -4280,7 +4280,6 @@ dependencies = [
  "fendermint_vm_message",
  "fendermint_vm_resolver",
  "fendermint_vm_topdown",
- "fil_actor_adm",
  "futures-core",
  "futures-util",
  "fvm",
@@ -4304,6 +4303,7 @@ dependencies = [
  "quickcheck_macros",
  "rand",
  "recall_executor",
+ "recall_fil_actor_adm",
  "recall_kernel",
  "serde",
  "serde_json",
@@ -4490,25 +4490,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "28dea519a9695b9977216879a3ebfddf92f1c08c05d984f8996aecd6ecdc811d"
 
 [[package]]
-name = "fil_actor_adm"
-version = "15.0.0-rc1"
-dependencies = [
- "anyhow",
- "cid",
- "fil_actors_runtime",
- "fvm_ipld_blockstore",
- "fvm_ipld_encoding",
- "fvm_shared",
- "hex-literal 0.3.4",
- "integer-encoding",
- "log",
- "multihash 0.18.1",
- "num-derive 0.3.3",
- "num-traits",
- "serde",
-]
-
-[[package]]
 name = "fil_actor_bundler"
 version = "6.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4525,77 +4506,6 @@ dependencies = [
  "serde",
  "serde_ipld_dagcbor",
  "serde_json",
-]
-
-[[package]]
-name = "fil_actor_eam"
-version = "15.0.0-rc1"
-dependencies = [
- "anyhow",
- "cid",
- "fil_actors_evm_shared",
- "fil_actors_runtime",
- "fvm_ipld_blockstore",
- "fvm_ipld_encoding",
- "fvm_shared",
- "hex-literal 0.3.4",
- "log",
- "multihash 0.18.1",
- "num-derive 0.3.3",
- "num-traits",
- "rlp",
- "serde",
-]
-
-[[package]]
-name = "fil_actors_evm_shared"
-version = "15.0.0-rc1"
-dependencies = [
- "fil_actors_runtime",
- "fvm_ipld_encoding",
- "fvm_shared",
- "hex",
- "serde",
- "uint",
-]
-
-[[package]]
-name = "fil_actors_runtime"
-version = "15.0.0-rc1"
-dependencies = [
- "anyhow",
- "base64 0.21.7",
- "blake2b_simd",
- "byteorder",
- "castaway",
- "cid",
- "fvm_ipld_amt",
- "fvm_ipld_bitfield",
- "fvm_ipld_blockstore",
- "fvm_ipld_encoding",
- "fvm_ipld_hamt",
- "fvm_sdk",
- "fvm_shared",
- "hex",
- "integer-encoding",
- "itertools 0.10.5",
- "lazy_static",
- "libsecp256k1",
- "log",
- "multihash 0.18.1",
- "num",
- "num-derive 0.3.3",
- "num-traits",
- "paste",
- "pretty_env_logger",
- "rand",
- "regex",
- "serde",
- "serde_repr",
- "sha2 0.10.8",
- "thiserror 1.0.69",
- "unsigned-varint 0.7.2",
- "vm_api",
 ]
 
 [[package]]
@@ -6462,7 +6372,6 @@ dependencies = [
  "anyhow",
  "cid",
  "ethers",
- "fil_actors_runtime",
  "fnv",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding",
@@ -6476,6 +6385,7 @@ dependencies = [
  "merkle-tree-rs",
  "num-traits",
  "num_enum",
+ "recall_fil_actors_runtime",
  "serde",
  "serde_json",
  "serde_tuple",
@@ -6500,7 +6410,6 @@ dependencies = [
  "env_logger 0.10.2",
  "ethers",
  "ethers-contract",
- "fil_actors_runtime",
  "futures-util",
  "fvm_ipld_encoding",
  "fvm_shared",
@@ -6517,6 +6426,7 @@ dependencies = [
  "openssl",
  "prometheus",
  "prometheus_exporter",
+ "recall_fil_actors_runtime",
  "reqwest 0.11.27",
  "serde",
  "serde_bytes",
@@ -6561,7 +6471,6 @@ dependencies = [
  "dirs",
  "ethers",
  "ethers-contract",
- "fil_actors_runtime",
  "futures-util",
  "fvm_ipld_encoding",
  "fvm_shared",
@@ -6579,6 +6488,7 @@ dependencies = [
  "num-derive 0.3.3",
  "num-traits",
  "prometheus",
+ "recall_fil_actors_runtime",
  "reqwest 0.11.27",
  "serde",
  "serde_bytes",
@@ -10351,12 +10261,12 @@ name = "recall_actor_sdk"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "fil_actors_evm_shared",
- "fil_actors_runtime",
  "fvm_ipld_encoding",
  "fvm_sdk",
  "fvm_shared",
  "num-traits",
+ "recall_fil_actors_evm_shared",
+ "recall_fil_actors_runtime",
  "recall_sol_facade",
  "serde",
 ]
@@ -10417,12 +10327,109 @@ dependencies = [
 ]
 
 [[package]]
+name = "recall_fil_actor_adm"
+version = "0.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f2f2a2c80aff52285f11e5fbedae59c699b0b0d2b16da9435c120cfc81ca55dd"
+dependencies = [
+ "anyhow",
+ "cid",
+ "fvm_ipld_blockstore",
+ "fvm_ipld_encoding",
+ "fvm_shared",
+ "hex-literal 0.3.4",
+ "integer-encoding",
+ "log",
+ "multihash 0.18.1",
+ "num-derive 0.3.3",
+ "num-traits",
+ "recall_fil_actors_runtime",
+ "serde",
+]
+
+[[package]]
+name = "recall_fil_actor_eam"
+version = "0.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f8b972004745c5d6b5e1df2f793b295c12df224e45351c7acb2221c939570966"
+dependencies = [
+ "anyhow",
+ "cid",
+ "fvm_ipld_blockstore",
+ "fvm_ipld_encoding",
+ "fvm_shared",
+ "hex-literal 0.3.4",
+ "log",
+ "multihash 0.18.1",
+ "num-derive 0.3.3",
+ "num-traits",
+ "recall_fil_actors_evm_shared",
+ "recall_fil_actors_runtime",
+ "rlp",
+ "serde",
+]
+
+[[package]]
+name = "recall_fil_actors_evm_shared"
+version = "0.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "648804e121fc66cb4ff30a132b839fd7d546c64d35e687858b5c31d3667e2fc9"
+dependencies = [
+ "fvm_ipld_encoding",
+ "fvm_shared",
+ "hex",
+ "recall_fil_actors_runtime",
+ "serde",
+ "uint",
+]
+
+[[package]]
+name = "recall_fil_actors_runtime"
+version = "0.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5053f98e24e09c0b1a670aaaf66d9b328517d790c83966c9838bebcc83e4c265"
+dependencies = [
+ "anyhow",
+ "base64 0.21.7",
+ "blake2b_simd",
+ "byteorder",
+ "castaway",
+ "cid",
+ "fvm_ipld_amt",
+ "fvm_ipld_bitfield",
+ "fvm_ipld_blockstore",
+ "fvm_ipld_encoding",
+ "fvm_ipld_hamt",
+ "fvm_sdk",
+ "fvm_shared",
+ "hex",
+ "integer-encoding",
+ "itertools 0.10.5",
+ "lazy_static",
+ "libsecp256k1",
+ "log",
+ "multihash 0.18.1",
+ "num",
+ "num-derive 0.3.3",
+ "num-traits",
+ "paste",
+ "pretty_env_logger",
+ "rand",
+ "recall_vm_api",
+ "regex",
+ "serde",
+ "serde_repr",
+ "sha2 0.10.8",
+ "thiserror 1.0.69",
+ "unsigned-varint 0.7.2",
+]
+
+[[package]]
 name = "recall_ipld"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "cid",
- "fil_actors_runtime",
  "fvm_ipld_amt",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding",
@@ -10430,6 +10437,7 @@ dependencies = [
  "fvm_sdk",
  "fvm_shared",
  "integer-encoding",
+ "recall_fil_actors_runtime",
  "serde",
 ]
 
@@ -10489,6 +10497,25 @@ dependencies = [
  "recall_kernel_ops",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "recall_vm_api"
+version = "0.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "59b19f20c729ad1618be0f360541c08d6df212472e4b5aa532c0f8e780ad271a"
+dependencies = [
+ "anyhow",
+ "cid",
+ "fvm_ipld_blockstore",
+ "fvm_ipld_encoding",
+ "fvm_ipld_hamt",
+ "fvm_shared",
+ "num-derive 0.3.3",
+ "num-traits",
+ "rand",
+ "rand_chacha",
+ "serde",
 ]
 
 [[package]]
@@ -13611,23 +13638,6 @@ name = "version_check"
 version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
-
-[[package]]
-name = "vm_api"
-version = "1.0.0"
-dependencies = [
- "anyhow",
- "cid",
- "fvm_ipld_blockstore",
- "fvm_ipld_encoding",
- "fvm_ipld_hamt",
- "fvm_shared",
- "num-derive 0.3.3",
- "num-traits",
- "rand",
- "rand_chacha",
- "serde",
-]
 
 [[package]]
 name = "void"

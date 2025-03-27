@@ -5,7 +5,7 @@
 use cid::Cid;
 use fendermint_actor_blobs_shared::has_credit_approval;
 use fendermint_actor_machine::MachineActor;
-use fil_actors_runtime::{
+use recall_fil_actors_runtime::{
     actor_dispatch, actor_error,
     runtime::{ActorCode, Runtime},
     ActorError,
@@ -17,7 +17,7 @@ use crate::sol_facade::EventPushed;
 use crate::{Leaf, Method, PushParams, PushReturn, State, TIMEHUB_ACTOR_NAME};
 
 #[cfg(feature = "fil-actor")]
-fil_actors_runtime::wasm_trampoline!(TimehubActor);
+recall_fil_actors_runtime::wasm_trampoline!(TimehubActor);
 
 pub struct TimehubActor;
 
@@ -136,8 +136,8 @@ mod tests {
     };
     use fendermint_actor_machine::sol_facade::{MachineCreated, MachineInitialized};
     use fendermint_actor_machine::{ConstructorParams, InitParams, Kind};
-    use fil_actors_evm_shared::address::EthAddress;
-    use fil_actors_runtime::{
+    use recall_fil_actors_evm_shared::address::EthAddress;
+    use recall_fil_actors_runtime::{
         runtime::MessageInfo,
         test_utils::{
             expect_empty, MockRuntime, ADM_ACTOR_CODE_ID, ETHACCOUNT_ACTOR_CODE_ID,

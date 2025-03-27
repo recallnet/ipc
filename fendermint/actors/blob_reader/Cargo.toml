@@ -12,7 +12,7 @@ version = "0.1.0"
 crate-type = ["cdylib", "lib"]
 
 [dependencies]
-fil_actors_runtime = { workspace = true }
+recall_fil_actors_runtime = { workspace = true }
 fvm_ipld_blockstore = { workspace = true }
 fvm_ipld_encoding = { workspace = true }
 fvm_shared = { workspace = true }
@@ -31,11 +31,11 @@ recall_ipld = { path = "../../../recall/ipld", version = "0.1.0" }
 anyhow = { workspace = true }
 
 [dev-dependencies]
-fil_actors_evm_shared = { workspace = true }
-fil_actors_runtime = { workspace = true, features = ["test_utils"] }
+recall_fil_actors_evm_shared = { workspace = true }
+recall_fil_actors_runtime = { workspace = true, features = ["test_utils"] }
 hex-literal = { workspace = true }
 iroh-base = { workspace = true, features = ["key"] }
 rand = { workspace = true }
 
 [features]
-fil-actor = ["fil_actors_runtime/fil-actor"]
+fil-actor = ["recall_fil_actors_runtime/fil-actor"]

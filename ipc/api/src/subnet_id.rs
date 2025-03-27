@@ -59,7 +59,7 @@ impl SubnetID {
     /// as-is. We only have information to translate from f2 to f0 for the
     /// last subnet actor in the root.
     #[cfg(feature = "fil-actor")]
-    pub fn f0_id(&self, rt: &impl fil_actors_runtime::runtime::Runtime) -> SubnetID {
+    pub fn f0_id(&self, rt: &impl recall_fil_actors_runtime::runtime::Runtime) -> SubnetID {
         let mut children = self.children();
 
         // replace the resolved child (if any)
@@ -114,7 +114,7 @@ impl SubnetID {
     /// Returns the serialized version of the subnet id
     #[cfg(feature = "fil-actor")]
     pub fn to_bytes(&self) -> Vec<u8> {
-        fil_actors_runtime::cbor::serialize(self, "subnetID")
+        recall_fil_actors_runtime::cbor::serialize(self, "subnetID")
             .unwrap()
             .into()
     }

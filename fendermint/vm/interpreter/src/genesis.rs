@@ -387,16 +387,16 @@ impl GenesisBuilder {
             .iter()
             .map(|(name, cid)| {
                 (
-                    fil_actor_adm::Kind::from_str(name).expect("failed to parse adm machine name"),
+                    recall_fil_actor_adm::Kind::from_str(name).expect("failed to parse adm machine name"),
                     cid.to_owned(),
                 )
             })
             .collect();
-        let adm_state = fil_actor_adm::State::new(
+        let adm_state = recall_fil_actor_adm::State::new(
             &state.store(),
             machine_codes,
             // TODO: Wire this into the genesis file so it can be set and updated
-            fil_actor_adm::PermissionModeParams::Unrestricted,
+            recall_fil_actor_adm::PermissionModeParams::Unrestricted,
         )?;
         state
             .create_builtin_actor(

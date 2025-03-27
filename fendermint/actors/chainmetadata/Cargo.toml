@@ -27,4 +27,4 @@ anyhow = { workspace = true }
 
 [features]
 default = []
-fil-actor = ["fil_actors_runtime"]
+fil-actor = ["recall_fil_actors_runtime"]

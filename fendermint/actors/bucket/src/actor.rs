@@ -9,7 +9,7 @@ use fendermint_actor_blobs_shared::{
     state::{BlobInfo, BlobStatus, SubscriptionId},
 };
 use fendermint_actor_machine::MachineActor;
-use fil_actors_runtime::{
+use recall_fil_actors_runtime::{
     actor_dispatch, actor_error,
     runtime::{ActorCode, Runtime},
     ActorError,
@@ -30,7 +30,7 @@ use crate::{
 };
 
 #[cfg(feature = "fil-actor")]
-fil_actors_runtime::wasm_trampoline!(Actor);
+recall_fil_actors_runtime::wasm_trampoline!(Actor);
 
 pub struct Actor;
 
@@ -399,12 +399,12 @@ mod tests {
     use fendermint_actor_blobs_testing::{new_hash, new_pk, setup_logs};
     use fendermint_actor_machine::sol_facade::{MachineCreated, MachineInitialized};
     use fendermint_actor_machine::{ConstructorParams, InitParams, Kind};
-    use fil_actors_evm_shared::address::EthAddress;
-    use fil_actors_runtime::runtime::Runtime;
-    use fil_actors_runtime::test_utils::{
+    use recall_fil_actors_evm_shared::address::EthAddress;
+    use recall_fil_actors_runtime::runtime::Runtime;
+    use recall_fil_actors_runtime::test_utils::{
         expect_empty, MockRuntime, ADM_ACTOR_CODE_ID, ETHACCOUNT_ACTOR_CODE_ID, INIT_ACTOR_CODE_ID,
     };
-    use fil_actors_runtime::{ADM_ACTOR_ADDR, INIT_ACTOR_ADDR};
+    use recall_fil_actors_runtime::{ADM_ACTOR_ADDR, INIT_ACTOR_ADDR};
     use fvm_ipld_encoding::ipld_block::IpldBlock;
     use fvm_shared::{
         clock::ChainEpoch, econ::TokenAmount, error::ExitCode, sys::SendFlags, MethodNum,

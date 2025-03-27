@@ -176,9 +176,9 @@ impl CrossMsgs {
 impl IpcEnvelope {
     pub fn send(
         self,
-        rt: &impl fil_actors_runtime::runtime::Runtime,
+        rt: &impl recall_fil_actors_runtime::runtime::Runtime,
         rto: &Address,
-    ) -> Result<RawBytes, fil_actors_runtime::ActorError> {
+    ) -> Result<RawBytes, recall_fil_actors_runtime::ActorError> {
         let blk = if !self.wrapped {
             let msg = self.msg;
             rt.send(rto, msg.method, msg.params.into(), msg.value)?

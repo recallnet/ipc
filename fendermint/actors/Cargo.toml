@@ -32,7 +32,7 @@ fendermint_actor_timehub = { path = "timehub" }
 
 [build-dependencies]
 anyhow = { workspace = true }
-fil_actors_runtime = { workspace = true, features = ["test_utils"] }
+recall_fil_actors_runtime = { workspace = true, features = ["test_utils"] }
 fil_actor_bundler = "6.1.0"
 num-traits = { workspace = true }
 toml = { workspace = true }

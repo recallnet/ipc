@@ -99,7 +99,7 @@ ethers = { version = "2.0.13", features = ["abigen", "ws"] }
 ethers-core = { version = "2.0.13" }
 ethers-contract = "2.0.13"
 fnv = "1.0"
-frc42_dispatch = "8.0.0"
+frc42_dispatch = { path = "./ext/frc42_dispatch" }
 futures = "0.3"
 futures-core = "0.3"
 futures-util = "0.3"

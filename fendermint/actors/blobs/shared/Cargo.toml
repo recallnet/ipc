@@ -26,4 +26,4 @@ serde = { workspace = true, features = ["derive"] }
 recall_ipld = { path = "../../../../recall/ipld", version = "0.1.0" }
 
 [features]
-fil-actor = ["fil_actors_runtime/fil-actor"]
+fil-actor = ["recall_fil_actors_runtime/fil-actor"]

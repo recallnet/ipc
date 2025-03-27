@@ -6,7 +6,7 @@ use fvm_ipld_encoding::RawBytes;
 use fvm_shared::METHOD_CONSTRUCTOR;
 use serde_tuple::{Deserialize_tuple, Serialize_tuple};
 
-pub use fil_actors_evm_shared::uints;
+pub use recall_fil_actors_evm_shared::uints;
 
 use crate::eam::EthAddress;
 
@@ -27,7 +27,7 @@ pub enum Method {
     InvokeContract = 3844450837,
 }
 
-// XXX: I don't know why the following arent' part of `fil_actors_evm_shared` :(
+// XXX: I don't know why the following arent' part of `recall_fil_actors_evm_shared` :(
 
 #[derive(Serialize_tuple, Deserialize_tuple)]
 #[serde(transparent)]

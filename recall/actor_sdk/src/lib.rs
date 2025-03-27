@@ -2,9 +2,9 @@
 // Copyright 2022-2024 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use fil_actors_runtime::runtime::builtins::Type;
-use fil_actors_runtime::runtime::Runtime;
-use fil_actors_runtime::{actor_error, ActorError};
+use recall_fil_actors_runtime::runtime::builtins::Type;
+use recall_fil_actors_runtime::runtime::Runtime;
+use recall_fil_actors_runtime::{actor_error, ActorError};
 use fvm_ipld_encoding::{strict_bytes, tuple::*};
 use fvm_shared::address::Address;
 use fvm_shared::bigint::BigUint;
@@ -202,7 +202,7 @@ macro_rules! declare_abi_call {
             type Params;
             type Returns;
             type Output;
-            fn params(&self, rt: &impl fil_actors_runtime::runtime::Runtime) -> Self::Params;
+            fn params(&self, rt: &impl recall_fil_actors_runtime::runtime::Runtime) -> Self::Params;
             fn returns(&self, returns: Self::Returns) -> Self::Output;
         }
 
@@ -225,17 +225,17 @@ macro_rules! declare_abi_call {
             }
         }
 
-        impl From<fil_actors_runtime::ActorError> for AbiEncodeError {
-            fn from(error: fil_actors_runtime::ActorError) -> Self {
+        impl From<recall_fil_actors_runtime::ActorError> for AbiEncodeError {
+            fn from(error: recall_fil_actors_runtime::ActorError) -> Self {
                 Self {
                     message: format!("{}", error),
                 }
             }
         }
 
-        impl From<AbiEncodeError> for fil_actors_runtime::ActorError {
+        impl From<AbiEncodeError> for recall_fil_actors_runtime::ActorError {
             fn from(error: AbiEncodeError) -> Self {
-                fil_actors_runtime::actor_error!(serialization, error.message)
+                recall_fil_actors_runtime::actor_error!(serialization, error.message)
             }
         }
     };
