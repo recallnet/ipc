@@ -142,7 +142,7 @@ $ ./bin/ipc-cli subnet send-value --subnet /r31415926/t4xwzbdu7z5sam6hc57xxwkctc
 
 At the moment, the IPC agent only expose commands to perform the basic IPC interoperability primitives for cross-net communication, which is the exchange of FIL (the native token for IPC) between the same address of a subnet. Mainly:
 - `fund`, which sends native token from one public key address, to the same public key address in the child.
-- `release` that movesnative token from one account in a child subnet to its counter-part in the parent.
+- `release` that moves native token from one account in a child subnet to its counter-part in the parent.
 
 Complex behavior can be implemented using these primitives: sending value to a user in another subnet can be implemented a set of `release/fund` and `sendValue` operations. Calling  smart contract from one subnet to another works by providing funds to one account in the destination subnet, and then calling the contract. The `ipc-cli` doesn't currently include abstractions for this complex operations, but it will in the future. That being said, users can still leverage the `ipc-cli` or even the `IpcProvider` library to easily compose the basic primitives into complex functionality (in case you want to hack something cool and contribute to the project :) ).
 
@@ -157,7 +157,7 @@ Funding a subnet can be performed by using the following command:
 # Example execution
 $ ./bin/ipc-cli cross-msg fund --subnet /r31415926/t4xwzbdu7z5sam6hc57xxwkctciuaz7oe5omipwbq 100
 ```
-This command includes the cross-net message into the next top-down proof-of-finality. Once the top-down finality is committed in the child, the message will be executed and you should see the funds in your account of the child subnet. If the `--to` is not set explicitly, the funds are send to the address of the `--from` in the subnet.
+This command includes the cross-net message into the next top-down proof-of-finality. Once the top-down finality is committed in the child, the message will be executed and you should see the funds in your account of the child subnet. If the `--to` is not set explicitly, the funds are sent to the address of the `--from` in the subnet.
 
 Alternatively, we can pass an additional parameter to send the funds to a specific address in the child subnet
 
@@ -205,7 +205,7 @@ In order to release funds from a subnet, your account must hold enough funds ins
 # Example execution
 $ ./bin/ipc-cli cross-msg release --subnet=/r31415926/t4xwzbdu7z5sam6hc57xxwkctciuaz7oe5omipwbq 100
 ```
-This command includes the cross-net message into a bottom-up checkpoint after the current epoch. Once the bottom-up checkpoint is committed in the parent, you should see the funds in your account in the parent. If the `--to` is not set explicitly, the funds are send to the address of the `--from` in the parent.
+This command includes the cross-net message into a bottom-up checkpoint after the current epoch. Once the bottom-up checkpoint is committed in the parent, you should see the funds in your account in the parent. If the `--to` is not set explicitly, the funds are sent to the address of the `--from` in the parent.
 
 Alternatively, we can pass an additional parameter to release the funds to a specific address in the parent subnet
 
@@ -223,7 +223,7 @@ The propagation of a bottom-up checkpoint from a child subnet to its parent foll
 ./bin/ipc-cli checkpoint quorum-reached-events --from-epoch 600 --to-epoch 680 --subnet /r314159/t410ffumhfeppdjixhkxtgagowxkdu77j7xz5aaa52vy
 ```
 
-* Once validators have agree on the checkpoint to be submitted in the parent for a specific epoch, relayers need to pick up the checkpoint and submit it in the parent. The following commands can be used to determine what is the state of this submission:
+* Once validators have agreed on the checkpoint to be submitted in the parent for a specific epoch, relayers need to pick up the checkpoint and submit it in the parent. The following commands can be used to determine what is the state of this submission:
   * Check if the address of a relayer has already submitted a checkpoint for execution in the parent for the latest checkpoint: `./bin/ipc-cli checkpoint has-submitted-bottomup-height --subnet <SUBNET_ID> --submitter <RELAYER_ADDR>`
   * Check the height of the latest checkpoint committed in the parent: `./bin/ipc-cli checkpoint last-bottomup-checkpoint-height --subnet <SUBNET_ID>`
 
