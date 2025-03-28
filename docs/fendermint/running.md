@@ -64,7 +64,7 @@ $ cat test-network/genesis.json
 
 ### Create some keys
 
-Next, let's create some cryptographic key pairs we want want to use either for accounts or validators at Genesis.
+Next, let's create some cryptographic key pairs we want to use either for accounts or validators at Genesis.
 
 ```shell
 mkdir test-network/keys
@@ -166,7 +166,7 @@ cargo run -p fendermint_app --release -- \
       add-validator --public-key test-network/keys/bob.pk --power 1;
 ```
 
-The value of power doesn't matter in this case, as `bob` is our only validator. It's value is expressed in tokens,
+The value of power doesn't matter in this case, as `bob` is our only validator. Its value is expressed in tokens,
 ie. FIL, and will be serialized in atto, hence the 18 zeroes.
 
 Check the result:
@@ -705,7 +705,7 @@ $ DELEGATED_ADDR=$(echo $CREATE | jq -r .return_data.delegated_address)
 
 ## Invoke FEVM Contract
 
-Now that we have a contract deployed, we can call it. The arguments in the followign example are taken from [fvm-bench](https://github.com/filecoin-project/fvm-bench). We need to increment the `--sequence` again.
+Now that we have a contract deployed, we can call it. The arguments in the following example are taken from [fvm-bench](https://github.com/filecoin-project/fvm-bench). We need to increment the `--sequence` again.
 
 ```console
 $ cargo run -p fendermint_app --release -- \
@@ -731,7 +731,7 @@ $ cargo run -p fendermint_rpc --release --example simplecoin -- --secret-key tes
 2023-05-19T10:18:48.805085Z  INFO simplecoin: owner balance balance="10000" owner_eth_addr="ff00000000000000000000000000000000000064"
 ```
 
-Note that the script figures out the Alice's nonce on its own, so we don't have to pass it in. It also has an example of running an EVM view method (which is read-only) either as as a distributed read-transaction (which is included on the chain and costs gas) or a query anwered by our node without involving the blockchain. Both have their uses, depending on our level of trust.
+Note that the script figures out the Alice's nonce on its own, so we don't have to pass it in. It also has an example of running an EVM view method (which is read-only) either as a distributed read-transaction (which is included on the chain and costs gas) or a query answered by our node without involving the blockchain. Both have their uses, depending on our level of trust.
 
 ## Deploy IPC child subnet
 
