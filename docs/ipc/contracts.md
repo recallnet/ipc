@@ -29,7 +29,7 @@ To connect Metamask to your subnet, you need to add it as a new network. To do t
 
 ![](./img/metamask_network.png)
 
-- Configure your network by passing to the form the RPC endpoint and `chainID` of your subnet. The `chainID` of IPC subnets will always be `31415926` until [this issue](https://github.com/consensus-shipyard/lotus/issues/178) is implemented.
+- Configure your network by passing to the form the RPC endpoint and `chainID` of your subnet. The `chainID` of IPC subnets will always be `31415926` by default.
 
 ![](./img/metamask_rpc.png)
 
