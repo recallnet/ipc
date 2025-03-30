@@ -31,7 +31,7 @@ halt_height = 0
 # kind =
 
 # Number of pending blobs to process in parallel.
-blob_concurrency = 1024
+blob_concurrency = 500
 
 # Number of pending read requests to process in parallel.
 read_request_concurrency = 10
