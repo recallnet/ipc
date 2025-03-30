@@ -303,31 +303,21 @@ where
 
         // ---- RECALL BLOBS
 
-        // Collect locally completed blobs from the pool. We're relying on the proposer's local
-        // view of blob resolution, rather than considering those that _might_ have a quorum,
-        // but have not yet been resolved by _this_ proposer. However, a blob like this will get
-        // picked up by a different proposer who _does_ consider it resolved.
-        let local_finalized_blobs = atomically(|| chain_env.blob_pool.collect_done()).await;
-        tracing::debug!(
-            size = local_finalized_blobs.len(),
-            "locally finalized blobs"
-        );
-
-        // If the local blobs pool is empty and there are no finalized blobs,
-        // but there are pending blobs on-chain,
-        // we may have restarted the validator,
-        // in which case we can hydrate the pool here.
-        let num_pending_blobs = atomically(|| chain_env.blob_pool.count()).await;
-        if num_pending_blobs.is_zero() && local_finalized_blobs.is_empty() {
+        // If the local blobs pool is empty and there are pending blobs on-chain,
+        // we may have restarted the validator. We can hydrate the pool here.
+        let (mut local_blobs_count, local_finalized_blobs) =
+            atomically(|| chain_env.blob_pool.collect()).await;
+        let mut pending_blobs_fetched_count = 0;
+        if local_blobs_count.is_zero() {
             let pending_blobs = with_state_transaction(&mut state, |state| {
                 let blobs = get_pending_blobs(state, chain_env.blob_concurrency)?;
-                tracing::debug!(size = blobs.len(), "pending blobs fetched from chain");
+                pending_blobs_fetched_count = blobs.len();
                 Ok(blobs)
             })?;
 
+            // Add them to the resolution pool
             for (hash, size, sources) in pending_blobs {
                 for (subscriber, id, source) in sources {
-                    // Add the blob to the resolution pool
                     atomically(|| {
                         chain_env.blob_pool.add(BlobPoolItem {
                             subscriber,
@@ -338,36 +328,17 @@ where
                         })
                     })
                     .await;
-                }
-            }
-        }
-
-        // Get added blobs from the blob actor
-        let added_blobs_fetch_count = chain_env
-            .blob_concurrency
-            .saturating_sub(num_pending_blobs as u32);
-        if !added_blobs_fetch_count.is_zero() {
-            let added_blobs = with_state_transaction(&mut state, |state| {
-                let blobs = get_added_blobs(state, added_blobs_fetch_count)?;
-                tracing::debug!(size = blobs.len(), "added blobs fetched from chain");
-                Ok(blobs)
-            })?;
-
-            // Create IPC messages to add blobs to the pool
-            for (hash, size, sources) in added_blobs {
-                for (subscriber, id, source) in sources {
-                    msgs.push(ChainMessage::Ipc(IpcMessage::BlobPending(PendingBlob {
-                        subscriber,
-                        hash,
-                        size,
-                        id: id.clone(),
-                        source,
-                    })));
+                    local_blobs_count += 1;
                 }
             }
         }
 
         // Create IPC messages for finalized blobs.
+        //
+        // We're relying on the proposer's local view of resolution, rather than considering
+        // those that _might_ have a quorum, but have not yet been resolved by _this_ proposer.
+        // However, a case like this will get picked up by a different proposer who _does_ consider
+        // it resolved.
         //
         // If the blob has already been finalized, i.e., it was proposed in an earlier block with
         // a quorum that did not include _this_ proposer, we can just remove it from the local
@@ -413,39 +384,62 @@ where
             // these are going to be reproposed in the next block.
             msgs.extend(blobs);
         }
-        let pending_blobs = atomically(|| chain_env.blob_pool.count()).await;
-        tracing::info!(size = pending_blobs, "locally resolving blobs");
+
+        // Get added blobs from the blob actor
+        let local_resolving_blobs_count =
+            local_blobs_count.saturating_sub(local_finalized_blobs.len());
+        let added_blobs_fetch_count = chain_env
+            .blob_concurrency
+            .saturating_sub(local_resolving_blobs_count as u32);
+        let mut added_blobs_fetched_count = 0;
+        if !added_blobs_fetch_count.is_zero() {
+            let added_blobs = with_state_transaction(&mut state, |state| {
+                let blobs = get_added_blobs(state, added_blobs_fetch_count)?;
+                added_blobs_fetched_count = blobs.len();
+                Ok(blobs)
+            })?;
+
+            // Create IPC messages to add blobs to the pool
+            for (hash, size, sources) in added_blobs {
+                for (subscriber, id, source) in sources {
+                    msgs.push(ChainMessage::Ipc(IpcMessage::BlobPending(PendingBlob {
+                        subscriber,
+                        hash,
+                        size,
+                        id: id.clone(),
+                        source,
+                    })));
+                }
+            }
+        }
+
+        tracing::debug!(
+            resolving = local_resolving_blobs_count,
+            finalized = local_finalized_blobs.len(),
+            "blob pool counts"
+        );
+        tracing::debug!(
+            added = added_blobs_fetched_count,
+            pending = pending_blobs_fetched_count,
+            "blob fetched counts"
+        );
 
         // ---- RECALL READ REQUESTS
 
-        // Collect locally completed read requests from the pool. We're relying on the proposer's
-        // local view of request resolution, rather than considering those that _might_ have a
-        // quorum, but have not yet been resolved by _this_ proposer. However, a blob like this will
-        // get picked up by a different proposer who _does_ consider it resolved.
-        let locally_finalized_read_requests =
-            atomically(|| chain_env.read_request_pool.collect_done()).await;
-        tracing::debug!(
-            size = locally_finalized_read_requests.len(),
-            "locally finalized read requests"
-        );
-
-        // If the local read request pool is empty and there are no finalized requests,
-        // but there are pending requests on-chain,
-        // we may have restarted the validator,
-        // in which case we can hydrate the pool here.
-        let num_pending_read_reqs = atomically(|| chain_env.read_request_pool.count()).await;
-        if num_pending_read_reqs.is_zero() && locally_finalized_read_requests.is_empty() {
+        // If the local read request pool is empty and there are pending requests on-chain,
+        // we may have restarted the validator. We can hydrate the pool here.
+        let (mut local_read_reqs_count, local_finalized_read_reqs) =
+            atomically(|| chain_env.read_request_pool.collect()).await;
+        let mut pending_read_reqs_fetched_count = 0;
+        if local_read_reqs_count.is_zero() {
             let pending_reqs = with_state_transaction(&mut state, |state| {
                 let reqs = get_pending_read_requests(state, chain_env.read_request_concurrency)?;
-                tracing::debug!(
-                    size = reqs.len(),
-                    "pending read requests fetched from chain"
-                );
+                pending_read_reqs_fetched_count = reqs.len();
                 Ok(reqs)
             })?;
 
+            // Add them to the resolution pool
             for (id, blob_hash, offset, len, callback_addr, callback_method) in pending_reqs {
-                // Add the request to the resolution pool
                 atomically(|| {
                     chain_env.read_request_pool.add(ReadRequestPoolItem {
                         id,
@@ -456,47 +450,25 @@ where
                     })
                 })
                 .await;
-            }
-        }
-
-        // Get pending read requests from the blob_reader actor
-        let open_read_reqs_fetch_count = chain_env
-            .read_request_concurrency
-            .saturating_sub(num_pending_read_reqs as u32);
-        if !open_read_reqs_fetch_count.is_zero() {
-            let open_requests = with_state_transaction(&mut state, |state| {
-                let requests = get_open_read_requests(state, chain_env.read_request_concurrency)?;
-                tracing::debug!(
-                    size = requests.len(),
-                    "open read requests fetched from chain"
-                );
-                Ok(requests)
-            })?;
-
-            // Create IPC messages to add read requests to the pool
-            for (id, blob_hash, offset, len, callback_addr, callback_method) in open_requests {
-                msgs.push(ChainMessage::Ipc(IpcMessage::ReadRequestPending(
-                    PendingReadRequest {
-                        id,
-                        blob_hash,
-                        offset,
-                        len,
-                        callback: (callback_addr, callback_method),
-                    },
-                )));
+                local_read_reqs_count += 1;
             }
         }
 
         // Create IPC messages for finalized read requests.
         //
+        // We're relying on the proposer's local view of resolution, rather than considering
+        // those that _might_ have a quorum, but have not yet been resolved by _this_ proposer.
+        // However, a case like this will get picked up by a different proposer who _does_ consider
+        // it resolved.
+        //
         // If the request has already been finalized, i.e., it was proposed in an earlier block with
         // a quorum that did not include _this_ proposer, we can just remove it from the local
         // resolve pool. If we were to propose it, it would be rejected in the process step.
-        if !locally_finalized_read_requests.is_empty() {
+        if !local_finalized_read_reqs.is_empty() {
             let mut read_requests: Vec<ChainMessage> = vec![];
             // We start a blockstore transaction that can be reverted
             state.state_tree_mut().begin_transaction();
-            for item in locally_finalized_read_requests.iter() {
+            for item in local_finalized_read_reqs.iter() {
                 // Check if the read request is closed, i.e., not open or pending.
                 // If a request is not found in actor state but exists in the pool,
                 // it is considered closed.
@@ -546,10 +518,44 @@ where
             // these are going to be reproposed in the next block.
             msgs.extend(read_requests);
         }
-        let pending_read_requests = atomically(|| chain_env.read_request_pool.count()).await;
-        tracing::info!(
-            size = pending_read_requests,
-            "locally resolving read requests"
+
+        // Get open read requests from the blob_reader actor
+        let local_resolving_read_reqs_count =
+            local_read_reqs_count.saturating_sub(local_finalized_read_reqs.len());
+        let open_read_reqs_fetch_count = chain_env
+            .read_request_concurrency
+            .saturating_sub(local_resolving_read_reqs_count as u32);
+        let mut open_read_reqs_fetched_count = 0;
+        if !open_read_reqs_fetch_count.is_zero() {
+            let open_requests = with_state_transaction(&mut state, |state| {
+                let requests = get_open_read_requests(state, chain_env.read_request_concurrency)?;
+                open_read_reqs_fetched_count = requests.len();
+                Ok(requests)
+            })?;
+
+            // Create IPC messages to add read requests to the pool
+            for (id, blob_hash, offset, len, callback_addr, callback_method) in open_requests {
+                msgs.push(ChainMessage::Ipc(IpcMessage::ReadRequestPending(
+                    PendingReadRequest {
+                        id,
+                        blob_hash,
+                        offset,
+                        len,
+                        callback: (callback_addr, callback_method),
+                    },
+                )));
+            }
+        }
+
+        tracing::debug!(
+            resolving = local_resolving_read_reqs_count,
+            finalized = local_finalized_read_reqs.len(),
+            "read request pool counts"
+        );
+        tracing::debug!(
+            open = open_read_reqs_fetched_count,
+            pending = pending_read_reqs_fetched_count,
+            "read request fetched counts"
         );
 
         Ok(msgs)
@@ -564,18 +570,22 @@ where
         let mut block_gas_usage = 0;
 
         // Collect info about current blob pool
-        let num_pending_blobs = atomically(|| chain_env.blob_pool.count()).await;
-        let num_new_pending_blobs_allowed = chain_env
-            .blob_concurrency
-            .saturating_sub(num_pending_blobs as u32);
-        let mut num_new_pending_blobs = 0;
+        let num_new_pending_blobs_allowed = atomically(|| {
+            chain_env
+                .blob_pool
+                .get_capacity(chain_env.blob_concurrency as usize)
+        })
+        .await;
+        let mut new_pending_blobs_count = 0;
 
         // Collect info about current read request pool
-        let num_pending_read_reqs = atomically(|| chain_env.read_request_pool.count()).await;
-        let num_new_pending_read_reqs_allowed = chain_env
-            .read_request_concurrency
-            .saturating_sub(num_pending_read_reqs as u32);
-        let mut num_new_pending_read_reqs = 0;
+        let num_new_pending_read_reqs_allowed = atomically(|| {
+            chain_env
+                .read_request_pool
+                .get_capacity(chain_env.read_request_concurrency as usize)
+        })
+        .await;
+        let mut new_pending_read_reqs_count = 0;
 
         for msg in msgs {
             match msg {
@@ -642,8 +652,8 @@ where
 
                     // Reject the proposal if the current processor is not keeping up with blob
                     // resolving.
-                    num_new_pending_blobs += 1;
-                    if num_new_pending_blobs > num_new_pending_blobs_allowed {
+                    new_pending_blobs_count += 1;
+                    if new_pending_blobs_count > num_new_pending_blobs_allowed {
                         tracing::warn!("too many blobs pending; rejecting proposal");
                         return Ok(false);
                     }
@@ -713,8 +723,8 @@ where
 
                     // Reject the proposal if the current processor is not keeping up with read
                     // requests.
-                    num_new_pending_read_reqs += 1;
-                    if num_new_pending_read_reqs > num_new_pending_read_reqs_allowed {
+                    new_pending_read_reqs_count += 1;
+                    if new_pending_read_reqs_count > num_new_pending_read_reqs_allowed {
                         tracing::warn!("too many read requests pending; rejecting proposal");
                         return Ok(false);
                     }
