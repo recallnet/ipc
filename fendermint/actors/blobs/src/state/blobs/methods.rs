@@ -834,7 +834,7 @@ impl State {
         let (_, next_key) = blobs.for_each_ranged(
             starting_key.as_ref(),
             limit.map(|l| l as usize),
-            |hash, blob| -> Result<(), ActorError> {
+            |hash, blob| -> Result<bool, ActorError> {
                 let subscribers = blob.subscribers.hamt(store)?;
                 if let Some(group) = subscribers.get(&subscriber)? {
                     let group_hamt = group.hamt(store)?;
@@ -880,7 +880,7 @@ impl State {
                         }
                     }
                 }
-                Ok(())
+                Ok(true)
             },
         )?;
 

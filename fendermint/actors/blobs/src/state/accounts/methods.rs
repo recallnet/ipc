@@ -16,7 +16,7 @@ use crate::state::DeleteBlobStateParams;
 use crate::State;
 
 impl State {
-    /// Returns an [`Account'] by address.
+    /// Returns an [`Account`] by address.
     pub fn get_account<BS: Blockstore>(
         &self,
         store: &BS,
@@ -136,7 +136,7 @@ impl State {
                 let debit = self.get_debit_for_caller(&caller, debit_duration);
                 self.debit_caller(&mut caller, &debit, current_epoch);
                 caller.save(&mut writer)?;
-                Ok(())
+                Ok(true)
             },
         )?;
 
