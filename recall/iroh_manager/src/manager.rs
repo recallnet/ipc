@@ -2,7 +2,7 @@
 // Copyright 2022-2024 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::net::SocketAddr;
+use std::net::{SocketAddr, SocketAddrV4, SocketAddrV6};
 use std::path::Path;
 
 use anyhow::Result;
@@ -21,9 +21,14 @@ pub struct IrohManager {
 }
 
 impl IrohManager {
-    pub async fn new(path: impl AsRef<Path>, rpc_addr: Option<SocketAddr>) -> Result<Self> {
+    pub async fn new(
+        v4_addr: Option<SocketAddrV4>,
+        v6_addr: Option<SocketAddrV6>,
+        path: impl AsRef<Path>,
+        rpc_addr: Option<SocketAddr>,
+    ) -> Result<Self> {
         let storage_path = path.as_ref().to_path_buf();
-        let client = IrohNode::persistent(&storage_path).await?;
+        let client = IrohNode::persistent(v4_addr, v6_addr, &storage_path).await?;
 
         // setup an RPC listener
         let rpc_addr = rpc_addr.unwrap_or_else(|| "127.0.0.1:0".parse().unwrap());
@@ -88,7 +93,7 @@ mod tests {
         tracing_subscriber::fmt().init();
         let dir = tempfile::tempdir()?;
 
-        let iroh = IrohManager::new(dir.path(), None).await?;
+        let iroh = IrohManager::new(None, None, dir.path(), None).await?;
 
         let tags: Vec<_> = (0..10).map(|i| format!("tag-{i}")).collect();
 

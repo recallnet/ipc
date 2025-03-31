@@ -59,7 +59,7 @@ const CHUNK_SIZE: u64 = 1024;
 cmd! {
     ObjectsArgs(self, settings: ObjectsSettings) {
         match self.command.clone() {
-            ObjectsCommands::Run { tendermint_url, iroh_path, iroh_resolver_rpc_addr } => {
+            ObjectsCommands::Run { tendermint_url, iroh_path, iroh_resolver_rpc_addr, iroh_v4_addr, iroh_v6_addr } => {
                 if settings.metrics.enabled {
                     info!(
                         listen_addr = settings.metrics.listen.to_string(),
@@ -72,7 +72,7 @@ cmd! {
                 }
 
                 let client = FendermintClient::new_http(tendermint_url, None)?;
-                let iroh_node = IrohNode::persistent(iroh_path).await?;
+                let iroh_node = IrohNode::persistent(iroh_v4_addr, iroh_v6_addr, iroh_path).await?;
                 let iroh_resolver_node = connect_rpc(iroh_resolver_rpc_addr).await?;
 
                 // Admin routes

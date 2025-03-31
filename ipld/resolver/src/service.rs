@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 use std::collections::HashMap;
-use std::net::SocketAddr;
+use std::net::{SocketAddr, SocketAddrV4, SocketAddrV6};
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -100,8 +100,15 @@ pub struct Config {
     pub membership: MembershipConfig,
     pub connection: ConnectionConfig,
     pub content: ContentConfig,
-    pub iroh_path: PathBuf,
-    pub iroh_rpc_addr: SocketAddr,
+    pub iroh: IrohConfig,
+}
+
+#[derive(Debug, Clone)]
+pub struct IrohConfig {
+    pub v4_addr: Option<SocketAddrV4>,
+    pub v6_addr: Option<SocketAddrV6>,
+    pub path: PathBuf,
+    pub rpc_addr: SocketAddr,
 }
 
 /// Internal requests to enqueue to the [`Service`]
@@ -213,8 +220,7 @@ where
         let (request_tx, request_rx) = mpsc::unbounded_channel();
         let (event_tx, _) = broadcast::channel(config.connection.event_buffer_capacity as usize);
 
-        let iroh_path = config.iroh_path;
-        let iroh_rpc_addr = config.iroh_rpc_addr;
+        let iroh = config.iroh;
 
         let service = Self {
             peer_id,
@@ -229,7 +235,8 @@ where
                 config.connection.expected_peer_count,
             ),
             max_peers_per_query: config.connection.max_peers_per_query as usize,
-            iroh: IrohManager::new(iroh_path, Some(iroh_rpc_addr)).await?,
+            iroh: IrohManager::new(iroh.v4_addr, iroh.v6_addr, iroh.path, Some(iroh.rpc_addr))
+                .await?,
         };
 
         Ok(service)

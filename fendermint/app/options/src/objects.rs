@@ -2,7 +2,7 @@
 // Copyright 2022-2024 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::net::SocketAddr;
+use std::net::{SocketAddr, SocketAddrV4, SocketAddrV6};
 use std::path::PathBuf;
 
 use clap::{Args, Subcommand};
@@ -31,5 +31,11 @@ pub enum ObjectsCommands {
         /// The rpc address of the resolver iroh (blobs) RPC
         #[arg(long, env = "IROH_RESOLVER_RPC_ADDR")]
         iroh_resolver_rpc_addr: SocketAddr,
+        /// The ipv4 address iroh will bind ond
+        #[arg(long, env = "IROH_V4_ADDR")]
+        iroh_v4_addr: Option<SocketAddrV4>,
+        /// The ipv6 address iroh will bind ond
+        #[arg(long, env = "IROH_V6_ADDR")]
+        iroh_v6_addr: Option<SocketAddrV6>,
     },
 }

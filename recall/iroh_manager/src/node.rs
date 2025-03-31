@@ -2,6 +2,7 @@
 // Copyright 2022-2024 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::net::{SocketAddrV4, SocketAddrV6};
 use std::path::Path;
 use std::time::Duration;
 
@@ -65,7 +66,14 @@ const GC_DURATION: Duration = Duration::from_secs(300);
 
 impl IrohNode {
     /// Creates a new persistent iroh node in the specified location.
-    pub async fn persistent(path: impl AsRef<Path>) -> Result<Self> {
+    ///
+    /// If the addrs are set to `None` will bind to the unspecified network addr
+    /// on port `0`, aka a randomport.
+    pub async fn persistent(
+        v4_addr: Option<SocketAddrV4>,
+        v6_addr: Option<SocketAddrV6>,
+        path: impl AsRef<Path>,
+    ) -> Result<Self> {
         // TODO: enable metrics
 
         let root = path.as_ref();
@@ -77,11 +85,15 @@ impl IrohNode {
         tokio::fs::create_dir_all(&blobs_path).await?;
         let secret_key = load_secret_key(secret_key_path).await?;
 
-        let endpoint = Endpoint::builder()
-            .discovery_n0()
-            .secret_key(secret_key)
-            .bind()
-            .await?;
+        let mut endpoint = Endpoint::builder().discovery_n0().secret_key(secret_key);
+        if let Some(v4) = v4_addr {
+            endpoint = endpoint.bind_addr_v4(v4);
+        }
+        if let Some(v6) = v6_addr {
+            endpoint = endpoint.bind_addr_v6(v6);
+        }
+
+        let endpoint = endpoint.bind().await?;
         let blobs = Blobs::persistent(path).await?.build(&endpoint);
         blobs.start_gc(GcConfig {
             period: GC_DURATION,
