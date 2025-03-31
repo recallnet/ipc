@@ -5,7 +5,7 @@
 use fendermint_actor_blobs_shared::state::Hash;
 use fvm_shared::address::Address;
 use fvm_shared::MethodNum;
-use recall_actor_sdk::TryIntoEVMEvent;
+use recall_actor_sdk::evm::TryIntoEVMEvent;
 use recall_sol_facade::blob_reader as sol;
 use recall_sol_facade::primitives::U256;
 use recall_sol_facade::types::H160;

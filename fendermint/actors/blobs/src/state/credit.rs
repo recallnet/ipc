@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod methods;
-mod state;
+mod params;
 #[cfg(test)]
 mod tests;
 
-pub use state::*;
+pub use params::*;

@@ -12,7 +12,7 @@ use fil_actors_runtime::{actor_error, ActorError};
 use fvm_shared::address::Address;
 use fvm_shared::clock::ChainEpoch;
 use num_traits::Zero;
-use recall_actor_sdk::TryIntoEVMEvent;
+use recall_actor_sdk::evm::TryIntoEVMEvent;
 use recall_sol_facade::blobs as sol;
 use recall_sol_facade::primitives::U256;
 use recall_sol_facade::types::{BigUintWrapper, SolCall, SolInterface, H160};
@@ -101,11 +101,11 @@ impl TryIntoEVMEvent for BlobDeleted<'_> {
 
 // ----- Calls ----- //
 
-pub fn can_handle(input_data: &recall_actor_sdk::InputData) -> bool {
+pub fn can_handle(input_data: &recall_actor_sdk::evm::InputData) -> bool {
     Calls::valid_selector(input_data.selector())
 }
 
-pub fn parse_input(input: &recall_actor_sdk::InputData) -> Result<Calls, ActorError> {
+pub fn parse_input(input: &recall_actor_sdk::evm::InputData) -> Result<Calls, ActorError> {
     Calls::abi_decode_raw(input.selector(), input.calldata(), true)
         .map_err(|e| actor_error!(illegal_argument, format!("invalid call: {}", e)))
 }

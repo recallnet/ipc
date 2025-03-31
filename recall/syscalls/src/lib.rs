@@ -14,7 +14,7 @@ use recall_kernel_ops::RecallOps;
 use tokio::{spawn, sync::Mutex};
 
 pub const MODULE_NAME: &str = "recall";
-pub const HASHRM_SYSCALL_FUNCTION_NAME: &str = "hash_rm";
+pub const DELETE_BLOB_SYSCALL_FUNCTION_NAME: &str = "delete_blob";
 
 const ENV_IROH_ADDR: &str = "IROH_RPC_ADDR";
 static IROH_INSTANCE: Lazy<Arc<Mutex<IrohManager>>> = Lazy::new(|| {
@@ -28,7 +28,8 @@ fn hash_source(bytes: &[u8]) -> Result<[u8; 32]> {
         .map_err(|e| ExecutionError::Syscall(SyscallError::new(ErrorNumber::IllegalArgument, e)))
 }
 
-pub fn hash_rm(context: Context<'_, impl RecallOps>, hash_offset: u32) -> Result<()> {
+/// Deletes a blob by hash from backing storage.
+pub fn delete_blob(context: Context<'_, impl RecallOps>, hash_offset: u32) -> Result<()> {
     let hash_bytes = context.memory.try_slice(hash_offset, 32)?;
     let hash = Hash::from_bytes(hash_source(hash_bytes)?);
     let iroh = IROH_INSTANCE.clone();
@@ -43,7 +44,6 @@ pub fn hash_rm(context: Context<'_, impl RecallOps>, hash_offset: u32) -> Result
             }
         };
         // Deleting the tag will trigger deletion of the blob if it was the last reference.
-        // TODO: this needs to be tagged with a "user id"
         let tag = iroh::blobs::Tag(format!("stored-seq-{hash}").into());
         match iroh_client.tags().delete(tag.clone()).await {
             Ok(_) => tracing::debug!(tag = ?tag, hash = %hash, "removed content from Iroh"),

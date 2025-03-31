@@ -4,6 +4,9 @@
 
 use std::collections::HashMap;
 
+use fendermint_actor_blobs_shared::params::{
+    AddBlobParams, DeleteBlobParams, GetBlobParams, OverwriteBlobParams,
+};
 use fendermint_actor_blobs_shared::{
     add_blob, delete_blob, get_blob, has_credit_approval, overwrite_blob,
     state::{BlobInfo, BlobStatus, SubscriptionId},
@@ -14,9 +17,11 @@ use fil_actors_runtime::{
     runtime::{ActorCode, Runtime},
     ActorError,
 };
-
 use fvm_shared::address::Address;
-use recall_actor_sdk::{emit_evm_event, require_addr_is_origin_or_caller, to_id_address};
+use recall_actor_sdk::{
+    evm::emit_evm_event,
+    util::{require_addr_is_origin_or_caller, to_id_address},
+};
 use recall_ipld::hamt::BytesKey;
 
 use crate::shared::{
@@ -62,15 +67,19 @@ impl Actor {
                 // Overwrite if the flag is passed
                 overwrite_blob(
                     rt,
-                    from,
-                    object.hash,
-                    sub_id,
-                    params.hash,
-                    Some(state.owner),
-                    params.source,
-                    params.recovery_hash,
-                    params.size,
-                    params.ttl,
+                    OverwriteBlobParams {
+                        old_hash: object.hash,
+                        add: AddBlobParams {
+                            from,
+                            sponsor: Some(state.owner),
+                            source: params.source,
+                            hash: params.hash,
+                            metadata_hash: params.recovery_hash,
+                            id: sub_id,
+                            size: params.size,
+                            ttl: params.ttl,
+                        },
+                    },
                 )?
             } else {
                 // Return an error if no overwrite flag gets passed
@@ -82,14 +91,16 @@ impl Actor {
             // No object found, just a new blob
             add_blob(
                 rt,
-                params.from,
-                sub_id,
-                params.hash,
-                Some(state.owner),
-                params.source,
-                params.recovery_hash,
-                params.size,
-                params.ttl,
+                AddBlobParams {
+                    from,
+                    sponsor: Some(state.owner),
+                    source: params.source,
+                    hash: params.hash,
+                    metadata_hash: params.recovery_hash,
+                    id: sub_id,
+                    size: params.size,
+                    ttl: params.ttl,
+                },
             )?
         };
 
@@ -140,7 +151,15 @@ impl Actor {
             .ok_or(ActorError::illegal_state("object not found".into()))?;
 
         // Delete blob for object
-        delete_blob(rt, from, sub_id, object.hash, Some(state.owner))?;
+        delete_blob(
+            rt,
+            DeleteBlobParams {
+                from,
+                sponsor: Some(state.owner),
+                hash: object.hash,
+                id: sub_id,
+            },
+        )?;
 
         rt.transaction(|st: &mut State, rt| st.delete(rt.store(), &key))?;
 
@@ -158,7 +177,7 @@ impl Actor {
         let sub_id = get_blob_id(&state, &params.0)?;
         let key = BytesKey(params.0);
         if let Some(object_state) = state.get(rt.store(), &key)? {
-            if let Some(blob) = get_blob(rt, object_state.hash)? {
+            if let Some(blob) = get_blob(rt, GetBlobParams(object_state.hash))? {
                 let object = build_object(&blob, &object_state, sub_id, owner)?;
                 Ok(object)
             } else {
@@ -410,7 +429,7 @@ mod tests {
     use fvm_shared::{
         clock::ChainEpoch, econ::TokenAmount, error::ExitCode, sys::SendFlags, MethodNum,
     };
-    use recall_actor_sdk::to_actor_event;
+    use recall_actor_sdk::evm::to_actor_event;
 
     fn get_runtime() -> (MockRuntime, Address) {
         let origin_id_addr = Address::new_id(110);
@@ -801,10 +820,10 @@ mod tests {
             BLOBS_ACTOR_ADDR,
             BlobMethod::DeleteBlob as MethodNum,
             IpldBlock::serialize_cbor(&DeleteBlobParams {
+                from: origin,
                 sponsor: Some(origin),
                 hash: add_params.hash,
                 id: sub_id,
-                from: origin,
             })
             .unwrap(),
             TokenAmount::from_whole(0),
@@ -1088,10 +1107,10 @@ mod tests {
             // We do not care what is inside credit approval. We only care if it is present.
             IpldBlock::serialize_cbor::<Option<CreditApproval>>(&Some(CreditApproval {
                 credit_limit: None,
-                gas_fee_limit: None,
+                gas_allowance_limit: None,
                 expiry: None,
                 credit_used: TokenAmount::from_whole(0),
-                gas_fee_used: TokenAmount::from_whole(0),
+                gas_allowance_used: TokenAmount::from_whole(0),
             }))
             .unwrap(),
             ExitCode::OK,

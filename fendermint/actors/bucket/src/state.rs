@@ -12,11 +12,8 @@ use fendermint_actor_machine::{Kind, MachineAddress, MachineState};
 use fil_actors_runtime::ActorError;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::tuple::*;
-use fvm_shared::address::Address;
-use fvm_shared::clock::ChainEpoch;
-use recall_ipld::hamt;
-use recall_ipld::hamt::map::TrackedFlushResult;
-use recall_ipld::hamt::{BytesKey, MapKey};
+use fvm_shared::{address::Address, clock::ChainEpoch};
+use recall_ipld::hamt::{self, map::TrackedFlushResult, BytesKey, MapKey};
 use serde::{Deserialize, Serialize};
 
 const MAX_LIST_LIMIT: usize = 1000;
@@ -784,7 +781,7 @@ mod tests {
             "test/hello".as_bytes().to_vec(),
         );
 
-        // List without prefix and limit 1
+        // List without a prefix and limit 1
         let result = list(&state, &store, vec![], "/".as_bytes().to_vec(), None, 1);
         assert!(result.is_ok());
         let result = result.unwrap();
