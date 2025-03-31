@@ -1,6 +1,7 @@
 // Copyright 2022-2024 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -51,7 +52,7 @@ use fendermint_vm_iroh_resolver::observe::{
 
 cmd! {
   RunArgs(self, settings) {
-      run(settings, self.iroh_path.clone()).await
+      run(settings, self.iroh_path.clone(), self.iroh_rpc_addr.clone()).await
   }
 }
 
@@ -68,7 +69,11 @@ namespaces! {
 /// Run the Fendermint ABCI Application.
 ///
 /// This method acts as our composition root.
-async fn run(settings: Settings, iroh_path: PathBuf) -> anyhow::Result<()> {
+async fn run(
+    settings: Settings,
+    iroh_path: PathBuf,
+    iroh_rpc_addr: SocketAddr,
+) -> anyhow::Result<()> {
     let tendermint_rpc_url = settings.tendermint_rpc_url()?;
     info!("Connecting to Tendermint at {tendermint_rpc_url}");
 
@@ -187,14 +192,13 @@ async fn run(settings: Settings, iroh_path: PathBuf) -> anyhow::Result<()> {
             state_store.clone(),
             ns.bit_store,
             iroh_path,
+            iroh_rpc_addr,
         )
         .await?;
 
         // set iroh RPC config for SYSCALL
         let rpc_addr = service.iroh().rpc_addr().to_string();
         std::env::set_var("IROH_SYSCALL_RPC_ADDR", rpc_addr);
-        let rpc_key = hex::encode(service.iroh().rpc_key());
-        std::env::set_var("IROH_SYSCALL_RPC_KEY", rpc_key);
 
         // Register all metrics from the IPLD resolver stack
         if let Some(ref registry) = metrics_registry {
@@ -474,6 +478,7 @@ async fn make_resolver_service(
     state_store: NamespaceBlockstore,
     bit_store_ns: String,
     iroh_path: PathBuf,
+    iroh_rpc_addr: SocketAddr,
 ) -> anyhow::Result<ipc_ipld_resolver::Service<libipld::DefaultParams, AppVote>> {
     // Blockstore for Bitswap.
     let bit_store = NamespaceBlockstore::new(db, bit_store_ns).context("error creating bit DB")?;
@@ -481,8 +486,8 @@ async fn make_resolver_service(
     // Blockstore for Bitswap with a fallback on the actor store for reads.
     let bitswap_store = BitswapBlockstore::new(state_store, bit_store);
 
-    let config =
-        to_resolver_config(settings, iroh_path).context("error creating resolver config")?;
+    let config = to_resolver_config(settings, iroh_path, iroh_rpc_addr)
+        .context("error creating resolver config")?;
 
     let service = ipc_ipld_resolver::Service::new(config, bitswap_store)
         .await
@@ -516,6 +521,7 @@ fn make_ipc_provider_proxy(settings: &Settings) -> anyhow::Result<IPCProviderPro
 fn to_resolver_config(
     settings: &Settings,
     iroh_path: PathBuf,
+    iroh_rpc_addr: SocketAddr,
 ) -> anyhow::Result<ipc_ipld_resolver::Config> {
     use ipc_ipld_resolver::{
         Config, ConnectionConfig, ContentConfig, DiscoveryConfig, MembershipConfig, NetworkConfig,
@@ -566,6 +572,7 @@ fn to_resolver_config(
             rate_limit_period: r.content.rate_limit_period,
         },
         iroh_path,
+        iroh_rpc_addr,
     };
 
     Ok(config)

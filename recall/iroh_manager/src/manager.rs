@@ -10,7 +10,7 @@ use iroh_blobs::rpc::proto::RpcService;
 use n0_future::task::AbortOnDropHandle;
 use quic_rpc::client::QuinnConnector;
 
-use crate::{IrohBlobsClient, IrohNode};
+use crate::{BlobsClient, IrohNode};
 
 #[derive(Debug)]
 pub struct IrohManager {
@@ -21,12 +21,12 @@ pub struct IrohManager {
 }
 
 impl IrohManager {
-    pub async fn new(path: impl AsRef<Path>) -> Result<Self> {
+    pub async fn new(path: impl AsRef<Path>, rpc_addr: Option<SocketAddr>) -> Result<Self> {
         let storage_path = path.as_ref().to_path_buf();
         let client = IrohNode::persistent(&storage_path).await?;
 
         // setup an RPC listener
-        let rpc_addr: SocketAddr = "127.0.0.1:0".parse()?;
+        let rpc_addr = rpc_addr.unwrap_or_else(|| "127.0.0.1:0".parse().unwrap());
 
         let (config, server_key) = quic_rpc::transport::quinn::configure_server()?;
         let endpoint = iroh_quinn::Endpoint::server(config, rpc_addr)?;
@@ -47,8 +47,8 @@ impl IrohManager {
     }
 
     /// Retrives a blob client, and starts the node if it has not started yet.
-    pub fn blobs_client(&self) -> &IrohBlobsClient {
-        self.client.blobs_client()
+    pub fn blobs_client(&self) -> BlobsClient {
+        self.client.blobs_client().boxed()
     }
 
     /// Returns the key for the RPC client.
@@ -64,9 +64,9 @@ impl IrohManager {
 pub type BlobsRpcClient = iroh_blobs::rpc::client::blobs::Client<QuinnConnector<RpcService>>;
 
 /// Connect to the given rpc listening on this address, with this key.
-pub async fn connect(remote_addr: SocketAddr, key: &[u8]) -> Result<BlobsRpcClient> {
+pub async fn connect(remote_addr: SocketAddr) -> Result<BlobsClient> {
     let bind_addr: SocketAddr = "127.0.0.1:0".parse()?;
-    let client = quic_rpc::transport::quinn::make_client_endpoint(bind_addr, &[key])?;
+    let client = quic_rpc::transport::quinn::make_insecure_client_endpoint(bind_addr)?;
     let client = QuinnConnector::<iroh_blobs::rpc::proto::RpcService>::new(
         client,
         remote_addr,
@@ -74,7 +74,7 @@ pub async fn connect(remote_addr: SocketAddr, key: &[u8]) -> Result<BlobsRpcClie
     );
     let client = quic_rpc::RpcClient::<iroh_blobs::rpc::proto::RpcService, _>::new(client);
     let client = iroh_blobs::rpc::client::blobs::Client::new(client);
-    Ok(client)
+    Ok(client.boxed())
 }
 
 #[cfg(test)]
@@ -88,7 +88,7 @@ mod tests {
         tracing_subscriber::fmt().init();
         let dir = tempfile::tempdir()?;
 
-        let iroh = IrohManager::new(dir.path()).await?;
+        let iroh = IrohManager::new(dir.path(), None).await?;
 
         let tags: Vec<_> = (0..10).map(|i| format!("tag-{i}")).collect();
 
@@ -108,10 +108,9 @@ mod tests {
         assert_eq!(existing_tags.len(), 10);
 
         let t = tags.clone();
-        let rpc_key = iroh.rpc_key().to_vec();
         let rpc_addr = iroh.rpc_addr();
         let task = tokio::task::spawn(async move {
-            let client = connect(rpc_addr, &rpc_key).await?;
+            let client = connect(rpc_addr).await?;
 
             for tag in t {
                 client.tags().delete(tag).await?;

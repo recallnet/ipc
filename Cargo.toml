@@ -271,6 +271,7 @@ tendermint-proto = { version = "0.31" }
 # [patch."https://github.com/recallnet/entanglement.git"]
 # entangler = { package = "recall_entangler", path = "../entanglement/entangler" }
 # entangler_storage = { package = "recall_entangler_storage", path = "../entanglement/storage" }
+iroh-blobs = { git = "https://github.com/n0-computer/iroh-blobs", branch = "allow-boxed-client" }
 
 [profile.wasm]
 inherits = "release"

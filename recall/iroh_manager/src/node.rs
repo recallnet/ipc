@@ -15,7 +15,7 @@ use iroh_blobs::util::fs::load_secret_key;
 use quic_rpc::server::{ChannelTypes, RpcChannel, RpcServerError};
 use tracing::info;
 
-use crate::IrohBlobsClient;
+use crate::BlobsClient;
 
 /// Wrapper around and iroh `Endpoint` and the functionality
 /// to handle blobs.
@@ -27,15 +27,21 @@ pub struct IrohNode {
 
 #[derive(Debug, Clone)]
 pub(crate) enum BlobsWrapper {
-    Mem(Blobs<iroh_blobs::store::mem::Store>),
-    Fs(Blobs<iroh_blobs::store::fs::Store>),
+    Mem {
+        blobs: Blobs<iroh_blobs::store::mem::Store>,
+        client: BlobsClient,
+    },
+    Fs {
+        blobs: Blobs<iroh_blobs::store::fs::Store>,
+        client: BlobsClient,
+    },
 }
 
 impl BlobsWrapper {
-    fn client(&self) -> &IrohBlobsClient {
+    fn client(&self) -> &BlobsClient {
         match self {
-            BlobsWrapper::Mem(b) => b.client(),
-            BlobsWrapper::Fs(b) => b.client(),
+            BlobsWrapper::Mem { ref client, .. } => client,
+            BlobsWrapper::Fs { ref client, .. } => client,
         }
     }
 
@@ -48,8 +54,8 @@ impl BlobsWrapper {
         C: ChannelTypes<RpcService>,
     {
         match self {
-            BlobsWrapper::Mem(b) => b.handle_rpc_request(msg, chan).await,
-            BlobsWrapper::Fs(b) => b.handle_rpc_request(msg, chan).await,
+            BlobsWrapper::Mem { blobs, .. } => blobs.handle_rpc_request(msg, chan).await,
+            BlobsWrapper::Fs { blobs, .. } => blobs.handle_rpc_request(msg, chan).await,
         }
     }
 }
@@ -87,9 +93,10 @@ impl IrohNode {
             .spawn()
             .await?;
 
+        let client = blobs.client().boxed();
         Ok(Self {
             router,
-            blobs: BlobsWrapper::Fs(blobs),
+            blobs: BlobsWrapper::Fs { blobs, client },
         })
     }
 
@@ -107,9 +114,10 @@ impl IrohNode {
             .accept(iroh_blobs::ALPN, blobs.clone())
             .spawn()
             .await?;
+        let client = blobs.client().boxed();
         Ok(Self {
             router,
-            blobs: BlobsWrapper::Mem(blobs),
+            blobs: BlobsWrapper::Mem { blobs, client },
         })
     }
 
@@ -119,7 +127,7 @@ impl IrohNode {
     }
 
     /// Returns the blobs client, necessary to interact with the blobs API:
-    pub fn blobs_client(&self) -> &IrohBlobsClient {
+    pub fn blobs_client(&self) -> &BlobsClient {
         self.blobs.client()
     }
 }

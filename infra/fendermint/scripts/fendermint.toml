@@ -35,6 +35,7 @@ docker run \
   --env FM_CHAIN_NAME=${NETWORK_NAME} \
   --env TENDERMINT_RPC_URL=http://${CMT_CONTAINER_NAME}:26657 \
   --env IROH_PATH=/data/${NODE_NAME}/iroh-fendermint \
+  --env IROH_RPC_ADDR=0.0.0.0:4919 \
   --env RUST_BACKTRACE=1 \
   --entrypoint ${ENTRY} \
   ${FM_DOCKER_IMAGE} \
@@ -89,6 +90,7 @@ docker run \
   --env FM_VALIDATOR_KEY__KIND=ethereum \
   --env TENDERMINT_RPC_URL=http://${CMT_CONTAINER_NAME}:26657 \
   --env IROH_PATH=/data/${NODE_NAME}/iroh-fendermint \
+  --env IROH_RPC_ADDR=0.0.0.0:4919 \
   --env RUST_BACKTRACE=1 \
   ${FM_DOCKER_IMAGE} \
   --network=${FM_NETWORK} \
@@ -138,6 +140,7 @@ docker run \
   --env FM_TENDERMINT_RPC_URL=http://${CMT_CONTAINER_NAME}:26657 \
   --env TENDERMINT_RPC_URL=http://${CMT_CONTAINER_NAME}:26657 \
   --env IROH_PATH=/data/${NODE_NAME}/iroh-fendermint \
+  --env IROH_RPC_ADDR=0.0.0.0:4919 \
   --env RUST_BACKTRACE=1 \
   ${FM_DOCKER_IMAGE} \
   --network=${FM_NETWORK} \

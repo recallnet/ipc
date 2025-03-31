@@ -8,7 +8,7 @@ use fvm::kernel::{ExecutionError, Result, SyscallError};
 use fvm::syscalls::Context;
 use fvm_shared::error::ErrorNumber;
 use iroh_blobs::Hash;
-use iroh_manager::BlobsRpcClient;
+use iroh_manager::BlobsClient;
 use recall_kernel_ops::RecallOps;
 use tokio::sync::Mutex;
 
@@ -16,14 +16,12 @@ pub const MODULE_NAME: &str = "recall";
 pub const HASHRM_SYSCALL_FUNCTION_NAME: &str = "hash_rm";
 
 const ENV_IROH_RPC_ADDR: &str = "IROH_SYSCALL_RPC_ADDR";
-const ENV_IROH_RPC_KEY: &str = "IROH_SYSCALL_RPC_KEY";
 
-async fn connect_rpc() -> Option<BlobsRpcClient> {
+async fn connect_rpc() -> Option<BlobsClient> {
     let addr: SocketAddr = std::env::var(ENV_IROH_RPC_ADDR).ok()?.parse().ok()?;
-    let key = hex::decode(std::env::var(ENV_IROH_RPC_KEY).ok()?).ok()?;
-    iroh_manager::connect_rpc(addr, &key).await.ok()
+    iroh_manager::connect_rpc(addr).await.ok()
 }
-static IROH_RPC_CLIENT: Mutex<Option<BlobsRpcClient>> = Mutex::const_new(None);
+static IROH_RPC_CLIENT: Mutex<Option<BlobsClient>> = Mutex::const_new(None);
 
 fn hash_source(bytes: &[u8]) -> Result<[u8; 32]> {
     bytes

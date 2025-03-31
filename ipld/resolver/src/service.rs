@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 use std::collections::HashMap;
+use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -21,7 +22,7 @@ use iroh_blobs::net_protocol::DownloadMode;
 use iroh_blobs::rpc::client::blobs::{DownloadOptions, ReadAtLen};
 use iroh_blobs::util::SetTagOption;
 use iroh_blobs::{BlobFormat, Hash, Tag};
-use iroh_manager::{get_blob_hash_and_size, IrohBlobsClient, IrohManager};
+use iroh_manager::{get_blob_hash_and_size, BlobsClient, IrohManager};
 use libipld::store::StoreParams;
 use libipld::Cid;
 use libp2p::connection_limits::ConnectionLimits;
@@ -100,6 +101,7 @@ pub struct Config {
     pub connection: ConnectionConfig,
     pub content: ContentConfig,
     pub iroh_path: PathBuf,
+    pub iroh_rpc_addr: SocketAddr,
 }
 
 /// Internal requests to enqueue to the [`Service`]
@@ -212,6 +214,7 @@ where
         let (event_tx, _) = broadcast::channel(config.connection.event_buffer_capacity as usize);
 
         let iroh_path = config.iroh_path;
+        let iroh_rpc_addr = config.iroh_rpc_addr;
 
         let service = Self {
             peer_id,
@@ -226,7 +229,7 @@ where
                 config.connection.expected_peer_count,
             ),
             max_peers_per_query: config.connection.max_peers_per_query as usize,
-            iroh: IrohManager::new(iroh_path).await?,
+            iroh: IrohManager::new(iroh_path, Some(iroh_rpc_addr)).await?,
         };
 
         Ok(service)
@@ -664,7 +667,7 @@ pub fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox)> {
 }
 
 async fn download_blob(
-    iroh: &IrohBlobsClient,
+    iroh: &BlobsClient,
     seq_hash: Hash,
     size: u64,
     node_addr: NodeAddr,
@@ -705,7 +708,7 @@ async fn download_blob(
 }
 
 async fn read_blob(
-    iroh: &IrohBlobsClient,
+    iroh: &BlobsClient,
     hash: Hash,
     offset: u32,
     len: u32,

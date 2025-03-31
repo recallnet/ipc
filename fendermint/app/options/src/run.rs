@@ -1,6 +1,7 @@
 // Copyright 2022-2024 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::net::SocketAddr;
 use std::path::PathBuf;
 
 use clap::Args;
@@ -10,4 +11,7 @@ pub struct RunArgs {
     /// Storage path for the iroh node
     #[arg(long, env = "IROH_PATH")]
     pub iroh_path: PathBuf,
+    /// The address to bind the iroh (blobs) RPC to
+    #[arg(long, env = "IROH_RPC_ADDR")]
+    pub iroh_rpc_addr: SocketAddr,
 }

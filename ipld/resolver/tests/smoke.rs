@@ -320,6 +320,7 @@ async fn make_service(config: Config) -> (Service<TestStoreParams, TestVote>, Te
 fn make_config(rng: &mut StdRng, cluster_size: u32, bootstrap_addr: Option<Multiaddr>) -> Config {
     // currently leaks the directory
     let iroh_path = tempfile::tempdir().unwrap().into_path();
+    let iroh_rpc_addr = "127.0.0.1:0".parse().unwrap();
     let config = Config {
         connection: ConnectionConfig {
             listen_addr: Multiaddr::from(Protocol::Memory(rng.gen::<u64>())),
@@ -350,6 +351,7 @@ fn make_config(rng: &mut StdRng, cluster_size: u32, bootstrap_addr: Option<Multi
             rate_limit_period: Duration::from_secs(60),
         },
         iroh_path,
+        iroh_rpc_addr,
     };
 
     config

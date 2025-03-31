@@ -2,24 +2,25 @@
 // Copyright 2022-2024 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-pub type IrohBlobsClient = iroh_blobs::rpc::client::blobs::MemClient;
-
-mod manager;
-mod node;
-
-pub use self::manager::{connect as connect_rpc, BlobsRpcClient, IrohManager};
-pub use self::node::IrohNode;
-
 use anyhow::{anyhow, Result};
 use iroh_blobs::hashseq::HashSeq;
 use iroh_blobs::rpc::client::blobs::BlobStatus;
 use iroh_blobs::Hash;
 use num_traits::Zero;
 
+mod manager;
+mod node;
+
+pub use self::manager::{connect as connect_rpc, BlobsRpcClient, IrohManager};
+pub use self::node::IrohNode;
+pub use quic_rpc::Connector;
+
+pub type BlobsClient = iroh_blobs::rpc::client::blobs::Client;
+
 /// Returns the user blob hash and size from the hash sequence.
 /// The user blob hash is the first hash in the sequence.
 pub async fn get_blob_hash_and_size(
-    iroh: &IrohBlobsClient,
+    iroh: &BlobsClient,
     seq_hash: Hash,
 ) -> Result<(Hash, u64), anyhow::Error> {
     // Get the hash sequence status (it needs to be available)

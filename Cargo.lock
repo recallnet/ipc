@@ -6763,8 +6763,7 @@ dependencies = [
 [[package]]
 name = "iroh-blobs"
 version = "0.34.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c8d7a6872c7ec4a2613d0386b4dc19b5f3cf4822d81361c5136a63fd56ba2372"
+source = "git+https://github.com/n0-computer/iroh-blobs?branch=allow-boxed-client#68967f9fb3f8ab93a2a80723820876913ec70717"
 dependencies = [
  "anyhow",
  "async-channel 2.3.1",
@@ -10310,7 +10309,7 @@ dependencies = [
 [[package]]
 name = "recall_entangler"
 version = "0.1.0"
-source = "git+https://github.com/recallnet/entanglement.git?branch=feat-iroh-33#247dc4bbcff89345325ff09cea2b5ca4ff385efd"
+source = "git+https://github.com/recallnet/entanglement.git?branch=feat-iroh-33#239ae99f41d48dda20c83e7b72fa5570be01c5df"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -10329,7 +10328,7 @@ dependencies = [
 [[package]]
 name = "recall_entangler_storage"
 version = "0.1.0"
-source = "git+https://github.com/recallnet/entanglement.git?branch=feat-iroh-33#247dc4bbcff89345325ff09cea2b5ca4ff385efd"
+source = "git+https://github.com/recallnet/entanglement.git?branch=feat-iroh-33#239ae99f41d48dda20c83e7b72fa5570be01c5df"
 dependencies = [
  "anyhow",
  "async-trait",

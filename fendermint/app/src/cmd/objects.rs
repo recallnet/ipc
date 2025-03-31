@@ -27,7 +27,7 @@ use iroh::NodeAddr;
 use iroh_blobs::hashseq::HashSeq;
 use iroh_blobs::BlobFormat;
 use iroh_blobs::{rpc::client::blobs::BlobStatus, util::SetTagOption, Hash};
-use iroh_manager::{get_blob_hash_and_size, IrohNode};
+use iroh_manager::{connect_rpc, get_blob_hash_and_size, BlobsClient, IrohNode};
 use lazy_static::lazy_static;
 use mime_guess::get_mime_extensions_str;
 use prometheus::{register_histogram, register_int_counter, Histogram, IntCounter};
@@ -59,7 +59,7 @@ const CHUNK_SIZE: u64 = 1024;
 cmd! {
     ObjectsArgs(self, settings: ObjectsSettings) {
         match self.command.clone() {
-            ObjectsCommands::Run { tendermint_url, iroh_path } => {
+            ObjectsCommands::Run { tendermint_url, iroh_path, iroh_resolver_rpc_addr } => {
                 if settings.metrics.enabled {
                     info!(
                         listen_addr = settings.metrics.listen.to_string(),
@@ -73,6 +73,7 @@ cmd! {
 
                 let client = FendermintClient::new_http(tendermint_url, None)?;
                 let iroh_node = IrohNode::persistent(iroh_path).await?;
+                let iroh_resolver_node = connect_rpc(iroh_resolver_rpc_addr).await?;
 
                 // Admin routes
                 let health = warp::path!("health")
@@ -98,7 +99,7 @@ cmd! {
                 .and(warp::header::optional::<String>("Range"))
                 .and(warp::query::<HeightQuery>())
                 .and(with_client(client.clone()))
-                .and(with_iroh(iroh_node.clone()))
+                .and(with_iroh_blobs(iroh_resolver_node.clone()))
                 .and_then(handle_object_download);
 
                 let router = health
@@ -128,6 +129,12 @@ fn with_client(
 }
 
 fn with_iroh(client: IrohNode) -> impl Filter<Extract = (IrohNode,), Error = Infallible> + Clone {
+    warp::any().map(move || client.clone())
+}
+
+fn with_iroh_blobs(
+    client: BlobsClient,
+) -> impl Filter<Extract = (BlobsClient,), Error = Infallible> + Clone {
     warp::any().map(move || client.clone())
 }
 
@@ -429,7 +436,7 @@ async fn handle_object_upload(
         }
     };
 
-    let ent = new_entangler(&iroh).map_err(|e| {
+    let ent = new_entangler(iroh.blobs_client()).map_err(|e| {
         Rejection::from(BadRequest {
             message: format!("failed to create entangler: {}", e),
         })
@@ -525,9 +532,9 @@ async fn tag_entangled_data(
     Ok(hash_seq_hash)
 }
 
-fn new_entangler(iroh: &IrohNode) -> Result<Entangler<EntanglerIrohStorage>, entangler::Error> {
+fn new_entangler(iroh: &BlobsClient) -> Result<Entangler<EntanglerIrohStorage>, entangler::Error> {
     Entangler::new(
-        EntanglerIrohStorage::from_client(iroh.blobs_client().clone()),
+        EntanglerIrohStorage::from_client(iroh.clone()),
         Config::new(ENTANGLER_ALPHA, ENTANGLER_S, ENTANGLER_P),
     )
 }
@@ -578,7 +585,7 @@ async fn handle_object_download<F: QueryClient + Send + Sync>(
     range: Option<String>,
     height_query: HeightQuery,
     client: F,
-    iroh: IrohNode,
+    iroh: BlobsClient,
 ) -> Result<impl Reply, Rejection> {
     let address = parse_address(&address).map_err(|e| {
         Rejection::from(BadRequest {
@@ -602,13 +609,11 @@ async fn handle_object_download<F: QueryClient + Send + Sync>(
     match maybe_object {
         Some(object) => {
             let seq_hash = Hash::from_bytes(object.hash.0);
-            let (hash, size) = get_blob_hash_and_size(iroh.blobs_client(), seq_hash)
-                .await
-                .map_err(|e| {
-                    Rejection::from(BadRequest {
-                        message: e.to_string(),
-                    })
-                })?;
+            let (hash, size) = get_blob_hash_and_size(&iroh, seq_hash).await.map_err(|e| {
+                Rejection::from(BadRequest {
+                    message: e.to_string(),
+                })
+            })?;
 
             let ent = new_entangler(&iroh).map_err(|e| {
                 Rejection::from(BadRequest {
@@ -929,7 +934,7 @@ mod tests {
     /// and properly tagging the hash sequence
     async fn simulate_blob_upload(iroh: &IrohNode, data: impl Into<Bytes>) -> (Hash, Hash) {
         let data = data.into(); // Convert to Bytes first, which implements Send
-        let ent = new_entangler(iroh).unwrap();
+        let ent = new_entangler(iroh.blobs_client()).unwrap();
         let data_stream = Box::pin(futures::stream::once(async move {
             Ok::<Bytes, std::io::Error>(data)
         }));
@@ -948,7 +953,7 @@ mod tests {
         .chain(
             metadata
                 .parity_hashes
-                .values()
+                .iter()
                 .map(|hash| Hash::from_str(hash).unwrap()),
         )
         .collect::<HashSeq>();
@@ -1122,7 +1127,7 @@ mod tests {
             None,
             HeightQuery { height: Some(1) },
             mock_client,
-            iroh.clone(),
+            iroh.blobs_client().clone(),
         )
         .await;
 
@@ -1167,7 +1172,7 @@ mod tests {
             Some("bytes=0-4".to_string()),
             HeightQuery { height: Some(1) },
             mock_client,
-            iroh.clone(),
+            iroh.blobs_client().clone(),
         )
         .await;
         assert!(result.is_ok(), "{:#?}", result.err());
@@ -1200,7 +1205,7 @@ mod tests {
             None,
             HeightQuery { height: Some(1) },
             mock_client,
-            iroh.clone(),
+            iroh.blobs_client().clone(),
         )
         .await;
 
