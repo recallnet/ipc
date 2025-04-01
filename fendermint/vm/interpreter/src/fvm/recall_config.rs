@@ -5,7 +5,8 @@
 use crate::fvm::FvmMessage;
 use anyhow::{bail, Context};
 use fendermint_actor_blobs_shared::state::TokenCreditRate;
-use fendermint_actor_recall_config_shared::Method::GetConfig;
+use fendermint_actor_recall_config_v2_shared::Method::GetConfig;
+use fendermint_actor_recall_config_v2_shared::RecallConfig as RecallConfigV2;
 use fendermint_actor_recall_config_shared::RecallConfig;
 use fendermint_vm_actor_interface::recall_config::RECALL_CONFIG_ACTOR_ADDR;
 use fendermint_vm_actor_interface::system;
@@ -30,10 +31,11 @@ pub struct RecallConfigTracker {
     pub blob_delete_batch_size: u64,
     /// The number of accounts to debit in a single batch.
     pub account_debit_batch_size: u64,
+    pub new_config: u64,
 }
 
 impl RecallConfigTracker {
-    pub fn create<E: Executor>(executor: &mut E) -> anyhow::Result<RecallConfigTracker> {
+    pub fn create<E: Executor>(executor: &mut E, chain_epoch: ChainEpoch) -> anyhow::Result<RecallConfigTracker> {
         let mut ret = Self {
             blob_capacity: Zero::zero(),
             token_credit_rate: TokenCreditRate::from(0usize),
@@ -42,17 +44,33 @@ impl RecallConfigTracker {
             blob_default_ttl: Zero::zero(),
             blob_delete_batch_size: Zero::zero(),
             account_debit_batch_size: Zero::zero(),
+            new_config: 0
         };
 
-        let reading = Self::read_recall_config(executor)?;
+        if chain_epoch <= 25 {
+            let reading = Self::read_recall_config(executor)?;
 
-        ret.blob_capacity = reading.blob_capacity;
-        ret.token_credit_rate = reading.token_credit_rate;
-        ret.blob_credit_debit_interval = reading.blob_credit_debit_interval;
-        ret.blob_min_ttl = reading.blob_min_ttl;
-        ret.blob_default_ttl = reading.blob_default_ttl;
-        ret.blob_delete_batch_size = reading.blob_delete_batch_size;
-        ret.account_debit_batch_size = reading.account_debit_batch_size;
+            ret.blob_capacity = reading.blob_capacity;
+            ret.token_credit_rate = reading.token_credit_rate;
+            ret.blob_credit_debit_interval = reading.blob_credit_debit_interval;
+            ret.blob_min_ttl = reading.blob_min_ttl;
+            ret.blob_default_ttl = reading.blob_default_ttl;
+            ret.blob_delete_batch_size = reading.blob_delete_batch_size;
+            ret.account_debit_batch_size = reading.account_debit_batch_size;
+
+            return Ok(ret)
+        }
+
+        let reading_v2 = Self::read_recall_config_v2(executor)?;
+
+        ret.blob_capacity = reading_v2.blob_capacity;
+        ret.token_credit_rate = TokenCreditRate::from(reading_v2.token_credit_rate.rate().clone());
+        ret.blob_credit_debit_interval = reading_v2.blob_credit_debit_interval;
+        ret.blob_min_ttl = reading_v2.blob_min_ttl;
+        ret.blob_default_ttl = reading_v2.blob_default_ttl;
+        ret.blob_delete_batch_size = reading_v2.blob_delete_batch_size;
+        ret.account_debit_batch_size = reading_v2.account_debit_batch_size;
+        ret.new_config = reading_v2.new_config;
 
         Ok(ret)
     }
@@ -78,6 +96,30 @@ impl RecallConfigTracker {
         }
 
         fvm_ipld_encoding::from_slice::<RecallConfig>(&apply_ret.msg_receipt.return_data)
+            .context("failed to parse recall config")
+    }
+
+    pub fn read_recall_config_v2<E: Executor>(executor: &mut E) -> anyhow::Result<RecallConfigV2> {
+        let msg = FvmMessage {
+            from: system::SYSTEM_ACTOR_ADDR,
+            to: RECALL_CONFIG_ACTOR_ADDR,
+            sequence: 0, // irrelevant for implicit executions.
+            gas_limit: i64::MAX as u64,
+            method_num: GetConfig as u64,
+            params: fvm_ipld_encoding::RawBytes::default(),
+            value: Default::default(),
+            version: Default::default(),
+            gas_fee_cap: Default::default(),
+            gas_premium: Default::default(),
+        };
+
+        let apply_ret = Self::apply_implicit_message(executor, msg)?;
+
+        if let Some(err) = apply_ret.failure_info {
+            bail!("failed to acquire recall config: {}", err);
+        }
+
+        fvm_ipld_encoding::from_slice::<RecallConfigV2>(&apply_ret.msg_receipt.return_data)
             .context("failed to parse recall config")
     }
 

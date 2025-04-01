@@ -3550,6 +3550,7 @@ dependencies = [
  "fvm_shared",
  "num-derive 0.3.3",
  "num-traits",
+ "recall_actor_sdk",
  "recall_ipld",
  "serde",
 ]
@@ -3559,6 +3560,59 @@ name = "fendermint_actor_blobs_testing"
 version = "0.1.0"
 dependencies = [
  "fendermint_actor_blobs_shared",
+ "fvm_shared",
+ "iroh-base",
+ "rand",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "fendermint_actor_blobs_v2"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "fendermint_actor_blobs_v2_shared",
+ "fendermint_actor_blobs_v2_testing",
+ "fendermint_actor_machine",
+ "fendermint_actor_recall_config_v2_shared",
+ "fil_actors_evm_shared",
+ "fil_actors_runtime",
+ "fvm_ipld_blockstore",
+ "fvm_ipld_encoding",
+ "fvm_shared",
+ "hex-literal 0.4.1",
+ "log",
+ "num-traits",
+ "rand",
+ "recall_actor_sdk",
+ "recall_ipld",
+ "recall_sol_facade",
+ "serde",
+]
+
+[[package]]
+name = "fendermint_actor_blobs_v2_shared"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "data-encoding",
+ "fil_actors_runtime",
+ "frc42_dispatch",
+ "fvm_ipld_blockstore",
+ "fvm_ipld_encoding",
+ "fvm_shared",
+ "num-derive 0.3.3",
+ "num-traits",
+ "recall_actor_sdk",
+ "recall_ipld",
+ "serde",
+]
+
+[[package]]
+name = "fendermint_actor_blobs_v2_testing"
+version = "0.1.0"
+dependencies = [
+ "fendermint_actor_blobs_v2_shared",
  "fvm_shared",
  "iroh-base",
  "rand",
@@ -3702,6 +3756,39 @@ dependencies = [
 ]
 
 [[package]]
+name = "fendermint_actor_recall_config_v2"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "fendermint_actor_blobs_v2_shared",
+ "fendermint_actor_machine",
+ "fendermint_actor_recall_config_v2_shared",
+ "fil_actors_evm_shared",
+ "fil_actors_runtime",
+ "fvm_ipld_encoding",
+ "fvm_shared",
+ "hex-literal 0.4.1",
+ "num-traits",
+ "recall_actor_sdk",
+ "recall_sol_facade",
+ "serde",
+]
+
+[[package]]
+name = "fendermint_actor_recall_config_v2_shared"
+version = "0.1.0"
+dependencies = [
+ "fendermint_actor_blobs_v2_shared",
+ "fil_actors_runtime",
+ "frc42_dispatch",
+ "fvm_ipld_encoding",
+ "fvm_shared",
+ "num-derive 0.3.3",
+ "num-traits",
+ "serde",
+]
+
+[[package]]
 name = "fendermint_actor_timehub"
 version = "0.1.0"
 dependencies = [
@@ -3734,11 +3821,13 @@ dependencies = [
  "fendermint_actor_activity_tracker",
  "fendermint_actor_blob_reader",
  "fendermint_actor_blobs",
+ "fendermint_actor_blobs_v2",
  "fendermint_actor_bucket",
  "fendermint_actor_chainmetadata",
  "fendermint_actor_eam",
  "fendermint_actor_gas_market_eip1559",
  "fendermint_actor_recall_config",
+ "fendermint_actor_recall_config_v2",
  "fendermint_actor_timehub",
  "fil_actor_bundler",
  "fil_actors_runtime",
@@ -3797,6 +3886,7 @@ dependencies = [
  "fendermint_rpc",
  "fendermint_storage",
  "fendermint_tracing",
+ "fendermint_upgrades",
  "fendermint_vm_actor_interface",
  "fendermint_vm_core",
  "fendermint_vm_encoding",
@@ -4164,6 +4254,48 @@ dependencies = [
 ]
 
 [[package]]
+name = "fendermint_upgrades"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "arbitrary",
+ "arbtest",
+ "async-trait",
+ "byteorder",
+ "bytes",
+ "cid",
+ "ethers",
+ "fendermint_actor_blobs_v2",
+ "fendermint_actor_blobs_v2_shared",
+ "fendermint_actor_recall_config",
+ "fendermint_actor_recall_config_shared",
+ "fendermint_actor_recall_config_v2",
+ "fendermint_actor_recall_config_v2_shared",
+ "fendermint_actors",
+ "fendermint_actors_api",
+ "fendermint_crypto",
+ "fendermint_vm_actor_interface",
+ "fendermint_vm_core",
+ "fendermint_vm_genesis",
+ "fendermint_vm_interpreter",
+ "fendermint_vm_message",
+ "fvm",
+ "fvm_ipld_blockstore",
+ "fvm_ipld_car",
+ "fvm_ipld_encoding",
+ "fvm_shared",
+ "hex",
+ "ipc-api",
+ "ipc_actors_abis",
+ "lazy_static",
+ "multihash 0.18.1",
+ "rand",
+ "tendermint-rpc",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "fendermint_vm_actor_interface"
 version = "0.1.0"
 dependencies = [
@@ -4279,6 +4411,8 @@ dependencies = [
  "fendermint_actor_gas_market_eip1559",
  "fendermint_actor_recall_config",
  "fendermint_actor_recall_config_shared",
+ "fendermint_actor_recall_config_v2",
+ "fendermint_actor_recall_config_v2_shared",
  "fendermint_actor_timehub",
  "fendermint_actors",
  "fendermint_actors_api",

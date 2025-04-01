@@ -1,6 +1,6 @@
 [package]
-name = "fendermint_actor_blobs_shared"
-description = "Shared resources for blobs"
+name = "fendermint_actor_recall_config_v2_shared"
+description = "Shared resources for the recall config"
 license.workspace = true
 edition.workspace = true
 authors.workspace = true
@@ -12,19 +12,14 @@ version = "0.1.0"
 crate-type = ["cdylib", "lib"]
 
 [dependencies]
-anyhow = { workspace = true }
-data-encoding = { workspace = true }
+fendermint_actor_blobs_v2_shared = { path = "../../blobs_v2/shared" }
 fil_actors_runtime = { workspace = true }
 frc42_dispatch = { workspace = true }
-fvm_ipld_blockstore = { workspace = true }
 fvm_ipld_encoding = { workspace = true }
 fvm_shared = { workspace = true }
 num-derive = { workspace = true }
 num-traits = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
-
-recall_ipld = { path = "../../../../recall/ipld" }
-recall_actor_sdk = { path = "../../../../recall/actor_sdk" }
 
 [features]
 fil-actor = ["fil_actors_runtime/fil-actor"]

@@ -195,7 +195,7 @@ where
         let block_gas_tracker = BlockGasTracker::create(&mut executor)?;
         let base_fee = block_gas_tracker.base_fee().clone();
 
-        let recall_config_tracker = RecallConfigTracker::create(&mut executor)?;
+        let recall_config_tracker = RecallConfigTracker::create(&mut executor, block_height)?;
 
         Ok(Self {
             executor,

@@ -1,0 +1,54 @@
+[package]
+name = "fendermint_upgrades"
+description = "Code upgrades"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow = { workspace = true }
+cid = { workspace = true }
+ethers = { workspace = true }
+fvm = { workspace = true }
+fvm_shared = { workspace = true, features  = ["crypto"] }
+fvm_ipld_blockstore = { workspace = true }
+fvm_ipld_car = { workspace = true }
+fvm_ipld_encoding = { workspace = true }
+hex = { workspace = true }
+multihash = { workspace = true }
+rand = { workspace = true }
+tendermint-rpc = { workspace = true }
+tracing = {workspace = true}
+tokio = { workspace = true }
+byteorder = { workspace = true }
+
+ipc-api = { workspace = true }
+ipc_actors_abis = { workspace = true }
+
+fendermint_actors_api = { workspace = true }
+fendermint_crypto = { path = "../crypto" }
+fendermint_vm_actor_interface = { path = "../vm/actor_interface" }
+fendermint_vm_core = { path = "../vm/core" }
+fendermint_vm_genesis = { path = "../vm/genesis" }
+fendermint_vm_message = { path = "../vm/message" }
+fendermint_vm_interpreter = { path = "../vm/interpreter", features = [
+    "bundle", "test-util"
+] }
+
+fendermint_actors = { path = "../actors" }
+fendermint_actor_blobs_v2 = { path = "../actors/blobs_v2" }
+fendermint_actor_blobs_v2_shared = { path = "../actors/blobs_v2/shared" }
+fendermint_actor_recall_config = { path = "../actors/recall_config" }
+fendermint_actor_recall_config_shared = { path = "../actors/recall_config/shared" }
+fendermint_actor_recall_config_v2 = { path = "../actors/recall_config_v2" }
+fendermint_actor_recall_config_v2_shared = { path = "../actors/recall_config_v2/shared" }
+
+[dev-dependencies]
+arbitrary = { workspace = true }
+arbtest = { workspace = true }
+async-trait = { workspace = true }
+rand = { workspace = true }
+lazy_static = { workspace = true }
+bytes = { workspace = true }
+fvm = { workspace = true, features = ["testing"] }

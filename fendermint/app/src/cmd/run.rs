@@ -14,7 +14,7 @@ use fendermint_rocksdb::{blockstore::NamespaceBlockstore, namespaces, RocksDb, R
 use fendermint_vm_actor_interface::eam::EthAddress;
 use fendermint_vm_interpreter::chain::ChainEnv;
 use fendermint_vm_interpreter::fvm::observe::register_metrics as register_interpreter_metrics;
-use fendermint_vm_interpreter::fvm::upgrades::UpgradeScheduler;
+use fendermint_vm_interpreter::fvm::upgrades::{Upgrade, UpgradeScheduler};
 use fendermint_vm_interpreter::{
     bytes::{BytesMessageInterpreter, ProposalPrepareMode},
     chain::{BlobPool, ChainMessageInterpreter, CheckpointPool, ReadRequestPool},
@@ -32,6 +32,7 @@ use fendermint_vm_topdown::{
     CachedFinalityProvider, IPCBlobFinality, IPCParentFinality, IPCReadRequestClosed, Toggle,
 };
 use fvm_shared::address::{current_network, Address, Network};
+use fvm_shared::chainid::ChainID;
 use ipc_ipld_resolver::{Event as ResolverEvent, VoteRecord};
 use ipc_observability::{emit, observe::register_metrics as register_default_metrics};
 use ipc_provider::config::subnet::{EVMSubnet, SubnetConfig};
@@ -43,6 +44,7 @@ use tracing::{debug, error, info, warn};
 use crate::cmd::key::read_secret_key;
 use crate::{cmd, options::run::RunArgs, settings::Settings};
 use fendermint_app::observe::register_metrics as register_consensus_metrics;
+use fendermint_upgrades::recall_config_v2;
 use fendermint_vm_iroh_resolver::observe::{
     register_metrics as register_blobs_metrics, BlobsFinalityVotingFailure,
     BlobsFinalityVotingSuccess, ReadRequestsCloseVoting,
@@ -148,13 +150,17 @@ async fn run(settings: Settings, iroh_addr: String) -> anyhow::Result<()> {
         other => other,
     };
 
+    let mut scheduler = UpgradeScheduler::new();
+    //scheduler.add(Upgrade::new_by_id(ChainID::from(248163216), 200, None, recall_config_v2::upgrade))?;
+    scheduler.add(Upgrade::new_by_id(ChainID::from(1942764459484029), 25, Some(1), recall_config_v2::upgrade))?;
+
     let interpreter = FvmMessageInterpreter::<NamespaceBlockstore, _>::new(
         tendermint_client.clone(),
         validator_ctx,
         settings.fvm.gas_overestimation_rate,
         settings.fvm.gas_search_step,
         settings.fvm.exec_in_check,
-        UpgradeScheduler::new(),
+        scheduler,
     )
     .with_push_chain_meta(testing_settings.map_or(true, |t| t.push_chain_meta));
 
