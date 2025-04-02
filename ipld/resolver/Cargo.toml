@@ -1,6 +1,6 @@
 [package]
 name = "ipc_ipld_resolver"
-version = "0.1.0"
+version.workspace = true
 description = "P2P library to resolve IPLD content across IPC subnets."
 authors.workspace = true
 edition.workspace = true

@@ -4,7 +4,7 @@ description = "Actor for bucket object storage"
 license.workspace = true
 edition.workspace = true
 authors.workspace = true
-version = "0.1.0"
+version.workspace = true
 
 [lib]
 ## lib is necessary for integration tests
@@ -25,10 +25,10 @@ num-traits = { workspace = true }
 recall_sol_facade = { workspace = true, features = ["bucket"] }
 serde = { workspace = true, features = ["derive"] }
 
-recall_fendermint_actor_blobs_shared = { path = "../blobs/shared", version = "0.1.0" }
-recall_fendermint_actor_machine = { path = "../machine", version = "0.1.0" }
-recall_ipld = { path = "../../../recall/ipld", version = "0.1.0" }
-recall_actor_sdk = { path = "../../../recall/actor_sdk", version= "0.1.0" }
+recall_fendermint_actor_blobs_shared = { workspace = true }
+recall_fendermint_actor_machine = { workspace = true }
+recall_ipld = { workspace = true }
+recall_actor_sdk = { workspace = true }
 
 [dev-dependencies]
 recall_fil_actors_evm_shared = { workspace = true }

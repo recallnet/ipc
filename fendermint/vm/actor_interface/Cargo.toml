@@ -1,10 +1,10 @@
 [package]
 name = "recall_fendermint_vm_actor_interface"
 description = "Re-export interfaces of built-in actors, either copied versions or from direct project reference."
-version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+version.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -34,11 +34,11 @@ recall_ipc_api = { workspace = true }
 # hardcoded method hashes than what we care to maintain, but currently there is only one.
 # recall_frc42_dispatch = { workspace = true }
 
-recall_merkle_tree_rs = { path = "../../../ext/merkle-tree-rs", version = "0.1.0" }
+recall_merkle_tree_rs = { workspace = true }
 
-recall_fendermint_vm_genesis = { path = "../genesis", version = "0.1.0" }
-recall_fendermint_crypto = { path = "../../crypto", version = "0.1.0" }
-recall_fendermint_actor_machine = { path = "../../actors/machine", version = "0.1.0" }
+recall_fendermint_vm_genesis = { workspace = true }
+recall_fendermint_crypto = { workspace = true }
+recall_fendermint_actor_machine = { workspace = true }
 
 [dev-dependencies]
 ethers-core = { workspace = true }

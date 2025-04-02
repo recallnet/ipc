@@ -1,11 +1,11 @@
 [package]
 name = "recall_fendermint_vm_genesis"
 description = "Genesis data used to initialize the FVM state when the chain is created"
-version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
+version.workspace = true
 
 [dependencies]
 anyhow = { workspace = true }

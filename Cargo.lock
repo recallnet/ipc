@@ -10319,7 +10319,7 @@ dependencies = [
 
 [[package]]
 name = "recall_frc42_dispatch"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "fvm_ipld_encoding",
  "fvm_sdk",
@@ -10331,7 +10331,7 @@ dependencies = [
 
 [[package]]
 name = "recall_frc42_hasher"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "fvm_sdk",
  "fvm_shared",
@@ -10340,7 +10340,7 @@ dependencies = [
 
 [[package]]
 name = "recall_frc42_macros"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "blake2b_simd",
  "proc-macro2",

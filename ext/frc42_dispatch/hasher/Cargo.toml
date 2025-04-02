@@ -1,6 +1,6 @@
 [package]
 name = "recall_frc42_hasher"
-version = "0.0.0"
+version.workspace = true
 license = "MIT OR Apache-2.0"
 description = "Filecoin FRC-0042 calling convention method hashing"
 repository = "https://github.com/helix-onchain/filecoin/"

@@ -1,11 +1,11 @@
 [package]
 name = "recall_fendermint_rpc"
 description = "Utilities working with the tendermint_rpc library to provide an API facade for Fendermint"
-version = "0.1.0"
 repository.workspace = true
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+version.workspace = true
 
 [dependencies]
 anyhow = { workspace = true }

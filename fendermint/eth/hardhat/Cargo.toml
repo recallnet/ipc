@@ -1,7 +1,7 @@
 [package]
 name = "fendermint_eth_hardhat"
 description = "Utilities to deal with Hardhat build artifacts"
-version = "0.1.0"
+version.workspace = true
 authors.workspace = true
 edition.workspace = true
 license.workspace = true

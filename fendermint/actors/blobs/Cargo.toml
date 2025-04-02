@@ -4,7 +4,7 @@ description = "Singleton actor for blob management"
 license.workspace = true
 edition.workspace = true
 authors.workspace = true
-version = "0.1.0"
+version.workspace = true
 
 [lib]
 ## lib is necessary for integration tests
