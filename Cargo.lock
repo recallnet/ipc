@@ -3509,7 +3509,7 @@ dependencies = [
  "rand",
  "recall_actor_sdk",
  "recall_ipld",
- "recall_sol_facade",
+ "recall_sol_facade 0.1.0",
  "serde",
 ]
 
@@ -3533,7 +3533,7 @@ dependencies = [
  "rand",
  "recall_actor_sdk",
  "recall_ipld",
- "recall_sol_facade",
+ "recall_sol_facade 0.1.0",
  "serde",
 ]
 
@@ -3589,7 +3589,7 @@ dependencies = [
  "quickcheck_macros",
  "recall_actor_sdk",
  "recall_ipld",
- "recall_sol_facade",
+ "recall_sol_facade 0.1.0",
  "serde",
 ]
 
@@ -3665,7 +3665,7 @@ dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared",
  "recall_actor_sdk",
- "recall_sol_facade",
+ "recall_sol_facade 0.1.0",
  "serde",
 ]
 
@@ -3684,7 +3684,7 @@ dependencies = [
  "hex-literal 0.4.1",
  "num-traits",
  "recall_actor_sdk",
- "recall_sol_facade",
+ "recall_sol_facade 0.1.0",
  "serde",
 ]
 
@@ -3721,7 +3721,7 @@ dependencies = [
  "num-derive 0.3.3",
  "num-traits",
  "recall_actor_sdk",
- "recall_sol_facade",
+ "recall_sol_facade 0.1.0",
  "serde",
  "tracing",
 ]
@@ -4523,6 +4523,7 @@ dependencies = [
  "multihash 0.18.1",
  "num-derive 0.3.3",
  "num-traits",
+ "recall_sol_facade 0.1.1",
  "serde",
 ]
 
@@ -10375,7 +10376,7 @@ dependencies = [
  "fvm_sdk",
  "fvm_shared",
  "num-traits",
- "recall_sol_facade",
+ "recall_sol_facade 0.1.0",
  "serde",
 ]
 
@@ -10435,6 +10436,30 @@ dependencies = [
 [[package]]
 name = "recall_sol_facade"
 version = "0.1.0"
+dependencies = [
+ "alloy-primitives",
+ "alloy-sol-macro-expander",
+ "alloy-sol-macro-input",
+ "alloy-sol-types",
+ "anyhow",
+ "dunce",
+ "eyre",
+ "fvm_ipld_encoding",
+ "fvm_shared",
+ "prettyplease",
+ "proc-macro2",
+ "quote",
+ "regex",
+ "serde",
+ "serde_json",
+ "syn 2.0.98",
+ "thiserror 2.0.11",
+ "walkdir",
+]
+
+[[package]]
+name = "recall_sol_facade"
+version = "0.1.1"
 dependencies = [
  "alloy-primitives",
  "alloy-sol-macro-expander",
