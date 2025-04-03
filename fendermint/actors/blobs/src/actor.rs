@@ -17,7 +17,8 @@ use recall_fendermint_actor_blobs_shared::params::{
     SetSponsorParams, TrimBlobExpiriesParams, UpdateGasAllowanceParams,
 };
 use recall_fendermint_actor_blobs_shared::state::{
-    AccountInfo, BlobInfo, BlobRequest, BlobStatus, Credit, CreditApproval, GasAllowance, Hash, Subscription,
+    AccountInfo, BlobInfo, BlobRequest, BlobStatus, Credit, CreditApproval, GasAllowance, Hash,
+    Subscription,
 };
 use recall_fendermint_actor_blobs_shared::Method;
 use recall_fendermint_actor_recall_config_shared::{get_config, require_caller_is_admin};
