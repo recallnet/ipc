@@ -3,8 +3,8 @@
 use fvm_shared::address::Address;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::econ::TokenAmount;
-use ipc_api::subnet_id::SubnetID;
 use num_traits::Num;
+use recall_ipc_api::subnet_id::SubnetID;
 use serde::de::{DeserializeOwned, Error};
 use serde::{de, Deserialize, Serialize, Serializer};
 use serde_with::{DeserializeAs, SerializeAs};
@@ -121,7 +121,7 @@ macro_rules! human_readable_str {
 /// human_readable_delegate!(Address);
 ///
 /// // Or in full form:
-/// human_readable_delegate!(Address: IsHumanReadable => fendermint_vm_encoding::IsHumanReadable);
+/// human_readable_delegate!(Address: IsHumanReadable => recall_fendermint_vm_encoding::IsHumanReadable);
 ///
 /// #[serde_as]
 /// #[derive(Serialize, Deserialize)]

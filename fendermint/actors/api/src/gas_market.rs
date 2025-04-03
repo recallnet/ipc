@@ -1,11 +1,11 @@
 // Copyright 2022-2024 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use fil_actors_runtime::runtime::Runtime;
-use fil_actors_runtime::ActorError;
 use fvm_ipld_encoding::tuple::*;
 use fvm_shared::econ::TokenAmount;
 use num_derive::FromPrimitive;
+use recall_fil_actors_runtime::runtime::Runtime;
+use recall_fil_actors_runtime::ActorError;
 
 pub type Gas = u64;
 
@@ -29,8 +29,8 @@ pub struct Utilization {
 #[derive(FromPrimitive)]
 #[repr(u64)]
 pub enum Method {
-    CurrentReading = frc42_dispatch::method_hash!("CurrentReading"),
-    UpdateUtilization = frc42_dispatch::method_hash!("UpdateUtilization"),
+    CurrentReading = recall_frc42_dispatch::method_hash!("CurrentReading"),
+    UpdateUtilization = recall_frc42_dispatch::method_hash!("UpdateUtilization"),
 }
 
 /// The trait to be implemented by a gas market actor, provided here for convenience,

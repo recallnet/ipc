@@ -1,6 +1,6 @@
 [package]
 name = "recall_executor"
-version = "0.1.0"
+version.workspace = true
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -18,8 +18,8 @@ num-traits = { workspace = true }
 replace_with = { workspace = true }
 tracing = { workspace = true }
 
-fendermint_actor_blobs_shared = { path = "../../fendermint/actors/blobs/shared" }
-fendermint_vm_actor_interface = { path = "../../fendermint/vm/actor_interface" }
+recall_fendermint_actor_blobs_shared = { path = "../../fendermint/actors/blobs/shared" }
+recall_fendermint_vm_actor_interface = { path = "../../fendermint/vm/actor_interface" }
 
 [features]
 testing = []

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 use ethers::utils::hex;
 use fvm_shared::{address::Address, econ::TokenAmount};
-use ipc_types::EthAddress;
+use recall_ipc_types::EthAddress;
 use serde::de::Error as SerdeError;
 use serde::{Deserialize, Serialize, Serializer};
 use std::str::FromStr;

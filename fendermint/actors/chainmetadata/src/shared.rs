@@ -98,7 +98,7 @@ pub struct PushBlockParams {
 #[repr(u64)]
 pub enum Method {
     Constructor = METHOD_CONSTRUCTOR,
-    PushBlockHash = frc42_dispatch::method_hash!("PushBlockHash"),
-    LookbackLen = frc42_dispatch::method_hash!("LookbackLen"),
-    GetBlockHash = frc42_dispatch::method_hash!("GetBlockHash"),
+    PushBlockHash = recall_frc42_dispatch::method_hash!("PushBlockHash"),
+    LookbackLen = recall_frc42_dispatch::method_hash!("LookbackLen"),
+    GetBlockHash = recall_frc42_dispatch::method_hash!("GetBlockHash"),
 }

@@ -124,9 +124,11 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         let actor_name = pkg
             .to_owned()
-            .strip_prefix("fendermint_actor_")
+            .strip_prefix("recall_fendermint_actor_")
             .ok_or_else(|| {
-                format!("expected fendermint_actor_ prefix in actor package name; got: {pkg}")
+                format!(
+                    "expected recall_fendermint_actor_ prefix in actor package name; got: {pkg}"
+                )
             })?
             .to_owned();
 

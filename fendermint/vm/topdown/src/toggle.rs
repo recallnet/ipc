@@ -8,8 +8,8 @@ use crate::{
 };
 use anyhow::anyhow;
 use async_stm::{Stm, StmResult};
-use ipc_api::cross::IpcEnvelope;
-use ipc_api::staking::StakingChangeRequest;
+use recall_ipc_api::cross::IpcEnvelope;
+use recall_ipc_api::staking::StakingChangeRequest;
 
 /// The parent finality provider could have all functionalities disabled.
 #[derive(Clone)]

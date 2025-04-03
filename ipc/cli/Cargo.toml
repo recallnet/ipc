@@ -1,6 +1,6 @@
 [package]
 name = "ipc-cli"
-version = "0.1.0"
+version.workspace = true
 edition.workspace = true
 license-file.workspace = true
 
@@ -18,7 +18,7 @@ clap_complete = "4.2.1"
 env_logger = "0.10.0"
 ethers = { workspace = true }
 ethers-contract = { workspace = true }
-fil_actors_runtime = { workspace = true }
+recall_fil_actors_runtime = { workspace = true }
 futures-util = { workspace = true }
 fvm_ipld_encoding = { workspace = true }
 fvm_shared = { workspace = true }
@@ -46,6 +46,6 @@ prometheus_exporter = { workspace = true }
 
 ipc-wallet = { workspace = true }
 ipc-provider = { workspace = true }
-ipc-api = { workspace = true }
-ipc-types = { workspace = true }
+recall_ipc_api = { workspace = true }
+recall_ipc_types = { workspace = true }
 tracing-subscriber.workspace = true

@@ -5,8 +5,8 @@
 use crate::config::Subnet;
 use anyhow::anyhow;
 use fvm_shared::address::{Address, Payload};
-use ipc_api::subnet_id::SubnetID;
-use ipc_types::EthAddress;
+use recall_ipc_api::subnet_id::SubnetID;
+use recall_ipc_types::EthAddress;
 use serde::ser::{Error, SerializeSeq};
 use serde::Serializer;
 use std::collections::HashMap;
@@ -68,8 +68,8 @@ mod tests {
     use crate::config::subnet::{EVMSubnet, SubnetConfig};
     use crate::config::{Config, Subnet};
     use fvm_shared::address::Address;
-    use ipc_api::subnet_id::SubnetID;
-    use ipc_types::EthAddress;
+    use recall_ipc_api::subnet_id::SubnetID;
+    use recall_ipc_types::EthAddress;
     use std::str::FromStr;
 
     const STR: &str = r#"

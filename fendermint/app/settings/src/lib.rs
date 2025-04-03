@@ -7,7 +7,7 @@ use fvm_shared::address::Address;
 use fvm_shared::bigint::Zero;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::econ::TokenAmount;
-use ipc_api::subnet_id::SubnetID;
+use recall_ipc_api::subnet_id::SubnetID;
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DurationSeconds};
 use std::fmt::{Display, Formatter};
@@ -18,8 +18,8 @@ use tendermint_rpc::Url;
 use testing::TestingSettings;
 use utils::EnvInterpol;
 
-use fendermint_vm_encoding::{human_readable_delegate, human_readable_str};
 use fendermint_vm_topdown::BlockHeight;
+use recall_fendermint_vm_encoding::{human_readable_delegate, human_readable_str};
 
 use self::eth::EthSettings;
 use self::fvm::FvmSettings;
@@ -37,7 +37,7 @@ pub mod utils;
 
 /// Marker to be used with the `#[serde_as(as = "IsHumanReadable")]` annotations.
 ///
-/// We can't just import `fendermint_vm_encoding::IsHumanReadable` because we can't implement traits for it here,
+/// We can't just import `recall_fendermint_vm_encoding::IsHumanReadable` because we can't implement traits for it here,
 /// however we can use the `human_readable_delegate!` macro to delegate from this to that for the types we need
 /// and it will look the same.
 struct IsHumanReadable;

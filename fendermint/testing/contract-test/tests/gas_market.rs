@@ -4,14 +4,7 @@
 mod staking;
 
 use async_trait::async_trait;
-use fendermint_actor_gas_market_eip1559::Constants;
 use fendermint_contract_test::Tester;
-use fendermint_crypto::{PublicKey, SecretKey};
-use fendermint_vm_actor_interface::eam::EthAddress;
-use fendermint_vm_actor_interface::gas_market::GAS_MARKET_ACTOR_ADDR;
-use fendermint_vm_actor_interface::system::SYSTEM_ACTOR_ADDR;
-use fendermint_vm_core::Timestamp;
-use fendermint_vm_genesis::{Account, Actor, ActorMeta, Genesis, PermissionMode, SignerAddr};
 use fendermint_vm_interpreter::fvm::store::memory::MemoryBlockstore;
 use fendermint_vm_interpreter::fvm::upgrades::{Upgrade, UpgradeScheduler};
 use fendermint_vm_interpreter::fvm::FvmMessageInterpreter;
@@ -25,6 +18,15 @@ use fvm_shared::version::NetworkVersion;
 use lazy_static::lazy_static;
 use rand::rngs::StdRng;
 use rand::SeedableRng;
+use recall_fendermint_actor_gas_market_eip1559::Constants;
+use recall_fendermint_crypto::{PublicKey, SecretKey};
+use recall_fendermint_vm_actor_interface::eam::EthAddress;
+use recall_fendermint_vm_actor_interface::gas_market::GAS_MARKET_ACTOR_ADDR;
+use recall_fendermint_vm_actor_interface::system::SYSTEM_ACTOR_ADDR;
+use recall_fendermint_vm_core::Timestamp;
+use recall_fendermint_vm_genesis::{
+    Account, Actor, ActorMeta, Genesis, PermissionMode, SignerAddr,
+};
 use tendermint_rpc::Client;
 
 lazy_static! {
@@ -295,7 +297,7 @@ async fn test_gas_market_upgrade() {
 }
 
 fn custom_gas_limit(block_gas_limit: u64) -> Message {
-    let gas_constants = fendermint_actor_gas_market_eip1559::SetConstants {
+    let gas_constants = recall_fendermint_actor_gas_market_eip1559::SetConstants {
         block_gas_limit,
         ..Default::default()
     };
@@ -306,7 +308,7 @@ fn custom_gas_limit(block_gas_limit: u64) -> Message {
         to: GAS_MARKET_ACTOR_ADDR,
         sequence: 0,
         value: Default::default(),
-        method_num: fendermint_actor_gas_market_eip1559::Method::SetConstants as u64,
+        method_num: recall_fendermint_actor_gas_market_eip1559::Method::SetConstants as u64,
         params: RawBytes::serialize(&gas_constants).unwrap(),
         gas_limit: 10000000,
         gas_fee_cap: Default::default(),

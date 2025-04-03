@@ -11,13 +11,13 @@ use crate::fvm::activity::ValidatorActivityTracker;
 use crate::ExecInterpreter;
 use anyhow::Context;
 use async_trait::async_trait;
-use fendermint_actors_api::gas_market::Reading;
-use fendermint_vm_actor_interface::{chainmetadata, cron, system};
 use fvm::executor::ApplyRet;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::event::StampedEvent;
 use fvm_shared::{address::Address, ActorID, MethodNum, BLOCK_GAS_LIMIT};
 use ipc_observability::{emit, measure_time, observe::TracingError, Traceable};
+use recall_fendermint_actors_api::gas_market::Reading;
+use recall_fendermint_vm_actor_interface::{chainmetadata, cron, system};
 use std::collections::HashMap;
 use tendermint_rpc::Client;
 
@@ -117,7 +117,7 @@ where
         if self.push_chain_meta {
             if let Some(block_hash) = state.block_hash() {
                 let params = fvm_ipld_encoding::RawBytes::serialize(
-                    fendermint_actor_chainmetadata::PushBlockParams {
+                    recall_fendermint_actor_chainmetadata::PushBlockParams {
                         epoch: height,
                         block: block_hash,
                     },
@@ -128,7 +128,7 @@ where
                     to: chainmetadata::CHAINMETADATA_ACTOR_ADDR,
                     sequence: height as u64,
                     gas_limit,
-                    method_num: fendermint_actor_chainmetadata::Method::PushBlockHash as u64,
+                    method_num: recall_fendermint_actor_chainmetadata::Method::PushBlockHash as u64,
                     params,
                     value: Default::default(),
                     version: Default::default(),

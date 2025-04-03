@@ -9,8 +9,8 @@ use crate::{
     ParentFinalityProvider, ParentViewProvider,
 };
 use async_stm::{Stm, StmResult};
-use ipc_api::cross::IpcEnvelope;
-use ipc_api::staking::StakingChangeRequest;
+use recall_ipc_api::cross::IpcEnvelope;
+use recall_ipc_api::staking::StakingChangeRequest;
 use std::sync::Arc;
 
 /// The finality provider that performs io to the parent if not found in cache
@@ -251,10 +251,10 @@ mod tests {
     use async_trait::async_trait;
     use fvm_shared::address::Address;
     use fvm_shared::econ::TokenAmount;
-    use ipc_api::cross::IpcEnvelope;
-    use ipc_api::staking::{StakingChange, StakingChangeRequest, StakingOperation};
-    use ipc_api::subnet_id::SubnetID;
     use ipc_provider::manager::{GetBlockHashResult, TopDownQueryPayload};
+    use recall_ipc_api::cross::IpcEnvelope;
+    use recall_ipc_api::staking::{StakingChange, StakingChangeRequest, StakingOperation};
+    use recall_ipc_api::subnet_id::SubnetID;
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::Arc;
     use std::time::Duration;

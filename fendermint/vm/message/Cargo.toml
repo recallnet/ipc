@@ -1,10 +1,10 @@
 [package]
-name = "fendermint_vm_message"
+name = "recall_fendermint_vm_message"
 description = "Messages (transactions) received on chain and passed on to the FVM"
-version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+version.workspace = true
 
 [dependencies]
 anyhow = { workspace = true }
@@ -24,13 +24,13 @@ thiserror = { workspace = true }
 
 fvm_shared = { workspace = true, features = ["crypto"] }
 fvm_ipld_encoding = { workspace = true }
-ipc-api = { workspace = true }
+recall_ipc_api = { workspace = true }
 
-fendermint_actor_blobs_shared = { path = "../../actors/blobs/shared" }
-fendermint_crypto = { path = "../../crypto" }
-fendermint_vm_encoding = { path = "../encoding" }
-fendermint_vm_actor_interface = { path = "../actor_interface" }
-fendermint_testing = { path = "../../testing", optional = true }
+recall_fendermint_actor_blobs_shared = { workspace = true }
+recall_fendermint_crypto = { workspace = true }
+recall_fendermint_vm_encoding = { workspace = true }
+recall_fendermint_vm_actor_interface = { workspace = true }
+recall_fendermint_testing = { workspace = true, optional = true }
 
 [dev-dependencies]
 ethers = { workspace = true }
@@ -42,8 +42,13 @@ quickcheck_macros = { workspace = true }
 # Ideally we could do this with `#[cfg(any(test, feature = "arb"))]`,
 # however in that case all the extra dependencies would not kick in,
 # and we'd have to repeat all those dependencies.
-fendermint_vm_message = { path = ".", features = ["arb"] }
-fendermint_testing = { path = "../../testing", features = ["golden"] }
+recall_fendermint_vm_message = { path = ".", features = ["arb"] }
+# `recall_fendermint_testing` is used by `recall_fendermint_vm_message`,
+# but only if the "arb" feature is enabled (which is only for tests). As
+# mentioned above, this means we have to have `recall_fendermint_testing`
+# as a dev-dep and dep, _and_ we have to have `recall_fendermint_vm_message`
+# as a dev-dep of itself... TODO: this seems hacky
+recall_fendermint_testing = { path = "../../testing", features = ["golden"] }
 
 [features]
 arb = [
@@ -52,5 +57,5 @@ arb = [
     "fvm_shared/arb",
     "cid/arb",
     "rand",
-    "fendermint_testing/arb",
+    "recall_fendermint_testing/arb",
 ]

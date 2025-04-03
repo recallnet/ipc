@@ -16,9 +16,9 @@ use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::crypto::signature::Signature;
 use fvm_shared::econ::TokenAmount;
-use ipc_api::subnet_id::SubnetID;
 use ipc_wallet::Wallet;
 use num_traits::cast::ToPrimitive;
+use recall_ipc_api::subnet_id::SubnetID;
 use serde::de::DeserializeOwned;
 use serde_json::json;
 
@@ -71,7 +71,7 @@ const STATE_WAIT_ALLOW_REPLACE: bool = true;
 /// ```no_run
 /// use ipc_provider::{lotus::LotusClient, lotus::client::LotusJsonRPCClient};
 /// use ipc_provider::jsonrpc::JsonRpcClientImpl;
-/// use ipc_api::subnet_id::SubnetID;
+/// use recall_ipc_api::subnet_id::SubnetID;
 ///
 /// #[tokio::main]
 /// async fn main() {

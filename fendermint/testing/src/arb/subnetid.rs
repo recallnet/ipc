@@ -1,7 +1,7 @@
 // Copyright 2022-2024 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 use fvm_shared::address::Address;
-use ipc_api::subnet_id::SubnetID;
+use recall_ipc_api::subnet_id::SubnetID;
 
 #[derive(Debug, Clone)]
 pub struct ArbSubnetAddress(pub Address);

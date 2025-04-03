@@ -1,13 +1,13 @@
 [package]
-name = "merkle-tree-rs"
-version = "0.1.0"
+name = "recall_merkle_tree_rs"
 edition = "2021"
 license = "MIT"
 rust-version = "1.65.0"
-authors = ["Ahiara Ikechukwu Marvellous <https://github.com/literallymarvellous>"]
+authors = ["Ahiara Ikechukwu Marvellous <https://github.com/literallymarvellous>", "Textile"]
 readme = "README.md"
 repository = "https://github.com/literallymarvellous/merkle-tree-rs"
-description = "A Rust library to generate merkle trees and merkle proofs."
+description = "A Recall clone of `literallymarvellous` Rust library to generate merkle trees and merkle proofs."
+version.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

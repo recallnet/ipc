@@ -6,14 +6,14 @@
 
 pub mod actor;
 
-use fendermint_crypto::PublicKey;
-use ipc_actors_abis::checkpointing_facet::{
+use recall_fendermint_crypto::PublicKey;
+use recall_ipc_actors_abis::checkpointing_facet::{
     AggregatedStats, CompressedActivityRollup, CompressedSummary, FullActivityRollup, FullSummary,
     ValidatorData,
 };
-use ipc_api::checkpoint::VALIDATOR_REWARD_FIELDS;
-use ipc_api::evm::payload_to_evm_address;
-use ipc_api::merkle::MerkleGen;
+use recall_ipc_api::checkpoint::VALIDATOR_REWARD_FIELDS;
+use recall_ipc_api::evm::payload_to_evm_address;
+use recall_ipc_api::merkle::MerkleGen;
 
 /// Wrapper for FullActivityRollup with some utility functions
 pub struct FullActivity(FullActivityRollup);
@@ -27,11 +27,11 @@ pub trait ValidatorActivityTracker {
     fn commit_activity(&mut self) -> anyhow::Result<FullActivity>;
 }
 
-impl TryFrom<fendermint_actor_activity_tracker::types::FullActivityRollup> for FullActivity {
+impl TryFrom<recall_fendermint_actor_activity_tracker::types::FullActivityRollup> for FullActivity {
     type Error = anyhow::Error;
 
     fn try_from(
-        value: fendermint_actor_activity_tracker::types::FullActivityRollup,
+        value: recall_fendermint_actor_activity_tracker::types::FullActivityRollup,
     ) -> Result<Self, Self::Error> {
         let stats = AggregatedStats {
             total_active_validators: value.consensus.stats.total_active_validators,
@@ -91,11 +91,11 @@ impl FullActivity {
 #[cfg(test)]
 mod tests {
     use crate::fvm::activity::FullActivity;
-    use ipc_actors_abis::checkpointing_facet::{
-        AggregatedStats, FullActivityRollup, FullSummary, ValidatorData,
-    };
     use rand::prelude::SliceRandom;
     use rand::thread_rng;
+    use recall_ipc_actors_abis::checkpointing_facet::{
+        AggregatedStats, FullActivityRollup, FullSummary, ValidatorData,
+    };
     use std::str::FromStr;
 
     #[test]

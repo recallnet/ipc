@@ -9,19 +9,19 @@ use anyhow::Context;
 use async_trait::async_trait;
 use bytes::Bytes;
 use fendermint_app_options::genesis::AccountKind;
-use fendermint_crypto::{to_b64, SecretKey};
-use fendermint_rpc::client::BoundFendermintClient;
-use fendermint_rpc::tx::{
-    AsyncResponse, BoundClient, CallClient, CommitResponse, SyncResponse, TxAsync, TxClient,
-    TxCommit, TxSync,
-};
-use fendermint_vm_core::chainid;
-use fendermint_vm_message::chain::ChainMessage;
-use fendermint_vm_message::query::FvmQueryHeight;
 use fvm_ipld_encoding::RawBytes;
 use fvm_shared::address::Address;
 use fvm_shared::econ::TokenAmount;
 use fvm_shared::MethodNum;
+use recall_fendermint_crypto::{to_b64, SecretKey};
+use recall_fendermint_rpc::client::BoundFendermintClient;
+use recall_fendermint_rpc::tx::{
+    AsyncResponse, BoundClient, CallClient, CommitResponse, SyncResponse, TxAsync, TxClient,
+    TxCommit, TxSync,
+};
+use recall_fendermint_vm_core::chainid;
+use recall_fendermint_vm_message::chain::ChainMessage;
+use recall_fendermint_vm_message::query::FvmQueryHeight;
 use serde::Serialize;
 use serde_json::json;
 use tendermint::abci::response::DeliverTx;
@@ -31,9 +31,9 @@ use tendermint_rpc::HttpClient;
 use crate::cmd;
 use crate::options::rpc::{BroadcastMode, FevmArgs, RpcFevmCommands, TransArgs};
 use crate::options::rpc::{RpcArgs, RpcCommands, RpcQueryCommands};
-use fendermint_rpc::message::{GasParams, SignedMessageFactory};
-use fendermint_rpc::{client::FendermintClient, query::QueryClient};
-use fendermint_vm_actor_interface::eam::{self, CreateReturn, EthAddress};
+use recall_fendermint_rpc::message::{GasParams, SignedMessageFactory};
+use recall_fendermint_rpc::{client::FendermintClient, query::QueryClient};
+use recall_fendermint_vm_actor_interface::eam::{self, CreateReturn, EthAddress};
 
 use super::key::read_secret_key;
 
@@ -315,7 +315,7 @@ pub enum BroadcastResponse<T> {
 
 pub struct BroadcastModeWrapper(BroadcastMode);
 
-impl fendermint_rpc::tx::BroadcastMode for BroadcastModeWrapper {
+impl recall_fendermint_rpc::tx::BroadcastMode for BroadcastModeWrapper {
     type Response<T> = BroadcastResponse<T>;
 }
 

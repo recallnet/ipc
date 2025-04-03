@@ -117,7 +117,7 @@ $(BUILTIN_ACTORS_BUNDLE):
 
 # Build a bundle CAR for the custom actors in this repo.
 $(CUSTOM_ACTORS_BUNDLE):
-	cargo build --locked --release -p fendermint_actors
+	cargo build --locked --release -p recall_recall_fendermint_actors
 
 # Regenerate the ABI artifacts if we don't have them already, or they changed.
 $(IPC_ACTORS_GEN): $(IPC_ACTORS_CODE)

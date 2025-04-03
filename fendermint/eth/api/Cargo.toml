@@ -1,10 +1,11 @@
 [package]
-name = "fendermint_eth_api"
+name = "recall_fendermint_eth_api"
 description = "Ethereum JSON-RPC facade"
-version = "0.1.0"
+repository.workspace = true
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+version.workspace = true
 
 [dependencies]
 anyhow = { workspace = true }
@@ -31,14 +32,14 @@ tendermint-rpc = { workspace = true }
 tokio = { workspace = true }
 tower-http = { workspace = true }
 
-fil_actors_evm_shared = { workspace = true }
+recall_fil_actors_evm_shared = { workspace = true }
 fvm_shared = { workspace = true, features = ["crypto"] }
 fvm_ipld_encoding = { workspace = true }
 
-fendermint_crypto = { path = "../../crypto" }
-fendermint_rpc = { path = "../../rpc" }
-fendermint_vm_actor_interface = { path = "../../vm/actor_interface" }
-fendermint_vm_message = { path = "../../vm/message" }
+recall_fendermint_crypto = { workspace = true }
+recall_fendermint_rpc = { workspace = true }
+recall_fendermint_vm_actor_interface = { workspace = true }
+recall_fendermint_vm_message = { workspace = true }
 
 [dev-dependencies]
 async-trait = { workspace = true }
@@ -53,5 +54,5 @@ thiserror = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 
-fendermint_testing = { path = "../../testing", features = ["arb"] }
-fendermint_vm_message = { path = "../../vm/message", features = ["arb"] }
+recall_fendermint_testing = { path = "../../testing", features = ["arb"] }
+recall_fendermint_vm_message = { path = "../../vm/message", features = ["arb"] }

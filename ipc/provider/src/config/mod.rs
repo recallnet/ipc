@@ -18,7 +18,7 @@ use std::path::Path;
 
 use anyhow::{Context, Result};
 use deserialize::deserialize_subnets_from_vec;
-use ipc_api::subnet_id::SubnetID;
+use recall_ipc_api::subnet_id::SubnetID;
 use serde::{Deserialize, Serialize};
 use serialize::serialize_subnets_to_str;
 pub use subnet::Subnet;

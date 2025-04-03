@@ -2,9 +2,6 @@
 // Copyright 2021-2023 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use fendermint_actor_blobs_shared::state::TokenCreditRate;
-use fil_actors_runtime::runtime::Runtime;
-use fil_actors_runtime::{deserialize_block, extract_send_result, ActorError};
 use fvm_ipld_encoding::tuple::*;
 use fvm_shared::address::Address;
 use fvm_shared::clock::ChainEpoch;
@@ -13,6 +10,9 @@ use fvm_shared::sys::SendFlags;
 use fvm_shared::{ActorID, MethodNum, METHOD_CONSTRUCTOR};
 use num_derive::FromPrimitive;
 use num_traits::Zero;
+use recall_fendermint_actor_blobs_shared::state::TokenCreditRate;
+use recall_fil_actors_runtime::runtime::Runtime;
+use recall_fil_actors_runtime::{deserialize_block, extract_send_result, ActorError};
 use serde::{Deserialize, Serialize};
 
 pub const RECALL_CONFIG_ACTOR_ID: ActorID = 70;
@@ -64,10 +64,10 @@ pub type SetConfigParams = RecallConfig;
 #[repr(u64)]
 pub enum Method {
     Constructor = METHOD_CONSTRUCTOR,
-    SetAdmin = frc42_dispatch::method_hash!("SetAdmin"),
-    GetAdmin = frc42_dispatch::method_hash!("GetAdmin"),
-    SetConfig = frc42_dispatch::method_hash!("SetConfig"),
-    GetConfig = frc42_dispatch::method_hash!("GetConfig"),
+    SetAdmin = recall_frc42_dispatch::method_hash!("SetAdmin"),
+    GetAdmin = recall_frc42_dispatch::method_hash!("GetAdmin"),
+    SetConfig = recall_frc42_dispatch::method_hash!("SetConfig"),
+    GetConfig = recall_frc42_dispatch::method_hash!("GetConfig"),
 }
 
 pub fn get_admin(rt: &impl Runtime) -> Result<Option<Address>, ActorError> {

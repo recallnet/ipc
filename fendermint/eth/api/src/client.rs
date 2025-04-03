@@ -5,8 +5,8 @@ use std::{pin::Pin, time::Duration};
 
 use anyhow::Context;
 use async_trait::async_trait;
-use fendermint_rpc::client::{http_client, ws_client};
 use futures::Future;
+use recall_fendermint_rpc::client::{http_client, ws_client};
 use tendermint_rpc::{
     error::ErrorDetail, query::Query, Client, Error, HttpClient, SimpleRequest, Subscription,
     SubscriptionClient, Url, WebSocketClient, WebSocketClientDriver, WebSocketClientUrl,

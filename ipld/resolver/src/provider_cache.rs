@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: MIT
 use std::collections::{HashMap, HashSet};
 
-use ipc_api::subnet_id::SubnetID;
 use libp2p::PeerId;
+use recall_ipc_api::subnet_id::SubnetID;
 
 use crate::{provider_record::ProviderRecord, Timestamp};
 
@@ -210,10 +210,10 @@ impl SubnetProviderCache {
 mod tests {
     use std::collections::{HashMap, HashSet};
 
-    use ipc_api::subnet_id::SubnetID;
     use libp2p::{identity::Keypair, PeerId};
     use quickcheck::Arbitrary;
     use quickcheck_macros::quickcheck;
+    use recall_ipc_api::subnet_id::SubnetID;
 
     use crate::{arb::ArbSubnetID, provider_record::ProviderRecord, Timestamp};
 

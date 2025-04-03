@@ -3,8 +3,8 @@
 use async_trait::async_trait;
 use either::Either;
 use ethers::types::H160;
-use fendermint_vm_genesis::Collateral;
 use fvm_shared::{chainid::ChainID, econ::TokenAmount};
+use recall_fendermint_vm_genesis::Collateral;
 use std::{collections::BTreeMap, fmt::Display};
 use url::Url;
 

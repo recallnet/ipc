@@ -20,7 +20,7 @@ use super::{TCid, TCidContent};
 ///
 /// # Example
 /// ```
-/// use ipc_types::{TCid, THamt};
+/// use recall_ipc_types::{TCid, THamt};
 /// use fvm_ipld_blockstore::MemoryBlockstore;
 /// use fvm_ipld_encoding::tuple::*;
 /// use fvm_ipld_encoding::Cbor;

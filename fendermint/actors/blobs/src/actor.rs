@@ -2,29 +2,30 @@
 // Copyright 2021-2023 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use fendermint_actor_blobs_shared::params::{
-    AddBlobParams, ApproveCreditParams, BuyCreditParams, DeleteBlobParams, FinalizeBlobParams,
-    GetAccountParams, GetAddedBlobsParams, GetBlobParams, GetBlobStatusParams,
-    GetCreditApprovalParams, GetGasAllowanceParams, GetPendingBlobsParams, GetStatsReturn,
-    OverwriteBlobParams, RevokeCreditParams, SetAccountStatusParams, SetBlobPendingParams,
-    SetSponsorParams, TrimBlobExpiriesParams, UpdateGasAllowanceParams,
-};
-use fendermint_actor_blobs_shared::state::{
-    BlobInfo, BlobRequest, BlobStatus, Credit, CreditApproval, GasAllowance, Hash, Subscription,
-};
-use fendermint_actor_blobs_shared::{state::AccountInfo, Method};
-use fendermint_actor_recall_config_shared::{get_config, require_caller_is_admin};
-use fil_actors_runtime::{
-    actor_dispatch, actor_error, extract_send_result,
-    runtime::{ActorCode, Runtime},
-    ActorError, FIRST_EXPORTED_METHOD_NUMBER, SYSTEM_ACTOR_ADDR,
-};
 use fvm_ipld_encoding::ipld_block::IpldBlock;
 use fvm_shared::{econ::TokenAmount, error::ExitCode, MethodNum, METHOD_SEND};
 use num_traits::Zero;
 use recall_actor_sdk::{
     emit_evm_event, require_addr_is_origin_or_caller, to_delegated_address, to_id_address,
     to_id_and_delegated_address, InputData, InvokeContractParams, InvokeContractReturn,
+};
+use recall_fendermint_actor_blobs_shared::params::{
+    AddBlobParams, ApproveCreditParams, BuyCreditParams, DeleteBlobParams, FinalizeBlobParams,
+    GetAccountParams, GetAddedBlobsParams, GetBlobParams, GetBlobStatusParams,
+    GetCreditApprovalParams, GetGasAllowanceParams, GetPendingBlobsParams, GetStatsReturn,
+    OverwriteBlobParams, RevokeCreditParams, SetAccountStatusParams, SetBlobPendingParams,
+    SetSponsorParams, TrimBlobExpiriesParams, UpdateGasAllowanceParams,
+};
+use recall_fendermint_actor_blobs_shared::state::{
+    AccountInfo, BlobInfo, BlobRequest, BlobStatus, Credit, CreditApproval, GasAllowance, Hash,
+    Subscription,
+};
+use recall_fendermint_actor_blobs_shared::Method;
+use recall_fendermint_actor_recall_config_shared::{get_config, require_caller_is_admin};
+use recall_fil_actors_runtime::{
+    actor_dispatch, actor_error, extract_send_result,
+    runtime::{ActorCode, Runtime},
+    ActorError, FIRST_EXPORTED_METHOD_NUMBER, SYSTEM_ACTOR_ADDR,
 };
 
 use crate::sol_facade::credit::{CreditApproved, CreditDebited, CreditPurchased, CreditRevoked};
@@ -33,7 +34,7 @@ use crate::sol_facade::{blobs as sol_blobs, credit as sol_credit, AbiCall, AbiCa
 use crate::{State, BLOBS_ACTOR_NAME};
 
 #[cfg(feature = "fil-actor")]
-fil_actors_runtime::wasm_trampoline!(BlobsActor);
+recall_fil_actors_runtime::wasm_trampoline!(BlobsActor);
 
 /// Singleton actor for managing blob storage.
 ///
@@ -944,17 +945,17 @@ impl ActorCode for BlobsActor {
 mod tests {
     use super::*;
 
-    use fendermint_actor_blobs_shared::state::SubscriptionId;
     use fendermint_actor_blobs_testing::{new_hash, new_pk};
-    use fendermint_actor_recall_config_shared::{RecallConfig, RECALL_CONFIG_ACTOR_ADDR};
-    use fil_actors_evm_shared::address::EthAddress;
-    use fil_actors_runtime::test_utils::{
-        expect_empty, MockRuntime, ETHACCOUNT_ACTOR_CODE_ID, EVM_ACTOR_CODE_ID,
-        SYSTEM_ACTOR_CODE_ID,
-    };
     use fvm_shared::address::Address;
     use fvm_shared::{bigint::BigInt, clock::ChainEpoch, sys::SendFlags};
     use recall_actor_sdk::to_actor_event;
+    use recall_fendermint_actor_blobs_shared::state::SubscriptionId;
+    use recall_fendermint_actor_recall_config_shared::{RecallConfig, RECALL_CONFIG_ACTOR_ADDR};
+    use recall_fil_actors_evm_shared::address::EthAddress;
+    use recall_fil_actors_runtime::test_utils::{
+        expect_empty, MockRuntime, ETHACCOUNT_ACTOR_CODE_ID, EVM_ACTOR_CODE_ID,
+        SYSTEM_ACTOR_CODE_ID,
+    };
 
     pub fn construct_and_verify() -> MockRuntime {
         let rt = MockRuntime {
@@ -975,7 +976,7 @@ mod tests {
     fn expect_get_config(rt: &MockRuntime) {
         rt.expect_send(
             RECALL_CONFIG_ACTOR_ADDR,
-            fendermint_actor_recall_config_shared::Method::GetConfig as MethodNum,
+            recall_fendermint_actor_recall_config_shared::Method::GetConfig as MethodNum,
             None,
             TokenAmount::zero(),
             None,

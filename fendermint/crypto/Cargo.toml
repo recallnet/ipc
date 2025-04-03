@@ -1,10 +1,10 @@
 [package]
-name = "fendermint_crypto"
+name = "recall_fendermint_crypto"
 description = "Cryptographic utilities"
-version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+version.workspace = true
 
 [dependencies]
 # Defined here so no other crate keeps a direct reference to it.

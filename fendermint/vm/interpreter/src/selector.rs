@@ -4,8 +4,8 @@
 //! Gas related message selection
 
 use crate::fvm::state::FvmExecState;
-use fendermint_vm_message::signed::SignedMessage;
 use fvm_ipld_blockstore::Blockstore;
+use recall_fendermint_vm_message::signed::SignedMessage;
 
 /// Implement this trait to perform message selection
 pub trait MessageSelector {

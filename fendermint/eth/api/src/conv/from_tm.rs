@@ -8,14 +8,14 @@ use std::str::FromStr;
 
 use anyhow::{anyhow, Context};
 use ethers_core::types::{self as et};
-use fendermint_vm_actor_interface::eam::EthAddress;
-use fendermint_vm_message::conv::from_fvm::to_eth_typed_transaction;
-use fendermint_vm_message::{chain::ChainMessage, signed::SignedMessage};
 use fvm_shared::address::Address;
 use fvm_shared::bigint::Zero;
 use fvm_shared::chainid::ChainID;
 use fvm_shared::{bigint::BigInt, econ::TokenAmount};
 use lazy_static::lazy_static;
+use recall_fendermint_vm_actor_interface::eam::EthAddress;
+use recall_fendermint_vm_message::conv::from_fvm::to_eth_typed_transaction;
+use recall_fendermint_vm_message::{chain::ChainMessage, signed::SignedMessage};
 use tendermint::abci::response::DeliverTx;
 use tendermint::abci::{self, Event, EventAttribute};
 use tendermint::crypto::sha256::Sha256;
@@ -66,7 +66,7 @@ fn block_zero() -> tendermint::Block {
         signatures: Vec::new(),
     };
 
-    let empty_cid = fendermint_vm_message::cid(&[0u8; 0]).unwrap();
+    let empty_cid = recall_fendermint_vm_message::cid(&[0u8; 0]).unwrap();
 
     let header = tendermint::block::Header {
         version: tendermint::block::header::Version { block: 0, app: 0 },
@@ -404,7 +404,7 @@ fn app_hash_to_root(app_hash: &tendermint::AppHash) -> anyhow::Result<et::H256> 
 }
 
 fn maybe_contract_address(deliver_tx: &DeliverTx) -> Option<EthAddress> {
-    fendermint_rpc::response::decode_fevm_create(deliver_tx)
+    recall_fendermint_rpc::response::decode_fevm_create(deliver_tx)
         .ok()
         .map(|cr| {
             // We can return either `cr.actor_id` as a masked address,

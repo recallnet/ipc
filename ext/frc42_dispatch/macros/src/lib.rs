@@ -5,9 +5,9 @@
 // as per Cargo.toml: https://github.com/filecoin-project/actors-utils/blob/7628cd8d39dafcc6035f28e350cdb0cccbea5ab4/frc42_dispatch/Cargo.toml#L5
 //
 // License headers added post-fork.
-use frc42_hasher::hash::MethodResolver;
 use proc_macro::TokenStream;
 use quote::quote;
+use recall_frc42_hasher::hash::MethodResolver;
 use syn::parse::{Parse, ParseStream};
 use syn::{parse_macro_input, LitStr, Result};
 

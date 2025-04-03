@@ -8,26 +8,26 @@ use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::econ::TokenAmount;
 use fvm_shared::ActorID;
 
-use fendermint_crypto::{PublicKey, SecretKey};
-use fendermint_vm_actor_interface::ipc;
-use fendermint_vm_actor_interface::{
+use fendermint_vm_topdown::IPCParentFinality;
+use recall_fendermint_crypto::{PublicKey, SecretKey};
+use recall_fendermint_vm_actor_interface::ipc;
+use recall_fendermint_vm_actor_interface::{
     eam::EthAddress,
     init::builtin_actor_eth_addr,
     ipc::{AbiHash, ValidatorMerkleTree, GATEWAY_ACTOR_ID},
 };
-use fendermint_vm_genesis::{Collateral, Power, PowerScale, Validator, ValidatorKey};
-use fendermint_vm_message::conv::{from_eth, from_fvm};
-use fendermint_vm_message::signed::sign_secp256k1;
-use fendermint_vm_topdown::IPCParentFinality;
+use recall_fendermint_vm_genesis::{Collateral, Power, PowerScale, Validator, ValidatorKey};
+use recall_fendermint_vm_message::conv::{from_eth, from_fvm};
+use recall_fendermint_vm_message::signed::sign_secp256k1;
 
-use ipc_actors_abis::checkpointing_facet::CheckpointingFacet;
-use ipc_actors_abis::gateway_getter_facet::GatewayGetterFacet;
-use ipc_actors_abis::gateway_getter_facet::{self as getter, gateway_getter_facet};
-use ipc_actors_abis::top_down_finality_facet::TopDownFinalityFacet;
-use ipc_actors_abis::xnet_messaging_facet::XnetMessagingFacet;
-use ipc_actors_abis::{checkpointing_facet, top_down_finality_facet, xnet_messaging_facet};
-use ipc_api::cross::IpcEnvelope;
-use ipc_api::staking::{ConfigurationNumber, StakingChangeRequest};
+use recall_ipc_actors_abis::checkpointing_facet::CheckpointingFacet;
+use recall_ipc_actors_abis::gateway_getter_facet::GatewayGetterFacet;
+use recall_ipc_actors_abis::gateway_getter_facet::{self as getter, gateway_getter_facet};
+use recall_ipc_actors_abis::top_down_finality_facet::TopDownFinalityFacet;
+use recall_ipc_actors_abis::xnet_messaging_facet::XnetMessagingFacet;
+use recall_ipc_actors_abis::{checkpointing_facet, top_down_finality_facet, xnet_messaging_facet};
+use recall_ipc_api::cross::IpcEnvelope;
+use recall_ipc_api::staking::{ConfigurationNumber, StakingChangeRequest};
 
 use super::{
     fevm::{ContractCaller, MockProvider, NoRevert},
@@ -321,7 +321,7 @@ impl<DB: Blockstore + Clone> GatewayCaller<DB> {
 }
 
 /// Total amount of tokens to mint as a result of top-down messages arriving at the subnet.
-pub fn tokens_to_mint(msgs: &[ipc_api::cross::IpcEnvelope]) -> TokenAmount {
+pub fn tokens_to_mint(msgs: &[recall_ipc_api::cross::IpcEnvelope]) -> TokenAmount {
     msgs.iter()
         .fold(TokenAmount::from_atto(0), |mut total, msg| {
             // Both fees and value are considered to enter the ciruculating supply of the subnet.

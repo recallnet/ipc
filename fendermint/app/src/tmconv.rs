@@ -2,16 +2,16 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 //! Conversions to Tendermint data types.
 use anyhow::{anyhow, bail, Context};
-use fendermint_vm_core::Timestamp;
-use fendermint_vm_genesis::{Power, Validator};
 use fendermint_vm_interpreter::fvm::{
     state::{BlockHash, FvmStateParams},
     FvmApplyRet, FvmCheckRet, FvmQueryRet,
 };
-use fendermint_vm_message::signed::DomainHash;
 use fendermint_vm_snapshot::{SnapshotItem, SnapshotManifest};
 use fvm_shared::{address::Address, error::ExitCode, event::StampedEvent, ActorID};
 use prost::Message;
+use recall_fendermint_vm_core::Timestamp;
+use recall_fendermint_vm_genesis::{Power, Validator};
+use recall_fendermint_vm_message::signed::DomainHash;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, num::NonZeroU32};
 use tendermint::abci::{response, Code, Event, EventAttribute};
@@ -441,7 +441,7 @@ pub fn to_app_hash(state_params: &FvmStateParams) -> tendermint::hash::AppHash {
     // Create an artifical CID from the FVM state params, which include everything that
     // deterministically changes under consensus.
     let state_params_cid =
-        fendermint_vm_message::cid(state_params).expect("state params have a CID");
+        recall_fendermint_vm_message::cid(state_params).expect("state params have a CID");
 
     // We could reduce it to a hash to ephasize that this is not something that we can return at the moment,
     // but we could just as easily store the record in the Blockstore to make it retrievable.

@@ -6,13 +6,13 @@ use std::marker::PhantomData;
 
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
-use fendermint_vm_message::chain::ChainMessage;
+use recall_fendermint_vm_message::chain::ChainMessage;
 use tendermint::abci::response::DeliverTx;
 use tendermint::block::Height;
 use tendermint_rpc::{endpoint::abci_query::AbciQuery, Client, HttpClient, Scheme, Url};
 use tendermint_rpc::{WebSocketClient, WebSocketClientDriver, WebSocketClientUrl};
 
-use fendermint_vm_message::query::{FvmQuery, FvmQueryHeight};
+use recall_fendermint_vm_message::query::{FvmQuery, FvmQueryHeight};
 
 use crate::message::SignedMessageFactory;
 use crate::query::QueryClient;

@@ -511,7 +511,7 @@ pub async fn publish_vote_loop<V, F>(
     // Publish a vote after a timeout even if it's the same as before.
     vote_timeout: Duration,
     key: libp2p::identity::Keypair,
-    subnet_id: ipc_api::subnet_id::SubnetID,
+    subnet_id: recall_ipc_api::subnet_id::SubnetID,
     client: ipc_ipld_resolver::Client<V>,
     to_vote: F,
 ) where

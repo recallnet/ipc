@@ -1,17 +1,17 @@
 [package]
-name = "frc42_macros"
-version = "6.0.0"
+name = "recall_frc42_macros"
 license = "MIT OR Apache-2.0"
 description = "Filecoin FRC-0042 calling convention procedural macros"
 repository = "https://github.com/helix-onchain/filecoin/"
 edition = "2021"
+version.workspace = true
 
 [lib]
 proc-macro = true
 
 [dependencies]
 blake2b_simd = { version = "1.0.0" }
-frc42_hasher = { version = "6.0.0", path = "../hasher", default-features = false }
+recall_frc42_hasher = { version = "0.1.0", path = "../hasher", default-features = false }
 proc-macro2 = "1.0"
 quote = "1.0"
 syn = { version = "1.0", features = ["full"] }
