@@ -143,22 +143,22 @@ impl AbiCallRuntime for sol::addObject_1Call {
     type Returns = ();
     type Output = Vec<u8>;
     fn params(&self, rt: &impl Runtime) -> Self::Params {
-        let source = PublicKey(self.params.source.into());
-        let key: Vec<u8> = self.params.key.clone().into_bytes();
-        let hash = Hash(self.params.hash.into());
-        let recovery_hash = Hash(self.params.recoveryHash.into());
-        let size = self.params.size;
-        let ttl = if self.params.ttl.clone().is_zero() {
+        let source = PublicKey(self.source.into());
+        let key: Vec<u8> = self.key.clone().into_bytes();
+        let hash = Hash(self.hash.into());
+        let recovery_hash = Hash(self.recoveryHash.into());
+        let size = self.size;
+        let ttl = if self.ttl.clone().is_zero() {
             None
         } else {
-            Some(self.params.ttl as ChainEpoch)
+            Some(self.ttl as ChainEpoch)
         };
         let mut metadata: HashMap<String, String> =
-            HashMap::with_capacity(self.params.metadata.len());
-        for kv in self.params.metadata.iter().cloned() {
+            HashMap::with_capacity(self.metadata.len());
+        for kv in self.metadata.iter().cloned() {
             metadata.insert(kv.key, kv.value);
         }
-        let overwrite = self.params.overwrite;
+        let overwrite = self.overwrite;
         let from = rt.message().caller();
         AddParams {
             source,
@@ -262,6 +262,7 @@ fn sol_query(list: ListObjectsReturn) -> sol::Query {
 
 const DEFAULT_DELIMITER: &[u8] = b"/"; // "/" in ASCII and UTF-8
 const DEFAULT_START_KEY: Vec<u8> = vec![]; //= ""
+const DEFAULT_PREFIX: Vec<u8> = vec![]; //= ""
 const DEFAULT_LIMIT: u64 = 0;
 
 impl AbiCall for sol::queryObjects_0Call {
@@ -342,9 +343,9 @@ impl AbiCall for sol::queryObjects_3Call {
     type Output = Vec<u8>;
 
     fn params(&self) -> Self::Params {
-        let prefix = "".to_string().into_bytes();
-        let delimiter = "/".to_string().into_bytes();
-        let start_key = "".to_string().into_bytes();
+        let prefix = DEFAULT_PREFIX;
+        let delimiter = DEFAULT_DELIMITER.to_vec();
+        let start_key = DEFAULT_START_KEY.to_vec();
         let limit = 0;
         ListParams {
             prefix,
