@@ -31,7 +31,7 @@ serde_with = { workspace = true, features = ["hex"] }
 
 recall_ipc_actors_abis = { workspace = true }
 recall_ipc_types = { workspace = true }
-recall_merkle_tree_rs = { path = "../../ext/merkle-tree-rs", version = "0.1.0" }
+recall_merkle_tree_rs = { workspace = true }
 
 [dev-dependencies]
 serde_json = { workspace = true }

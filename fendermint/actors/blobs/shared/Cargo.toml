@@ -23,8 +23,8 @@ num-derive = { workspace = true }
 num-traits = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 
-recall_actor_sdk = { path = "../../../../recall/actor_sdk" }
-recall_ipld = { path = "../../../../recall/ipld", version = "0.1.0" }
+recall_actor_sdk = { workspace = true }
+recall_ipld = { workspace = true }
 
 [features]
 fil-actor = ["recall_fil_actors_runtime/fil-actor"]

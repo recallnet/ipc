@@ -65,6 +65,51 @@ repository = "https://github.com/recallnet/ipc"
 version = "0.1.0"
 
 [workspace.dependencies]
+# packages we publish
+# NOTE: you need to change these versions as needed, i.e. they are not automatically changed by the `workspace.package.version`
+#       value above. If there is a way to avoid the need to keep this value synched in multiple places that would be better.
+recall_actor_sdk = { path = "recall/actor_sdk", version = "0.1.0" }
+recall_ipc_actors_abis = { path = "contracts/binding", version = "0.1.0" }
+recall_ipc_api = { path = "ipc/api", version = "0.1.0" }
+recall_ipc_types = { path = "ipc/types", version = "0.1.0" }
+recall_ipld = { path = "recall/ipld", version = "0.1.0" }
+recall_fendermint_actor_blobs_shared = { path = "fendermint/actors/blobs/shared", version = "0.1.0" }
+recall_fendermint_actor_bucket = { path = "fendermint/actors/bucket", version = "0.1.0" }
+recall_fendermint_actor_eam = { path = "fendermint/actors/eam", version = "0.1.0" }
+recall_fendermint_actor_machine = { path = "fendermint/actors/machine", version = "0.1.0" }
+recall_fendermint_actor_recall_config_shared = { path = "fendermint/actors/recall_config/shared", version = "0.1.0" }
+recall_fendermint_actor_timehub = { path = "fendermint/actors/timehub", version = "0.1.0" }
+recall_fendermint_crypto = { path = "fendermint/crypto", version = "0.1.0" }
+recall_fendermint_testing = { path = "fendermint/testing", version = "0.1.0" }
+recall_fendermint_rpc = { path = "fendermint/rpc", version = "0.1.0" }
+recall_fendermint_vm_actor_interface = { path = "fendermint/vm/actor_interface", version = "0.1.0" }
+recall_fendermint_vm_core = { path = "fendermint/vm/core", version = "0.1.0" }
+recall_fendermint_vm_encoding = { path = "fendermint/vm/encoding", version = "0.1.0" }
+recall_fendermint_vm_genesis = {path = "fendermint/vm/genesis", version = "0.1.0"}
+recall_fendermint_vm_message = {path = "fendermint/vm/message", version = "0.1.0"}
+recall_merkle_tree_rs = { path = "ext/merkle-tree-rs", version = "0.1.0" }
+
+# Submodule pacakges we publish
+
+# We are using the bundle for the builtin-actors dependency, and repeating DTO classes on our side,
+# to cut down the time it takes to compile everything. However, some projects have a "shared" part,
+# and this copy-paste is clunky, so at least for those that have it, we should use it.
+# Keep the version here in sync with the Makefile!
+#
+# The original IPC build fetches a pre-built builtin-actors CAR bundle from a GH release.
+# For ADM, we can do the same at some point, but for now I've included the repo as a submodule.
+
+# https://github.com/recallnet/builtin-actors
+recall_fil_actors_evm_shared = { version = "0.0.0" }
+recall_fil_actor_eam = { version = "0.0.0" }
+recall_fil_actor_adm = { version = "0.0.0" }
+recall_fil_actors_runtime = { version = "0.0.0" }
+
+# https://github.com/recallnet/contracts
+recall_sol_facade = { version = "0.1.0", path = "recall-contracts/crates/facade" }
+
+
+# external packages available via crates
 ambassador = "0.3.5"
 anyhow = "1"
 arbitrary = { version = "1", features = ["derive"] }
@@ -213,20 +258,6 @@ ipc_ipld_resolver = { path = "ipld/resolver" }
 ipc-observability = { path = "ipc/observability" }
 recall_fendermint_actors_api = { path = "fendermint/actors/api" }
 
-# packages we publish
-# NOTE: you need to change these versions as needed, i.e. they are not automatically changed by the `workspace.package.version` value above
-recall_actor_sdk = { path = "recall/actor_sdk", version = "0.1.0" }
-recall_ipc_actors_abis = { path = "contracts/binding", version = "0.1.0" }
-recall_ipc_api = { path = "ipc/api", version = "0.1.0" }
-recall_ipc_types = { path = "ipc/types", version = "0.1.0" }
-recall_ipld = { path = "recall/ipld", version = "0.1.0" }
-recall_fendermint_actor_blobs_shared = { path = "fendermint/actors/blobs/shared", version = "0.1.0" }
-recall_fendermint_actor_machine = { path = "fendermint/actors/machine", version = "0.1.0" }
-recall_fendermint_actor_recall_config_shared = { path = "fendermint/actors/recall_config/shared", version = "0.1.0" }
-recall_fendermint_vm_genesis = {path = "fendermint/vm/genesis", version = "0.1.0"}
-recall_fendermint_crypto = { path = "fendermint/crypto", version = "0.1.0" }
-recall_merkle_tree_rs = { path = "ext/merkle-tree-rs", version = "0.1.0" }
-
 # Vendored for cross-compilation, see https://github.com/cross-rs/cross/wiki/Recipes#openssl
 # Make sure every top level build target actually imports this dependency, and don't end up
 # depending on the same _without_ the "vendored" feature, because then the Docker build for
@@ -247,21 +278,6 @@ fvm_ipld_car = "0.7.1"
 fvm_ipld_encoding = "0.4.0"
 fvm_ipld_hamt = "0.9.0"
 fvm_ipld_amt = "0.6.2"
-
-# We are using the bundle for the builtin-actors dependency, and repeating DTO classes on our side,
-# to cut down the time it takes to compile everything. However, some projects have a "shared" part,
-# and this copy-paste is clunky, so at least for those that have it, we should use it.
-# Keep the version here in sync with the Makefile!
-#
-# The original IPC build fetches a pre-built builtin-actors CAR bundle from a GH release.
-# For ADM, we can do the same at some point, but for now I've included the repo as a submodule.
-recall_fil_actors_evm_shared = { version = "0.0.0" }
-recall_fil_actor_eam = { version = "0.0.0" }
-recall_fil_actor_adm = { version = "0.0.0" }
-recall_fil_actors_runtime = { version = "0.0.0" }
-
-# Recall Solidity bindings
-recall_sol_facade = { version = "0.1.0", path = "recall-contracts/crates/facade" }
 
 # Using the same tendermint-rs dependency as tower-abci. From both we are interested in v037 modules.
 tower-abci = { version = "0.7" }

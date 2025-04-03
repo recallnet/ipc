@@ -21,11 +21,11 @@ serde = { workspace = true }
 serde_with = { workspace = true }
 tendermint = { workspace = true }
 
-recall_fendermint_actor_eam = { path = "../../actors/eam", version  = "0.1.0" }
-recall_fendermint_crypto = { path = "../../crypto", version  = "0.1.0" }
-recall_fendermint_testing = { version = "0.1.0", path = "../../testing", features = ["golden"] }
-recall_fendermint_vm_core = { path = "../core", version = "0.1.0" }
-recall_fendermint_vm_encoding = { path = "../encoding", version = "0.1.0" }
+recall_fendermint_actor_eam = { workspace = true }
+recall_fendermint_crypto = { workspace = true }
+recall_fendermint_testing = { workspace = true, features = ["golden"] }
+recall_fendermint_vm_core = { workspace = true }
+recall_fendermint_vm_encoding = { workspace = true }
 
 [dev-dependencies]
 hex = { workspace = true }

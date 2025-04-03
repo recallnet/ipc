@@ -13,7 +13,7 @@ version.workspace = true
 crate-type = ["cdylib", "lib"]
 
 [dependencies]
-recall_fendermint_actor_blobs_shared = { path = "../../blobs/shared", version = "0.1.0" }
+recall_fendermint_actor_blobs_shared = { workspace = true }
 recall_fil_actors_runtime = { workspace = true }
 recall_frc42_dispatch = { workspace = true }
 fvm_ipld_encoding = { workspace = true }

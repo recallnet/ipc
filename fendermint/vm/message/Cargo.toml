@@ -26,11 +26,11 @@ fvm_shared = { workspace = true, features = ["crypto"] }
 fvm_ipld_encoding = { workspace = true }
 recall_ipc_api = { workspace = true }
 
-recall_fendermint_actor_blobs_shared = { path = "../../actors/blobs/shared", version = "0.1.0" }
-recall_fendermint_crypto = { path = "../../crypto", version = "0.1.0" }
-recall_fendermint_vm_encoding = { path = "../encoding", version = "0.1.0" }
-recall_fendermint_vm_actor_interface = { path = "../actor_interface", version = "0.1.0" }
-recall_fendermint_testing = { version = "0.1.0", path = "../../testing", optional = true }
+recall_fendermint_actor_blobs_shared = { workspace = true }
+recall_fendermint_crypto = { workspace = true }
+recall_fendermint_vm_encoding = { workspace = true }
+recall_fendermint_vm_actor_interface = { workspace = true }
+recall_fendermint_testing = { workspace = true, optional = true }
 
 [dev-dependencies]
 ethers = { workspace = true }
