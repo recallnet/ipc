@@ -74,7 +74,7 @@ jobs:
           rustup run nightly cargo -Zpackage-workspace publish --locked --token ${{ secrets.CARGO_REGISTRY_TOKEN }} --package recall_fendermint_vm_actor_interface
           rustup run nightly cargo -Zpackage-workspace publish --locked --token ${{ secrets.CARGO_REGISTRY_TOKEN }} --package recall_fendermint_vm_message
           rustup run nightly cargo -Zpackage-workspace publish --locked --token ${{ secrets.CARGO_REGISTRY_TOKEN }} --package recall_fendermint_rpc
-          rustup run nightly cargo -Zpackage-workspace publish --locked --token ${{ secrets.CARGO_REGISTRY_TOKEN }} --packagerecall_fendermint_eth_api
+          rustup run nightly cargo -Zpackage-workspace publish --locked --token ${{ secrets.CARGO_REGISTRY_TOKEN }} --package recall_fendermint_eth_api
           rustup run nightly cargo -Zpackage-workspace publish --locked --token ${{ secrets.CARGO_REGISTRY_TOKEN }} --package recall_fendermint_testing
 
       - name: Release 🚀
