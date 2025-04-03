@@ -124,9 +124,7 @@ impl AbiCallRuntime for sol::addBlobCall {
     type Returns = ();
     type Output = Vec<u8>;
     fn params(&self, rt: &impl Runtime) -> Self::Params {
-        let sponsor: Option<Address> = H160::from(self.sponsor)
-            .as_option()
-            .map(|a| a.into());
+        let sponsor: Option<Address> = H160::from(self.sponsor).as_option().map(|a| a.into());
         let source = PublicKey(self.source.into());
         let hash = Hash(self.blobHash.into());
         let metadata_hash = Hash(self.metadataHash.into());
@@ -241,9 +239,7 @@ impl AbiCallRuntime for sol::overwriteBlobCall {
     type Output = Vec<u8>;
     fn params(&self, rt: &impl Runtime) -> Self::Params {
         let old_hash = Hash(self.oldHash.into());
-        let sponsor = H160::from(self.sponsor)
-            .as_option()
-            .map(|a| a.into());
+        let sponsor = H160::from(self.sponsor).as_option().map(|a| a.into());
         let source: PublicKey = PublicKey(self.source.into());
         let hash: Hash = Hash(self.blobHash.into());
         let metadata_hash: Hash = Hash(self.metadataHash.into());
