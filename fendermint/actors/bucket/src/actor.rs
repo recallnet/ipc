@@ -14,12 +14,13 @@ use fil_actors_runtime::{
     runtime::{ActorCode, Runtime},
     ActorError,
 };
-use fvm_ipld_hamt::BytesKey;
+
 use fvm_shared::address::Address;
 use recall_actor_sdk::{
     emit_evm_event, require_addr_is_origin_or_caller, to_id_address, InputData,
     InvokeContractParams, InvokeContractReturn,
 };
+use recall_ipld::hamt::BytesKey;
 
 use crate::shared::{
     AddParams, DeleteParams, GetParams, ListObjectsReturn, ListParams, Method, Object,
@@ -814,7 +815,7 @@ mod tests {
         );
         assert!(result.is_err_and(|e| { e.msg().eq("key exists; use overwrite") }));
         let state2 = rt.state::<State>().unwrap();
-        assert_eq!(state2.root, state.root);
+        assert_eq!(state2.objects.root, state.objects.root);
         rt.verify();
     }
 
