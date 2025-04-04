@@ -3,9 +3,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use fendermint_actor_blobs_shared::{
-    accounts::{AccountInfo, GetAccountParams},
+    accounts::{Account, GetAccountParams},
     blobs::{
-        AddBlobParams, BlobInfo, DeleteBlobParams, GetBlobParams, OverwriteBlobParams, Subscription,
+        AddBlobParams, Blob, DeleteBlobParams, GetBlobParams, OverwriteBlobParams, Subscription,
     },
     credit::{
         ApproveCreditParams, BuyCreditParams, Credit, CreditApproval, GetCreditApprovalParams,
@@ -38,10 +38,7 @@ impl BlobsActor {
     /// Buy credit with token.
     ///
     /// The `to` address must be delegated (only delegated addresses can own credit).
-    pub fn buy_credit(
-        rt: &impl Runtime,
-        params: BuyCreditParams,
-    ) -> Result<AccountInfo, ActorError> {
+    pub fn buy_credit(rt: &impl Runtime, params: BuyCreditParams) -> Result<Account, ActorError> {
         rt.validate_immediate_caller_accept_any()?;
 
         let caller = Caller::new_delegated(rt, params.0, None, CallerOption::Auth)?;
@@ -66,7 +63,7 @@ impl BlobsActor {
             CreditPurchased::new(caller.event_address(), credit_amount),
         )?;
 
-        AccountInfo::from(rt, account)
+        account.to_shared(rt)
     }
 
     /// Approve credit and gas usage from one account to another.
@@ -192,7 +189,7 @@ impl BlobsActor {
     pub fn get_account(
         rt: &impl Runtime,
         params: GetAccountParams,
-    ) -> Result<Option<AccountInfo>, ActorError> {
+    ) -> Result<Option<Account>, ActorError> {
         rt.validate_immediate_caller_accept_any()?;
 
         let caller = Caller::new(rt, params.0, None, CallerOption::None)?;
@@ -207,7 +204,7 @@ impl BlobsActor {
                     .map(|sponsor| to_delegated_address(rt, sponsor))
                     .transpose()?;
 
-                AccountInfo::from(rt, account)
+                account.to_shared(rt)
             });
 
         account.transpose()
@@ -292,13 +289,10 @@ impl BlobsActor {
     }
 
     /// Returns a blob by hash if it exists.
-    pub fn get_blob(
-        rt: &impl Runtime,
-        params: GetBlobParams,
-    ) -> Result<Option<BlobInfo>, ActorError> {
+    pub fn get_blob(rt: &impl Runtime, params: GetBlobParams) -> Result<Option<Blob>, ActorError> {
         rt.validate_immediate_caller_accept_any()?;
         match rt.state::<State>()?.get_blob(rt.store(), params.0)? {
-            Some(blob) => Ok(Some(BlobInfo::from(rt, blob)?)),
+            Some(blob) => Ok(Some(blob.to_shared(rt)?)),
             None => Ok(None),
         }
     }
@@ -492,7 +486,7 @@ mod tests {
             )
             .unwrap()
             .unwrap()
-            .deserialize::<AccountInfo>()
+            .deserialize::<Account>()
             .unwrap();
         assert_eq!(result.credit_free, expected_credits);
         assert_eq!(result.gas_allowance, expected_gas_allowance);
@@ -513,7 +507,7 @@ mod tests {
             )
             .unwrap()
             .unwrap()
-            .deserialize::<AccountInfo>()
+            .deserialize::<Account>()
             .unwrap();
         assert_eq!(result.credit_free, expected_credits);
         assert_eq!(result.gas_allowance, expected_gas_allowance);
@@ -534,7 +528,7 @@ mod tests {
             )
             .unwrap()
             .unwrap()
-            .deserialize::<AccountInfo>()
+            .deserialize::<Account>()
             .unwrap();
         assert_eq!(result.credit_free, expected_credits);
         assert_eq!(result.gas_allowance, expected_gas_allowance);
@@ -906,7 +900,7 @@ mod tests {
             )
             .unwrap()
             .unwrap()
-            .deserialize::<Option<BlobInfo>>()
+            .deserialize::<Option<Blob>>()
             .unwrap();
         assert!(blob.is_some());
         let blob = blob.unwrap();

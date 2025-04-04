@@ -10,14 +10,12 @@ use fvm_ipld_encoding::tuple::*;
 use fvm_shared::econ::TokenAmount;
 use num_traits::Zero;
 
-mod accounts;
+pub mod accounts;
 pub mod blobs;
-mod credit;
-mod expiries;
+pub mod credit;
 
-use accounts::AccountsState;
-use blobs::{BlobsProgressCollection, BlobsState, DeleteBlobStateParams};
-use expiries::ExpiriesState;
+use accounts::Accounts;
+use blobs::{Blobs, DeleteBlobStateParams, Expiries, Queue};
 
 /// The state represents all accounts and stored blobs.
 #[derive(Debug, Serialize_tuple, Deserialize_tuple)]
@@ -31,15 +29,15 @@ pub struct State {
     /// The total number of credits debited in the subnet.
     pub credit_debited: Credit,
     /// Map of expiries to blob hashes.
-    pub expiries: ExpiriesState,
+    pub expiries: Expiries,
     /// Map of currently added blob hashes to account and source Iroh node IDs.
-    pub added: BlobsProgressCollection,
+    pub added: Queue,
     /// Map of currently pending blob hashes to account and source Iroh node IDs.
-    pub pending: BlobsProgressCollection,
+    pub pending: Queue,
     /// HAMT containing all accounts keyed by robust (non-ID) actor address.
-    pub accounts: AccountsState,
+    pub accounts: Accounts,
     /// HAMT containing all blobs keyed by blob hash.
-    pub blobs: BlobsState,
+    pub blobs: Blobs,
 }
 
 impl State {
@@ -50,11 +48,11 @@ impl State {
             credit_sold: Credit::zero(),
             credit_committed: Credit::zero(),
             credit_debited: Credit::zero(),
-            expiries: ExpiriesState::new(store)?,
-            added: BlobsProgressCollection::new(store, "added blobs queue")?,
-            pending: BlobsProgressCollection::new(store, "pending blobs queue")?,
-            accounts: AccountsState::new(store)?,
-            blobs: BlobsState::new(store)?,
+            expiries: Expiries::new(store)?,
+            added: Queue::new(store, "added blobs queue")?,
+            pending: Queue::new(store, "pending blobs queue")?,
+            accounts: Accounts::new(store)?,
+            blobs: Blobs::new(store)?,
         })
     }
 

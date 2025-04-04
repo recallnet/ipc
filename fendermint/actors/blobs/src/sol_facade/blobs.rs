@@ -4,7 +4,7 @@
 
 use fendermint_actor_blobs_shared::{
     blobs::{
-        AddBlobParams, BlobInfo, BlobStatus, DeleteBlobParams, GetBlobParams, OverwriteBlobParams,
+        AddBlobParams, Blob, BlobStatus, DeleteBlobParams, GetBlobParams, OverwriteBlobParams,
         SubscriptionId, TrimBlobExpiriesParams,
     },
     bytes::B256,
@@ -180,7 +180,7 @@ impl AbiCallRuntime for sol::deleteBlobCall {
 
 impl AbiCall for sol::getBlobCall {
     type Params = Result<GetBlobParams, AbiEncodeError>;
-    type Returns = Option<BlobInfo>;
+    type Returns = Option<Blob>;
     type Output = Result<Vec<u8>, AbiEncodeError>;
     fn params(&self) -> Self::Params {
         let blob_hash = B256(self.blobHash.into());

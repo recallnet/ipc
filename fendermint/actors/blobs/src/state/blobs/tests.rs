@@ -16,12 +16,8 @@ use fvm_ipld_blockstore::{Blockstore, MemoryBlockstore};
 use fvm_shared::{address::Address, bigint::BigInt, clock::ChainEpoch, econ::TokenAmount};
 use num_traits::Zero;
 
-use crate::{
-    caller::DelegationOptions,
-    state::blobs::{AddBlobStateParams, DeleteBlobStateParams, FinalizeBlobStateParams},
-    testing::check_approval_used,
-    State,
-};
+use super::{AddBlobStateParams, DeleteBlobStateParams, FinalizeBlobStateParams};
+use crate::{caller::DelegationOptions, testing::check_approval_used, State};
 
 #[test]
 fn test_add_blob_refund() {

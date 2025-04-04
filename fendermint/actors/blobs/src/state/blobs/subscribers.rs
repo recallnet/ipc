@@ -8,31 +8,31 @@ use fvm_ipld_encoding::tuple::*;
 use fvm_shared::address::Address;
 use recall_ipld::{hamt, hamt::map::TrackedFlushResult};
 
-use super::SubscriptionGroup;
+use super::Subscriptions;
 
-/// HAMT wrapper tracking blob [`SubscriptionGroup`]s by subscriber address.
+/// HAMT wrapper tracking blob [`Subscriptions`]s by subscriber address.
 #[derive(Debug, Clone, PartialEq, Serialize_tuple, Deserialize_tuple)]
-pub struct BlobSubscribers {
-    pub root: hamt::Root<Address, SubscriptionGroup>,
+pub struct Subscribers {
+    pub root: hamt::Root<Address, Subscriptions>,
     size: u64,
 }
 
-impl BlobSubscribers {
+impl Subscribers {
     pub fn new<BS: Blockstore>(store: &BS) -> Result<Self, ActorError> {
-        let root = hamt::Root::<Address, SubscriptionGroup>::new(store, "blob_subscribers")?;
+        let root = hamt::Root::<Address, Subscriptions>::new(store, "blob_subscribers")?;
         Ok(Self { root, size: 0 })
     }
 
     pub fn hamt<'a, BS: Blockstore>(
         &self,
         store: BS,
-    ) -> Result<hamt::map::Hamt<'a, BS, Address, SubscriptionGroup>, ActorError> {
+    ) -> Result<hamt::map::Hamt<'a, BS, Address, Subscriptions>, ActorError> {
         self.root.hamt(store, self.size)
     }
 
     pub fn save_tracked(
         &mut self,
-        tracked_flush_result: TrackedFlushResult<Address, SubscriptionGroup>,
+        tracked_flush_result: TrackedFlushResult<Address, Subscriptions>,
     ) {
         self.root = tracked_flush_result.root;
         self.size = tracked_flush_result.size;

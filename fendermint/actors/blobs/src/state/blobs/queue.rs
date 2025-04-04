@@ -3,49 +3,13 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::collections::HashSet;
-use std::fmt::Display;
 
-use fendermint_actor_blobs_shared::{
-    blobs::{Blob, SubscriptionId},
-    bytes::B256,
-};
+use fendermint_actor_blobs_shared::{self as shared, blobs::SubscriptionId, bytes::B256};
 use fil_actors_runtime::ActorError;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{tuple::*, RawBytes};
 use fvm_shared::address::Address;
 use recall_ipld::hamt::{self, map::TrackedFlushResult, MapKey};
-
-/// HAMT wrapper for blobs state.
-#[derive(Debug, Serialize_tuple, Deserialize_tuple)]
-pub struct BlobsState {
-    /// The HAMT root.
-    pub root: hamt::Root<B256, Blob>,
-    /// Size of the collection.
-    size: u64,
-}
-
-impl BlobsState {
-    pub fn new<BS: Blockstore>(store: &BS) -> Result<Self, ActorError> {
-        let root = hamt::Root::<B256, Blob>::new(store, "blobs")?;
-        Ok(Self { root, size: 0 })
-    }
-
-    pub fn hamt<'a, BS: Blockstore>(
-        &self,
-        store: BS,
-    ) -> Result<hamt::map::Hamt<'a, BS, B256, Blob>, ActorError> {
-        self.root.hamt(store, self.size)
-    }
-
-    pub fn save_tracked(&mut self, tracked_flush_result: TrackedFlushResult<B256, Blob>) {
-        self.root = tracked_flush_result.root;
-        self.size = tracked_flush_result.size;
-    }
-
-    pub fn len(&self) -> u64 {
-        self.size
-    }
-}
 
 /// Key used to namespace a blob source set.
 #[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize_tuple, Deserialize_tuple)]
@@ -69,7 +33,7 @@ impl BlobSource {
     }
 }
 
-impl Display for BlobSource {
+impl std::fmt::Display for BlobSource {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -93,13 +57,13 @@ impl MapKey for BlobSource {
     }
 }
 
-/// A set of [`BlobSource`]s.
+/// A set of [`shared::blobs::BlobSource`]s.
 /// A blob in the collection may have multiple sources.
-type BlobSourceSet = HashSet<(Address, SubscriptionId, B256)>;
+type BlobSourceSet = HashSet<shared::blobs::BlobSource>;
 
 /// A collection of blobs used for progress queues.
 #[derive(Debug, Serialize_tuple, Deserialize_tuple)]
-pub struct BlobsProgressCollection {
+pub struct Queue {
     pub root: hamt::Root<B256, hamt::Root<BlobSource, ()>>,
     /// Number of blobs in the collection.
     /// A blob with multiple sources is only counted once.
@@ -109,7 +73,7 @@ pub struct BlobsProgressCollection {
     bytes_size: u64,
 }
 
-impl BlobsProgressCollection {
+impl Queue {
     /// Returns a new progress collection.
     pub fn new<BS: Blockstore>(store: &BS, name: &str) -> Result<Self, ActorError> {
         let root = hamt::Root::<B256, hamt::Root<BlobSource, ()>>::new(store, name)?;

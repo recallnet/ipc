@@ -6,7 +6,7 @@ use std::collections::{HashMap, HashSet};
 
 use anyhow::Error;
 use fendermint_actor_blobs_shared::{
-    accounts::{AccountInfo, AccountStatus, GetAccountParams, SetAccountStatusParams},
+    accounts::{Account, AccountStatus, GetAccountParams, SetAccountStatusParams},
     credit::{
         ApproveCreditParams, BuyCreditParams, Credit, CreditApproval, GetCreditApprovalParams,
         RevokeCreditParams, SetSponsorParams,
@@ -336,7 +336,7 @@ fn convert_approvals(
 /// function getAccount(address addr) external view returns (Account memory account);
 impl AbiCall for sol::getAccountCall {
     type Params = GetAccountParams;
-    type Returns = Option<AccountInfo>;
+    type Returns = Option<Account>;
     type Output = Result<Vec<u8>, AbiEncodeError>;
 
     fn params(&self) -> Self::Params {

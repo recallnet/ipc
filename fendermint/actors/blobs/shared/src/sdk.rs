@@ -8,7 +8,7 @@ use fvm_shared::{address::Address, sys::SendFlags, MethodNum};
 
 use crate::{
     blobs::{
-        AddBlobParams, BlobInfo, DeleteBlobParams, GetBlobParams, OverwriteBlobParams, Subscription,
+        AddBlobParams, Blob, DeleteBlobParams, GetBlobParams, OverwriteBlobParams, Subscription,
     },
     credit::{CreditApproval, GetCreditApprovalParams},
     method::Method,
@@ -61,7 +61,7 @@ pub fn add_blob(rt: &impl Runtime, params: AddBlobParams) -> Result<Subscription
 }
 
 /// Returns information about a blob.
-pub fn get_blob(rt: &impl Runtime, params: GetBlobParams) -> Result<Option<BlobInfo>, ActorError> {
+pub fn get_blob(rt: &impl Runtime, params: GetBlobParams) -> Result<Option<Blob>, ActorError> {
     deserialize_block(extract_send_result(rt.send(
         &BLOBS_ACTOR_ADDR,
         Method::GetBlob as MethodNum,

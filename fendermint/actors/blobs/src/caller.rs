@@ -2,9 +2,8 @@
 // Copyright 2021-2023 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use fendermint_actor_blobs_shared::{
-    accounts::Account,
-    credit::{Credit, CreditAllowance, CreditApproval, GasAllowance},
+use fendermint_actor_blobs_shared::credit::{
+    Credit, CreditAllowance, CreditApproval, GasAllowance,
 };
 use fendermint_actor_recall_config_shared::RecallConfig;
 use fil_actors_runtime::ActorError;
@@ -13,6 +12,8 @@ use fvm_shared::{address::Address, clock::ChainEpoch, econ::TokenAmount};
 use log::debug;
 use num_traits::Zero;
 use recall_ipld::hamt;
+
+use crate::state::accounts::Account;
 
 /// Helper for managing blobs actor state caller.
 #[allow(clippy::large_enum_variant)]

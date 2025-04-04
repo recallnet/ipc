@@ -4,16 +4,14 @@
 
 use std::collections::HashSet;
 
-use fendermint_actor_blobs_shared::{
-    accounts::{Account, AccountStatus},
-    bytes::B256,
-};
+use fendermint_actor_blobs_shared::{accounts::AccountStatus, bytes::B256};
 use fendermint_actor_recall_config_shared::RecallConfig;
 use fil_actors_runtime::ActorError;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::{address::Address, clock::ChainEpoch};
 use log::{debug, warn};
 
+use super::Account;
 use crate::{caller::Caller, state::DeleteBlobStateParams, State};
 
 impl State {

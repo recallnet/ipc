@@ -6,10 +6,7 @@ use std::error::Error;
 use std::str::from_utf8;
 
 use fendermint_actor_blobs_shared::{
-    blobs::{
-        Blob, BlobRequest, BlobStatus, BlobSubscribers, Subscription, SubscriptionGroup,
-        SubscriptionId,
-    },
+    blobs::{BlobRequest, BlobStatus, Subscription, SubscriptionId},
     bytes::B256,
     credit::Credit,
 };
@@ -21,12 +18,11 @@ use log::debug;
 use num_traits::{ToPrimitive, Zero};
 use recall_ipld::hamt::BytesKey;
 
-use super::params::{AddBlobStateParams, DeleteBlobStateParams, FinalizeBlobStateParams};
-use crate::{
-    caller::Caller,
-    state::{blobs::BlobSource, credit::CommitCapacityParams, expiries::ExpiryUpdate},
-    State,
+use super::{
+    AddBlobStateParams, Blob, BlobSource, DeleteBlobStateParams, ExpiryUpdate,
+    FinalizeBlobStateParams, Subscribers, Subscriptions,
 };
+use crate::{caller::Caller, state::credit::CommitCapacityParams, State};
 
 /// Return type for blob queues.
 type BlobSourcesResult = anyhow::Result<Vec<BlobRequest>, ActorError>;
@@ -184,7 +180,7 @@ impl State {
                     failed: false,
                 };
                 let mut subscribers = blob.subscribers.hamt(store)?;
-                let mut subscription_group = SubscriptionGroup::new(store)?;
+                let mut subscription_group = Subscriptions::new(store)?;
                 let mut subscription_group_hamt = subscription_group.hamt(store)?;
                 subscription_group.save_tracked(
                     subscription_group_hamt.set_and_flush_tracked(&params.id, sub.clone())?,
@@ -242,7 +238,7 @@ impl State {
                 delegate: caller.delegate_address(),
                 failed: false,
             };
-            let blob_subscribers = BlobSubscribers::new(store)?;
+            let blob_subscribers = Subscribers::new(store)?;
             let mut subscribers = blob_subscribers.hamt(store)?;
             let mut blob = Blob {
                 size: params.size.to_u64().unwrap(),
@@ -250,7 +246,7 @@ impl State {
                 subscribers: blob_subscribers,
                 status: BlobStatus::Added,
             };
-            let mut subscription_group = SubscriptionGroup::new(store)?;
+            let mut subscription_group = Subscriptions::new(store)?;
             let mut subscription_group_hamt = subscription_group.hamt(store)?;
             subscription_group.save_tracked(
                 subscription_group_hamt.set_and_flush_tracked(&params.id, sub.clone())?,

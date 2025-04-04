@@ -2,10 +2,7 @@
 // Copyright 2021-2023 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use fendermint_actor_blobs_shared::{
-    accounts::Account,
-    credit::{Credit, CreditApproval, GasAllowance},
-};
+use fendermint_actor_blobs_shared::credit::{Credit, CreditApproval, GasAllowance};
 use fendermint_actor_recall_config_shared::RecallConfig;
 use fil_actors_runtime::ActorError;
 use fvm_ipld_blockstore::Blockstore;
@@ -13,9 +10,10 @@ use fvm_shared::{address::Address, clock::ChainEpoch, econ::TokenAmount, error::
 use log::debug;
 use recall_ipld::hamt;
 
-use super::params::CommitCapacityParams;
+use super::CommitCapacityParams;
 use crate::{
     caller::{Caller, Delegation, DelegationOptions},
+    state::accounts::Account,
     State,
 };
 

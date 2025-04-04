@@ -4,22 +4,21 @@
 
 use std::str::from_utf8;
 
+use fendermint_actor_blobs_shared::blobs::{Subscription, SubscriptionId};
 use fil_actors_runtime::ActorError;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::tuple::*;
 use fvm_shared::clock::ChainEpoch;
 use recall_ipld::{hamt, hamt::map::TrackedFlushResult};
 
-use super::{Subscription, SubscriptionId};
-
 /// HAMT wrapper tracking blob [`Subscription`]s by subscription ID.
 #[derive(Debug, Clone, PartialEq, Serialize_tuple, Deserialize_tuple)]
-pub struct SubscriptionGroup {
+pub struct Subscriptions {
     pub root: hamt::Root<SubscriptionId, Subscription>,
     size: u64,
 }
 
-impl SubscriptionGroup {
+impl Subscriptions {
     pub fn new<BS: Blockstore>(store: &BS) -> Result<Self, ActorError> {
         let root = hamt::Root::<SubscriptionId, Subscription>::new(store, "subscription_group")?;
         Ok(Self { root, size: 0 })

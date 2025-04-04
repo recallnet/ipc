@@ -5,7 +5,7 @@
 use std::collections::HashMap;
 
 use fendermint_actor_blobs_shared::blobs::{
-    AddBlobParams, BlobInfo, BlobStatus, DeleteBlobParams, GetBlobParams, OverwriteBlobParams,
+    AddBlobParams, Blob, BlobStatus, DeleteBlobParams, GetBlobParams, OverwriteBlobParams,
     SubscriptionId,
 };
 use fendermint_actor_blobs_shared::sdk::{
@@ -303,7 +303,7 @@ fn get_blob_id(state: &State, key: &[u8]) -> anyhow::Result<SubscriptionId, Acto
 
 /// Build an object from its state and blob.
 fn build_object(
-    blob: &BlobInfo,
+    blob: &Blob,
     object_state: &ObjectState,
     sub_id: SubscriptionId,
     subscriber: Address,
@@ -921,7 +921,7 @@ mod tests {
         rt.verify();
 
         // Get the object
-        let blob = BlobInfo {
+        let blob = Blob {
             size: add_params.size,
             subscribers: HashMap::from([(sub_id, ttl)]),
             status: BlobStatus::Resolved,
@@ -1134,7 +1134,7 @@ mod tests {
         rt.verify();
 
         // Get the object and check metadata
-        let blob = BlobInfo {
+        let blob = Blob {
             size: add_params.size,
             subscribers: HashMap::from([(sub_id, ttl)]),
             status: BlobStatus::Resolved,
