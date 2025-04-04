@@ -143,22 +143,22 @@ impl AbiCallRuntime for sol::addObject_1Call {
     type Returns = ();
     type Output = Vec<u8>;
     fn params(&self, rt: &impl Runtime) -> Self::Params {
-        let source = PublicKey(self.params.source.into());
-        let key: Vec<u8> = self.params.key.clone().into_bytes();
-        let hash = Hash(self.params.hash.into());
-        let recovery_hash = Hash(self.params.recoveryHash.into());
-        let size = self.params.size;
-        let ttl = if self.params.ttl.clone().is_zero() {
+        let source = PublicKey(self.source.into());
+        let key: Vec<u8> = self.key.clone().into_bytes();
+        let hash = Hash(self.hash.into());
+        let recovery_hash = Hash(self.recoveryHash.into());
+        let size = self.size;
+        let ttl = if self.ttl.clone().is_zero() {
             None
         } else {
-            Some(self.params.ttl as ChainEpoch)
+            Some(self.ttl as ChainEpoch)
         };
         let mut metadata: HashMap<String, String> =
-            HashMap::with_capacity(self.params.metadata.len());
-        for kv in self.params.metadata.iter().cloned() {
+            HashMap::with_capacity(self.metadata.len());
+        for kv in self.metadata.iter().cloned() {
             metadata.insert(kv.key, kv.value);
         }
-        let overwrite = self.params.overwrite;
+        let overwrite = self.overwrite;
         let from = rt.message().caller();
         AddParams {
             source,
