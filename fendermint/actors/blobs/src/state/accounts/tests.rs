@@ -2,21 +2,25 @@
 // Copyright 2022-2024 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use fendermint_actor_blobs_shared::state::{BlobStatus, Credit, SubscriptionId, TtlStatus};
+use fendermint_actor_blobs_shared::{
+    accounts::AccountStatus,
+    blobs::{BlobStatus, SubscriptionId},
+    credit::Credit,
+};
 use fendermint_actor_blobs_testing::{
     new_address, new_hash, new_metadata_hash, new_pk, setup_logs,
 };
 use fendermint_actor_recall_config_shared::RecallConfig;
 use fvm_ipld_blockstore::{Blockstore, MemoryBlockstore};
-use fvm_shared::address::Address;
-use fvm_shared::clock::ChainEpoch;
-use fvm_shared::econ::TokenAmount;
+use fvm_shared::{address::Address, clock::ChainEpoch, econ::TokenAmount};
 use num_traits::Zero;
 
-use crate::caller::DelegationOptions;
-use crate::state::blobs::{AddBlobStateParams, FinalizeBlobStateParams};
-use crate::testing::check_approval_used;
-use crate::State;
+use crate::{
+    caller::DelegationOptions,
+    state::blobs::{AddBlobStateParams, FinalizeBlobStateParams},
+    testing::check_approval_used,
+    State,
+};
 
 #[test]
 fn test_set_account_status() {
@@ -26,8 +30,8 @@ fn test_set_account_status() {
 
     struct TestCase {
         name: &'static str,
-        initial_ttl_status: Option<TtlStatus>, // None means don't set initial status
-        new_ttl_status: TtlStatus,
+        initial_ttl_status: Option<AccountStatus>, // None means don't set initial status
+        new_ttl_status: AccountStatus,
         expected_ttl: ChainEpoch,
     }
 
@@ -35,31 +39,31 @@ fn test_set_account_status() {
         TestCase {
             name: "Setting Reduced on new account",
             initial_ttl_status: None,
-            new_ttl_status: TtlStatus::Reduced,
+            new_ttl_status: AccountStatus::Reduced,
             expected_ttl: 0,
         },
         TestCase {
             name: "Setting Default on new account",
             initial_ttl_status: None,
-            new_ttl_status: TtlStatus::Default,
+            new_ttl_status: AccountStatus::Default,
             expected_ttl: config.blob_default_ttl,
         },
         TestCase {
             name: "Changing from Default to Reduced",
-            initial_ttl_status: Some(TtlStatus::Default),
-            new_ttl_status: TtlStatus::Reduced,
+            initial_ttl_status: Some(AccountStatus::Default),
+            new_ttl_status: AccountStatus::Reduced,
             expected_ttl: 0,
         },
         TestCase {
             name: "Changing from Extended to Reduced",
-            initial_ttl_status: Some(TtlStatus::Extended),
-            new_ttl_status: TtlStatus::Reduced,
+            initial_ttl_status: Some(AccountStatus::Extended),
+            new_ttl_status: AccountStatus::Reduced,
             expected_ttl: 0,
         },
         TestCase {
             name: "Changing from Reduced to Extended",
-            initial_ttl_status: Some(TtlStatus::Reduced),
-            new_ttl_status: TtlStatus::Extended,
+            initial_ttl_status: Some(AccountStatus::Reduced),
+            new_ttl_status: AccountStatus::Extended,
             expected_ttl: ChainEpoch::MAX,
         },
     ];

@@ -5,11 +5,13 @@
 use std::collections::{HashMap, HashSet};
 
 use anyhow::Error;
-use fendermint_actor_blobs_shared::params::{
-    ApproveCreditParams, BuyCreditParams, GetAccountParams, GetCreditApprovalParams,
-    RevokeCreditParams, SetAccountStatusParams, SetSponsorParams,
+use fendermint_actor_blobs_shared::{
+    accounts::{AccountInfo, AccountStatus, GetAccountParams, SetAccountStatusParams},
+    credit::{
+        ApproveCreditParams, BuyCreditParams, Credit, CreditApproval, GetCreditApprovalParams,
+        RevokeCreditParams, SetSponsorParams,
+    },
 };
-use fendermint_actor_blobs_shared::state::{AccountInfo, Credit, CreditApproval, TtlStatus};
 use fil_actors_runtime::{actor_error, runtime::Runtime, ActorError};
 use fvm_shared::{address::Address, clock::ChainEpoch, econ::TokenAmount};
 use recall_actor_sdk::{evm::TryIntoEVMEvent, util::token_to_biguint};
@@ -435,10 +437,10 @@ impl AbiCall for sol::setAccountStatusCall {
     fn params(&self) -> Self::Params {
         let subscriber = H160::from(self.subscriber);
         let ttl_status = match self.ttlStatus {
-            0 => TtlStatus::Default,
-            1 => TtlStatus::Reduced,
-            2 => TtlStatus::Extended,
-            _ => return Err(actor_error!(illegal_argument, "invalid TtlStatus")),
+            0 => AccountStatus::Default,
+            1 => AccountStatus::Reduced,
+            2 => AccountStatus::Extended,
+            _ => return Err(actor_error!(illegal_argument, "invalid AccountStatus")),
         };
         Ok(SetAccountStatusParams {
             subscriber: subscriber.into(),

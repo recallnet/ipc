@@ -5,19 +5,19 @@
 use std::collections::HashMap;
 
 use anyhow::Error;
-use fendermint_actor_blobs_shared::state::Hash;
+use fendermint_actor_blobs_shared::bytes::B256;
 use recall_actor_sdk::evm::TryIntoEVMEvent;
 use recall_sol_facade::bucket as sol;
 
 pub struct ObjectAdded<'a> {
     pub key: &'a Vec<u8>,
-    pub blob_hash: &'a Hash,
+    pub blob_hash: &'a B256,
     pub metadata: &'a HashMap<String, String>,
 }
 impl<'a> ObjectAdded<'a> {
     pub fn new(
         key: &'a Vec<u8>,
-        blob_hash: &'a Hash,
+        blob_hash: &'a B256,
         metadata: &'a HashMap<String, String>,
     ) -> Self {
         Self {
@@ -64,10 +64,10 @@ impl<'a> TryIntoEVMEvent for ObjectMetadataUpdated<'a> {
 
 pub struct ObjectDeleted<'a> {
     pub key: &'a Vec<u8>,
-    pub blob_hash: &'a Hash,
+    pub blob_hash: &'a B256,
 }
 impl<'a> ObjectDeleted<'a> {
-    pub fn new(key: &'a Vec<u8>, blob_hash: &'a Hash) -> Self {
+    pub fn new(key: &'a Vec<u8>, blob_hash: &'a B256) -> Self {
         Self { key, blob_hash }
     }
 }

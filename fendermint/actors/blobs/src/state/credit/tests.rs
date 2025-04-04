@@ -2,7 +2,10 @@
 // Copyright 2022-2024 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use fendermint_actor_blobs_shared::state::{Credit, CreditApproval, SubscriptionId};
+use fendermint_actor_blobs_shared::{
+    blobs::SubscriptionId,
+    credit::{Credit, CreditApproval},
+};
 use fendermint_actor_blobs_testing::{
     new_address, new_hash, new_metadata_hash, new_pk, setup_logs,
 };
@@ -11,9 +14,7 @@ use fvm_ipld_blockstore::MemoryBlockstore;
 use fvm_shared::{address::Address, clock::ChainEpoch, econ::TokenAmount};
 use num_traits::Zero;
 
-use crate::caller::DelegationOptions;
-use crate::state::blobs::AddBlobStateParams;
-use crate::State;
+use crate::{caller::DelegationOptions, state::blobs::AddBlobStateParams, State};
 
 fn check_approvals_match(
     state: &State,

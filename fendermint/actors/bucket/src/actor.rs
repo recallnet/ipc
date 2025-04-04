@@ -4,12 +4,12 @@
 
 use std::collections::HashMap;
 
-use fendermint_actor_blobs_shared::params::{
-    AddBlobParams, DeleteBlobParams, GetBlobParams, OverwriteBlobParams,
+use fendermint_actor_blobs_shared::blobs::{
+    AddBlobParams, BlobInfo, BlobStatus, DeleteBlobParams, GetBlobParams, OverwriteBlobParams,
+    SubscriptionId,
 };
-use fendermint_actor_blobs_shared::{
+use fendermint_actor_blobs_shared::sdk::{
     add_blob, delete_blob, get_blob, has_credit_approval, overwrite_blob,
-    state::{BlobInfo, BlobStatus, SubscriptionId},
 };
 use fendermint_actor_machine::MachineActor;
 use fil_actors_runtime::{
@@ -409,20 +409,24 @@ mod tests {
     use super::*;
 
     use fendermint_actor_blobs_shared::{
-        params::{
-            AddBlobParams, DeleteBlobParams, GetBlobParams, GetCreditApprovalParams,
-            OverwriteBlobParams,
-        },
-        state::{CreditApproval, Hash, Subscription},
-        Method as BlobMethod, BLOBS_ACTOR_ADDR,
+        blobs::Subscription,
+        bytes::B256,
+        credit::{CreditApproval, GetCreditApprovalParams},
+        method::Method as BlobMethod,
+        BLOBS_ACTOR_ADDR,
     };
     use fendermint_actor_blobs_testing::{new_hash, new_pk, setup_logs};
-    use fendermint_actor_machine::sol_facade::{MachineCreated, MachineInitialized};
-    use fendermint_actor_machine::{ConstructorParams, InitParams, Kind};
+    use fendermint_actor_machine::{
+        sol_facade::{MachineCreated, MachineInitialized},
+        ConstructorParams, InitParams, Kind,
+    };
     use fil_actors_evm_shared::address::EthAddress;
-    use fil_actors_runtime::runtime::Runtime;
-    use fil_actors_runtime::test_utils::{
-        expect_empty, MockRuntime, ADM_ACTOR_CODE_ID, ETHACCOUNT_ACTOR_CODE_ID, INIT_ACTOR_CODE_ID,
+    use fil_actors_runtime::{
+        runtime::Runtime,
+        test_utils::{
+            expect_empty, MockRuntime, ADM_ACTOR_CODE_ID, ETHACCOUNT_ACTOR_CODE_ID,
+            INIT_ACTOR_CODE_ID,
+        },
     };
     use fil_actors_runtime::{ADM_ACTOR_ADDR, INIT_ACTOR_ADDR};
     use fvm_ipld_encoding::ipld_block::IpldBlock;
@@ -502,7 +506,7 @@ mod tests {
         rt.expect_emitted_event(event);
     }
 
-    fn expect_emitted_delete_event(rt: &MockRuntime, params: &DeleteParams, hash: Hash) {
+    fn expect_emitted_delete_event(rt: &MockRuntime, params: &DeleteParams, hash: B256) {
         let event = to_actor_event(ObjectDeleted::new(&params.key, &hash)).unwrap();
         rt.expect_emitted_event(event);
     }

@@ -5,9 +5,13 @@
 use std::error::Error;
 use std::str::from_utf8;
 
-use fendermint_actor_blobs_shared::state::{
-    Blob, BlobRequest, BlobStatus, BlobSubscribers, Credit, Hash, PublicKey, Subscription,
-    SubscriptionGroup, SubscriptionId,
+use fendermint_actor_blobs_shared::{
+    blobs::{
+        Blob, BlobRequest, BlobStatus, BlobSubscribers, Subscription, SubscriptionGroup,
+        SubscriptionId,
+    },
+    bytes::B256,
+    credit::Credit,
 };
 use fendermint_actor_recall_config_shared::RecallConfig;
 use fil_actors_runtime::ActorError;
@@ -18,10 +22,11 @@ use num_traits::{ToPrimitive, Zero};
 use recall_ipld::hamt::BytesKey;
 
 use super::params::{AddBlobStateParams, DeleteBlobStateParams, FinalizeBlobStateParams};
-use crate::caller::Caller;
-use crate::state::credit::CommitCapacityParams;
-use crate::state::expiries::ExpiryUpdate;
-use crate::State;
+use crate::{
+    caller::Caller,
+    state::{blobs::BlobSource, credit::CommitCapacityParams, expiries::ExpiryUpdate},
+    State,
+};
 
 /// Return type for blob queues.
 type BlobSourcesResult = anyhow::Result<Vec<BlobRequest>, ActorError>;
@@ -216,7 +221,7 @@ impl State {
                 self.added.upsert(
                     store,
                     params.hash,
-                    (caller.subscriber_address(), params.id, params.source),
+                    BlobSource::new(caller.subscriber_address(), params.id, params.source),
                     blob.size,
                 )?;
             }
@@ -268,7 +273,7 @@ impl State {
             self.added.upsert(
                 store,
                 params.hash,
-                (
+                BlobSource::new(
                     caller.subscriber_address(),
                     params.id.clone(),
                     params.source,
@@ -328,7 +333,7 @@ impl State {
     pub fn get_blob<BS: Blockstore>(
         &self,
         store: &BS,
-        hash: Hash,
+        hash: B256,
     ) -> anyhow::Result<Option<Blob>, ActorError> {
         let blobs = self.blobs.hamt(store)?;
         blobs.get(&hash)
@@ -339,7 +344,7 @@ impl State {
         &self,
         store: &BS,
         subscriber: Address,
-        hash: Hash,
+        hash: B256,
         id: SubscriptionId,
     ) -> anyhow::Result<Option<BlobStatus>, ActorError> {
         let blob = if let Some(blob) = self
@@ -429,10 +434,10 @@ impl State {
         &mut self,
         store: &BS,
         subscriber: Address,
-        hash: Hash,
+        hash: B256,
         size: u64,
         id: SubscriptionId,
-        source: PublicKey,
+        source: B256,
     ) -> anyhow::Result<(), ActorError> {
         let mut blobs = self.blobs.hamt(store)?;
         let mut blob = if let Some(blob) = blobs.get(&hash)? {
@@ -451,8 +456,12 @@ impl State {
         blob.status = BlobStatus::Pending;
 
         // Add the source to the pending queue
-        self.pending
-            .upsert(store, hash, (subscriber, id, source), blob.size)?;
+        self.pending.upsert(
+            store,
+            hash,
+            BlobSource::new(subscriber, id, source),
+            blob.size,
+        )?;
 
         // Remove entire blob entry from the added queue
         self.added.remove_entry(store, &hash, blob.size)?;
@@ -587,7 +596,7 @@ impl State {
         self.pending.remove_source(
             store,
             params.hash,
-            (subscriber, params.id, sub.source),
+            BlobSource::new(subscriber, params.id, sub.source),
             blob.size,
         )?;
 
@@ -739,7 +748,7 @@ impl State {
         self.added.remove_source(
             store,
             params.hash,
-            (caller.subscriber_address(), params.id.clone(), sub.source),
+            BlobSource::new(caller.subscriber_address(), params.id.clone(), sub.source),
             size,
         )?;
 
@@ -747,7 +756,7 @@ impl State {
         self.pending.remove_source(
             store,
             params.hash,
-            (caller.subscriber_address(), params.id.clone(), sub.source),
+            BlobSource::new(caller.subscriber_address(), params.id.clone(), sub.source),
             size,
         )?;
 
@@ -811,9 +820,9 @@ impl State {
         store: &BS,
         subscriber: Address,
         current_epoch: ChainEpoch,
-        starting_hash: Option<Hash>,
+        starting_hash: Option<B256>,
         limit: Option<u32>,
-    ) -> anyhow::Result<(u32, Option<Hash>, Vec<Hash>), ActorError> {
+    ) -> anyhow::Result<(u32, Option<B256>, Vec<B256>), ActorError> {
         let new_ttl = self.get_account_max_ttl(config, store, subscriber)?;
         let mut deleted_blobs = Vec::new();
         let mut processed = 0;

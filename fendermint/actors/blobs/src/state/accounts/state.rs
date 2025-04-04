@@ -2,13 +2,12 @@
 // Copyright 2022-2024 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use fendermint_actor_blobs_shared::state::Account;
+use fendermint_actor_blobs_shared::accounts::Account;
 use fil_actors_runtime::ActorError;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::tuple::*;
 use fvm_shared::address::Address;
-use recall_ipld::hamt;
-use recall_ipld::hamt::{map::TrackedFlushResult, BytesKey};
+use recall_ipld::hamt::{self, map::TrackedFlushResult, BytesKey};
 
 /// HAMT wrapper for accounts state.
 #[derive(Debug, Serialize_tuple, Deserialize_tuple)]

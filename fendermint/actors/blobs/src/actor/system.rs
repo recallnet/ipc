@@ -2,32 +2,29 @@
 // Copyright 2021-2023 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::collections::HashSet;
-
-use fendermint_actor_blobs_shared::params::{
-    FinalizeBlobParams, GetAddedBlobsParams, GetBlobStatusParams, GetGasAllowanceParams,
-    GetPendingBlobsParams, SetBlobPendingParams, UpdateGasAllowanceParams,
-};
-use fendermint_actor_blobs_shared::state::{
-    BlobStatus, Credit, GasAllowance, Hash, PublicKey, SubscriptionId,
+use fendermint_actor_blobs_shared::blobs::BlobRequest;
+use fendermint_actor_blobs_shared::{
+    blobs::{
+        BlobStatus, FinalizeBlobParams, GetAddedBlobsParams, GetBlobStatusParams,
+        GetPendingBlobsParams, SetBlobPendingParams,
+    },
+    credit::{Credit, GasAllowance, GetGasAllowanceParams, UpdateGasAllowanceParams},
 };
 use fendermint_actor_recall_config_shared::get_config;
 use fil_actors_runtime::{runtime::Runtime, ActorError, SYSTEM_ACTOR_ADDR};
-use fvm_shared::{address::Address, error::ExitCode};
+use fvm_shared::error::ExitCode;
 use num_traits::Zero;
 use recall_actor_sdk::{
     caller::{Caller, CallerOption},
     evm::emit_evm_event,
 };
 
-use crate::actor::{delete_from_disc, BlobsActor};
-use crate::sol_facade::{blobs as sol_blobs, credit::CreditDebited};
-use crate::state::blobs::FinalizeBlobStateParams;
-use crate::State;
-
-/// The return type used when fetching "added" or "pending" blobs.
-/// See `get_added_blobs` and `get_pending_blobs` for more information.
-type BlobRequest = (Hash, u64, HashSet<(Address, SubscriptionId, PublicKey)>);
+use crate::{
+    actor::{delete_from_disc, BlobsActor},
+    sol_facade::{blobs as sol_blobs, credit::CreditDebited},
+    state::blobs::FinalizeBlobStateParams,
+    State,
+};
 
 impl BlobsActor {
     /// Returns the gas allowance from a credit purchase for an address.

@@ -2,8 +2,7 @@
 // Copyright 2021-2023 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use fendermint_actor_blobs_shared::state::Hash;
-use fendermint_actor_blobs_shared::Method;
+use fendermint_actor_blobs_shared::{bytes::B256, method::Method};
 use fil_actors_runtime::{
     actor_dispatch, actor_error,
     runtime::{ActorCode, Runtime},
@@ -13,8 +12,10 @@ use fvm_ipld_encoding::ipld_block::IpldBlock;
 use fvm_shared::MethodNum;
 use recall_actor_sdk::evm::{InputData, InvokeContractParams, InvokeContractReturn};
 
-use crate::sol_facade::{blobs as sol_blobs, credit as sol_credit, AbiCall, AbiCallRuntime};
-use crate::{State, BLOBS_ACTOR_NAME};
+use crate::{
+    sol_facade::{blobs as sol_blobs, credit as sol_credit, AbiCall, AbiCallRuntime},
+    State, BLOBS_ACTOR_NAME,
+};
 
 mod admin;
 mod metrics;
@@ -212,7 +213,7 @@ impl ActorCode for BlobsActor {
 }
 
 /// Makes a syscall that will delete a blob from the underlying Iroh-based data store.
-fn delete_from_disc(hash: Hash) -> Result<(), ActorError> {
+fn delete_from_disc(hash: B256) -> Result<(), ActorError> {
     #[cfg(feature = "fil-actor")]
     {
         recall_actor_sdk::storage::delete_blob(hash.0).map_err(|en| {

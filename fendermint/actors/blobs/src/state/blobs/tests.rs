@@ -2,7 +2,11 @@
 // Copyright 2022-2024 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use fendermint_actor_blobs_shared::state::{BlobStatus, Credit, SubscriptionId, TtlStatus};
+use fendermint_actor_blobs_shared::{
+    accounts::AccountStatus,
+    blobs::{BlobStatus, SubscriptionId},
+    credit::Credit,
+};
 use fendermint_actor_blobs_testing::{
     new_address, new_hash, new_metadata_hash, new_pk, setup_logs,
 };
@@ -12,10 +16,12 @@ use fvm_ipld_blockstore::{Blockstore, MemoryBlockstore};
 use fvm_shared::{address::Address, bigint::BigInt, clock::ChainEpoch, econ::TokenAmount};
 use num_traits::Zero;
 
-use crate::caller::DelegationOptions;
-use crate::state::blobs::{AddBlobStateParams, DeleteBlobStateParams, FinalizeBlobStateParams};
-use crate::testing::check_approval_used;
-use crate::State;
+use crate::{
+    caller::DelegationOptions,
+    state::blobs::{AddBlobStateParams, DeleteBlobStateParams, FinalizeBlobStateParams},
+    testing::check_approval_used,
+    State,
+};
 
 #[test]
 fn test_add_blob_refund() {
@@ -144,7 +150,7 @@ fn add_blob_refund<BS: Blockstore>(
             &store,
             config,
             subscriber,
-            TtlStatus::Extended,
+            AccountStatus::Extended,
             current_epoch
         )
         .is_ok());
@@ -356,7 +362,7 @@ fn add_blob_same_hash_same_account<BS: Blockstore>(
             &store,
             config,
             subscriber,
-            TtlStatus::Extended,
+            AccountStatus::Extended,
             current_epoch
         )
         .is_ok());
@@ -702,7 +708,7 @@ fn test_add_blob_ttl_exceeds_account_max_ttl() {
     // Test cases structure
     struct TestCase {
         name: &'static str,
-        account_ttl_status: TtlStatus,
+        account_ttl_status: AccountStatus,
         blob_ttl: Option<ChainEpoch>,
         should_succeed: bool,
         expected_account_ttl: ChainEpoch,
@@ -713,7 +719,7 @@ fn test_add_blob_ttl_exceeds_account_max_ttl() {
     let test_cases = vec![
         TestCase {
             name: "Reduced status rejects even minimum TTL",
-            account_ttl_status: TtlStatus::Reduced,
+            account_ttl_status: AccountStatus::Reduced,
             blob_ttl: Some(config.blob_min_ttl),
             should_succeed: false,
             expected_account_ttl: 0,
@@ -721,7 +727,7 @@ fn test_add_blob_ttl_exceeds_account_max_ttl() {
         },
         TestCase {
             name: "Reduced status rejects no TTL",
-            account_ttl_status: TtlStatus::Reduced,
+            account_ttl_status: AccountStatus::Reduced,
             blob_ttl: Some(config.blob_min_ttl),
             should_succeed: false,
             expected_account_ttl: 0,
@@ -729,7 +735,7 @@ fn test_add_blob_ttl_exceeds_account_max_ttl() {
         },
         TestCase {
             name: "Default status allows default TTL",
-            account_ttl_status: TtlStatus::Default,
+            account_ttl_status: AccountStatus::Default,
             blob_ttl: Some(config.blob_default_ttl),
             should_succeed: true,
             expected_account_ttl: config.blob_default_ttl,
@@ -737,7 +743,7 @@ fn test_add_blob_ttl_exceeds_account_max_ttl() {
         },
         TestCase {
             name: "Default status sets no TTL to default without auto renew",
-            account_ttl_status: TtlStatus::Default,
+            account_ttl_status: AccountStatus::Default,
             blob_ttl: None,
             should_succeed: true,
             expected_account_ttl: config.blob_default_ttl,
@@ -745,7 +751,7 @@ fn test_add_blob_ttl_exceeds_account_max_ttl() {
         },
         TestCase {
             name: "Default status preserves given TTL if it's less than default",
-            account_ttl_status: TtlStatus::Default,
+            account_ttl_status: AccountStatus::Default,
             blob_ttl: Some(config.blob_default_ttl - 1),
             should_succeed: true,
             expected_account_ttl: config.blob_default_ttl,
@@ -753,7 +759,7 @@ fn test_add_blob_ttl_exceeds_account_max_ttl() {
         },
         TestCase {
             name: "Default status rejects TTLs higher than default",
-            account_ttl_status: TtlStatus::Default,
+            account_ttl_status: AccountStatus::Default,
             blob_ttl: Some(config.blob_default_ttl + 1),
             should_succeed: false,
             expected_account_ttl: config.blob_default_ttl,
@@ -761,7 +767,7 @@ fn test_add_blob_ttl_exceeds_account_max_ttl() {
         },
         TestCase {
             name: "Extended status allows any TTL",
-            account_ttl_status: TtlStatus::Extended,
+            account_ttl_status: AccountStatus::Extended,
             blob_ttl: Some(YEAR),
             should_succeed: true,
             expected_account_ttl: ChainEpoch::MAX,
@@ -875,7 +881,13 @@ fn test_add_blob_with_overflowing_ttl() {
         .buy_credit(&store, &config, caller, amount.clone(), current_epoch)
         .unwrap();
 
-    let res = state.set_account_status(&store, &config, caller, TtlStatus::Extended, current_epoch);
+    let res = state.set_account_status(
+        &store,
+        &config,
+        caller,
+        AccountStatus::Extended,
+        current_epoch,
+    );
     assert!(res.is_ok());
 
     let (hash, size) = new_hash(1024);
@@ -1125,7 +1137,13 @@ fn test_finalize_blob_failed_refund() {
     let mut credit_amount = amount.clone() * &config.token_credit_rate;
 
     assert!(state
-        .set_account_status(&store, &config, caller, TtlStatus::Extended, current_epoch)
+        .set_account_status(
+            &store,
+            &config,
+            caller,
+            AccountStatus::Extended,
+            current_epoch
+        )
         .is_ok());
 
     // Add a blob
@@ -1497,7 +1515,7 @@ fn test_trim_blob_expiries() {
 
     struct TestCase {
         name: &'static str,
-        account_ttl: TtlStatus,
+        account_ttl: AccountStatus,
         expected_ttls: Vec<ChainEpoch>,
         limit: Option<u32>, // None means process all at once
     }
@@ -1505,19 +1523,19 @@ fn test_trim_blob_expiries() {
     let test_cases = vec![
         TestCase {
             name: "Set to zero with Reduced status",
-            account_ttl: TtlStatus::Reduced,
+            account_ttl: AccountStatus::Reduced,
             expected_ttls: vec![0, 0, 0, 0, 0],
             limit: None,
         },
         TestCase {
             name: "Set to default with Default status",
-            account_ttl: TtlStatus::Default,
+            account_ttl: AccountStatus::Default,
             expected_ttls: vec![DAY, HOUR, TWO_HOURS, DAY, DAY],
             limit: None,
         },
         TestCase {
             name: "Set to extended with Extended status",
-            account_ttl: TtlStatus::Extended,
+            account_ttl: AccountStatus::Extended,
             expected_ttls: vec![DAY, HOUR, TWO_HOURS, DAY, YEAR],
             limit: None,
         },
@@ -1537,7 +1555,13 @@ fn test_trim_blob_expiries() {
 
         // Set extended TTL status to allow adding all blobs
         state
-            .set_account_status(&store, &config, caller, TtlStatus::Extended, current_epoch)
+            .set_account_status(
+                &store,
+                &config,
+                caller,
+                AccountStatus::Extended,
+                current_epoch,
+            )
             .unwrap();
 
         // Add blobs
@@ -1725,7 +1749,13 @@ fn test_trim_blob_expiries_pagination() {
             )
             .unwrap();
         state
-            .set_account_status(&store, &config, caller, TtlStatus::Extended, current_epoch)
+            .set_account_status(
+                &store,
+                &config,
+                caller,
+                AccountStatus::Extended,
+                current_epoch,
+            )
             .unwrap();
 
         // Add 5 blobs with different sizes to ensure different hashes
@@ -1789,7 +1819,13 @@ fn test_trim_blob_expiries_pagination() {
 
         // Change to Reduced status and process blobs with pagination
         state
-            .set_account_status(&store, &config, caller, TtlStatus::Reduced, current_epoch)
+            .set_account_status(
+                &store,
+                &config,
+                caller,
+                AccountStatus::Reduced,
+                current_epoch,
+            )
             .unwrap();
 
         let res = state.trim_blob_expiries(
@@ -1871,7 +1907,7 @@ fn test_trim_blob_expiries_for_multiple_accounts() {
             &store,
             &config,
             address1,
-            TtlStatus::Extended,
+            AccountStatus::Extended,
             current_epoch,
         )
         .unwrap();
@@ -1880,7 +1916,7 @@ fn test_trim_blob_expiries_for_multiple_accounts() {
             &store,
             &config,
             address2,
-            TtlStatus::Extended,
+            AccountStatus::Extended,
             current_epoch,
         )
         .unwrap();
@@ -1969,7 +2005,13 @@ fn test_trim_blob_expiries_for_multiple_accounts() {
 
     // Change TTL status for account1 and trim expiries
     state
-        .set_account_status(&store, &config, address1, TtlStatus::Reduced, current_epoch)
+        .set_account_status(
+            &store,
+            &config,
+            address1,
+            AccountStatus::Reduced,
+            current_epoch,
+        )
         .unwrap();
     let res = state.trim_blob_expiries(&config, &store, address1, current_epoch, None, None);
     assert!(

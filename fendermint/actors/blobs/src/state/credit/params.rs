@@ -2,7 +2,7 @@
 // Copyright 2021-2023 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use fendermint_actor_blobs_shared::state::Credit;
+use fendermint_actor_blobs_shared::credit::Credit;
 use fvm_shared::{clock::ChainEpoch, econ::TokenAmount};
 
 /// Params for committing capacity.

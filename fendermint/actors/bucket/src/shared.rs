@@ -4,7 +4,7 @@
 
 use std::collections::HashMap;
 
-use fendermint_actor_blobs_shared::state::{Hash, PublicKey};
+use fendermint_actor_blobs_shared::bytes::B256;
 use fendermint_actor_machine::{
     GET_ADDRESS_METHOD, GET_METADATA_METHOD, INIT_METHOD, METHOD_CONSTRUCTOR,
 };
@@ -38,14 +38,14 @@ pub enum Method {
 #[derive(Clone, Debug, Serialize_tuple, Deserialize_tuple)]
 pub struct AddParams {
     /// Source Iroh node ID used for ingestion.
-    pub source: PublicKey,
+    pub source: B256,
     /// Object key.
     #[serde(with = "strict_bytes")]
     pub key: Vec<u8>,
     /// Object blake3 hash.
-    pub hash: Hash,
+    pub hash: B256,
     /// Blake3 hash of the metadata to use for object recovery.
-    pub recovery_hash: Hash,
+    pub recovery_hash: B256,
     /// Object size.
     pub size: u64,
     /// Object time-to-live epochs.
@@ -93,9 +93,9 @@ pub struct ListParams {
 #[derive(Clone, Debug, PartialEq, Serialize_tuple, Deserialize_tuple)]
 pub struct Object {
     /// The object blake3 hash.
-    pub hash: Hash,
+    pub hash: B256,
     /// Blake3 hash of the metadata to use for object recovery.
-    pub recovery_hash: Hash,
+    pub recovery_hash: B256,
     /// The object size.
     pub size: u64,
     /// Expiry block.

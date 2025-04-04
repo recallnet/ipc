@@ -2,24 +2,23 @@
 // Copyright 2022-2024 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use fendermint_actor_blobs_shared::state::Hash;
-use fendermint_actor_blobs_shared::state::SubscriptionId;
+use std::fmt::Display;
+
+use fendermint_actor_blobs_shared::{blobs::SubscriptionId, bytes::B256};
 use fil_actors_runtime::ActorError;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::tuple::*;
-use fvm_ipld_encoding::RawBytes;
-use fvm_shared::address::Address;
-use fvm_shared::clock::ChainEpoch;
-use recall_ipld::amt::vec::TrackedFlushResult;
-use recall_ipld::hamt::MapKey;
-use recall_ipld::{amt, hamt};
-use std::fmt::Display;
+use fvm_ipld_encoding::{tuple::*, RawBytes};
+use fvm_shared::{address::Address, clock::ChainEpoch};
+use recall_ipld::{
+    amt::{self, vec::TrackedFlushResult},
+    hamt::{self, MapKey},
+};
 
 /// Key used to namespace subscriptions in the expiry index.
 #[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize_tuple, Deserialize_tuple)]
 pub struct ExpiryKey {
     /// Key hash.
-    pub hash: Hash,
+    pub hash: B256,
     /// Key subscription ID.
     pub id: SubscriptionId,
 }
@@ -46,7 +45,7 @@ impl MapKey for ExpiryKey {
 
 impl ExpiryKey {
     /// Create a new expiry key.
-    pub fn new(hash: Hash, id: &SubscriptionId) -> Self {
+    pub fn new(hash: B256, id: &SubscriptionId) -> Self {
         Self {
             hash,
             id: id.clone(),
@@ -151,7 +150,7 @@ impl ExpiriesState {
         &mut self,
         store: BS,
         subscriber: Address,
-        hash: Hash,
+        hash: B256,
         id: &SubscriptionId,
         updates: Vec<ExpiryUpdate>,
     ) -> Result<(), ActorError> {

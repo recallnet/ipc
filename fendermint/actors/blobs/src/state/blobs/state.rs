@@ -3,38 +3,41 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::collections::HashSet;
+use std::fmt::Display;
 
-use fendermint_actor_blobs_shared::state::{Blob, Hash, PublicKey, SubscriptionId};
+use fendermint_actor_blobs_shared::{
+    blobs::{Blob, SubscriptionId},
+    bytes::B256,
+};
 use fil_actors_runtime::ActorError;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::tuple::*;
+use fvm_ipld_encoding::{tuple::*, RawBytes};
 use fvm_shared::address::Address;
-use recall_ipld::hamt;
-use recall_ipld::hamt::map::TrackedFlushResult;
+use recall_ipld::hamt::{self, map::TrackedFlushResult, MapKey};
 
 /// HAMT wrapper for blobs state.
 #[derive(Debug, Serialize_tuple, Deserialize_tuple)]
 pub struct BlobsState {
     /// The HAMT root.
-    pub root: hamt::Root<Hash, Blob>,
+    pub root: hamt::Root<B256, Blob>,
     /// Size of the collection.
     size: u64,
 }
 
 impl BlobsState {
     pub fn new<BS: Blockstore>(store: &BS) -> Result<Self, ActorError> {
-        let root = hamt::Root::<Hash, Blob>::new(store, "blobs")?;
+        let root = hamt::Root::<B256, Blob>::new(store, "blobs")?;
         Ok(Self { root, size: 0 })
     }
 
     pub fn hamt<'a, BS: Blockstore>(
         &self,
         store: BS,
-    ) -> Result<hamt::map::Hamt<'a, BS, Hash, Blob>, ActorError> {
+    ) -> Result<hamt::map::Hamt<'a, BS, B256, Blob>, ActorError> {
         self.root.hamt(store, self.size)
     }
 
-    pub fn save_tracked(&mut self, tracked_flush_result: TrackedFlushResult<Hash, Blob>) {
+    pub fn save_tracked(&mut self, tracked_flush_result: TrackedFlushResult<B256, Blob>) {
         self.root = tracked_flush_result.root;
         self.size = tracked_flush_result.size;
     }
@@ -44,9 +47,60 @@ impl BlobsState {
     }
 }
 
+/// Key used to namespace a blob source set.
+#[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize_tuple, Deserialize_tuple)]
+pub struct BlobSource {
+    /// Blob subscriber.
+    pub subscriber: Address,
+    /// Subscription ID.
+    pub id: SubscriptionId,
+    /// Source Iroh node ID.
+    pub source: B256,
+}
+
+impl BlobSource {
+    /// Create a new blob source.
+    pub fn new(subscriber: Address, id: SubscriptionId, source: B256) -> Self {
+        Self {
+            subscriber,
+            id,
+            source,
+        }
+    }
+}
+
+impl Display for BlobSource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "BlobSource(subscriber: {}, id: {}, source: {})",
+            self.subscriber, self.id, self.source
+        )
+    }
+}
+
+impl MapKey for BlobSource {
+    fn from_bytes(b: &[u8]) -> Result<Self, String> {
+        let raw_bytes = RawBytes::from(b.to_vec());
+        fil_actors_runtime::cbor::deserialize(&raw_bytes, "BlobSource")
+            .map_err(|e| format!("Failed to deserialize BlobSource {}", e))
+    }
+
+    fn to_bytes(&self) -> Result<Vec<u8>, String> {
+        let raw_bytes = fil_actors_runtime::cbor::serialize(self, "BlobSource")
+            .map_err(|e| format!("Failed to serialize BlobSource {}", e))?;
+        Ok(raw_bytes.to_vec())
+    }
+}
+
+/// A set of [`BlobSource`]s.
+/// A blob in the collection may have multiple sources.
+type BlobSourceSet = HashSet<(Address, SubscriptionId, B256)>;
+
+/// A collection of blobs used for progress queues.
 #[derive(Debug, Serialize_tuple, Deserialize_tuple)]
 pub struct BlobsProgressCollection {
-    pub root: hamt::Root<Hash, BlobSourceSet>,
+    pub root: hamt::Root<B256, hamt::Root<BlobSource, ()>>,
     /// Number of blobs in the collection.
     /// A blob with multiple sources is only counted once.
     size: u64,
@@ -55,18 +109,10 @@ pub struct BlobsProgressCollection {
     bytes_size: u64,
 }
 
-/// Blob source is a tuple of subscriber [`Address`], blob [`SubscriptionId`],
-/// and an Iroh node [`PublicKey`].
-type BlobSource = (Address, SubscriptionId, PublicKey);
-
-/// A set of [`BlobSource`]s.
-/// A blob in the collection may have multiple sources.
-type BlobSourceSet = HashSet<(Address, SubscriptionId, PublicKey)>;
-
 impl BlobsProgressCollection {
     /// Returns a new progress collection.
     pub fn new<BS: Blockstore>(store: &BS, name: &str) -> Result<Self, ActorError> {
-        let root = hamt::Root::<Hash, BlobSourceSet>::new(store, name)?;
+        let root = hamt::Root::<B256, hamt::Root<BlobSource, ()>>::new(store, name)?;
         Ok(Self {
             root,
             size: 0,
@@ -74,16 +120,24 @@ impl BlobsProgressCollection {
         })
     }
 
+    /// Returns a store name for the inner root.
+    fn store_name_per_hash(&self, hash: B256) -> String {
+        format!("{}.{}", self.root.name(), hash)
+    }
+
     /// Returns the underlying [`hamt::map::Hamt`].
     pub fn hamt<'a, BS: Blockstore>(
         &self,
         store: BS,
-    ) -> Result<hamt::map::Hamt<'a, BS, Hash, BlobSourceSet>, ActorError> {
+    ) -> Result<hamt::map::Hamt<'a, BS, B256, hamt::Root<BlobSource, ()>>, ActorError> {
         self.root.hamt(store, self.size)
     }
 
     /// Saves the state from the [`TrackedFlushResult`].
-    pub fn save_tracked(&mut self, tracked_flush_result: TrackedFlushResult<Hash, BlobSourceSet>) {
+    pub fn save_tracked(
+        &mut self,
+        tracked_flush_result: TrackedFlushResult<B256, hamt::Root<BlobSource, ()>>,
+    ) {
         self.root = tracked_flush_result.root;
         self.size = tracked_flush_result.size;
     }
@@ -104,21 +158,24 @@ impl BlobsProgressCollection {
     pub fn upsert<BS: Blockstore>(
         &mut self,
         store: BS,
-        hash: Hash,
+        hash: B256,
         source: BlobSource,
         blob_size: u64,
     ) -> Result<(), ActorError> {
-        let mut map = self.hamt(store)?;
-        if !map.set_if_absent(&hash, HashSet::from([source.clone()]))? {
+        let mut collection = self.hamt(&store)?;
+        let sources_root = if let Some(sources_root) = collection.get(&hash)? {
             // Modify existing entry
-            let mut entry = map.get(&hash)?.expect("entry should exist");
-            entry.insert(source);
-            map.set(&hash, entry)?;
+            let mut sources = sources_root.hamt(&store, 0)?;
+            sources.set_and_flush(&source, ())?
         } else {
-            // Entry did not exist, add to tracked bytes size
+            // Entry did not exist, add and increase tracked bytes size
+            let sources_root =
+                hamt::Root::<BlobSource, ()>::new(&store, &self.store_name_per_hash(hash))?;
+            let mut sources = sources_root.hamt(&store, 0)?;
             self.bytes_size += blob_size;
-        }
-        self.save_tracked(map.flush_tracked()?);
+            sources.set_and_flush(&source, ())?
+        };
+        self.save_tracked(collection.set_and_flush_tracked(&hash, sources_root)?);
         Ok(())
     }
 
@@ -127,11 +184,17 @@ impl BlobsProgressCollection {
         &self,
         store: BS,
         size: u32,
-    ) -> Result<Vec<(Hash, BlobSourceSet)>, ActorError> {
-        let map = self.hamt(store)?;
+    ) -> Result<Vec<(B256, BlobSourceSet)>, ActorError> {
+        let collection = self.hamt(&store)?;
         let mut page = Vec::with_capacity(size as usize);
-        map.for_each_ranged(None, Some(size as usize), |hash, set| {
-            page.push((hash, set.clone()));
+        collection.for_each_ranged(None, Some(size as usize), |hash, sources_root| {
+            let sources = sources_root.hamt(&store, 0)?;
+            let mut set = HashSet::new();
+            sources.for_each(|source, _| {
+                set.insert((source.subscriber, source.id, source.source));
+                Ok(())
+            })?;
+            page.push((hash, set));
             Ok(true)
         })?;
         page.shrink_to_fit();
@@ -143,20 +206,19 @@ impl BlobsProgressCollection {
     pub fn remove_source<BS: Blockstore>(
         &mut self,
         store: BS,
-        hash: Hash,
+        hash: B256,
         source: BlobSource,
         blob_size: u64,
     ) -> Result<(), ActorError> {
-        let mut map = self.hamt(store)?;
-        if let Some(mut set) = map.get(&hash)? {
-            if set.remove(&source) {
-                if set.is_empty() {
-                    map.delete(&hash)?;
-                    self.bytes_size -= blob_size;
-                } else {
-                    map.set(&hash, set)?;
-                }
-                self.save_tracked(map.flush_tracked()?);
+        let mut collection = self.hamt(&store)?;
+        if let Some(mut source_root) = collection.get(&hash)? {
+            let mut sources = source_root.hamt(&store, 1)?;
+            (source_root, _) = sources.delete_and_flush(&source)?;
+            if sources.is_empty() {
+                self.save_tracked(collection.delete_and_flush_tracked(&hash)?.0);
+                self.bytes_size -= blob_size;
+            } else {
+                self.save_tracked(collection.set_and_flush_tracked(&hash, source_root)?);
             }
         }
         Ok(())
@@ -166,11 +228,11 @@ impl BlobsProgressCollection {
     pub fn remove_entry<BS: Blockstore>(
         &mut self,
         store: BS,
-        hash: &Hash,
+        hash: &B256,
         blob_size: u64,
     ) -> Result<(), ActorError> {
-        let mut map = self.hamt(store)?;
-        let (res, deleted) = map.delete_and_flush_tracked(hash)?;
+        let mut collection = self.hamt(&store)?;
+        let (res, deleted) = collection.delete_and_flush_tracked(hash)?;
         self.save_tracked(res);
         if deleted.is_some() {
             self.bytes_size -= blob_size;

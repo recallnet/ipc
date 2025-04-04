@@ -2,14 +2,17 @@
 // Copyright 2021-2023 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use fendermint_actor_blobs_shared::params::{SetAccountStatusParams, TrimBlobExpiriesParams};
-use fendermint_actor_blobs_shared::state::Hash;
+use fendermint_actor_blobs_shared::{
+    accounts::SetAccountStatusParams, blobs::TrimBlobExpiriesParams, bytes::B256,
+};
 use fendermint_actor_recall_config_shared::{get_config, require_caller_is_admin};
 use fil_actors_runtime::{runtime::Runtime, ActorError};
 use recall_actor_sdk::caller::{Caller, CallerOption};
 
-use crate::actor::{delete_from_disc, BlobsActor};
-use crate::State;
+use crate::{
+    actor::{delete_from_disc, BlobsActor},
+    State,
+};
 
 impl BlobsActor {
     /// Sets the account status for an address.
@@ -45,7 +48,7 @@ impl BlobsActor {
     pub fn trim_blob_expiries(
         rt: &impl Runtime,
         params: TrimBlobExpiriesParams,
-    ) -> Result<(u32, Option<Hash>), ActorError> {
+    ) -> Result<(u32, Option<B256>), ActorError> {
         require_caller_is_admin(rt)?;
 
         let caller = Caller::new_delegated(rt, params.subscriber, None, CallerOption::None)?;

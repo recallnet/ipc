@@ -2,8 +2,9 @@
 // Copyright 2021-2023 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use fendermint_actor_blobs_shared::params::{AddBlobParams, BuyCreditParams};
-use fendermint_actor_blobs_shared::Method;
+use fendermint_actor_blobs_shared::{
+    blobs::AddBlobParams, credit::BuyCreditParams, method::Method,
+};
 use fendermint_actor_recall_config_shared::{RecallConfig, RECALL_CONFIG_ACTOR_ADDR};
 use fil_actors_runtime::test_utils::{expect_empty, MockRuntime, SYSTEM_ACTOR_CODE_ID};
 use fil_actors_runtime::SYSTEM_ACTOR_ADDR;
@@ -16,12 +17,14 @@ use fvm_shared::{
 use num_traits::Zero;
 use recall_actor_sdk::evm::to_actor_event;
 
-use crate::actor::BlobsActor;
-use crate::sol_facade::{
-    blobs as sol_blobs,
-    credit::{CreditApproved, CreditPurchased, CreditRevoked},
+use crate::{
+    actor::BlobsActor,
+    sol_facade::{
+        blobs as sol_blobs,
+        credit::{CreditApproved, CreditPurchased, CreditRevoked},
+    },
+    State,
 };
-use crate::State;
 
 pub fn construct_and_verify() -> MockRuntime {
     let rt = MockRuntime {

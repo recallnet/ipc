@@ -4,16 +4,17 @@
 
 use std::collections::HashSet;
 
-use fendermint_actor_blobs_shared::state::{Account, Hash, TtlStatus};
+use fendermint_actor_blobs_shared::{
+    accounts::{Account, AccountStatus},
+    bytes::B256,
+};
 use fendermint_actor_recall_config_shared::RecallConfig;
 use fil_actors_runtime::ActorError;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::{address::Address, clock::ChainEpoch};
 use log::{debug, warn};
 
-use crate::caller::Caller;
-use crate::state::DeleteBlobStateParams;
-use crate::State;
+use crate::{caller::Caller, state::DeleteBlobStateParams, State};
 
 impl State {
     /// Returns an [`Account`] by address.
@@ -34,13 +35,13 @@ impl State {
         store: &BS,
         config: &RecallConfig,
         address: Address,
-        status: TtlStatus,
+        status: AccountStatus,
         current_epoch: ChainEpoch,
     ) -> anyhow::Result<(), ActorError> {
         let mut accounts = self.accounts.hamt(store)?;
         match status {
             // We don't want to create an account for default TTL
-            TtlStatus::Default => {
+            AccountStatus::Default => {
                 if let Some(mut account) = accounts.get(&address)? {
                     account.max_ttl = status.get_max_ttl(config.blob_default_ttl);
                     self.accounts
@@ -79,7 +80,7 @@ impl State {
         store: &BS,
         config: &RecallConfig,
         current_epoch: ChainEpoch,
-    ) -> anyhow::Result<(HashSet<Hash>, bool), ActorError> {
+    ) -> anyhow::Result<(HashSet<B256>, bool), ActorError> {
         // Delete expired subscriptions
         let mut delete_from_disc = HashSet::new();
         let mut num_deleted = 0;

@@ -2,7 +2,7 @@
 // Copyright 2021-2023 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use fendermint_actor_blobs_shared::{params::GetStatsReturn, state::Credit};
+use fendermint_actor_blobs_shared::{credit::Credit, GetStatsReturn};
 use fendermint_actor_recall_config_shared::RecallConfig;
 use fil_actors_runtime::ActorError;
 use fvm_ipld_blockstore::Blockstore;
@@ -82,16 +82,17 @@ impl State {
 mod tests {
     use super::*;
     use crate::state::blobs::{AddBlobStateParams, FinalizeBlobStateParams};
-    use fendermint_actor_blobs_shared::state::{BlobStatus, Hash, PublicKey, SubscriptionId};
+    use fendermint_actor_blobs_shared::{
+        blobs::{BlobStatus, SubscriptionId},
+        bytes::B256,
+    };
     use fendermint_actor_blobs_testing::{
         new_address, new_hash, new_metadata_hash, new_pk, new_subscription_id, setup_logs,
     };
     use fvm_ipld_blockstore::MemoryBlockstore;
-    use fvm_shared::address::Address;
-    use fvm_shared::clock::ChainEpoch;
+    use fvm_shared::{address::Address, clock::ChainEpoch};
     use log::{debug, warn};
-    use rand::seq::SliceRandom;
-    use rand::Rng;
+    use rand::{seq::SliceRandom, Rng};
     use std::collections::{BTreeMap, HashMap};
     use std::ops::{AddAssign, SubAssign};
 
@@ -107,8 +108,8 @@ mod tests {
 
         #[derive(Clone, Debug, Hash, PartialEq, Eq)]
         struct TestBlob {
-            hash: Hash,
-            metadata_hash: Hash,
+            hash: B256,
+            metadata_hash: B256,
             size: u64,
             added: Option<ChainEpoch>,
             resolve: Option<ChainEpoch>,
@@ -180,7 +181,7 @@ mod tests {
         #[allow(clippy::type_complexity)]
         let mut resolves: BTreeMap<
             ChainEpoch,
-            HashMap<Address, HashMap<usize, (SubscriptionId, PublicKey, Credit)>>,
+            HashMap<Address, HashMap<usize, (SubscriptionId, B256, Credit)>>,
         > = BTreeMap::new();
 
         // Walk epochs.

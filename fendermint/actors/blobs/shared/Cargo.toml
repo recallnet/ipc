@@ -26,5 +26,8 @@ serde = { workspace = true, features = ["derive"] }
 recall_actor_sdk = { path = "../../../../recall/actor_sdk" }
 recall_ipld = { path = "../../../../recall/ipld" }
 
+[dev-dependencies]
+blake3 = { workspace = true }
+
 [features]
 fil-actor = ["fil_actors_runtime/fil-actor"]

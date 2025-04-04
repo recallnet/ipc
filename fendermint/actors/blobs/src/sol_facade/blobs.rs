@@ -2,20 +2,23 @@
 // Copyright 2022-2024 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use fendermint_actor_blobs_shared::params::{
-    AddBlobParams, DeleteBlobParams, GetBlobParams, GetStatsReturn, OverwriteBlobParams,
-    TrimBlobExpiriesParams,
+use fendermint_actor_blobs_shared::{
+    blobs::{
+        AddBlobParams, BlobInfo, BlobStatus, DeleteBlobParams, GetBlobParams, OverwriteBlobParams,
+        SubscriptionId, TrimBlobExpiriesParams,
+    },
+    bytes::B256,
+    GetStatsReturn,
 };
-use fendermint_actor_blobs_shared::state::{BlobInfo, BlobStatus, Hash, PublicKey, SubscriptionId};
-use fil_actors_runtime::runtime::Runtime;
-use fil_actors_runtime::{actor_error, ActorError};
-use fvm_shared::address::Address;
-use fvm_shared::clock::ChainEpoch;
+use fil_actors_runtime::{actor_error, runtime::Runtime, ActorError};
+use fvm_shared::{address::Address, clock::ChainEpoch};
 use num_traits::Zero;
 use recall_actor_sdk::evm::TryIntoEVMEvent;
-use recall_sol_facade::blobs as sol;
-use recall_sol_facade::primitives::U256;
-use recall_sol_facade::types::{BigUintWrapper, SolCall, SolInterface, H160};
+use recall_sol_facade::{
+    blobs as sol,
+    primitives::U256,
+    types::{BigUintWrapper, SolCall, SolInterface, H160},
+};
 
 pub use recall_sol_facade::blobs::Calls;
 
@@ -25,7 +28,7 @@ use crate::sol_facade::{AbiCall, AbiCallRuntime, AbiEncodeError};
 
 pub struct BlobAdded<'a> {
     pub subscriber: Address,
-    pub hash: &'a Hash,
+    pub hash: &'a B256,
     pub size: u64,
     pub expiry: ChainEpoch,
     pub bytes_used: u64,
@@ -48,8 +51,8 @@ impl TryIntoEVMEvent for BlobAdded<'_> {
 
 pub struct BlobPending<'a> {
     pub subscriber: Address,
-    pub hash: &'a Hash,
-    pub source: &'a PublicKey,
+    pub hash: &'a B256,
+    pub source: &'a B256,
 }
 impl TryIntoEVMEvent for BlobPending<'_> {
     type Target = sol::Events;
@@ -65,7 +68,7 @@ impl TryIntoEVMEvent for BlobPending<'_> {
 
 pub struct BlobFinalized<'a> {
     pub subscriber: Address,
-    pub hash: &'a Hash,
+    pub hash: &'a B256,
     pub resolved: bool,
 }
 impl TryIntoEVMEvent for BlobFinalized<'_> {
@@ -82,7 +85,7 @@ impl TryIntoEVMEvent for BlobFinalized<'_> {
 
 pub struct BlobDeleted<'a> {
     pub subscriber: Address,
-    pub hash: &'a Hash,
+    pub hash: &'a B256,
     pub size: u64,
     pub bytes_released: u64,
 }
@@ -127,9 +130,9 @@ impl AbiCallRuntime for sol::addBlobCall {
         let sponsor: Option<Address> = H160::from(self.params.sponsor)
             .as_option()
             .map(|a| a.into());
-        let source = PublicKey(self.params.source.into());
-        let hash = Hash(self.params.blobHash.into());
-        let metadata_hash = Hash(self.params.metadataHash.into());
+        let source = B256(self.params.source.into());
+        let hash = B256(self.params.blobHash.into());
+        let metadata_hash = B256(self.params.metadataHash.into());
         let subscription_id: SubscriptionId = self.params.subscriptionId.clone().try_into()?;
         let size = self.params.size;
         let ttl = if self.params.ttl.is_zero() {
@@ -160,7 +163,7 @@ impl AbiCallRuntime for sol::deleteBlobCall {
     type Output = Vec<u8>;
     fn params(&self, rt: &impl Runtime) -> Self::Params {
         let subscriber = H160::from(self.subscriber).as_option().map(|a| a.into());
-        let hash = Hash(self.blobHash.into());
+        let hash = B256(self.blobHash.into());
         let subscription_id: SubscriptionId = self.subscriptionId.clone().try_into()?;
         let from: Address = rt.message().caller();
         Ok(DeleteBlobParams {
@@ -180,7 +183,7 @@ impl AbiCall for sol::getBlobCall {
     type Returns = Option<BlobInfo>;
     type Output = Result<Vec<u8>, AbiEncodeError>;
     fn params(&self) -> Self::Params {
-        let blob_hash: Hash = Hash(self.blobHash.into());
+        let blob_hash = B256(self.blobHash.into());
         Ok(GetBlobParams(blob_hash))
     }
     fn returns(&self, blob: Self::Returns) -> Self::Output {
@@ -240,13 +243,13 @@ impl AbiCallRuntime for sol::overwriteBlobCall {
     type Returns = ();
     type Output = Vec<u8>;
     fn params(&self, rt: &impl Runtime) -> Self::Params {
-        let old_hash = Hash(self.oldHash.into());
+        let old_hash = B256(self.oldHash.into());
         let sponsor = H160::from(self.params.sponsor)
             .as_option()
             .map(|a| a.into());
-        let source: PublicKey = PublicKey(self.params.source.into());
-        let hash: Hash = Hash(self.params.blobHash.into());
-        let metadata_hash: Hash = Hash(self.params.metadataHash.into());
+        let source = B256(self.params.source.into());
+        let hash = B256(self.params.blobHash.into());
+        let metadata_hash = B256(self.params.metadataHash.into());
         let subscription_id: SubscriptionId = self.params.subscriptionId.clone().try_into()?;
         let size = self.params.size;
         let ttl = if self.params.ttl.is_zero() {
@@ -276,7 +279,7 @@ impl AbiCallRuntime for sol::overwriteBlobCall {
 
 impl AbiCall for sol::trimBlobExpiriesCall {
     type Params = TrimBlobExpiriesParams;
-    type Returns = (u32, Option<Hash>);
+    type Returns = (u32, Option<B256>);
     type Output = Vec<u8>;
 
     fn params(&self) -> Self::Params {
@@ -286,7 +289,7 @@ impl AbiCall for sol::trimBlobExpiriesCall {
         let hash = if hash == [0; 32] {
             None
         } else {
-            Some(Hash(hash))
+            Some(B256(hash))
         };
         TrimBlobExpiriesParams {
             subscriber: H160::from(self.params.subscriber).into(),

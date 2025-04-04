@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use cid::Cid;
-use fendermint_actor_blobs_shared::has_credit_approval;
+use fendermint_actor_blobs_shared::sdk::has_credit_approval;
 use fendermint_actor_machine::MachineActor;
 use fil_actors_runtime::{
     actor_dispatch, actor_error,
@@ -134,11 +134,14 @@ mod tests {
     use std::str::FromStr;
 
     use fendermint_actor_blobs_shared::{
-        params::GetCreditApprovalParams, state::CreditApproval, Method as BlobMethod,
+        credit::{CreditApproval, GetCreditApprovalParams},
+        method::Method as BlobMethod,
         BLOBS_ACTOR_ADDR,
     };
-    use fendermint_actor_machine::sol_facade::{MachineCreated, MachineInitialized};
-    use fendermint_actor_machine::{ConstructorParams, InitParams, Kind};
+    use fendermint_actor_machine::{
+        sol_facade::{MachineCreated, MachineInitialized},
+        ConstructorParams, InitParams, Kind,
+    };
     use fil_actors_evm_shared::address::EthAddress;
     use fil_actors_runtime::{
         runtime::MessageInfo,

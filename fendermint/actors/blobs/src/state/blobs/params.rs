@@ -2,18 +2,21 @@
 // Copyright 2022-2024 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use fendermint_actor_blobs_shared::state::{BlobStatus, Hash, PublicKey, SubscriptionId};
+use fendermint_actor_blobs_shared::{
+    blobs::{BlobStatus, SubscriptionId},
+    bytes::B256,
+};
 use fvm_shared::{clock::ChainEpoch, econ::TokenAmount};
 
 /// Params for adding a blob.
 #[derive(Clone, Debug)]
 pub struct AddBlobStateParams {
     /// Source Iroh node ID used for ingestion.
-    pub source: PublicKey,
+    pub source: B256,
     /// Blob blake3 hash.
-    pub hash: Hash,
+    pub hash: B256,
     /// Blake3 hash of the metadata to use for blob recovery.
-    pub metadata_hash: Hash,
+    pub metadata_hash: B256,
     /// Identifier used to differentiate blob additions for the same subscriber.
     pub id: SubscriptionId,
     /// Blob size.
@@ -29,7 +32,7 @@ pub struct AddBlobStateParams {
 
 impl AddBlobStateParams {
     pub fn from_actor_params(
-        params: fendermint_actor_blobs_shared::params::AddBlobParams,
+        params: fendermint_actor_blobs_shared::blobs::AddBlobParams,
         epoch: ChainEpoch,
         token_amount: TokenAmount,
     ) -> Self {
@@ -50,7 +53,7 @@ impl AddBlobStateParams {
 #[derive(Clone, Debug)]
 pub struct DeleteBlobStateParams {
     /// Blob blake3 hash.
-    pub hash: Hash,
+    pub hash: B256,
     /// Identifier used to differentiate blob additions for the same subscriber.
     pub id: SubscriptionId,
     /// Chain epoch.
@@ -59,7 +62,7 @@ pub struct DeleteBlobStateParams {
 
 impl DeleteBlobStateParams {
     pub fn from_actor_params(
-        params: fendermint_actor_blobs_shared::params::DeleteBlobParams,
+        params: fendermint_actor_blobs_shared::blobs::DeleteBlobParams,
         epoch: ChainEpoch,
     ) -> Self {
         Self {
@@ -74,7 +77,7 @@ impl DeleteBlobStateParams {
 #[derive(Clone, Debug)]
 pub struct FinalizeBlobStateParams {
     /// Blob blake3 hash.
-    pub hash: Hash,
+    pub hash: B256,
     /// Identifier used to differentiate blob additions for the same subscriber.
     pub id: SubscriptionId,
     /// Finalized status.
@@ -85,7 +88,7 @@ pub struct FinalizeBlobStateParams {
 
 impl FinalizeBlobStateParams {
     pub fn from_actor_params(
-        params: fendermint_actor_blobs_shared::params::FinalizeBlobParams,
+        params: fendermint_actor_blobs_shared::blobs::FinalizeBlobParams,
         epoch: ChainEpoch,
     ) -> Self {
         Self {

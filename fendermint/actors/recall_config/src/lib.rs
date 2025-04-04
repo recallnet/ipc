@@ -2,7 +2,7 @@
 // Copyright 2021-2023 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use fendermint_actor_blobs_shared::state::TokenCreditRate;
+use fendermint_actor_blobs_shared::credit::TokenCreditRate;
 use fendermint_actor_recall_config_shared::{
     Method, RecallConfig, SetAdminParams, SetConfigParams,
 };

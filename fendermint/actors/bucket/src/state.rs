@@ -7,7 +7,7 @@ use std::fmt::{Debug, Display, Formatter};
 use std::string::FromUtf8Error;
 
 use cid::Cid;
-use fendermint_actor_blobs_shared::state::Hash;
+use fendermint_actor_blobs_shared::bytes::B256;
 use fendermint_actor_machine::{Kind, MachineAddress, MachineState};
 use fil_actors_runtime::ActorError;
 use fvm_ipld_blockstore::Blockstore;
@@ -73,7 +73,7 @@ impl MachineState for State {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ObjectState {
     /// The object blake3 hash.
-    pub hash: Hash,
+    pub hash: B256,
     /// The object size.
     pub size: u64,
     /// Expiry block.
@@ -97,7 +97,7 @@ impl State {
         &mut self,
         store: &BS,
         key: BytesKey,
-        hash: Hash,
+        hash: B256,
         size: u64,
         expiry: ChainEpoch,
         metadata: HashMap<String, String>,

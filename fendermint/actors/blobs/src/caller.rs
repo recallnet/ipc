@@ -2,8 +2,9 @@
 // Copyright 2021-2023 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use fendermint_actor_blobs_shared::state::{
-    Account, Credit, CreditAllowance, CreditApproval, GasAllowance,
+use fendermint_actor_blobs_shared::{
+    accounts::Account,
+    credit::{Credit, CreditAllowance, CreditApproval, GasAllowance},
 };
 use fendermint_actor_recall_config_shared::RecallConfig;
 use fil_actors_runtime::ActorError;

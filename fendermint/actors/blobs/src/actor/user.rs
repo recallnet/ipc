@@ -2,13 +2,15 @@
 // Copyright 2021-2023 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use fendermint_actor_blobs_shared::params::{
-    AddBlobParams, ApproveCreditParams, BuyCreditParams, DeleteBlobParams, GetAccountParams,
-    GetBlobParams, GetCreditApprovalParams, OverwriteBlobParams, RevokeCreditParams,
-    SetSponsorParams,
-};
-use fendermint_actor_blobs_shared::state::{
-    AccountInfo, BlobInfo, Credit, CreditApproval, Subscription,
+use fendermint_actor_blobs_shared::{
+    accounts::{AccountInfo, GetAccountParams},
+    blobs::{
+        AddBlobParams, BlobInfo, DeleteBlobParams, GetBlobParams, OverwriteBlobParams, Subscription,
+    },
+    credit::{
+        ApproveCreditParams, BuyCreditParams, Credit, CreditApproval, GetCreditApprovalParams,
+        RevokeCreditParams, SetSponsorParams,
+    },
 };
 use fendermint_actor_recall_config_shared::get_config;
 use fil_actors_runtime::{extract_send_result, runtime::Runtime, ActorError};
@@ -20,15 +22,17 @@ use recall_actor_sdk::{
     util::to_delegated_address,
 };
 
-use crate::actor::{delete_from_disc, BlobsActor};
-use crate::caller::DelegationOptions;
-use crate::sol_facade::{
-    blobs as sol_blobs,
-    credit::{CreditApproved, CreditPurchased, CreditRevoked},
-    gas::{GasSponsorSet, GasSponsorUnset},
+use crate::{
+    actor::{delete_from_disc, BlobsActor},
+    caller::DelegationOptions,
+    sol_facade::{
+        blobs as sol_blobs,
+        credit::{CreditApproved, CreditPurchased, CreditRevoked},
+        gas::{GasSponsorSet, GasSponsorUnset},
+    },
+    state::blobs::{AddBlobStateParams, DeleteBlobStateParams},
+    State,
 };
-use crate::state::blobs::{AddBlobStateParams, DeleteBlobStateParams};
-use crate::State;
 
 impl BlobsActor {
     /// Buy credit with token.
@@ -444,8 +448,10 @@ mod tests {
         construct_and_verify, expect_emitted_add_event, expect_emitted_approve_event,
         expect_emitted_purchase_event, expect_emitted_revoke_event, expect_get_config,
     };
-    use fendermint_actor_blobs_shared::state::{BlobStatus, SubscriptionId};
-    use fendermint_actor_blobs_shared::Method;
+    use fendermint_actor_blobs_shared::{
+        blobs::{BlobStatus, SubscriptionId},
+        method::Method,
+    };
     use fendermint_actor_blobs_testing::{new_hash, new_pk, setup_logs};
     use fil_actors_evm_shared::address::EthAddress;
     use fil_actors_runtime::test_utils::{ETHACCOUNT_ACTOR_CODE_ID, EVM_ACTOR_CODE_ID};

@@ -2,7 +2,10 @@
 // Copyright 2021-2023 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use fendermint_actor_blobs_shared::state::{Account, Credit, CreditApproval, GasAllowance};
+use fendermint_actor_blobs_shared::{
+    accounts::Account,
+    credit::{Credit, CreditApproval, GasAllowance},
+};
 use fendermint_actor_recall_config_shared::RecallConfig;
 use fil_actors_runtime::ActorError;
 use fvm_ipld_blockstore::Blockstore;
@@ -11,8 +14,10 @@ use log::debug;
 use recall_ipld::hamt;
 
 use super::params::CommitCapacityParams;
-use crate::caller::{Caller, Delegation, DelegationOptions};
-use crate::State;
+use crate::{
+    caller::{Caller, Delegation, DelegationOptions},
+    State,
+};
 
 /// Returns an error if the amount is negative.
 pub fn ensure_positive_amount(amount: &TokenAmount) -> anyhow::Result<(), ActorError> {
