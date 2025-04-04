@@ -153,8 +153,7 @@ impl AbiCallRuntime for sol::addObject_1Call {
         } else {
             Some(self.ttl as ChainEpoch)
         };
-        let mut metadata: HashMap<String, String> =
-            HashMap::with_capacity(self.metadata.len());
+        let mut metadata: HashMap<String, String> = HashMap::with_capacity(self.metadata.len());
         for kv in self.metadata.iter().cloned() {
             metadata.insert(kv.key, kv.value);
         }
