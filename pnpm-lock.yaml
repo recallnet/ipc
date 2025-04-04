@@ -4271,3 +4271,4 @@ snapshots:
   zksync-ethers@5.8.0(ethers@5.7.2(bufferutil@4.0.7)(utf-8-validate@5.0.10)):
     dependencies:
       ethers: 5.7.2(bufferutil@4.0.7)(utf-8-validate@5.0.10)
+
