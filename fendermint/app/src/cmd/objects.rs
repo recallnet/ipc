@@ -39,7 +39,6 @@ use warp::{
     filters::multipart::Part,
     http::{HeaderMap, HeaderValue, StatusCode},
     hyper::body::Body,
-    path::Tail,
     Filter, Rejection, Reply,
 };
 
@@ -94,8 +93,7 @@ cmd! {
                 .and(with_max_size(settings.max_object_size))
                 .and_then(handle_object_upload);
 
-                let objects_download = warp::path!("v1" / "objects" / String / ..)
-                .and(warp::path::tail())
+                let objects_download = warp::path!("v1" / "objects" / String / String )
                 .and(
                     warp::get().map(|| "GET".to_string()).or(warp::head().map(|| "HEAD".to_string())).unify()
                 )
@@ -578,7 +576,7 @@ pub(crate) struct ObjectRange {
 
 async fn handle_object_download<F: QueryClient + Send + Sync>(
     address: String,
-    tail: Tail,
+    tail: String,
     method: String,
     range: Option<String>,
     height_query: HeightQuery,
@@ -593,7 +591,15 @@ async fn handle_object_download<F: QueryClient + Send + Sync>(
     let height = height_query
         .height
         .unwrap_or(FvmQueryHeight::Committed.into());
-    let path = tail.as_str();
+
+    let path = urlencoding::decode(tail.as_str())
+        .map_err(|e| {
+            Rejection::from(BadRequest {
+                message: format!("invalid address {}: {}", address, e),
+            })
+        })?
+        .to_string();
+
     let key: Vec<u8> = path.into();
     let start_time = Instant::now();
     let maybe_object = os_get(client, address, GetParams(key.clone()), height)
@@ -1106,43 +1112,47 @@ mod tests {
 
         let iroh = iroh::node::Node::memory().spawn().await.unwrap();
 
-        let (hash_seq_hash, metadata_iroh_hash) =
-            simulate_blob_upload(&iroh, &b"hello world"[..]).await;
+        let test_cases = vec![
+            ("foo%2Fbar", "hello world"),
+            ("foo%3Fbar%3Fbaz.txt", "arbitrary data"),
+        ];
 
-        let mock_client = new_mock_client_with_predefined_object(hash_seq_hash, metadata_iroh_hash);
+        for (path, content) in test_cases {
+            let (hash_seq_hash, metadata_iroh_hash) =
+                simulate_blob_upload(&iroh, content.as_bytes()).await;
 
-        let result = handle_object_download(
-            "t2mnd5jkuvmsaf457ympnf3monalh3vothdd5njoy".into(),
-            warp::test::request()
-                .path("/foo/bar")
-                .filter(&warp::path::tail())
+            let mock_client =
+                new_mock_client_with_predefined_object(hash_seq_hash, metadata_iroh_hash);
+
+            let result = handle_object_download(
+                "t2mnd5jkuvmsaf457ympnf3monalh3vothdd5njoy".into(),
+                path.to_string(),
+                "GET".to_string(),
+                None,
+                HeightQuery { height: Some(1) },
+                mock_client,
+                iroh.client().clone(),
+            )
+            .await;
+
+            assert!(result.is_ok(), "{:#?}", result.err());
+            let response = result.unwrap().into_response();
+            assert_eq!(response.status(), StatusCode::OK);
+            assert_eq!(
+                response
+                    .headers()
+                    .get("Content-Type")
+                    .unwrap()
+                    .to_str()
+                    .unwrap(),
+                "application/octet-stream"
+            );
+
+            let body = warp::hyper::body::to_bytes(response.into_body())
                 .await
-                .unwrap(),
-            "GET".to_string(),
-            None,
-            HeightQuery { height: Some(1) },
-            mock_client,
-            iroh.client().clone(),
-        )
-        .await;
-
-        assert!(result.is_ok(), "{:#?}", result.err());
-        let response = result.unwrap().into_response();
-        assert_eq!(response.status(), StatusCode::OK);
-        assert_eq!(
-            response
-                .headers()
-                .get("Content-Type")
-                .unwrap()
-                .to_str()
-                .unwrap(),
-            "application/octet-stream"
-        );
-
-        let body = warp::hyper::body::to_bytes(response.into_body())
-            .await
-            .unwrap();
-        assert_eq!(body, "hello world".as_bytes());
+                .unwrap();
+            assert_eq!(body, content.as_bytes());
+        }
     }
 
     #[tokio::test]
@@ -1158,11 +1168,7 @@ mod tests {
 
         let result = handle_object_download(
             "t2mnd5jkuvmsaf457ympnf3monalh3vothdd5njoy".into(),
-            warp::test::request()
-                .path("/foo/bar")
-                .filter(&warp::path::tail())
-                .await
-                .unwrap(),
+            "foo%2Fbar".to_string(),
             "GET".to_string(),
             Some("bytes=0-4".to_string()),
             HeightQuery { height: Some(1) },
@@ -1192,11 +1198,7 @@ mod tests {
 
         let result = handle_object_download(
             "t2mnd5jkuvmsaf457ympnf3monalh3vothdd5njoy".into(),
-            warp::test::request()
-                .path("/foo/bar")
-                .filter(&warp::path::tail())
-                .await
-                .unwrap(),
+            "foo%2Fbar".to_string(),
             "HEAD".to_string(),
             None,
             HeightQuery { height: Some(1) },
