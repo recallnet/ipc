@@ -199,10 +199,10 @@ impl BlobsActor {
 
         let mut credit_debited = Credit::zero();
         let (deletes, num_accounts, more_accounts) = rt.transaction(|st: &mut State, rt| {
-            let initial_credit_debited = st.credit_debited.clone();
+            let initial_credit_debited = st.credits.credit_debited.clone();
             let (deletes, more_accounts) =
                 st.debit_accounts(rt.store(), &config, rt.curr_epoch())?;
-            credit_debited = &st.credit_debited - initial_credit_debited;
+            credit_debited = &st.credits.credit_debited - initial_credit_debited;
             let num_accounts = st.accounts.len();
             Ok((deletes, num_accounts, more_accounts))
         })?;

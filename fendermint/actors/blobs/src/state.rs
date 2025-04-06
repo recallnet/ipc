@@ -2,39 +2,27 @@
 // Copyright 2021-2023 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use fendermint_actor_blobs_shared::{credit::Credit, GetStatsReturn};
+use fendermint_actor_blobs_shared::GetStatsReturn;
 use fendermint_actor_recall_config_shared::RecallConfig;
 use fil_actors_runtime::ActorError;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::tuple::*;
 use fvm_shared::econ::TokenAmount;
-use num_traits::Zero;
 
 pub mod accounts;
 pub mod blobs;
 pub mod credit;
 
 use accounts::Accounts;
-use blobs::{Blobs, DeleteBlobStateParams, Expiries, Queue};
+use blobs::{Blobs, DeleteBlobStateParams};
+use credit::Credits;
 
 /// The state represents all accounts and stored blobs.
 #[derive(Debug, Serialize_tuple, Deserialize_tuple)]
 pub struct State {
-    /// The total used storage capacity of the subnet.
-    pub capacity_used: u64,
-    /// The total number of credits sold in the subnet.
-    pub credit_sold: Credit,
-    /// The total number of credits committed to active storage in the subnet.
-    pub credit_committed: Credit,
-    /// The total number of credits debited in the subnet.
-    pub credit_debited: Credit,
-    /// Map of expiries to blob hashes.
-    pub expiries: Expiries,
-    /// Map of currently added blob hashes to account and source Iroh node IDs.
-    pub added: Queue,
-    /// Map of currently pending blob hashes to account and source Iroh node IDs.
-    pub pending: Queue,
-    /// HAMT containing all accounts keyed by robust (non-ID) actor address.
+    /// Struct containing credit-related state.
+    pub credits: Credits,
+    /// HAMT containing all accounts keyed by actor ID address.
     pub accounts: Accounts,
     /// HAMT containing all blobs keyed by blob hash.
     pub blobs: Blobs,
@@ -42,15 +30,9 @@ pub struct State {
 
 impl State {
     /// Creates a new [`State`].
-    pub fn new<BS: Blockstore>(store: &BS) -> anyhow::Result<Self, ActorError> {
+    pub fn new<BS: Blockstore>(store: &BS) -> Result<Self, ActorError> {
         Ok(Self {
-            capacity_used: 0,
-            credit_sold: Credit::zero(),
-            credit_committed: Credit::zero(),
-            credit_debited: Credit::zero(),
-            expiries: Expiries::new(store)?,
-            added: Queue::new(store, "added blobs queue")?,
-            pending: Queue::new(store, "pending blobs queue")?,
+            credits: Credits::default(),
             accounts: Accounts::new(store)?,
             blobs: Blobs::new(store)?,
         })
@@ -61,17 +43,17 @@ impl State {
         GetStatsReturn {
             balance,
             capacity_free: self.capacity_available(config.blob_capacity),
-            capacity_used: self.capacity_used,
-            credit_sold: self.credit_sold.clone(),
-            credit_committed: self.credit_committed.clone(),
-            credit_debited: self.credit_debited.clone(),
+            capacity_used: self.blobs.bytes_size,
+            credit_sold: self.credits.credit_sold.clone(),
+            credit_committed: self.credits.credit_committed.clone(),
+            credit_debited: self.credits.credit_debited.clone(),
             token_credit_rate: config.token_credit_rate.clone(),
             num_accounts: self.accounts.len(),
             num_blobs: self.blobs.len(),
-            num_added: self.added.len(),
-            bytes_added: self.added.bytes_size(),
-            num_resolving: self.pending.len(),
-            bytes_resolving: self.pending.bytes_size(),
+            num_added: self.blobs.added.len(),
+            bytes_added: self.blobs.added.bytes_size(),
+            num_resolving: self.blobs.pending.len(),
+            bytes_resolving: self.blobs.pending.bytes_size(),
         }
     }
 }
@@ -83,6 +65,7 @@ mod tests {
     use fendermint_actor_blobs_shared::{
         blobs::{BlobStatus, SubscriptionId},
         bytes::B256,
+        credit::Credit,
     };
     use fendermint_actor_blobs_testing::{
         new_address, new_hash, new_metadata_hash, new_pk, new_subscription_id, setup_logs,
@@ -90,6 +73,7 @@ mod tests {
     use fvm_ipld_blockstore::MemoryBlockstore;
     use fvm_shared::{address::Address, clock::ChainEpoch};
     use log::{debug, warn};
+    use num_traits::Zero;
     use rand::{seq::SliceRandom, Rng};
     use std::collections::{BTreeMap, HashMap};
     use std::ops::{AddAssign, SubAssign};

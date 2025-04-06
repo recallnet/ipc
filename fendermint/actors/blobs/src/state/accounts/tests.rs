@@ -345,17 +345,17 @@ fn debit_accounts_delete_from_disc<BS: Blockstore>(
     assert_eq!(account.capacity_used, 0);
 
     // Check state
-    assert_eq!(state.credit_committed, Credit::from_whole(0)); // credit was released
+    assert_eq!(state.credits.credit_committed, Credit::from_whole(0)); // credit was released
     assert_eq!(
-        state.credit_debited,
+        state.credits.credit_debited,
         token_amount * &config.token_credit_rate - &account.credit_free
     );
-    assert_eq!(state.capacity_used, 0); // capacity was released
+    assert_eq!(state.blobs.bytes_size, 0); // capacity was released
 
     // Check indexes
-    assert_eq!(state.expiries.len(store).unwrap(), 0);
-    assert_eq!(state.added.len(), 0);
-    assert_eq!(state.pending.len(), 0);
+    assert_eq!(state.blobs.expiries.len(store).unwrap(), 0);
+    assert_eq!(state.blobs.added.len(), 0);
+    assert_eq!(state.blobs.pending.len(), 0);
 
     // Check approval
     if using_approval {

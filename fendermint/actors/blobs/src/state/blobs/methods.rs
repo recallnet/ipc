@@ -15,17 +15,17 @@ use fil_actors_runtime::ActorError;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::{address::Address, bigint::BigInt, clock::ChainEpoch, econ::TokenAmount};
 use log::debug;
-use num_traits::{ToPrimitive, Zero};
+use num_traits::Zero;
 use recall_ipld::hamt::BytesKey;
 
 use super::{
     AddBlobStateParams, Blob, BlobSource, DeleteBlobStateParams, ExpiryUpdate,
-    FinalizeBlobStateParams, Subscribers, Subscriptions,
+    FinalizeBlobStateParams,
 };
 use crate::{caller::Caller, state::credit::CommitCapacityParams, State};
 
 /// Return type for blob queues.
-type BlobSourcesResult = anyhow::Result<Vec<BlobRequest>, ActorError>;
+type BlobSourcesResult = Result<Vec<BlobRequest>, ActorError>;
 
 impl State {
     /// Adds or updates a blob subscription.
@@ -46,7 +46,7 @@ impl State {
         caller: Address,
         sponsor: Option<Address>,
         params: AddBlobStateParams,
-    ) -> anyhow::Result<(Subscription, TokenAmount), ActorError> {
+    ) -> Result<(Subscription, TokenAmount), ActorError> {
         // Get or create a new account
         let mut accounts = self.accounts.hamt(store)?;
         let mut caller = Caller::load_or_create(
@@ -60,237 +60,18 @@ impl State {
 
         // Validate the TTL
         let ttl = caller.validate_ttl_usage(config, params.ttl)?;
-
-        // Capacity updates and required credit depend on whether the subscriber is already
-        // subscribing to this blob
         let expiry = i64::saturating_add(params.epoch, ttl);
-        let mut new_subnet_capacity: u64 = 0;
-        let mut new_caller_capacity: u64 = 0;
-        let credit_required: Credit;
 
         // Get or create a new blob
-        let mut blobs = self.blobs.hamt(store)?;
-        let (sub, blob) = if let Some(mut blob) = blobs.get(&params.hash)? {
-            let mut subscribers = blob.subscribers.hamt(store)?;
-            let sub = if let Some(mut group) = subscribers.get(&caller.subscriber_address())? {
-                let (group_expiry, new_group_expiry) =
-                    group.max_expiries(store, &params.id, Some(expiry))?;
+        let result = self.blobs.upsert(store, &caller, &params, expiry)?;
 
-                // If the subscriber has been debited after the group's max expiry, we need to
-                // clean up the accounting with a refund.
-                // If the ensure-credit check below fails, the refund won't be saved in the
-                // subscriber's state.
-                // However, they will get rerefunded during the next auto debit tick.
-                if let Some(group_expiry) = group_expiry {
-                    if caller.subscriber().last_debit_epoch > group_expiry {
-                        // Return over-debited credit.
-                        // The refund extends up to the current epoch because we need to
-                        // account for the charge that will happen below at the current epoch.
-                        let return_credits =
-                            self.get_storage_cost(params.epoch - group_expiry, &params.size);
-                        self.return_committed_credit_for_caller(&mut caller, &return_credits);
-                    }
-                }
-
-                // Ensure subscriber has enough credits, considering the subscription group may
-                // have expiries that cover a portion of the addition.
-                // Required credit can be negative if subscriber is reducing expiry.
-                // When adding, the new group expiry will always contain a value.
-                let new_group_expiry = new_group_expiry.unwrap();
-                let group_expiry = group_expiry.map_or(params.epoch, |e| e.max(params.epoch));
-                credit_required =
-                    self.get_storage_cost(new_group_expiry - group_expiry, &params.size);
-
-                // Add / update subscription
-                let mut group_hamt = group.hamt(store)?;
-                let sub = if let Some(mut sub) = group_hamt.get(&params.id)? {
-                    // Update expiry index
-                    if expiry != sub.expiry {
-                        self.expiries.update_index(
-                            store,
-                            caller.subscriber_address(),
-                            params.hash,
-                            &params.id,
-                            vec![ExpiryUpdate::Add(expiry), ExpiryUpdate::Remove(sub.expiry)],
-                        )?;
-                    }
-                    sub.expiry = expiry;
-
-                    // Overwrite source allows subscriber to retry resolving
-                    sub.source = params.source;
-                    sub.delegate = caller.delegate_address();
-                    sub.failed = false;
-                    group.save_tracked(group_hamt.set_and_flush_tracked(&params.id, sub.clone())?);
-
-                    debug!(
-                        "updated subscription to blob {} for {} (key: {})",
-                        params.hash,
-                        caller.subscriber_address(),
-                        params.id
-                    );
-                    sub
-                } else {
-                    // Add new subscription
-                    let sub = Subscription {
-                        added: params.epoch,
-                        expiry,
-                        source: params.source,
-                        delegate: caller.delegate_address(),
-                        failed: false,
-                    };
-                    group.save_tracked(group_hamt.set_and_flush_tracked(&params.id, sub.clone())?);
-
-                    // Update expiry index
-                    self.expiries.update_index(
-                        store,
-                        caller.subscriber_address(),
-                        params.hash,
-                        &params.id,
-                        vec![ExpiryUpdate::Add(expiry)],
-                    )?;
-
-                    debug!(
-                        "created new subscription to blob {} for {} (key: {})",
-                        params.hash,
-                        caller.subscriber_address(),
-                        params.id
-                    );
-                    sub
-                };
-
-                blob.subscribers.save_tracked(
-                    subscribers.set_and_flush_tracked(&caller.subscriber_address(), group)?,
-                );
-
-                sub
-            } else {
-                new_caller_capacity = params.size;
-
-                // One or more accounts have already committed credit.
-                // However, we still need to reserve the full required credit from the new
-                // subscriber, as the existing account(s) may decide to change the expiry or cancel.
-                credit_required = self.get_storage_cost(ttl, &params.size);
-
-                // Add new subscription
-                let sub = Subscription {
-                    added: params.epoch,
-                    expiry,
-                    source: params.source,
-                    delegate: caller.delegate_address(),
-                    failed: false,
-                };
-                let mut subscribers = blob.subscribers.hamt(store)?;
-                let mut subscription_group = Subscriptions::new(store)?;
-                let mut subscription_group_hamt = subscription_group.hamt(store)?;
-                subscription_group.save_tracked(
-                    subscription_group_hamt.set_and_flush_tracked(&params.id, sub.clone())?,
-                );
-                blob.subscribers.save_tracked(
-                    subscribers
-                        .set_and_flush_tracked(&caller.subscriber_address(), subscription_group)?,
-                );
-
-                // Update expiry index
-                self.expiries.update_index(
-                    store,
-                    caller.subscriber_address(),
-                    params.hash,
-                    &params.id,
-                    vec![ExpiryUpdate::Add(expiry)],
-                )?;
-
-                debug!(
-                    "created new subscription to blob {} for {} (key: {})",
-                    params.hash,
-                    caller.subscriber_address(),
-                    params.id
-                );
-                sub
-            };
-
-            // Update blob status
-            if !matches!(blob.status, BlobStatus::Resolved) {
-                // It's pending or failed, reset to added status
-                blob.status = BlobStatus::Added;
-
-                // Add to or update the source in the added queue
-                self.added.upsert(
-                    store,
-                    params.hash,
-                    BlobSource::new(caller.subscriber_address(), params.id, params.source),
-                    blob.size,
-                )?;
-            }
-
-            (sub, blob)
-        } else {
-            new_caller_capacity = params.size;
-
-            // New blob increases network capacity as well.
-            new_subnet_capacity = params.size;
-            credit_required = self.get_storage_cost(ttl, &params.size);
-
-            // Create new blob
-            let sub = Subscription {
-                added: params.epoch,
-                expiry,
-                source: params.source,
-                delegate: caller.delegate_address(),
-                failed: false,
-            };
-            let blob_subscribers = Subscribers::new(store)?;
-            let mut subscribers = blob_subscribers.hamt(store)?;
-            let mut blob = Blob {
-                size: params.size.to_u64().unwrap(),
-                metadata_hash: params.metadata_hash,
-                subscribers: blob_subscribers,
-                status: BlobStatus::Added,
-            };
-            let mut subscription_group = Subscriptions::new(store)?;
-            let mut subscription_group_hamt = subscription_group.hamt(store)?;
-            subscription_group.save_tracked(
-                subscription_group_hamt.set_and_flush_tracked(&params.id, sub.clone())?,
-            );
-            blob.subscribers.save_tracked(
-                subscribers
-                    .set_and_flush_tracked(&caller.subscriber_address(), subscription_group)?,
-            );
-
-            // Update expiry index
-            self.expiries.update_index(
-                store,
-                caller.subscriber_address(),
-                params.hash,
-                &params.id,
-                vec![ExpiryUpdate::Add(expiry)],
-            )?;
-
-            // Add the source to the added queue
-            self.added.upsert(
-                store,
-                params.hash,
-                BlobSource::new(
-                    caller.subscriber_address(),
-                    params.id.clone(),
-                    params.source,
-                ),
-                blob.size,
-            )?;
-
-            debug!("created new blob {}", params.hash);
-            debug!(
-                "created new subscription to blob {} for {} (key: {})",
-                params.hash,
-                caller.subscriber_address(),
-                params.id
-            );
-            (sub, blob)
-        };
+        // Determine credit commitments
+        let credit_return = self.get_storage_cost(result.return_duration, &params.size);
+        self.return_committed_credit_for_caller(&mut caller, &credit_return);
+        let credit_required = self.get_storage_cost(result.commit_duration, &params.size);
 
         // Account capacity is changing, debit for existing usage
-        let debit_duration = params.epoch - caller.subscriber().last_debit_epoch;
-        let debit = self.get_debit_for_caller(&caller, debit_duration);
-        self.debit_caller(&mut caller, &debit, params.epoch);
+        self.debit_caller(&mut caller, params.epoch);
 
         // Account for new size and commit credit
         let token_rebate = if credit_required.is_positive() {
@@ -298,18 +79,18 @@ impl State {
                 &mut caller,
                 config,
                 CommitCapacityParams {
-                    subnet_size: new_subnet_capacity,
-                    caller_size: new_caller_capacity,
+                    subnet_size: result.new_subnet_capacity,
+                    caller_size: result.new_caller_capacity,
                     cost: credit_required,
                     value: params.token_amount,
                     epoch: params.epoch,
                 },
             )?
         } else {
-            self.uncommit_capacity_for_caller(
+            self.release_capacity_for_caller(
                 &mut caller,
-                new_subnet_capacity,
-                new_caller_capacity,
+                result.new_subnet_capacity,
+                result.new_caller_capacity,
                 &-credit_required,
             );
             TokenAmount::zero()
@@ -318,11 +99,7 @@ impl State {
         // Save caller
         self.save_caller(&mut caller, &mut accounts)?;
 
-        // Save blob
-        self.blobs
-            .save_tracked(blobs.set_and_flush_tracked(&params.hash, blob)?);
-
-        Ok((sub, token_rebate))
+        Ok((result.subscription, token_rebate))
     }
 
     /// Retuns a [`Blob`] by hash.
@@ -330,7 +107,7 @@ impl State {
         &self,
         store: &BS,
         hash: B256,
-    ) -> anyhow::Result<Option<Blob>, ActorError> {
+    ) -> Result<Option<Blob>, ActorError> {
         let blobs = self.blobs.hamt(store)?;
         blobs.get(&hash)
     }
@@ -342,7 +119,7 @@ impl State {
         subscriber: Address,
         hash: B256,
         id: SubscriptionId,
-    ) -> anyhow::Result<Option<BlobStatus>, ActorError> {
+    ) -> Result<Option<BlobStatus>, ActorError> {
         let blob = if let Some(blob) = self
             .blobs
             .hamt(store)
@@ -389,7 +166,8 @@ impl State {
     /// added to the system but haven't yet been successfully resolved and stored.
     pub fn get_added_blobs<BS: Blockstore>(&self, store: &BS, size: u32) -> BlobSourcesResult {
         let blobs = self.blobs.hamt(store)?;
-        self.added
+        self.blobs
+            .added
             .take_page(store, size)?
             .into_iter()
             .map(|(hash, sources)| {
@@ -407,7 +185,8 @@ impl State {
     /// actively being resolved but are still in a pending state.
     pub fn get_pending_blobs<BS: Blockstore>(&self, store: &BS, size: u32) -> BlobSourcesResult {
         let blobs = self.blobs.hamt(store)?;
-        self.pending
+        self.blobs
+            .pending
             .take_page(store, size)?
             .into_iter()
             .map(|(hash, sources)| {
@@ -434,7 +213,7 @@ impl State {
         size: u64,
         id: SubscriptionId,
         source: B256,
-    ) -> anyhow::Result<(), ActorError> {
+    ) -> Result<(), ActorError> {
         let mut blobs = self.blobs.hamt(store)?;
         let mut blob = if let Some(blob) = blobs.get(&hash)? {
             blob
@@ -452,7 +231,7 @@ impl State {
         blob.status = BlobStatus::Pending;
 
         // Add the source to the pending queue
-        self.pending.upsert(
+        self.blobs.pending.upsert(
             store,
             hash,
             BlobSource::new(subscriber, id, source),
@@ -460,7 +239,7 @@ impl State {
         )?;
 
         // Remove entire blob entry from the added queue
-        self.added.remove_entry(store, &hash, blob.size)?;
+        self.blobs.added.remove_entry(store, &hash, blob.size)?;
 
         // Save blob
         self.blobs
@@ -480,7 +259,7 @@ impl State {
         store: &BS,
         subscriber: Address,
         params: FinalizeBlobStateParams,
-    ) -> anyhow::Result<(), ActorError> {
+    ) -> Result<(), ActorError> {
         // Validate incoming status
         if matches!(params.status, BlobStatus::Added | BlobStatus::Pending) {
             return Err(ActorError::illegal_state(format!(
@@ -574,7 +353,7 @@ impl State {
             } else {
                 Credit::zero()
             };
-            self.uncommit_capacity_for_caller(
+            self.release_capacity_for_caller(
                 &mut caller,
                 reclaim_capacity,
                 reclaim_capacity,
@@ -589,7 +368,7 @@ impl State {
         }
 
         // Remove the source from the pending queue
-        self.pending.remove_source(
+        self.blobs.pending.remove_source(
             store,
             params.hash,
             BlobSource::new(subscriber, params.id, sub.source),
@@ -628,7 +407,7 @@ impl State {
         caller: Address,
         sponsor: Option<Address>,
         params: DeleteBlobStateParams,
-    ) -> anyhow::Result<(bool, u64), ActorError> {
+    ) -> Result<(bool, u64), ActorError> {
         // Load the caller account and delegation.
         let mut accounts = self.accounts.hamt(store)?;
         let mut caller = Caller::load(store, &accounts, caller, sponsor)?;
@@ -687,8 +466,7 @@ impl State {
             // in which case we need to refund for that duration.
             let last_debit_epoch = caller.subscriber().last_debit_epoch;
             if last_debit_epoch < debit_epoch {
-                let debit = self.get_debit_for_caller(&caller, debit_epoch - last_debit_epoch);
-                self.debit_caller(&mut caller, &debit, debit_epoch);
+                self.debit_caller(&mut caller, debit_epoch);
             } else if last_debit_epoch != debit_epoch {
                 // The account was debited after this blob's expiry
                 // Return over-debited credit
@@ -723,7 +501,7 @@ impl State {
                     }
                 })
                 .unwrap_or_default();
-            self.uncommit_capacity_for_caller(
+            self.release_capacity_for_caller(
                 &mut caller,
                 reclaim_subnet_capacity,
                 reclaim_caller_capacity,
@@ -732,7 +510,7 @@ impl State {
         }
 
         // Update expiry index
-        self.expiries.update_index(
+        self.blobs.expiries.update(
             store,
             caller.subscriber_address(),
             params.hash,
@@ -741,7 +519,7 @@ impl State {
         )?;
 
         // Remove the source from the added queue
-        self.added.remove_source(
+        self.blobs.added.remove_source(
             store,
             params.hash,
             BlobSource::new(caller.subscriber_address(), params.id.clone(), sub.source),
@@ -749,7 +527,7 @@ impl State {
         )?;
 
         // Remove the source from the pending queue
-        self.pending.remove_source(
+        self.blobs.pending.remove_source(
             store,
             params.hash,
             BlobSource::new(caller.subscriber_address(), params.id.clone(), sub.source),
@@ -818,7 +596,7 @@ impl State {
         current_epoch: ChainEpoch,
         starting_hash: Option<B256>,
         limit: Option<u32>,
-    ) -> anyhow::Result<(u32, Option<B256>, Vec<B256>), ActorError> {
+    ) -> Result<(u32, Option<B256>, Vec<B256>), ActorError> {
         let new_ttl = self.get_account_max_ttl(config, store, subscriber)?;
         let mut deleted_blobs = Vec::new();
         let mut processed = 0;
@@ -893,7 +671,7 @@ impl State {
     }
 
     /// Returns an error if the subnet storage is at capacity.
-    pub(crate) fn ensure_capacity(&self, capacity: u64) -> anyhow::Result<(), ActorError> {
+    pub(crate) fn ensure_capacity(&self, capacity: u64) -> Result<(), ActorError> {
         if self.capacity_available(capacity).is_zero() {
             return Err(ActorError::forbidden(
                 "subnet has reached storage capacity".into(),
@@ -905,7 +683,7 @@ impl State {
     /// Return available capacity as a difference between `blob_capacity_total` and `capacity_used`.
     pub(crate) fn capacity_available(&self, blob_capacity_total: u64) -> u64 {
         // Prevent underflow. We only care if free capacity is > 0 anyway.
-        blob_capacity_total.saturating_sub(self.capacity_used)
+        blob_capacity_total.saturating_sub(self.blobs.bytes_size)
     }
 
     /// Returns the [`Credit`] storage cost for the given duration and size.
@@ -918,9 +696,10 @@ impl State {
     pub(crate) fn get_debit_for_caller<BS: Blockstore>(
         &self,
         caller: &Caller<BS>,
-        duration: ChainEpoch,
+        epoch: ChainEpoch,
     ) -> Credit {
-        Credit::from_whole(BigInt::from(caller.subscriber().capacity_used) * duration)
+        let debit_duration = epoch.saturating_sub(caller.subscriber().last_debit_epoch);
+        Credit::from_whole(BigInt::from(caller.subscriber().capacity_used) * debit_duration)
     }
 
     /// Returns an account's current max allowed blob TTL by address.

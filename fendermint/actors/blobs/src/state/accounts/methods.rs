@@ -20,7 +20,7 @@ impl State {
         &self,
         store: &BS,
         address: Address,
-    ) -> anyhow::Result<Option<Account>, ActorError> {
+    ) -> Result<Option<Account>, ActorError> {
         let accounts = self.accounts.hamt(store)?;
         accounts.get(&address)
     }
@@ -35,7 +35,7 @@ impl State {
         address: Address,
         status: AccountStatus,
         current_epoch: ChainEpoch,
-    ) -> anyhow::Result<(), ActorError> {
+    ) -> Result<(), ActorError> {
         let mut accounts = self.accounts.hamt(store)?;
         match status {
             // We don't want to create an account for default TTL
@@ -78,11 +78,11 @@ impl State {
         store: &BS,
         config: &RecallConfig,
         current_epoch: ChainEpoch,
-    ) -> anyhow::Result<(HashSet<B256>, bool), ActorError> {
+    ) -> Result<(HashSet<B256>, bool), ActorError> {
         // Delete expired subscriptions
         let mut delete_from_disc = HashSet::new();
         let mut num_deleted = 0;
-        let mut expiries = self.expiries.clone();
+        let mut expiries = self.blobs.expiries.clone();
         expiries.foreach_up_to_epoch(
             store,
             current_epoch,
@@ -131,9 +131,7 @@ impl State {
             |address, account| {
                 let mut caller =
                     Caller::load_account(store, &reader, address, account.clone(), None)?;
-                let debit_duration = current_epoch - caller.subscriber().last_debit_epoch;
-                let debit = self.get_debit_for_caller(&caller, debit_duration);
-                self.debit_caller(&mut caller, &debit, current_epoch);
+                self.debit_caller(&mut caller, current_epoch);
                 caller.save(&mut writer)?;
                 Ok(true)
             },

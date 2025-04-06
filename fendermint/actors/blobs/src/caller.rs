@@ -29,7 +29,7 @@ impl<'a, BS: Blockstore> Caller<'a, BS> {
         accounts: &hamt::map::Hamt<'a, &'a BS, Address, Account>,
         caller: Address,
         sponsor: Option<Address>,
-    ) -> anyhow::Result<Self, ActorError> {
+    ) -> Result<Self, ActorError> {
         let account = accounts.get_or_err(&caller)?;
         Self::load_account(store, accounts, caller, account, sponsor)
     }
@@ -41,7 +41,7 @@ impl<'a, BS: Blockstore> Caller<'a, BS> {
         store: &'a BS,
         accounts: &hamt::map::Hamt<'a, &'a BS, Address, Account>,
         caller: Address,
-    ) -> anyhow::Result<Self, ActorError> {
+    ) -> Result<Self, ActorError> {
         let account = accounts.get_or_err(&caller)?;
         match Self::load_account(
             store,
@@ -64,7 +64,7 @@ impl<'a, BS: Blockstore> Caller<'a, BS> {
         sponsor: Option<Address>,
         current_epoch: ChainEpoch,
         max_ttl: ChainEpoch,
-    ) -> anyhow::Result<Self, ActorError> {
+    ) -> Result<Self, ActorError> {
         let account =
             accounts.get_or_create(&caller, || Account::new(store, current_epoch, max_ttl))?;
         Self::load_account(store, accounts, caller, account, sponsor)
@@ -77,7 +77,7 @@ impl<'a, BS: Blockstore> Caller<'a, BS> {
         caller: Address,
         caller_account: Account,
         sponsor: Option<Address>,
-    ) -> anyhow::Result<Self, ActorError> {
+    ) -> Result<Self, ActorError> {
         if let Some(sponsor) = sponsor {
             let delegation = Delegation::load(store, accounts, sponsor, caller, caller_account)?;
             Ok(Self::Sponsored(delegation))
@@ -210,7 +210,7 @@ impl<'a, BS: Blockstore> Caller<'a, BS> {
         size: u64,
         cost: &Credit,
         current_epoch: ChainEpoch,
-    ) -> anyhow::Result<(), ActorError> {
+    ) -> Result<(), ActorError> {
         // Check subscriber's free credit
         if &self.subscriber().credit_free < cost {
             return Err(ActorError::insufficient_funds(format!(
@@ -244,8 +244,8 @@ impl<'a, BS: Blockstore> Caller<'a, BS> {
         Ok(())
     }
 
-    /// Uncommits capacity for the subscriber.
-    pub fn uncommit_capacity(&mut self, size: u64, cost: &Credit) {
+    /// Releases capacity for the subscriber.
+    pub fn release_capacity(&mut self, size: u64, cost: &Credit) {
         match self {
             Self::Default((_, account)) => {
                 account.capacity_used -= size;
@@ -327,7 +327,7 @@ impl<'a, BS: Blockstore> Caller<'a, BS> {
         &mut self,
         add_amount: &TokenAmount,
         current_epoch: ChainEpoch,
-    ) -> anyhow::Result<(), ActorError> {
+    ) -> Result<(), ActorError> {
         match self {
             Self::Default((_, account)) => {
                 account.gas_allowance += add_amount;
@@ -362,7 +362,7 @@ impl<'a, BS: Blockstore> Caller<'a, BS> {
     pub fn validate_delegate_expiration(
         &self,
         current_epoch: ChainEpoch,
-    ) -> anyhow::Result<(), ActorError> {
+    ) -> Result<(), ActorError> {
         match self {
             Self::Default(_) => Ok(()),
             Self::Sponsored(delegation) => delegation.validate_expiration(current_epoch),
@@ -374,7 +374,7 @@ impl<'a, BS: Blockstore> Caller<'a, BS> {
         &self,
         config: &RecallConfig,
         ttl: Option<ChainEpoch>,
-    ) -> anyhow::Result<ChainEpoch, ActorError> {
+    ) -> Result<ChainEpoch, ActorError> {
         let ttl = ttl.unwrap_or(config.blob_default_ttl);
         if ttl < config.blob_min_ttl {
             return Err(ActorError::illegal_argument(format!(
@@ -395,7 +395,7 @@ impl<'a, BS: Blockstore> Caller<'a, BS> {
     pub fn save(
         &mut self,
         accounts: &mut hamt::map::Hamt<'a, &'a BS, Address, Account>,
-    ) -> anyhow::Result<(), ActorError> {
+    ) -> Result<(), ActorError> {
         match self {
             Self::Default((address, account)) => {
                 accounts.set(address, account.clone())?;
@@ -409,7 +409,7 @@ impl<'a, BS: Blockstore> Caller<'a, BS> {
     pub fn cancel_delegation(
         &mut self,
         accounts: &mut hamt::map::Hamt<'a, &'a BS, Address, Account>,
-    ) -> anyhow::Result<(), ActorError> {
+    ) -> Result<(), ActorError> {
         match self {
             Self::Default(_) => Ok(()),
             Self::Sponsored(delegation) => {
@@ -461,7 +461,7 @@ impl<'a, BS: Blockstore> Delegation<'a, &'a BS> {
         from: Address,
         to: Address,
         to_account: Account,
-    ) -> anyhow::Result<Self, ActorError> {
+    ) -> Result<Self, ActorError> {
         if from == to {
             return Err(ActorError::illegal_argument(
                 "'from' and 'to' addresses must be different".into(),
@@ -503,7 +503,7 @@ impl<'a, BS: Blockstore> Delegation<'a, &'a BS> {
         to: Address,
         options: DelegationOptions,
         current_epoch: ChainEpoch,
-    ) -> anyhow::Result<Self, ActorError> {
+    ) -> Result<Self, ActorError> {
         if let Some(ttl) = options.ttl {
             if ttl < config.blob_min_ttl {
                 return Err(ActorError::illegal_argument(format!(
@@ -599,7 +599,7 @@ impl<'a, BS: Blockstore> Delegation<'a, &'a BS> {
         &mut self,
         amount: &Credit,
         current_epoch: ChainEpoch,
-    ) -> anyhow::Result<(), ActorError> {
+    ) -> Result<(), ActorError> {
         self.validate_expiration(current_epoch)?;
         self.validate_credit_usage(amount)?;
         self.approval_from.credit_used += amount;
@@ -618,7 +618,7 @@ impl<'a, BS: Blockstore> Delegation<'a, &'a BS> {
         &mut self,
         amount: &TokenAmount,
         current_epoch: ChainEpoch,
-    ) -> anyhow::Result<(), ActorError> {
+    ) -> Result<(), ActorError> {
         self.validate_expiration(current_epoch)?;
         self.validate_gas_usage(amount)?;
         self.approval_from.gas_allowance_used += amount;
@@ -630,7 +630,7 @@ impl<'a, BS: Blockstore> Delegation<'a, &'a BS> {
     pub fn save(
         &mut self,
         accounts: &mut hamt::map::Hamt<'a, &'a BS, Address, Account>,
-    ) -> anyhow::Result<(), ActorError> {
+    ) -> Result<(), ActorError> {
         // Save the "from" account's "to" approval
         self.from_account.approvals_to.save_tracked(
             self.approvals_to
@@ -652,7 +652,7 @@ impl<'a, BS: Blockstore> Delegation<'a, &'a BS> {
     pub fn cancel(
         &mut self,
         accounts: &mut hamt::map::Hamt<'a, &'a BS, Address, Account>,
-    ) -> anyhow::Result<(), ActorError> {
+    ) -> Result<(), ActorError> {
         // Remove the "from" account's "to" approval
         self.from_account
             .approvals_to
@@ -723,21 +723,21 @@ impl<'a, BS: Blockstore> Delegation<'a, &'a BS> {
     }
 
     /// Validates whether the delegation has valid expiry for the epoch.
-    pub fn validate_expiration(&self, current_epoch: ChainEpoch) -> anyhow::Result<(), ActorError> {
+    pub fn validate_expiration(&self, current_epoch: ChainEpoch) -> Result<(), ActorError> {
         self.approval_from.validate_expiration(current_epoch)?;
         self.approval_to.validate_expiration(current_epoch)?;
         Ok(())
     }
 
     /// Validates whether the delegation can use the amount of credit.
-    pub fn validate_credit_usage(&self, amount: &Credit) -> anyhow::Result<(), ActorError> {
+    pub fn validate_credit_usage(&self, amount: &Credit) -> Result<(), ActorError> {
         self.approval_from.validate_credit_usage(amount)?;
         self.approval_to.validate_credit_usage(amount)?;
         Ok(())
     }
 
     /// Validates whether the delegation can use the amount of gas.
-    pub fn validate_gas_usage(&self, amount: &TokenAmount) -> anyhow::Result<(), ActorError> {
+    pub fn validate_gas_usage(&self, amount: &TokenAmount) -> Result<(), ActorError> {
         self.approval_from.validate_gas_usage(amount)?;
         self.approval_to.validate_gas_usage(amount)?;
         Ok(())

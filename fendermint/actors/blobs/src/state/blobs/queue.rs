@@ -64,9 +64,9 @@ type BlobSourceSet = HashSet<shared::blobs::BlobSource>;
 /// A collection of blobs used for progress queues.
 #[derive(Debug, Serialize_tuple, Deserialize_tuple)]
 pub struct Queue {
+    /// The HAMT root.
     pub root: hamt::Root<B256, hamt::Root<BlobSource, ()>>,
-    /// Number of blobs in the collection.
-    /// A blob with multiple sources is only counted once.
+    /// Number of sources in the collection.
     size: u64,
     /// Number of blob bytes in the collection.
     /// A blob with multiple sources is only counted once.
@@ -106,10 +106,14 @@ impl Queue {
         self.size = tracked_flush_result.size;
     }
 
-    /// Number of blobs in the collection.
-    /// A blob with multiple sources is only counted once.
+    /// Number of sources in the collection.
     pub fn len(&self) -> u64 {
         self.size
+    }
+
+    /// Returns true if the collection is empty.
+    pub fn is_empty(&self) -> bool {
+        self.size == 0
     }
 
     /// Returns the number of blob bytes in the collection.

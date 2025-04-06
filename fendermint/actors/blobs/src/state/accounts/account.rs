@@ -38,6 +38,7 @@ pub struct Account {
 }
 
 impl Account {
+    /// Returns a new [`Account`].
     pub fn new<BS: Blockstore>(
         store: &BS,
         current_epoch: ChainEpoch,
@@ -112,7 +113,7 @@ impl Account {
 pub struct Accounts {
     /// The HAMT root.
     pub root: hamt::Root<Address, Account>,
-    /// Size of the collection.
+    /// The size of the collection.
     size: u64,
     /// The next account to debit in the current debit cycle.
     /// If this is None, we have finished the debit cycle.
@@ -120,6 +121,7 @@ pub struct Accounts {
 }
 
 impl Accounts {
+    /// Returns a new account collection.
     pub fn new<BS: Blockstore>(store: &BS) -> Result<Self, ActorError> {
         let root = hamt::Root::<Address, Account>::new(store, "accounts")?;
         Ok(Self {
@@ -129,6 +131,7 @@ impl Accounts {
         })
     }
 
+    /// Returns the underlying [`hamt::map::Hamt`].
     pub fn hamt<'a, BS: Blockstore>(
         &self,
         store: BS,
@@ -136,21 +139,30 @@ impl Accounts {
         self.root.hamt(store, self.size)
     }
 
+    /// Saves the state from the [`TrackedFlushResult`].
     pub fn save_tracked(&mut self, tracked_flush_result: TrackedFlushResult<Address, Account>) {
         self.root = tracked_flush_result.root;
         self.size = tracked_flush_result.size
     }
 
+    /// Saves the start address to be used by the next debit round.  
     pub fn save_debit_progress(&mut self, next_address: Option<Address>) {
         self.next_debit_address = next_address;
     }
 
+    /// Returns the start address to be used by the next debit round.
     pub fn get_debit_start_address(&self) -> Option<BytesKey> {
         self.next_debit_address
             .map(|address| BytesKey::from(address.to_bytes()))
     }
 
+    /// The size of the collection.
     pub fn len(&self) -> u64 {
         self.size
+    }
+
+    /// Returns true if the collection is empty.
+    pub fn is_empty(&self) -> bool {
+        self.size == 0
     }
 }

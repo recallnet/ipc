@@ -18,7 +18,7 @@ use crate::{
 };
 
 /// Returns an error if the amount is negative.
-pub fn ensure_positive_amount(amount: &TokenAmount) -> anyhow::Result<(), ActorError> {
+pub fn ensure_positive_amount(amount: &TokenAmount) -> Result<(), ActorError> {
     if amount.is_negative() {
         return Err(ActorError::illegal_argument(
             "amount must be positive".into(),
@@ -37,7 +37,7 @@ impl State {
         to: Address,
         value: TokenAmount,
         current_epoch: ChainEpoch,
-    ) -> anyhow::Result<Account, ActorError> {
+    ) -> Result<Account, ActorError> {
         self.ensure_capacity(config.blob_capacity)?;
         ensure_positive_amount(&value)?;
 
@@ -55,7 +55,7 @@ impl State {
         caller.add_allowances(&amount, &value);
 
         // Update global state
-        self.credit_sold += &amount;
+        self.credits.credit_sold += &amount;
 
         // Save caller
         self.save_caller(&mut caller, &mut accounts)?;
@@ -72,7 +72,7 @@ impl State {
         from: Address,
         sponsor: Option<Address>,
         current_epoch: ChainEpoch,
-    ) -> anyhow::Result<(), ActorError> {
+    ) -> Result<(), ActorError> {
         let mut accounts = self.accounts.hamt(store)?;
         let mut caller = Caller::load_or_create(
             store,
@@ -98,7 +98,7 @@ impl State {
         sponsor: Option<Address>,
         add_amount: TokenAmount,
         current_epoch: ChainEpoch,
-    ) -> anyhow::Result<(), ActorError> {
+    ) -> Result<(), ActorError> {
         let mut accounts = self.accounts.hamt(store)?;
         let mut caller = Caller::load(store, &accounts, from, sponsor)?;
 
@@ -118,7 +118,7 @@ impl State {
         to: Address,
         options: DelegationOptions,
         current_epoch: ChainEpoch,
-    ) -> anyhow::Result<CreditApproval, ActorError> {
+    ) -> Result<CreditApproval, ActorError> {
         let mut accounts = self.accounts.hamt(store)?;
         let mut delegation = Delegation::update_or_create(
             store,
@@ -143,7 +143,7 @@ impl State {
         store: &BS,
         from: Address,
         to: Address,
-    ) -> anyhow::Result<(), ActorError> {
+    ) -> Result<(), ActorError> {
         let mut accounts = self.accounts.hamt(store)?;
         let mut caller = Caller::load(store, &accounts, to, Some(from))?;
 
@@ -160,7 +160,7 @@ impl State {
         store: &BS,
         from: Address,
         to: Address,
-    ) -> anyhow::Result<Option<CreditApproval>, ActorError> {
+    ) -> Result<Option<CreditApproval>, ActorError> {
         let accounts = self.accounts.hamt(store)?;
         let caller = Caller::load(store, &accounts, to, Some(from))?;
         Ok(caller.delegate_approval().cloned())
@@ -173,7 +173,7 @@ impl State {
         store: &BS,
         from: Address,
         current_epoch: ChainEpoch,
-    ) -> anyhow::Result<GasAllowance, ActorError> {
+    ) -> Result<GasAllowance, ActorError> {
         let accounts = self.accounts.hamt(store)?;
         let allowance = Caller::load_with_default_sponsor(store, &accounts, from)
             .map(|caller| caller.gas_allowance(current_epoch))
@@ -186,14 +186,14 @@ impl State {
     pub(crate) fn debit_caller<BS: Blockstore>(
         &mut self,
         caller: &mut Caller<BS>,
-        amount: &Credit,
         current_epoch: ChainEpoch,
     ) {
-        caller.debit_credit(amount, current_epoch);
+        let amount = self.get_debit_for_caller(caller, current_epoch);
+        caller.debit_credit(&amount, current_epoch);
 
         // Update global state
-        self.credit_debited += amount;
-        self.credit_committed -= amount;
+        self.credits.credit_debited += &amount;
+        self.credits.credit_committed -= &amount;
     }
 
     /// Refunds credit to the caller.
@@ -207,8 +207,8 @@ impl State {
         caller.refund_credit(amount, correction);
 
         // Update global state
-        self.credit_debited -= amount;
-        self.credit_committed += correction;
+        self.credits.credit_debited -= amount;
+        self.credits.credit_committed += correction;
     }
 
     /// Commits new capacity for the caller.
@@ -219,7 +219,7 @@ impl State {
         caller: &mut Caller<BS>,
         config: &RecallConfig,
         params: CommitCapacityParams,
-    ) -> anyhow::Result<TokenAmount, ActorError> {
+    ) -> Result<TokenAmount, ActorError> {
         self.ensure_capacity(config.blob_capacity)?;
         ensure_positive_amount(&params.cost)?;
         ensure_positive_amount(&params.value)?;
@@ -249,7 +249,7 @@ impl State {
                         caller.add_allowances(&remainder, &value_required);
 
                         // Update global state
-                        self.credit_sold += &remainder;
+                        self.credits.credit_sold += &remainder;
 
                         // Try again
                         caller.commit_capacity(params.caller_size, &params.cost, params.epoch)?;
@@ -261,28 +261,28 @@ impl State {
             }?;
 
         // Update global state
-        self.capacity_used += params.subnet_size;
-        self.credit_committed += &params.cost;
+        self.blobs.bytes_size += params.subnet_size;
+        self.credits.credit_committed += &params.cost;
 
         debug!("used {} bytes from subnet", params.subnet_size);
 
         Ok(value_remaining)
     }
 
-    /// Uncommits capacity for the caller.
+    /// Releases capacity for the caller.
     /// Does NOT flush the state to the blockstore.
-    pub(crate) fn uncommit_capacity_for_caller<BS: Blockstore>(
+    pub(crate) fn release_capacity_for_caller<BS: Blockstore>(
         &mut self,
         caller: &mut Caller<BS>,
         subnet_size: u64,
         caller_size: u64,
         cost: &Credit,
     ) {
-        caller.uncommit_capacity(caller_size, cost);
+        caller.release_capacity(caller_size, cost);
 
         // Update global state
-        self.capacity_used -= subnet_size;
-        self.credit_committed -= cost;
+        self.blobs.bytes_size -= subnet_size;
+        self.credits.credit_committed -= cost;
 
         debug!("released {} bytes to subnet", subnet_size);
     }
@@ -294,11 +294,14 @@ impl State {
         caller: &mut Caller<BS>,
         amount: &Credit,
     ) {
+        if amount.is_zero() {
+            return;
+        }
         caller.return_committed_credit(amount);
 
         // Update global state
-        self.credit_debited -= amount;
-        self.credit_committed += amount;
+        self.credits.credit_debited -= amount;
+        self.credits.credit_committed += amount;
     }
 
     /// Save the caller state to the accounts HAMT.
@@ -306,7 +309,7 @@ impl State {
         &mut self,
         caller: &mut Caller<'a, BS>,
         accounts: &mut hamt::map::Hamt<'a, &'a BS, Address, Account>,
-    ) -> anyhow::Result<(), ActorError> {
+    ) -> Result<(), ActorError> {
         caller.save(accounts)?;
         self.accounts.save_tracked(accounts.flush_tracked()?);
         Ok(())
@@ -317,7 +320,7 @@ impl State {
         &mut self,
         delegation: &mut Delegation<'a, &'a BS>,
         accounts: &mut hamt::map::Hamt<'a, &'a BS, Address, Account>,
-    ) -> anyhow::Result<(), ActorError> {
+    ) -> Result<(), ActorError> {
         delegation.save(accounts)?;
         self.accounts.save_tracked(accounts.flush_tracked()?);
         Ok(())

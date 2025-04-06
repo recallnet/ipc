@@ -62,7 +62,7 @@ fn test_buy_credit_success() {
     let credit_sold = amount.clone() * &config.token_credit_rate;
     assert_eq!(account.credit_free, credit_sold);
     assert_eq!(account.gas_allowance, amount);
-    assert_eq!(state.credit_sold, credit_sold);
+    assert_eq!(state.credits.credit_sold, credit_sold);
     let account_back = state.get_account(&store, to).unwrap().unwrap();
     assert_eq!(account, account_back);
 }
@@ -90,7 +90,7 @@ fn test_buy_credit_at_capacity() {
     let to = new_address();
     let amount = TokenAmount::from_whole(1);
 
-    state.capacity_used = config.blob_capacity;
+    state.blobs.bytes_size = config.blob_capacity;
     let res = state.buy_credit(&store, &config, to, amount, 1);
     assert!(res.is_err());
     assert_eq!(

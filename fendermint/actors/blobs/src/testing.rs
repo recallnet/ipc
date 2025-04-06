@@ -124,7 +124,7 @@ pub fn check_approval_used<BS: Blockstore>(
         .unwrap();
     assert_eq!(
         subscriber_approval.credit_used,
-        state.credit_debited.clone() + subscriber_account.credit_committed.clone()
+        state.credits.credit_debited.clone() + subscriber_account.credit_committed.clone()
     );
     let origin_account = state.get_account(&store, caller).unwrap().unwrap();
     let origin_approval = origin_account
@@ -136,7 +136,7 @@ pub fn check_approval_used<BS: Blockstore>(
         .unwrap();
     assert_eq!(
         subscriber_approval.credit_used,
-        &state.credit_debited + &subscriber_account.credit_committed
+        &state.credits.credit_debited + &subscriber_account.credit_committed
     );
     assert_eq!(subscriber_approval.credit_used, origin_approval.credit_used);
 }

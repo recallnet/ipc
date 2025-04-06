@@ -9,21 +9,38 @@ use fil_actors_runtime::ActorError;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::tuple::*;
 use fvm_shared::clock::ChainEpoch;
+use log::debug;
 use recall_ipld::{hamt, hamt::map::TrackedFlushResult};
+
+use super::AddBlobStateParams;
+use crate::caller::Caller;
+
+/// Represents the result of a subscription upsert.
+#[derive(Debug, Clone)]
+pub struct UpsertSubscriptionResult {
+    /// New or updated subscription.
+    pub subscription: Subscription,
+    /// Previous subscription expiry if the subscription was updated.
+    pub previous_expiry: Option<ChainEpoch>,
+}
 
 /// HAMT wrapper tracking blob [`Subscription`]s by subscription ID.
 #[derive(Debug, Clone, PartialEq, Serialize_tuple, Deserialize_tuple)]
 pub struct Subscriptions {
+    /// The HAMT root.
     pub root: hamt::Root<SubscriptionId, Subscription>,
+    /// The size of the collection.
     size: u64,
 }
 
 impl Subscriptions {
+    /// Returns a subscription collection.
     pub fn new<BS: Blockstore>(store: &BS) -> Result<Self, ActorError> {
         let root = hamt::Root::<SubscriptionId, Subscription>::new(store, "subscription_group")?;
         Ok(Self { root, size: 0 })
     }
 
+    /// Returns the underlying [`hamt::map::Hamt`].
     pub fn hamt<BS: Blockstore>(
         &self,
         store: BS,
@@ -31,6 +48,7 @@ impl Subscriptions {
         self.root.hamt(store, self.size)
     }
 
+    /// Saves the state from the [`TrackedFlushResult`].
     pub fn save_tracked(
         &mut self,
         tracked_flush_result: TrackedFlushResult<SubscriptionId, Subscription>,
@@ -39,10 +57,12 @@ impl Subscriptions {
         self.size = tracked_flush_result.size;
     }
 
+    /// The size of the collection.
     pub fn len(&self) -> u64 {
         self.size
     }
 
+    /// Returns true if the collection is empty.
     pub fn is_empty(&self) -> bool {
         self.size == 0
     }
@@ -90,7 +110,7 @@ impl Subscriptions {
         &self,
         store: &BS,
         trim_id: &SubscriptionId,
-    ) -> anyhow::Result<(bool, Option<ChainEpoch>), ActorError> {
+    ) -> Result<(bool, Option<ChainEpoch>), ActorError> {
         let subscriptions = self.hamt(store)?;
         let trim = subscriptions
             .get(trim_id)?
@@ -113,6 +133,64 @@ impl Subscriptions {
             }
         }
         Ok((true, next_min))
+    }
+
+    /// Add/update a subscription.
+    pub fn upsert<BS: Blockstore>(
+        &mut self,
+        store: &BS,
+        caller: &Caller<BS>,
+        params: &AddBlobStateParams,
+        expiry: ChainEpoch,
+    ) -> Result<UpsertSubscriptionResult, ActorError> {
+        let mut subscriptions = self.hamt(store)?;
+        if let Some(mut subscription) = subscriptions.get(&params.id)? {
+            let previous_expiry = subscription.expiry;
+            subscription.expiry = expiry;
+            subscription.source = params.source; // subscriber can retry from a different source
+            subscription.delegate = caller.delegate_address();
+            subscription.failed = false;
+
+            self.save_tracked(
+                subscriptions.set_and_flush_tracked(&params.id, subscription.clone())?,
+            );
+
+            debug!(
+                "updated subscription to blob {} for {} (key: {})",
+                params.hash,
+                caller.subscriber_address(),
+                params.id
+            );
+
+            Ok(UpsertSubscriptionResult {
+                subscription,
+                previous_expiry: Some(previous_expiry),
+            })
+        } else {
+            let subscription = Subscription {
+                added: params.epoch,
+                expiry,
+                source: params.source,
+                delegate: caller.delegate_address(),
+                failed: false,
+            };
+
+            self.save_tracked(
+                subscriptions.set_and_flush_tracked(&params.id, subscription.clone())?,
+            );
+
+            debug!(
+                "created new subscription to blob {} for {} (key: {})",
+                params.hash,
+                caller.subscriber_address(),
+                params.id
+            );
+
+            Ok(UpsertSubscriptionResult {
+                subscription,
+                previous_expiry: None,
+            })
+        }
     }
 }
 

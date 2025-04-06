@@ -205,7 +205,7 @@ impl Actor {
             params.delimiter,
             start_key.as_ref(),
             params.limit,
-            |key: Vec<u8>, object_state: ObjectState| -> anyhow::Result<(), ActorError> {
+            |key: Vec<u8>, object_state: ObjectState| -> Result<(), ActorError> {
                 if object_state.expiry > current_epoch {
                     objects.push((key, object_state));
                 }
@@ -294,7 +294,7 @@ impl Actor {
 }
 
 /// Returns a blob subscription ID specific to this machine and object key.
-fn get_blob_id(state: &State, key: &[u8]) -> anyhow::Result<SubscriptionId, ActorError> {
+fn get_blob_id(state: &State, key: &[u8]) -> Result<SubscriptionId, ActorError> {
     let mut data = state.address.get()?.payload_bytes();
     data.extend(key);
     let id = blake3::hash(&data).to_hex().to_string();
@@ -307,7 +307,7 @@ fn build_object(
     object_state: &ObjectState,
     sub_id: SubscriptionId,
     subscriber: Address,
-) -> anyhow::Result<Option<Object>, ActorError> {
+) -> Result<Option<Object>, ActorError> {
     match blob.status {
         BlobStatus::Resolved => {
             blob.subscribers.get(&sub_id).cloned().ok_or_else(|| {
@@ -328,7 +328,7 @@ fn build_object(
     }
 }
 
-fn validate_metadata(metadata: &HashMap<String, String>) -> anyhow::Result<(), ActorError> {
+fn validate_metadata(metadata: &HashMap<String, String>) -> Result<(), ActorError> {
     if metadata.len() as u32 > MAX_METADATA_ENTRIES {
         return Err(ActorError::illegal_state(format!(
             "the maximum metadata entries allowed is {}",
@@ -357,7 +357,7 @@ fn validate_metadata(metadata: &HashMap<String, String>) -> anyhow::Result<(), A
 
 fn validate_metadata_optional(
     metadata: &HashMap<String, Option<String>>,
-) -> anyhow::Result<(), ActorError> {
+) -> Result<(), ActorError> {
     for (key, value) in metadata {
         if key.len() as u32 > MAX_METADATA_KEY_SIZE {
             return Err(ActorError::illegal_state(format!(

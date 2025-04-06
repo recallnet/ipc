@@ -69,22 +69,7 @@ pub struct Expiries {
 }
 
 impl Expiries {
-    fn store_name() -> String {
-        "expiries".to_string()
-    }
-
-    fn store_name_per_chain_epoch(chain_epoch: ChainEpoch) -> String {
-        format!("{}.{}", Expiries::store_name(), chain_epoch)
-    }
-
-    fn store_name_per_address(chain_epoch: ChainEpoch, address: &Address) -> String {
-        format!(
-            "{}.{}",
-            Expiries::store_name_per_chain_epoch(chain_epoch),
-            address
-        )
-    }
-
+    /// Returns a new expiry collection.
     pub fn new<BS: Blockstore>(store: &BS) -> Result<Self, ActorError> {
         let root = amt::Root::<ExpiriesRoot>::new(store)?;
         Ok(Self {
@@ -93,6 +78,7 @@ impl Expiries {
         })
     }
 
+    /// Returns the underlying [`amt::vec::Amt`].
     pub fn amt<'a, BS: Blockstore>(
         &self,
         store: BS,
@@ -100,14 +86,17 @@ impl Expiries {
         self.root.amt(store)
     }
 
+    /// Saves the state from the [`TrackedFlushResult`].
     pub fn save_tracked(&mut self, tracked_flush_result: TrackedFlushResult<ExpiriesRoot>) {
         self.root = tracked_flush_result.root;
     }
 
+    /// The size of the collection.
     pub fn len<BS: Blockstore>(&self, store: BS) -> Result<u64, ActorError> {
         Ok(self.root.amt(store)?.count())
     }
 
+    /// Iterates the collection up to the given epoch.
     pub fn foreach_up_to_epoch<BS: Blockstore, F>(
         &mut self,
         store: BS,
@@ -146,7 +135,8 @@ impl Expiries {
         Ok(())
     }
 
-    pub fn update_index<BS: Blockstore>(
+    /// Updates the collection by applying the list of [`ExpiryUpdate`]s.
+    pub fn update<BS: Blockstore>(
         &mut self,
         store: BS,
         subscriber: Address,
@@ -154,6 +144,10 @@ impl Expiries {
         id: &SubscriptionId,
         updates: Vec<ExpiryUpdate>,
     ) -> Result<(), ActorError> {
+        if updates.is_empty() {
+            return Ok(());
+        }
+
         let mut expiries = self.amt(&store)?;
         for update in updates {
             match update {
@@ -165,7 +159,7 @@ impl Expiries {
                         } else {
                             hamt::Root::<Address, hamt::Root<ExpiryKey, ()>>::new(
                                 &store,
-                                &Expiries::store_name_per_chain_epoch(chain_epoch),
+                                &Expiries::store_name_per_root(chain_epoch),
                             )?
                         };
                     // The size does not matter
@@ -223,6 +217,21 @@ impl Expiries {
         }
         Ok(())
     }
+
+    /// Returns the store display name.
+    fn store_name() -> String {
+        "expiries".to_string()
+    }
+
+    /// Returns the store display name for a root.
+    fn store_name_per_root(chain_epoch: ChainEpoch) -> String {
+        format!("{}.{}", Expiries::store_name(), chain_epoch)
+    }
+
+    /// Returns the store display name for an address.
+    fn store_name_per_address(chain_epoch: ChainEpoch, address: &Address) -> String {
+        format!("{}.{}", Expiries::store_name_per_root(chain_epoch), address)
+    }
 }
 
 /// Helper enum for expiry updates.
@@ -250,7 +259,7 @@ mod tests {
         for i in 1..=100 {
             let (hash, _) = new_hash(1024);
             state
-                .update_index(
+                .update(
                     &store,
                     addr,
                     hash,
@@ -275,7 +284,7 @@ mod tests {
         let remove_epoch = 5;
         let hash = hashes[remove_epoch - 1];
         state
-            .update_index(
+            .update(
                 &store,
                 addr,
                 hash,
@@ -305,7 +314,7 @@ mod tests {
         for i in &[1, 2, 4, 7, 8, 10] {
             let (hash, _) = new_hash(1024);
             state
-                .update_index(
+                .update(
                     &store,
                     addr,
                     hash,
@@ -344,7 +353,7 @@ mod tests {
         for ttl in (10..=50).step_by(10) {
             let (hash, _) = new_hash(1024);
             state
-                .update_index(
+                .update(
                     &store,
                     addr,
                     hash,
@@ -369,7 +378,7 @@ mod tests {
         // Add new expiry at 135
         let (hash, _) = new_hash(1024);
         state
-            .update_index(
+            .update(
                 &store,
                 addr,
                 hash,
@@ -381,7 +390,7 @@ mod tests {
         // Remove expiry at 140
         let hash = hashes[3];
         state
-            .update_index(
+            .update(
                 &store,
                 addr,
                 hash,
@@ -417,7 +426,7 @@ mod tests {
             let (hash, _) = new_hash(1024);
             let expiry = current_epoch + ttl;
             state
-                .update_index(
+                .update(
                     &store,
                     addr,
                     hash,
@@ -442,7 +451,7 @@ mod tests {
         // Extend expiry of the blob at 130 to 145 (can only extend, not reduce)
         let hash = hashes[2]; // blob with ttl 30
         state
-            .update_index(
+            .update(
                 &store,
                 addr,
                 hash,
@@ -484,7 +493,7 @@ mod tests {
         for _ in 0..2 {
             let (hash, _) = new_hash(1024);
             state
-                .update_index(
+                .update(
                     &store,
                     addr1,
                     hash,
@@ -496,7 +505,7 @@ mod tests {
         }
         let (hash, _) = new_hash(1024);
         state
-            .update_index(
+            .update(
                 &store,
                 addr1,
                 hash,
@@ -509,7 +518,7 @@ mod tests {
         // addr2's blobs
         let (hash, _) = new_hash(1024);
         state
-            .update_index(
+            .update(
                 &store,
                 addr2,
                 hash,
@@ -522,7 +531,7 @@ mod tests {
         for _ in 0..2 {
             let (hash, _) = new_hash(1024);
             state
-                .update_index(
+                .update(
                     &store,
                     addr2,
                     hash,
