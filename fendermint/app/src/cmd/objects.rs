@@ -7,6 +7,8 @@ use std::str::FromStr;
 use std::time::Instant;
 use std::{convert::Infallible, net::ToSocketAddrs, num::ParseIntError};
 
+use crate::cmd;
+use crate::options::objects::{ObjectsArgs, ObjectsCommands};
 use anyhow::anyhow;
 use anyhow::Context;
 use bytes::Buf;
@@ -35,15 +37,13 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tracing::{debug, info};
 use uuid::Uuid;
+use warp::path::Tail;
 use warp::{
     filters::multipart::Part,
     http::{HeaderMap, HeaderValue, StatusCode},
     hyper::body::Body,
     Filter, Rejection, Reply,
 };
-
-use crate::cmd;
-use crate::options::objects::{ObjectsArgs, ObjectsCommands};
 
 /// The alpha parameter for alpha entanglement determines the number of parity blobs to generate
 /// for the original blob.
@@ -93,7 +93,8 @@ cmd! {
                 .and(with_max_size(settings.max_object_size))
                 .and_then(handle_object_upload);
 
-                let objects_download = warp::path!("v1" / "objects" / String / String )
+                let objects_download = warp::path!("v1" / "objects" / String / .. )
+                .and(warp::path::tail())
                 .and(
                     warp::get().map(|| "GET".to_string()).or(warp::head().map(|| "HEAD".to_string())).unify()
                 )
@@ -576,7 +577,7 @@ pub(crate) struct ObjectRange {
 
 async fn handle_object_download<F: QueryClient + Send + Sync>(
     address: String,
-    tail: String,
+    tail: Tail,
     method: String,
     range: Option<String>,
     height_query: HeightQuery,
@@ -1113,8 +1114,9 @@ mod tests {
         let iroh = iroh::node::Node::memory().spawn().await.unwrap();
 
         let test_cases = vec![
-            ("foo%2Fbar", "hello world"),
-            ("foo%3Fbar%3Fbaz.txt", "arbitrary data"),
+            ("/foo/bar", "hello world"),
+            ("/foo%2Fbar", "hello world"),
+            ("/foo%3Fbar%3Fbaz.txt", "arbitrary data"),
         ];
 
         for (path, content) in test_cases {
@@ -1126,7 +1128,11 @@ mod tests {
 
             let result = handle_object_download(
                 "t2mnd5jkuvmsaf457ympnf3monalh3vothdd5njoy".into(),
-                path.to_string(),
+                warp::test::request()
+                    .path(path)
+                    .filter(&warp::path::tail())
+                    .await
+                    .unwrap(),
                 "GET".to_string(),
                 None,
                 HeightQuery { height: Some(1) },
@@ -1168,7 +1174,11 @@ mod tests {
 
         let result = handle_object_download(
             "t2mnd5jkuvmsaf457ympnf3monalh3vothdd5njoy".into(),
-            "foo%2Fbar".to_string(),
+            warp::test::request()
+                .path("/foo/bar")
+                .filter(&warp::path::tail())
+                .await
+                .unwrap(),
             "GET".to_string(),
             Some("bytes=0-4".to_string()),
             HeightQuery { height: Some(1) },
@@ -1198,7 +1208,11 @@ mod tests {
 
         let result = handle_object_download(
             "t2mnd5jkuvmsaf457ympnf3monalh3vothdd5njoy".into(),
-            "foo%2Fbar".to_string(),
+            warp::test::request()
+                .path("/foo/bar")
+                .filter(&warp::path::tail())
+                .await
+                .unwrap(),
             "HEAD".to_string(),
             None,
             HeightQuery { height: Some(1) },
