@@ -248,7 +248,7 @@ impl BlobsActor {
 
         let mut capacity_used = 0;
         let (sub, token_rebate) = rt.transaction(|st: &mut State, rt| {
-            let initial_capacity_used = st.blobs.bytes_size;
+            let initial_capacity_used = st.blobs.bytes_size();
             let res = st.add_blob(
                 rt.store(),
                 &config,
@@ -260,7 +260,7 @@ impl BlobsActor {
                     token_amount,
                 ),
             )?;
-            capacity_used = st.blobs.bytes_size - initial_capacity_used;
+            capacity_used = st.blobs.bytes_size() - initial_capacity_used;
             Ok(res)
         })?;
 
@@ -311,14 +311,14 @@ impl BlobsActor {
 
         let mut capacity_released = 0;
         let (delete, size) = rt.transaction(|st: &mut State, rt| {
-            let initial_capacity_used = st.blobs.bytes_size;
+            let initial_capacity_used = st.blobs.bytes_size();
             let res = st.delete_blob(
                 rt.store(),
                 caller.state_address(),
                 caller.sponsor_state_address(),
                 DeleteBlobStateParams::from_actor_params(params.clone(), rt.curr_epoch()),
             )?;
-            capacity_released = initial_capacity_used - st.blobs.bytes_size;
+            capacity_released = initial_capacity_used - st.blobs.bytes_size();
             Ok(res)
         })?;
 
@@ -371,7 +371,7 @@ impl BlobsActor {
         let (delete, delete_size, sub) = rt.transaction(|st: &mut State, rt| {
             let add_params = params.add;
 
-            let initial_capacity_used = st.blobs.bytes_size;
+            let initial_capacity_used = st.blobs.bytes_size();
             let (delete, delete_size) = if overwrite {
                 st.delete_blob(
                     rt.store(),
@@ -386,9 +386,9 @@ impl BlobsActor {
             } else {
                 (false, 0)
             };
-            capacity_released = initial_capacity_used - st.blobs.bytes_size;
+            capacity_released = initial_capacity_used - st.blobs.bytes_size();
 
-            let initial_capacity_used = st.blobs.bytes_size;
+            let initial_capacity_used = st.blobs.bytes_size();
             let (subscription, _) = st.add_blob(
                 rt.store(),
                 &config,
@@ -400,7 +400,7 @@ impl BlobsActor {
                     TokenAmount::zero(),
                 ),
             )?;
-            capacity_used = st.blobs.bytes_size - initial_capacity_used;
+            capacity_used = st.blobs.bytes_size() - initial_capacity_used;
 
             Ok((delete, delete_size, subscription))
         })?;

@@ -70,7 +70,12 @@ impl Subscribers {
         self.size == 0
     }
 
-    /// Adds/updates a subscriber subscription.
+    /// Creates or updates a subscriber's subscription to a blob, managing all related state
+    /// changes.
+    ///
+    /// This function handles both the creation of new subscribers and updating existing
+    /// subscribers' subscriptions. It calculates credit commitment and return durations based on
+    /// the subscription's expiry and the group's maximum expiry.
     pub fn upsert<BS: Blockstore>(
         &mut self,
         store: &BS,
@@ -116,5 +121,21 @@ impl Subscribers {
             commit_duration,
             return_duration,
         })
+    }
+
+    /// Saves a subscriber's subscriptions to the blockstore.
+    ///
+    /// This is a helper function that simplifies the process of saving a subscriber's subscription
+    /// data by handling the HAMT operations internally. It creates or updates the subscriber entry
+    /// in the HAMT and saves the changes to the blockstore.
+    pub fn save_subscriptions<BS: Blockstore>(
+        &mut self,
+        store: &BS,
+        subscriber: Address,
+        subscriptions: Subscriptions,
+    ) -> Result<(), ActorError> {
+        let mut subscribers = self.hamt(store)?;
+        self.save_tracked(subscribers.set_and_flush_tracked(&subscriber, subscriptions)?);
+        Ok(())
     }
 }

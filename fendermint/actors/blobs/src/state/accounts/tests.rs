@@ -350,7 +350,7 @@ fn debit_accounts_delete_from_disc<BS: Blockstore>(
         state.credits.credit_debited,
         token_amount * &config.token_credit_rate - &account.credit_free
     );
-    assert_eq!(state.blobs.bytes_size, 0); // capacity was released
+    assert_eq!(state.blobs.bytes_size(), 0); // capacity was released
 
     // Check indexes
     assert_eq!(state.blobs.expiries.len(store).unwrap(), 0);

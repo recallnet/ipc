@@ -8,12 +8,9 @@ use fvm_shared::{clock::ChainEpoch, econ::TokenAmount};
 /// Params for committing capacity.
 #[derive(Debug)]
 pub struct CommitCapacityParams {
-    /// Commitment size for subnet,
-    /// which may be less than caller if the data already exists in the subnet.
-    pub subnet_size: u64,
     /// Commitment size for caller.
-    pub caller_size: u64,
-    /// Commitment cost
+    pub size: u64,
+    /// Commitment cost.
     pub cost: Credit,
     /// Token amount available to commitment.
     pub value: TokenAmount,

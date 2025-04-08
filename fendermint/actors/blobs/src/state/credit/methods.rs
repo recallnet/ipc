@@ -7,7 +7,6 @@ use fendermint_actor_recall_config_shared::RecallConfig;
 use fil_actors_runtime::ActorError;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::{address::Address, clock::ChainEpoch, econ::TokenAmount, error::ExitCode};
-use log::debug;
 use recall_ipld::hamt;
 
 use super::CommitCapacityParams;
@@ -220,51 +219,46 @@ impl State {
         config: &RecallConfig,
         params: CommitCapacityParams,
     ) -> Result<TokenAmount, ActorError> {
-        self.ensure_capacity(config.blob_capacity)?;
         ensure_positive_amount(&params.cost)?;
         ensure_positive_amount(&params.value)?;
 
-        let value_remaining =
-            match caller.commit_capacity(params.caller_size, &params.cost, params.epoch) {
-                Ok(()) => Ok(params.value.clone()),
-                Err(e) => {
-                    // Buy credit to cover the amount
-                    if e.exit_code() == ExitCode::USR_INSUFFICIENT_FUNDS && !params.value.is_zero()
-                    {
-                        if caller.is_delegate() {
-                            return Err(ActorError::forbidden(
-                                "cannot auto-buy credits for a sponsor".into(),
-                            ));
-                        }
-
-                        let remainder: Credit = &params.cost - &caller.subscriber().credit_free;
-                        let value_required = &remainder / &config.token_credit_rate;
-                        let value_remaining = &params.value - &value_required;
-                        if value_remaining.is_negative() {
-                            return Err(ActorError::insufficient_funds(format!(
-                                "insufficient value (received: {}; required: {})",
-                                params.value, value_required
-                            )));
-                        }
-                        caller.add_allowances(&remainder, &value_required);
-
-                        // Update global state
-                        self.credits.credit_sold += &remainder;
-
-                        // Try again
-                        caller.commit_capacity(params.caller_size, &params.cost, params.epoch)?;
-                        Ok(value_remaining)
-                    } else {
-                        Err(e)
+        let value_remaining = match caller.commit_capacity(params.size, &params.cost, params.epoch)
+        {
+            Ok(()) => Ok(params.value.clone()),
+            Err(e) => {
+                // Buy credit to cover the amount
+                if e.exit_code() == ExitCode::USR_INSUFFICIENT_FUNDS && !params.value.is_zero() {
+                    if caller.is_delegate() {
+                        return Err(ActorError::forbidden(
+                            "cannot auto-buy credits for a sponsor".into(),
+                        ));
                     }
+
+                    let remainder: Credit = &params.cost - &caller.subscriber().credit_free;
+                    let value_required = &remainder / &config.token_credit_rate;
+                    let value_remaining = &params.value - &value_required;
+                    if value_remaining.is_negative() {
+                        return Err(ActorError::insufficient_funds(format!(
+                            "insufficient value (received: {}; required: {})",
+                            params.value, value_required
+                        )));
+                    }
+                    caller.add_allowances(&remainder, &value_required);
+
+                    // Update global state
+                    self.credits.credit_sold += &remainder;
+
+                    // Try again
+                    caller.commit_capacity(params.size, &params.cost, params.epoch)?;
+                    Ok(value_remaining)
+                } else {
+                    Err(e)
                 }
-            }?;
+            }
+        }?;
 
         // Update global state
-        self.blobs.bytes_size += params.subnet_size;
         self.credits.credit_committed += &params.cost;
-
-        debug!("used {} bytes from subnet", params.subnet_size);
 
         Ok(value_remaining)
     }
@@ -274,17 +268,13 @@ impl State {
     pub(crate) fn release_capacity_for_caller<BS: Blockstore>(
         &mut self,
         caller: &mut Caller<BS>,
-        subnet_size: u64,
-        caller_size: u64,
+        size: u64,
         cost: &Credit,
     ) {
-        caller.release_capacity(caller_size, cost);
+        caller.release_capacity(size, cost);
 
         // Update global state
-        self.blobs.bytes_size -= subnet_size;
         self.credits.credit_committed -= cost;
-
-        debug!("released {} bytes to subnet", subnet_size);
     }
 
     /// Returns committed credit to the caller.

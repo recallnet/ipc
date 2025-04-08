@@ -43,7 +43,7 @@ impl State {
         GetStatsReturn {
             balance,
             capacity_free: self.capacity_available(config.blob_capacity),
-            capacity_used: self.blobs.bytes_size,
+            capacity_used: self.blobs.bytes_size(),
             credit_sold: self.credits.credit_sold.clone(),
             credit_committed: self.credits.credit_committed.clone(),
             credit_debited: self.credits.credit_debited.clone(),

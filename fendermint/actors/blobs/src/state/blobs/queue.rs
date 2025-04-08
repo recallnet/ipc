@@ -175,8 +175,8 @@ impl Queue {
         &mut self,
         store: BS,
         hash: B256,
+        size: u64,
         source: BlobSource,
-        blob_size: u64,
     ) -> Result<(), ActorError> {
         let mut collection = self.hamt(&store)?;
         if let Some(mut source_root) = collection.get(&hash)? {
@@ -184,7 +184,7 @@ impl Queue {
             (source_root, _) = sources.delete_and_flush(&source)?;
             if sources.is_empty() {
                 self.save_tracked(collection.delete_and_flush_tracked(&hash)?.0);
-                self.bytes_size -= blob_size;
+                self.bytes_size -= size;
             } else {
                 self.save_tracked(collection.set_and_flush_tracked(&hash, source_root)?);
             }
@@ -197,13 +197,13 @@ impl Queue {
         &mut self,
         store: BS,
         hash: &B256,
-        blob_size: u64,
+        size: u64,
     ) -> Result<(), ActorError> {
         let mut collection = self.hamt(&store)?;
         let (res, deleted) = collection.delete_and_flush_tracked(hash)?;
         self.save_tracked(res);
         if deleted.is_some() {
-            self.bytes_size -= blob_size;
+            self.bytes_size -= size;
         }
         Ok(())
     }

@@ -223,14 +223,14 @@ impl<'a, BS: Blockstore> Caller<'a, BS> {
         match self {
             Self::Default((_, account)) => {
                 account.capacity_used += size;
-                account.credit_committed += cost;
                 account.credit_free -= cost;
+                account.credit_committed += cost;
             }
             Self::Sponsored(delegation) => {
                 delegation.use_credit_allowance(cost, current_epoch)?;
                 delegation.from_account.capacity_used += size;
-                delegation.from_account.credit_committed += cost;
                 delegation.from_account.credit_free -= cost;
+                delegation.from_account.credit_committed += cost;
             }
         }
 
@@ -249,14 +249,14 @@ impl<'a, BS: Blockstore> Caller<'a, BS> {
         match self {
             Self::Default((_, account)) => {
                 account.capacity_used -= size;
-                account.credit_committed -= cost;
                 account.credit_free += cost;
+                account.credit_committed -= cost;
             }
             Self::Sponsored(delegation) => {
                 delegation.return_credit_allowance(cost);
                 delegation.from_account.capacity_used -= size;
-                delegation.from_account.credit_committed -= cost;
                 delegation.from_account.credit_free += cost;
+                delegation.from_account.credit_committed -= cost;
             }
         }
 

@@ -90,7 +90,7 @@ fn test_buy_credit_at_capacity() {
     let to = new_address();
     let amount = TokenAmount::from_whole(1);
 
-    state.blobs.bytes_size = config.blob_capacity;
+    state.blobs.set_capacity(config.blob_capacity);
     let res = state.buy_credit(&store, &config, to, amount, 1);
     assert!(res.is_err());
     assert_eq!(

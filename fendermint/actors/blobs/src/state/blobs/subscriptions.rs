@@ -67,8 +67,15 @@ impl Subscriptions {
         self.size == 0
     }
 
-    /// Returns the current group max expiry and the group max expiry after adding the provided ID
-    /// and new value.
+    /// Calculates the current maximum expiry and the new maximum expiry after a potential update.
+    ///
+    /// This function serves two purposes:
+    /// 1. It finds the current maximum expiry among all non-failed subscriptions
+    /// 2. It calculates what the new maximum expiry would be if the subscription with `target_id`
+    ///    had its expiry updated to `new_value`
+    ///
+    /// This is particularly useful for determining if group expiry boundaries need to be updated
+    /// when a single subscription's expiry changes.
     pub fn max_expiries<BS: Blockstore>(
         &self,
         store: &BS,
@@ -104,8 +111,15 @@ impl Subscriptions {
         Ok((max, new_max))
     }
 
-    /// Returns whether the provided ID corresponds to a subscription that has the minimum
-    /// added epoch and the next minimum added epoch in the group.
+    /// Determines if a subscription has the earliest added timestamp and finds the next earliest
+    /// timestamp.
+    ///
+    /// This function checks if the subscription identified by `trim_id` has the earliest "added"
+    /// timestamp among all active, non-failed subscriptions. It also identifies what would be the
+    /// new earliest timestamp if this subscription were removed.
+    ///
+    /// This is typically used when deciding if a subscription can be safely removed without
+    /// affecting the overall data retention requirements of the system.
     pub fn is_min_added<BS: Blockstore>(
         &self,
         store: &BS,
@@ -135,7 +149,14 @@ impl Subscriptions {
         Ok((true, next_min))
     }
 
-    /// Add/update a subscription.
+    /// Creates a new subscription or updates an existing one with the provided parameters.
+    ///
+    /// This function handles both the creation and update cases for blob subscriptions:
+    /// - If a subscription with the given ID already exists, it updates its properties
+    /// - If no subscription exists with the ID, it creates a new one
+    ///
+    /// When updating an existing subscription, it preserves the original subscription's
+    /// added timestamp but updates the expiry, source, delegate, and resets the failed flag.
     pub fn upsert<BS: Blockstore>(
         &mut self,
         store: &BS,
@@ -191,6 +212,22 @@ impl Subscriptions {
                 previous_expiry: None,
             })
         }
+    }
+
+    /// Saves a subscription with the given ID to the blockstore.
+    ///
+    /// This is a helper function that simplifies the process of saving a subscription
+    /// by handling the HAMT operations internally. It creates or updates the subscription
+    /// in the HAMT and saves the changes to the blockstore.
+    pub fn save_subscription<BS: Blockstore>(
+        &mut self,
+        store: &BS,
+        id: &SubscriptionId,
+        subscription: Subscription,
+    ) -> Result<(), ActorError> {
+        let mut subscriptions = self.hamt(store)?;
+        self.save_tracked(subscriptions.set_and_flush_tracked(id, subscription)?);
+        Ok(())
     }
 }
 

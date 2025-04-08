@@ -202,7 +202,7 @@ fn add_blob_refund<BS: Blockstore>(
         (token_amount.clone() * &token_credit_rate)
             - (&account.credit_free + &account.credit_committed)
     );
-    assert_eq!(state.blobs.bytes_size, account.capacity_used);
+    assert_eq!(state.blobs.bytes_size(), account.capacity_used);
 
     // Check indexes
     assert_eq!(state.blobs.expiries.len(store).unwrap(), 2);
@@ -260,7 +260,7 @@ fn add_blob_refund<BS: Blockstore>(
         token_amount.clone() * &token_credit_rate
             - (&account.credit_free + &account.credit_committed)
     );
-    assert_eq!(state.blobs.bytes_size, account.capacity_used);
+    assert_eq!(state.blobs.bytes_size(), account.capacity_used);
 
     // Check indexes
     assert_eq!(state.blobs.expiries.len(store).unwrap(), 2);
@@ -685,7 +685,7 @@ fn add_blob_same_hash_same_account<BS: Blockstore>(
         (token_amount.clone() * &config.token_credit_rate)
             - (&account.credit_free + &account.credit_committed)
     );
-    assert_eq!(state.blobs.bytes_size, size);
+    assert_eq!(state.blobs.bytes_size(), size);
 
     // Check indexes
     assert_eq!(state.blobs.expiries.len(store).unwrap(), 1);
@@ -1114,7 +1114,7 @@ fn test_finalize_blob_failed() {
     // Check state
     assert_eq!(state.credits.credit_committed, Credit::from_whole(0)); // credit was released
     assert_eq!(state.credits.credit_debited, Credit::from_whole(0));
-    assert_eq!(state.blobs.bytes_size, 0); // capacity was released
+    assert_eq!(state.blobs.bytes_size(), 0); // capacity was released
 
     // Check indexes
     assert_eq!(state.blobs.expiries.len(&store).unwrap(), 1); // remains until the blob is explicitly deleted
@@ -1182,7 +1182,7 @@ fn test_finalize_blob_failed_refund() {
     // Check state
     assert_eq!(state.credits.credit_committed, account.credit_committed);
     assert_eq!(state.credits.credit_debited, Credit::from_whole(0));
-    assert_eq!(state.blobs.bytes_size, account.capacity_used); // capacity was released
+    assert_eq!(state.blobs.bytes_size(), account.capacity_used); // capacity was released
 
     // Debit accounts to trigger a refund when we fail below
     let debit_epoch = ChainEpoch::from(11);
@@ -1205,7 +1205,7 @@ fn test_finalize_blob_failed_refund() {
         state.credits.credit_debited,
         Credit::from_whole((debit_epoch - add_epoch) as u64 * size)
     );
-    assert_eq!(state.blobs.bytes_size, account.capacity_used);
+    assert_eq!(state.blobs.bytes_size(), account.capacity_used);
 
     // Set to status pending
     let res = state.set_blob_pending(
@@ -1252,7 +1252,7 @@ fn test_finalize_blob_failed_refund() {
     // Check state
     assert_eq!(state.credits.credit_committed, Credit::from_whole(0)); // credit was released
     assert_eq!(state.credits.credit_debited, Credit::from_whole(0)); // credit was refunded and released
-    assert_eq!(state.blobs.bytes_size, 0); // capacity was released
+    assert_eq!(state.blobs.bytes_size(), 0); // capacity was released
 
     // Check indexes
     assert_eq!(state.blobs.expiries.len(&store).unwrap(), 1); // remains until the blob is explicitly deleted
@@ -1487,7 +1487,7 @@ fn delete_blob_refund<BS: Blockstore>(
         state.credits.credit_debited,
         Credit::from_whole(config.blob_min_ttl as u64 * size1)
     );
-    assert_eq!(state.blobs.bytes_size, size2); // capacity was released
+    assert_eq!(state.blobs.bytes_size(), size2); // capacity was released
 
     // Check indexes
     assert_eq!(state.blobs.expiries.len(store).unwrap(), 1);
