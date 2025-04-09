@@ -7,8 +7,7 @@ use std::str::FromStr;
 use std::time::Instant;
 use std::{convert::Infallible, net::ToSocketAddrs, num::ParseIntError};
 
-use anyhow::anyhow;
-use anyhow::Context;
+use anyhow::{anyhow, Context};
 use bytes::Buf;
 use entangler::{ChunkRange, Config, EntanglementResult, Entangler};
 use entangler_storage::iroh::IrohStorage as EntanglerIrohStorage;
@@ -22,11 +21,8 @@ use fvm_shared::{
     econ::TokenAmount,
 };
 use ipc_api::ethers_address_to_fil_address;
-
 use iroh::NodeAddr;
-use iroh_blobs::hashseq::HashSeq;
-use iroh_blobs::BlobFormat;
-use iroh_blobs::{rpc::client::blobs::BlobStatus, util::SetTagOption, Hash};
+use iroh_blobs::{hashseq::HashSeq, rpc::client::blobs::BlobStatus, util::SetTagOption, Hash};
 use iroh_manager::{connect_rpc, get_blob_hash_and_size, BlobsClient, IrohNode};
 use lazy_static::lazy_static;
 use mime_guess::get_mime_extensions_str;
@@ -499,7 +495,7 @@ async fn tag_entangled_data(
     let hash_seq = hashes.into_iter().collect::<HashSeq>();
 
     let temp_tag = batch
-        .add_bytes_with_opts(hash_seq, BlobFormat::HashSeq)
+        .add_bytes_with_opts(hash_seq, iroh_blobs::BlobFormat::HashSeq)
         .await?;
     let hash_seq_hash = *temp_tag.hash();
 
@@ -960,7 +956,7 @@ mod tests {
 
         let batch = iroh.blobs_client().batch().await.unwrap();
         let temp_tag = batch
-            .add_bytes_with_opts(hash_seq, BlobFormat::HashSeq)
+            .add_bytes_with_opts(hash_seq, iroh_blobs::BlobFormat::HashSeq)
             .await
             .unwrap();
         let hash_seq_hash = *temp_tag.hash();

@@ -1,8 +1,6 @@
 // Copyright 2022-2024 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::net::SocketAddr;
-use std::path::PathBuf;
 use std::sync::Arc;
 
 use anyhow::{anyhow, bail, Context};
@@ -54,7 +52,7 @@ cmd! {
   RunArgs(self, settings) {
       run(settings, IrohConfig {
           path: self.iroh_path.clone(),
-          rpc_addr: self.iroh_rpc_addr.clone(),
+          rpc_addr: self.iroh_rpc_addr,
           v4_addr: self.iroh_v4_addr,
           v6_addr: self.iroh_v6_addr,
       }).await
@@ -281,7 +279,7 @@ async fn run(settings: Settings, iroh_config: IrohConfig) -> anyhow::Result<()> 
             info!("starting the read request resolver...");
             tokio::spawn(async move { read_request_resolver.run().await });
         } else {
-            info!("iroh Resolver disabled.");
+            info!("iroh resolver disabled.");
             info!("read request resolver disabled.");
         }
 

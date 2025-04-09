@@ -37,8 +37,7 @@ impl IrohManager {
         let endpoint = iroh_quinn::Endpoint::server(config, rpc_addr)?;
         let local_addr = endpoint.local_addr()?;
         let rpc_server = quic_rpc::transport::quinn::QuinnListener::new(endpoint)?;
-        let rpc_server =
-            quic_rpc::RpcServer::<iroh_blobs::rpc::proto::RpcService, _>::new(rpc_server);
+        let rpc_server = quic_rpc::RpcServer::<RpcService, _>::new(rpc_server);
         let blobs = client.blobs.clone();
         let rpc_task = rpc_server
             .spawn_accept_loop(move |msg, chan| blobs.clone().handle_rpc_request(msg, chan));
@@ -72,12 +71,8 @@ pub type BlobsRpcClient = iroh_blobs::rpc::client::blobs::Client<QuinnConnector<
 pub async fn connect(remote_addr: SocketAddr) -> Result<BlobsClient> {
     let bind_addr: SocketAddr = "127.0.0.1:0".parse()?;
     let client = quic_rpc::transport::quinn::make_insecure_client_endpoint(bind_addr)?;
-    let client = QuinnConnector::<iroh_blobs::rpc::proto::RpcService>::new(
-        client,
-        remote_addr,
-        "localhost".to_string(),
-    );
-    let client = quic_rpc::RpcClient::<iroh_blobs::rpc::proto::RpcService, _>::new(client);
+    let client = QuinnConnector::<RpcService>::new(client, remote_addr, "localhost".to_string());
+    let client = quic_rpc::RpcClient::<RpcService, _>::new(client);
     let client = iroh_blobs::rpc::client::blobs::Client::new(client);
     Ok(client.boxed())
 }

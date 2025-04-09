@@ -33,7 +33,7 @@ pub fn hash_rm(context: Context<'_, impl RecallOps>, hash_offset: u32) -> Result
     let hash_bytes = context.memory.try_slice(hash_offset, 32)?;
     let seq_hash = Hash::from_bytes(hash_source(hash_bytes)?);
 
-    // no blocking
+    // No blocking
     tokio::task::spawn(async move {
         let mut client_lock = IROH_RPC_CLIENT.lock().await;
         if client_lock.is_none() {
@@ -48,7 +48,7 @@ pub fn hash_rm(context: Context<'_, impl RecallOps>, hash_offset: u32) -> Result
             return;
         };
         if let Err(err) = client.tags().delete(seq_hash).await {
-            tracing::warn!(hash = ?seq_hash, error = err.to_string(), "deleting tag from Iroh failed");
+            tracing::warn!(hash = %seq_hash, error = err.to_string(), "deleting tag from iroh failed");
         }
     });
 

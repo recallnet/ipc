@@ -42,8 +42,8 @@ run-devnet-fendermint:
 	FM_VALIDATOR_KEY__PATH=keys/validator.sk \
 	FM_VALIDATOR_KEY__KIND=regular \
 	FM_RESOLVER__CONNECTION__LISTEN_ADDR=/ip4/127.0.0.1/tcp/3001 \
-        IROH_PATH=/.config/recall/data/iroh-fendermint \
-        IROH_RPC_ADDR=127.0.0.1:9955 \
+	IROH_PATH=/.config/recall/data/iroh-fendermint \
+	IROH_RPC_ADDR=127.0.0.1:9955 \
 	./target/release/fendermint run
 
 run-devnet-cometbft:
