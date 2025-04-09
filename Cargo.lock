@@ -10310,7 +10310,7 @@ dependencies = [
 [[package]]
 name = "recall_entangler"
 version = "0.1.0"
-source = "git+https://github.com/recallnet/entanglement.git?branch=feat-iroh-33#239ae99f41d48dda20c83e7b72fa5570be01c5df"
+source = "git+https://github.com/recallnet/entanglement.git?rev=6a61ea31dd2486ca6d1e96367d1f83d6d82602d4#6a61ea31dd2486ca6d1e96367d1f83d6d82602d4"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -10329,7 +10329,7 @@ dependencies = [
 [[package]]
 name = "recall_entangler_storage"
 version = "0.1.0"
-source = "git+https://github.com/recallnet/entanglement.git?branch=feat-iroh-33#239ae99f41d48dda20c83e7b72fa5570be01c5df"
+source = "git+https://github.com/recallnet/entanglement.git?rev=6a61ea31dd2486ca6d1e96367d1f83d6d82602d4#6a61ea31dd2486ca6d1e96367d1f83d6d82602d4"
 dependencies = [
  "anyhow",
  "async-trait",
