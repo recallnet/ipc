@@ -37,12 +37,13 @@ config-devnet:
 
 run-devnet-fendermint:
 	rm -rf ~/.fendermint/data/rocksdb
+	rm -rf ~/.config/iroh/resolver
 	FM_NETWORK=test \
 	FM_TRACING__CONSOLE__LEVEL=info,fendermint=debug,recall_executor=debug \
 	FM_VALIDATOR_KEY__PATH=keys/validator.sk \
 	FM_VALIDATOR_KEY__KIND=regular \
 	FM_RESOLVER__CONNECTION__LISTEN_ADDR=/ip4/127.0.0.1/tcp/3001 \
-	IROH_PATH=/.config/recall/data/iroh-fendermint \
+	IROH_PATH=~/.config/iroh/resolver \
 	IROH_RPC_ADDR=127.0.0.1:9955 \
 	./target/release/fendermint run
 
@@ -51,7 +52,13 @@ run-devnet-cometbft:
 	cometbft start
 
 run-devnet-objects:
-	FM_NETWORK=test FM_OBJECTS__TRACING__CONSOLE__LEVEL=debug ./target/release/fendermint objects run
+	rm -rf ~/.config/iroh/objects
+	FM_NETWORK=test \
+	FM_OBJECTS__TRACING__CONSOLE__LEVEL=debug \
+	IROH_PATH=~/.config/iroh/objects \
+	IROH_RPC_ADDR=127.0.0.1:9956 \
+	IROH_RESOLVER_RPC_ADDR=127.0.0.1:9955 \
+	./target/release/fendermint objects run
 
 run-devnet-evm:
 	FM_ETH__TRACING__CONSOLE__LEVEL=debug ./target/release/fendermint eth run
