@@ -31,7 +31,7 @@ jobs:
         uses: ./.github/actions/install-tools
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
-          rust: 1.83.0
+          rust: 1.81.0
 
       # Not restoring Solidity artifact cache because of supply side attack potential.
 
