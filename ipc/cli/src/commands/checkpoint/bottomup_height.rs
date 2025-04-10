@@ -6,7 +6,7 @@ use std::str::FromStr;
 
 use async_trait::async_trait;
 use clap::Args;
-use ipc_api::subnet_id::SubnetID;
+use recall_ipc_api::subnet_id::SubnetID;
 
 use crate::commands::get_ipc_provider;
 use crate::{CommandLineHandler, GlobalArguments};

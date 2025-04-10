@@ -14,19 +14,19 @@ use ethers::{
     core::rand::{rngs::StdRng, SeedableRng},
     types::H160,
 };
-use fendermint_vm_actor_interface::eam::EthAddress;
-use fendermint_vm_core::{chainid, Timestamp};
-use fendermint_vm_genesis::{
-    ipc::{GatewayParams, IpcParams},
-    Account, Actor, ActorMeta, Collateral, Genesis, SignerAddr, Validator, ValidatorKey,
-};
 use fvm_shared::{bigint::Zero, chainid::ChainID, econ::TokenAmount, version::NetworkVersion};
-use ipc_api::subnet_id::SubnetID;
 use ipc_provider::config::subnet::{
     EVMSubnet, Subnet as IpcCliSubnet, SubnetConfig as IpcCliSubnetConfig,
 };
 use ipc_provider::config::Config as IpcCliConfig;
 use lazy_static::lazy_static;
+use recall_fendermint_vm_actor_interface::eam::EthAddress;
+use recall_fendermint_vm_core::{chainid, Timestamp};
+use recall_fendermint_vm_genesis::{
+    ipc::{GatewayParams, IpcParams},
+    Account, Actor, ActorMeta, Collateral, Genesis, SignerAddr, Validator, ValidatorKey,
+};
+use recall_ipc_api::subnet_id::SubnetID;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -687,7 +687,7 @@ impl Materializer<DockerMaterials> for DockerMaterializer {
                         balance: b.0,
                     })
                     .collect(),
-                eam_permission_mode: fendermint_vm_genesis::PermissionMode::Unrestricted,
+                eam_permission_mode: recall_fendermint_vm_genesis::PermissionMode::Unrestricted,
                 ipc: Some(IpcParams {
                     gateway: GatewayParams {
                         subnet_id: SubnetID::new_root(chain_id.into()),
@@ -887,7 +887,7 @@ impl Materializer<DockerMaterials> for DockerMaterializer {
         parent_submit_config: &SubmitConfig<'a, DockerMaterials>,
         account: &'a DefaultAccount,
         subnet: &'a DefaultSubnet,
-        collateral: fendermint_vm_genesis::Collateral,
+        collateral: recall_fendermint_vm_genesis::Collateral,
         balance: Balance,
         reference: Option<ResourceHash>,
     ) -> anyhow::Result<()>
@@ -1024,7 +1024,7 @@ impl Materializer<DockerMaterials> for DockerMaterializer {
 }
 
 /// The `ipc-cli` puts the output in a human readable log instead of printing JSON.
-fn find_subnet_id(log: impl AsRef<str>) -> Option<Result<SubnetID, ipc_api::error::Error>> {
+fn find_subnet_id(log: impl AsRef<str>) -> Option<Result<SubnetID, recall_ipc_api::error::Error>> {
     lazy_static! {
         static ref SUBNET_ID_RE: Regex =
             Regex::new(r"(/r\d+(/[tf]410[0-9a-z]{40})+)").expect("subnet regex parses");
@@ -1052,13 +1052,13 @@ fn user_id(path: impl AsRef<Path>) -> anyhow::Result<u32> {
 
 #[cfg(test)]
 mod tests {
-    use fendermint_vm_actor_interface::ipc;
     use fvm_shared::address::Address;
-    use ipc_api::subnet_id::SubnetID;
     use ipc_provider::config::subnet::{
         EVMSubnet, Subnet as IpcCliSubnet, SubnetConfig as IpcCliSubnetConfig,
     };
     use ipc_provider::config::Config as IpcCliConfig;
+    use recall_fendermint_vm_actor_interface::ipc;
+    use recall_ipc_api::subnet_id::SubnetID;
     use std::str::FromStr;
     use std::time::Duration;
 

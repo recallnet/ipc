@@ -405,10 +405,10 @@ mod tests {
     use anyhow::anyhow;
     use async_stm::atomically;
     use async_trait::async_trait;
-    use fendermint_vm_genesis::{Power, Validator};
-    use ipc_api::cross::IpcEnvelope;
-    use ipc_api::staking::StakingChangeRequest;
     use ipc_provider::manager::{GetBlockHashResult, TopDownQueryPayload};
+    use recall_fendermint_vm_genesis::{Power, Validator};
+    use recall_ipc_api::cross::IpcEnvelope;
+    use recall_ipc_api::staking::StakingChangeRequest;
     use std::sync::Arc;
 
     /// How far behind the tip of the chain do we consider blocks final in the tests.

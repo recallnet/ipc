@@ -6,8 +6,8 @@ use crate::{get_ipc_provider, CommandLineHandler, GlobalArguments};
 use async_trait::async_trait;
 use clap::Args;
 use fvm_shared::address::Address;
-use ipc_api::subnet_id::SubnetID;
-use ipc_types::EthAddress;
+use recall_ipc_api::subnet_id::SubnetID;
+use recall_ipc_types::EthAddress;
 use std::fmt::Debug;
 use std::str::FromStr;
 

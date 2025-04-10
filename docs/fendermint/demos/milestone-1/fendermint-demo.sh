@@ -112,6 +112,6 @@ fendermint \
           --method f8b2cb4f --method-args 000000000000000000000000ff00000000000000000000000000000000000064
 
 #26
-cargo run -p fendermint_rpc --release \
+cargo run -p recall_fendermint_rpc --release \
   --example simplecoin -- \
   --secret-key test-network/keys/alice.sk --verbose

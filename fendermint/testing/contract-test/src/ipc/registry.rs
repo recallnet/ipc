@@ -2,16 +2,16 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use anyhow::Context;
-use fendermint_vm_actor_interface::eam::EthAddress;
-use fendermint_vm_actor_interface::init::builtin_actor_eth_addr;
-use fendermint_vm_actor_interface::ipc::SUBNETREGISTRY_ACTOR_ID;
 use fendermint_vm_interpreter::fvm::state::fevm::{ContractCaller, MockProvider};
 use fendermint_vm_interpreter::fvm::state::FvmExecState;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::ActorID;
-use ipc_actors_abis::subnet_registry_diamond::SubnetRegistryDiamondErrors;
+use recall_fendermint_vm_actor_interface::eam::EthAddress;
+use recall_fendermint_vm_actor_interface::init::builtin_actor_eth_addr;
+use recall_fendermint_vm_actor_interface::ipc::SUBNETREGISTRY_ACTOR_ID;
+use recall_ipc_actors_abis::subnet_registry_diamond::SubnetRegistryDiamondErrors;
 
-pub use ipc_actors_abis::register_subnet_facet::{
+pub use recall_ipc_actors_abis::register_subnet_facet::{
     ConstructorParams as SubnetConstructorParams, RegisterSubnetFacet,
 };
 

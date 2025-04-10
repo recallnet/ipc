@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use arbitrary::{Arbitrary, Unstructured};
-use fendermint_testing::arb::ArbTokenAmount;
 use fvm_shared::{bigint::Integer, econ::TokenAmount};
+use recall_fendermint_testing::arb::ArbTokenAmount;
 
 pub mod machine;
 pub mod state;

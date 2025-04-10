@@ -4,8 +4,8 @@
 //! Gas related message selection
 
 use crate::fvm::state::FvmExecState;
-use fendermint_vm_message::signed::SignedMessage;
 use fvm_ipld_blockstore::Blockstore;
+use recall_fendermint_vm_message::signed::SignedMessage;
 
 /// Implement this trait to perform message selection
 pub trait MessageSelector {
@@ -24,7 +24,7 @@ impl MessageSelector for GasLimitSelector {
         state: &FvmExecState<DB>,
         mut msgs: Vec<SignedMessage>,
     ) -> Vec<SignedMessage> {
-        let total_gas_limit = state.block_gas_tracker().available();
+        let total_gas_limit: u64 = state.block_gas_tracker().available();
 
         // Sort by gas limit descending
         msgs.sort_by(|a, b| b.message.gas_limit.cmp(&a.message.gas_limit));

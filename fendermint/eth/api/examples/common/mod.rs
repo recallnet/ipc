@@ -10,7 +10,7 @@
 //!
 //! # Usage
 //! ```text
-//! cargo run -p fendermint_eth_api --release --example GREETER --
+//! cargo run -p recall_fendermint_eth_api --release --example GREETER --
 //! ```
 
 use std::{fmt::Debug, fmt::Display};
@@ -29,9 +29,9 @@ use ethers_core::{
         H160,
     },
 };
-use fendermint_crypto::SecretKey;
-use fendermint_rpc::message::SignedMessageFactory;
-use fendermint_vm_actor_interface::eam::EthAddress;
+use recall_fendermint_crypto::SecretKey;
+use recall_fendermint_rpc::message::SignedMessageFactory;
+use recall_fendermint_vm_actor_interface::eam::EthAddress;
 
 pub type TestMiddleware<C> = SignerMiddleware<Provider<C>, Wallet<SigningKey>>;
 pub type TestContractCall<C, T> = ContractCall<TestMiddleware<C>, T>;

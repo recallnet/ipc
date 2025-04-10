@@ -1,7 +1,7 @@
 // Copyright 2022-2024 Protocol Labs
 // SPDX-License-Identifier: MIT
-use ipc_api::subnet_id::SubnetID;
 use libp2p::identity::{Keypair, PublicKey};
+use recall_ipc_api::subnet_id::SubnetID;
 use serde::de::{DeserializeOwned, Error};
 use serde::{Deserialize, Serialize};
 

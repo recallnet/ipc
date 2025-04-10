@@ -17,7 +17,7 @@ use ipc_ipld_resolver::ValidatorKey;
 use std::sync::Arc;
 use std::time::Duration;
 
-use fendermint_vm_genesis::{Power, Validator};
+use recall_fendermint_vm_genesis::{Power, Validator};
 
 pub use syncer::fetch_topdown_events;
 

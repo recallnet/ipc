@@ -4,10 +4,10 @@
 
 use std::fmt;
 
-use fendermint_actor_blobs_shared::state::Hash;
 use fvm_ipld_encoding::tuple::*;
 use fvm_shared::{address::Address, ActorID, MethodNum, METHOD_CONSTRUCTOR};
 use num_derive::FromPrimitive;
+use recall_fendermint_actor_blobs_shared::state::Hash;
 use serde::{Deserialize, Serialize};
 
 pub use crate::state::State;
@@ -58,14 +58,14 @@ pub enum Method {
     Constructor = METHOD_CONSTRUCTOR,
 
     // User methods
-    OpenReadRequest = frc42_dispatch::method_hash!("OpenReadRequest"),
+    OpenReadRequest = recall_frc42_dispatch::method_hash!("OpenReadRequest"),
 
     // System methods
-    GetReadRequestStatus = frc42_dispatch::method_hash!("GetReadRequestStatus"),
-    GetOpenReadRequests = frc42_dispatch::method_hash!("GetOpenReadRequests"),
-    GetPendingReadRequests = frc42_dispatch::method_hash!("GetPendingReadRequests"),
-    SetReadRequestPending = frc42_dispatch::method_hash!("SetReadRequestPending"),
-    CloseReadRequest = frc42_dispatch::method_hash!("CloseReadRequest"),
+    GetReadRequestStatus = recall_frc42_dispatch::method_hash!("GetReadRequestStatus"),
+    CloseReadRequest = recall_frc42_dispatch::method_hash!("CloseReadRequest"),
+    GetOpenReadRequests = recall_frc42_dispatch::method_hash!("GetOpenReadRequests"),
+    GetPendingReadRequests = recall_frc42_dispatch::method_hash!("GetPendingReadRequests"),
+    SetReadRequestPending = recall_frc42_dispatch::method_hash!("SetReadRequestPending"),
 }
 
 /// Params for adding a read request.

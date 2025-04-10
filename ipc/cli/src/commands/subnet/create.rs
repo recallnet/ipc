@@ -9,8 +9,8 @@ use async_trait::async_trait;
 use clap::Args;
 use fvm_shared::clock::ChainEpoch;
 
-use ipc_api::subnet::{Asset, AssetKind, PermissionMode};
-use ipc_api::subnet_id::SubnetID;
+use recall_ipc_api::subnet::{Asset, AssetKind, PermissionMode};
+use recall_ipc_api::subnet_id::SubnetID;
 
 use crate::commands::get_ipc_provider;
 use crate::commands::subnet::ZERO_ADDRESS;

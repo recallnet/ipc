@@ -12,13 +12,13 @@
 //! ```text
 //! cargo test --release -p fendermint_contract_test --test smt_staking
 //! ```
-use fendermint_testing::{arb::ArbTokenAmount, smt::StateMachine, state_machine_test};
+use recall_fendermint_testing::{arb::ArbTokenAmount, smt::StateMachine, state_machine_test};
 
 mod staking;
 
-use fendermint_vm_actor_interface::ipc::{abi_hash, AbiHash};
-use fendermint_vm_message::conv::from_fvm;
-use ipc_actors_abis::subnet_actor_getter_facet;
+use recall_fendermint_vm_actor_interface::ipc::{abi_hash, AbiHash};
+use recall_fendermint_vm_message::conv::from_fvm;
+use recall_ipc_actors_abis::subnet_actor_getter_facet;
 use staking::machine::StakingMachine;
 
 state_machine_test!(staking, 30000 ms, 65512 bytes, 100 steps, StakingMachine::default());
@@ -34,7 +34,7 @@ fn prop_cross_msgs_hash() {
     // We need an FVM execution state to interact with the contracts.
     let machine = StakingMachine::default();
 
-    fendermint_testing::smt::fixed_size_builder(1024 * 1024)
+    recall_fendermint_testing::smt::fixed_size_builder(1024 * 1024)
         .budget_ms(10000) // Need to set a budget otherwise the default is used up by setup.
         .run(|u| {
             let state = machine.gen_state(u)?;
@@ -78,7 +78,7 @@ fn prop_cross_msgs_hash() {
             }
 
             // Check so we know we did not generate zero length messages all the time.
-            fendermint_testing::smt::ensure_has_randomness(u)?;
+            recall_fendermint_testing::smt::ensure_has_randomness(u)?;
 
             // It doesn't seem to actually matter whether we pass these as tuples or arrays.
             let cross_msgs_hash = cross_msgs.clone().abi_hash();

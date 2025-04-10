@@ -1,7 +1,7 @@
 // Copyright 2022-2024 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-// The IPC actors have bindings in `ipc_actors_abis`.
+// The IPC actors have bindings in `recall_ipc_actors_abis`.
 // Here we define stable IDs for them, so we can deploy the
 // Solidity contracts during genesis.
 
@@ -9,14 +9,14 @@ use anyhow::Context;
 use ethers::core::abi::Tokenize;
 use ethers::core::types as et;
 use ethers::core::utils::keccak256;
-use fendermint_vm_genesis::{Power, Validator};
 use fvm_shared::address::Error as AddressError;
 use fvm_shared::address::Payload;
-use ipc_actors_abis as ia;
-pub use ipc_actors_abis::checkpointing_facet::BottomUpCheckpoint;
-use ipc_api::subnet_id::SubnetID;
 use lazy_static::lazy_static;
-use merkle_tree_rs::{
+use recall_fendermint_vm_genesis::{Power, Validator};
+use recall_ipc_actors_abis as ia;
+pub use recall_ipc_actors_abis::checkpointing_facet::BottomUpCheckpoint;
+use recall_ipc_api::subnet_id::SubnetID;
+use recall_merkle_tree_rs::{
     core::{process_proof, Hash},
     format::Raw,
     standard::{standard_leaf_hash, LeafType, StandardMerkleTree},
@@ -317,23 +317,23 @@ macro_rules! abi_hash {
     };
 }
 
-abi_hash!(struct ipc_actors_abis::checkpointing_facet::BottomUpCheckpoint);
-abi_hash!(struct ipc_actors_abis::subnet_actor_checkpointing_facet::BottomUpCheckpoint);
-abi_hash!(Vec<ipc_actors_abis::gateway_getter_facet::IpcEnvelope>);
-abi_hash!(Vec<ipc_actors_abis::subnet_actor_checkpointing_facet::IpcEnvelope>);
-abi_hash!(Vec<ipc_actors_abis::subnet_actor_getter_facet::IpcEnvelope>);
+abi_hash!(struct recall_ipc_actors_abis::checkpointing_facet::BottomUpCheckpoint);
+abi_hash!(struct recall_ipc_actors_abis::subnet_actor_checkpointing_facet::BottomUpCheckpoint);
+abi_hash!(Vec<recall_ipc_actors_abis::gateway_getter_facet::IpcEnvelope>);
+abi_hash!(Vec<recall_ipc_actors_abis::subnet_actor_checkpointing_facet::IpcEnvelope>);
+abi_hash!(Vec<recall_ipc_actors_abis::subnet_actor_getter_facet::IpcEnvelope>);
 
 pub mod gateway {
     use super::subnet_id_to_eth;
     use ethers::contract::{EthAbiCodec, EthAbiType};
     use ethers::core::types::{Bytes, H160, U256};
-    use fendermint_vm_genesis::ipc::GatewayParams;
-    use fendermint_vm_genesis::{Collateral, Validator};
     use fvm_shared::address::Error as AddressError;
     use fvm_shared::econ::TokenAmount;
+    use recall_fendermint_vm_genesis::ipc::GatewayParams;
+    use recall_fendermint_vm_genesis::{Collateral, Validator};
 
-    use ipc_actors_abis::gateway_diamond::SubnetID as GatewaySubnetID;
-    pub use ipc_actors_abis::gateway_getter_facet::Validator as GatewayValidator;
+    use recall_ipc_actors_abis::gateway_diamond::SubnetID as GatewaySubnetID;
+    pub use recall_ipc_actors_abis::gateway_getter_facet::Validator as GatewayValidator;
 
     use crate::eam::EthAddress;
 
@@ -400,8 +400,8 @@ pub mod gateway {
             types::{Bytes, H160},
         };
         use fvm_shared::{bigint::BigInt, econ::TokenAmount};
-        use ipc_actors_abis::gateway_diamond::SubnetID as GatewaySubnetID;
-        use ipc_actors_abis::gateway_getter_facet::Validator as GatewayValidator;
+        use recall_ipc_actors_abis::gateway_diamond::SubnetID as GatewaySubnetID;
+        use recall_ipc_actors_abis::gateway_getter_facet::Validator as GatewayValidator;
         use std::str::FromStr;
 
         use crate::ipc::tests::{check_param_types, constructor_param_types};
@@ -431,7 +431,7 @@ pub mod gateway {
 
             let tokens = cp.into_tokens();
 
-            let cons = ipc_actors_abis::gateway_diamond::GATEWAYDIAMOND_ABI
+            let cons = recall_ipc_actors_abis::gateway_diamond::GATEWAYDIAMOND_ABI
                 .constructor()
                 .expect("Gateway has a constructor");
 
@@ -492,13 +492,13 @@ pub mod registry {
 
 pub mod subnet {
     use crate::revert_errors;
-    use ipc_actors_abis::checkpointing_facet::CheckpointingFacetErrors;
-    use ipc_actors_abis::gateway_manager_facet::GatewayManagerFacetErrors;
-    use ipc_actors_abis::subnet_actor_checkpointing_facet::SubnetActorCheckpointingFacetErrors;
-    use ipc_actors_abis::subnet_actor_manager_facet::SubnetActorManagerFacetErrors;
-    use ipc_actors_abis::subnet_actor_pause_facet::SubnetActorPauseFacetErrors;
-    use ipc_actors_abis::subnet_actor_reward_facet::SubnetActorRewardFacetErrors;
-    use ipc_actors_abis::top_down_finality_facet::TopDownFinalityFacetErrors;
+    use recall_ipc_actors_abis::checkpointing_facet::CheckpointingFacetErrors;
+    use recall_ipc_actors_abis::gateway_manager_facet::GatewayManagerFacetErrors;
+    use recall_ipc_actors_abis::subnet_actor_checkpointing_facet::SubnetActorCheckpointingFacetErrors;
+    use recall_ipc_actors_abis::subnet_actor_manager_facet::SubnetActorManagerFacetErrors;
+    use recall_ipc_actors_abis::subnet_actor_pause_facet::SubnetActorPauseFacetErrors;
+    use recall_ipc_actors_abis::subnet_actor_reward_facet::SubnetActorRewardFacetErrors;
+    use recall_ipc_actors_abis::top_down_finality_facet::TopDownFinalityFacetErrors;
 
     pub const CONTRACT_NAME: &str = "SubnetActorDiamond";
 
@@ -519,7 +519,9 @@ pub mod subnet {
     mod tests {
         use ethers::abi::{AbiType, Tokenize};
         use ethers::core::types::Bytes;
-        use ipc_actors_abis::subnet_actor_checkpointing_facet::{BottomUpCheckpoint, SubnetID};
+        use recall_ipc_actors_abis::subnet_actor_checkpointing_facet::{
+            BottomUpCheckpoint, SubnetID,
+        };
 
         #[test]
         fn checkpoint_abi() {
@@ -568,8 +570,8 @@ pub mod subnet {
 mod tests {
     use anyhow::bail;
     use ethers_core::abi::{Constructor, ParamType, Token};
-    use fendermint_vm_genesis::{Power, Validator};
     use quickcheck_macros::quickcheck;
+    use recall_fendermint_vm_genesis::{Power, Validator};
 
     use super::ValidatorMerkleTree;
 

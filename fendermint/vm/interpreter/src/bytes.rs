@@ -3,8 +3,8 @@
 use anyhow::Context;
 use async_trait::async_trait;
 use cid::Cid;
-use fendermint_vm_message::chain::ChainMessage;
 use fvm_ipld_encoding::Error as IpldError;
+use recall_fendermint_vm_message::chain::ChainMessage;
 
 use crate::{
     chain::{ChainMessageApplyRet, ChainMessageCheckRes},

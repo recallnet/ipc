@@ -1,17 +1,18 @@
 [package]
-name = "fendermint_vm_genesis"
+name = "recall_fendermint_vm_genesis"
 description = "Genesis data used to initialize the FVM state when the chain is created"
-version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
+version.workspace = true
 
 [dependencies]
 anyhow = { workspace = true }
 arbitrary = { workspace = true, optional = true }
 cid = { workspace = true, optional = true }
 fvm_shared = { workspace = true }
-ipc-api = { workspace = true }
+recall_ipc_api = { workspace = true }
 multihash = { workspace = true, optional = true }
 num-traits = { workspace = true }
 quickcheck = { workspace = true, optional = true }
@@ -20,11 +21,11 @@ serde = { workspace = true }
 serde_with = { workspace = true }
 tendermint = { workspace = true }
 
-fendermint_actor_eam = { path = "../../actors/eam" }
-fendermint_crypto = { path = "../../crypto" }
-fendermint_testing = { path = "../../testing", optional = true }
-fendermint_vm_core = { path = "../core" }
-fendermint_vm_encoding = { path = "../encoding" }
+recall_fendermint_actor_eam = { workspace = true }
+recall_fendermint_crypto = { workspace = true }
+recall_fendermint_testing = { workspace = true, features = ["golden"] }
+recall_fendermint_vm_core = { workspace = true }
+recall_fendermint_vm_encoding = { workspace = true }
 
 [dev-dependencies]
 hex = { workspace = true }
@@ -33,11 +34,10 @@ multihash = { workspace = true }
 quickcheck = { workspace = true }
 quickcheck_macros = { workspace = true }
 serde_json = { workspace = true }
-ipc-types = {workspace = true}
+recall_ipc_types = {workspace = true}
 
 # Enable arb on self for tests.
-fendermint_vm_genesis = { path = ".", features = ["arb"] }
-fendermint_testing = { path = "../../testing", features = ["golden"] }
+recall_fendermint_vm_genesis = { path = ".", features = ["arb"] }
 
 [features]
 default = []
@@ -45,7 +45,7 @@ arb = [
     "arbitrary",
     "quickcheck",
     "fvm_shared/arb",
-    "fendermint_testing/arb",
+    "recall_fendermint_testing/arb",
     "rand",
     "cid",
     "multihash",

@@ -10,7 +10,7 @@ use fvm_shared::{
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 
-use fendermint_vm_encoding::IsHumanReadable;
+use recall_fendermint_vm_encoding::IsHumanReadable;
 
 /// Height at which to run a query.
 #[derive(Debug, Clone, PartialEq, Eq, Copy, Default)]
@@ -153,7 +153,7 @@ pub struct BuiltinActors {
 
 #[cfg(feature = "arb")]
 mod arb {
-    use fendermint_testing::arb::{ArbAddress, ArbCid, ArbTokenAmount};
+    use recall_fendermint_testing::arb::{ArbAddress, ArbCid, ArbTokenAmount};
 
     use crate::signed::SignedMessage;
 

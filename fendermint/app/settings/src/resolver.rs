@@ -6,8 +6,8 @@ use std::{path::PathBuf, time::Duration};
 use serde::Deserialize;
 use serde_with::{serde_as, DurationSeconds};
 
-use ipc_api::subnet_id::SubnetID;
 use multiaddr::Multiaddr;
+use recall_ipc_api::subnet_id::SubnetID;
 
 use crate::{home_relative, IsHumanReadable};
 

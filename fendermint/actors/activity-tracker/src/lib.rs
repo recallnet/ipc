@@ -4,19 +4,19 @@
 use crate::state::ConsensusData;
 pub use crate::state::State;
 use crate::types::FullActivityRollup;
-use fil_actors_runtime::builtin::singletons::SYSTEM_ACTOR_ADDR;
-use fil_actors_runtime::runtime::{ActorCode, Runtime};
-use fil_actors_runtime::{actor_dispatch, ActorError, EAM_ACTOR_ID};
-use fil_actors_runtime::{actor_error, DEFAULT_HAMT_CONFIG};
 use fvm_shared::address::{Address, Payload};
 use fvm_shared::METHOD_CONSTRUCTOR;
 use num_derive::FromPrimitive;
+use recall_fil_actors_runtime::builtin::singletons::SYSTEM_ACTOR_ADDR;
+use recall_fil_actors_runtime::runtime::{ActorCode, Runtime};
+use recall_fil_actors_runtime::{actor_dispatch, ActorError, EAM_ACTOR_ID};
+use recall_fil_actors_runtime::{actor_error, DEFAULT_HAMT_CONFIG};
 
 mod state;
 pub mod types;
 
 #[cfg(feature = "fil-actor")]
-fil_actors_runtime::wasm_trampoline!(ActivityTrackerActor);
+recall_fil_actors_runtime::wasm_trampoline!(ActivityTrackerActor);
 
 pub const IPC_ACTIVITY_TRACKER_ACTOR_NAME: &str = "activity_tracker";
 
@@ -26,9 +26,9 @@ pub struct ActivityTrackerActor;
 #[repr(u64)]
 pub enum Method {
     Constructor = METHOD_CONSTRUCTOR,
-    RecordBlockCommitted = frc42_dispatch::method_hash!("RecordBlockCommitted"),
-    CommitActivity = frc42_dispatch::method_hash!("CommitActivity"),
-    PendingActivity = frc42_dispatch::method_hash!("PendingActivity"),
+    RecordBlockCommitted = recall_frc42_dispatch::method_hash!("RecordBlockCommitted"),
+    CommitActivity = recall_frc42_dispatch::method_hash!("CommitActivity"),
+    PendingActivity = recall_frc42_dispatch::method_hash!("PendingActivity"),
 }
 
 trait ActivityTracker {

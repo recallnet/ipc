@@ -1,7 +1,7 @@
 [package]
 name = "fendermint_app_options"
 description = "Fendermint CLI options"
-version = "0.1.0"
+version.workspace = true
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -23,11 +23,11 @@ tracing-subscriber = { workspace = true }
 cid = { workspace = true }
 fvm_ipld_encoding = { workspace = true }
 fvm_shared = { workspace = true }
-ipc-api = { workspace = true }
-ipc-types = { workspace = true }
+recall_ipc_api = { workspace = true }
+recall_ipc_types = { workspace = true }
 url = { workspace = true }
 ipc-observability = { workspace = true }
 
-fendermint_vm_genesis = { path = "../../vm/genesis" }
-fendermint_vm_actor_interface = { path = "../../vm/actor_interface" }
+recall_fendermint_vm_genesis = { path = "../../vm/genesis" }
+recall_fendermint_vm_actor_interface = { path = "../../vm/actor_interface" }
 fendermint_materializer = { path = "../../testing/materializer" }

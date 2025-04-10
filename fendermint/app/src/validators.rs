@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use anyhow::{anyhow, Ok, Result};
-use fendermint_crypto::PublicKey;
 use fendermint_vm_interpreter::fvm::state::ipc::GatewayCaller;
 use fendermint_vm_interpreter::fvm::state::FvmExecState;
+use recall_fendermint_crypto::PublicKey;
 use std::collections::HashMap;
 
 use tendermint::account::Id as TendermintId;

@@ -10,18 +10,12 @@ use std::{convert::Infallible, net::ToSocketAddrs, num::ParseIntError};
 use anyhow::anyhow;
 use anyhow::Context;
 use bytes::Buf;
-use entangler::{ChunkRange, Config, EntanglementResult, Entangler};
-use entangler_storage::iroh::IrohStorage as EntanglerIrohStorage;
-use fendermint_actor_bucket::{GetParams, Object};
 use fendermint_app_settings::objects::ObjectsSettings;
-use fendermint_rpc::{client::FendermintClient, message::GasParams, QueryClient};
-use fendermint_vm_message::query::FvmQueryHeight;
 use futures_util::{StreamExt, TryStreamExt};
 use fvm_shared::{
     address::{Address, Error as NetworkError, Network},
     econ::TokenAmount,
 };
-use ipc_api::ethers_address_to_fil_address;
 use iroh::{
     blobs::{hashseq::HashSeq, util::SetTagOption, Hash},
     client::blobs::BlobStatus,
@@ -31,6 +25,12 @@ use iroh_manager::get_blob_hash_and_size;
 use lazy_static::lazy_static;
 use mime_guess::get_mime_extensions_str;
 use prometheus::{register_histogram, register_int_counter, Histogram, IntCounter};
+use recall_entangler::{ChunkRange, Config, EntanglementResult, Entangler};
+use recall_entangler_storage::iroh::IrohStorage as EntanglerIrohStorage;
+use recall_fendermint_actor_bucket::{GetParams, Object};
+use recall_fendermint_rpc::{client::FendermintClient, message::GasParams, QueryClient};
+use recall_fendermint_vm_message::query::FvmQueryHeight;
+use recall_ipc_api::ethers_address_to_fil_address;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tracing::{debug, info};
@@ -530,7 +530,7 @@ async fn tag_entangled_data(
 
 fn new_entangler(
     iroh: iroh::client::Iroh,
-) -> Result<Entangler<EntanglerIrohStorage>, entangler::Error> {
+) -> Result<Entangler<EntanglerIrohStorage>, recall_entangler::Error> {
     Entangler::new(
         EntanglerIrohStorage::from_client(iroh),
         Config::new(ENTANGLER_ALPHA, ENTANGLER_S, ENTANGLER_P),
@@ -853,10 +853,10 @@ mod tests {
     use super::*;
     use async_trait::async_trait;
     use bytes::Bytes;
-    use fendermint_actor_blobs_shared::state::Hash as BlobHash;
-    use fendermint_vm_message::query::FvmQuery;
     use rand_chacha::rand_core::{RngCore, SeedableRng};
     use rand_chacha::ChaCha8Rng;
+    use recall_fendermint_actor_blobs_shared::state::Hash as BlobHash;
+    use recall_fendermint_vm_message::query::FvmQuery;
     use std::collections::HashMap;
     use tendermint_rpc::endpoint::abci_query::AbciQuery;
 

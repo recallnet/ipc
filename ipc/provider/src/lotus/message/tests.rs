@@ -9,8 +9,8 @@ use crate::lotus::message::deserialize::{
 };
 use crate::manager::SubnetInfo;
 use fvm_shared::econ::TokenAmount;
-use ipc_api::address::IPCAddress;
-use ipc_api::subnet_id::SubnetID;
+use recall_ipc_api::address::IPCAddress;
+use recall_ipc_api::subnet_id::SubnetID;
 
 #[test]
 fn test_ipc_address_from_map() {

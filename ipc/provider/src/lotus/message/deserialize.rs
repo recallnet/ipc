@@ -5,8 +5,8 @@
 use fvm_shared::address::Address;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::econ::TokenAmount;
-use ipc_api::address::IPCAddress;
-use ipc_api::subnet_id::SubnetID;
+use recall_ipc_api::address::IPCAddress;
+use recall_ipc_api::subnet_id::SubnetID;
 use serde::de::{Error, MapAccess};
 use serde::{Deserialize, Deserializer};
 use std::fmt::Formatter;
@@ -99,7 +99,7 @@ where
     D: Deserializer<'de>,
 {
     struct TokenAmountVisitor;
-    impl<'de> serde::de::Visitor<'de> for TokenAmountVisitor {
+    impl serde::de::Visitor<'_> for TokenAmountVisitor {
         type Value = TokenAmount;
 
         fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
@@ -125,7 +125,7 @@ where
     D: Deserializer<'de>,
 {
     struct TokenAmountVisitor;
-    impl<'de> serde::de::Visitor<'de> for TokenAmountVisitor {
+    impl serde::de::Visitor<'_> for TokenAmountVisitor {
         type Value = Option<TokenAmount>;
 
         fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
@@ -168,7 +168,7 @@ where
     D: Deserializer<'de>,
 {
     struct AddressVisitor;
-    impl<'de> serde::de::Visitor<'de> for AddressVisitor {
+    impl serde::de::Visitor<'_> for AddressVisitor {
         type Value = Address;
 
         fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {

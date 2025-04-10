@@ -7,13 +7,6 @@ use std::result::Result as StdResult;
 
 use anyhow::{anyhow, bail, Context, Result};
 use cid::Cid;
-use fendermint_actor_blobs_shared::params::{GetGasAllowanceParams, UpdateGasAllowanceParams};
-use fendermint_actor_blobs_shared::state::GasAllowance;
-use fendermint_vm_actor_interface::{
-    blobs::{BLOBS_ACTOR_ADDR, BLOBS_ACTOR_ID},
-    eam::EAM_ACTOR_ID,
-    system::SYSTEM_ACTOR_ADDR,
-};
 use fvm::call_manager::{backtrace, Backtrace, CallManager, Entrypoint, InvocationResult};
 use fvm::engine::EnginePool;
 use fvm::executor::{ApplyFailure, ApplyKind, ApplyRet, Executor};
@@ -32,6 +25,15 @@ use fvm_shared::{
     ActorID, IPLD_RAW, METHOD_SEND,
 };
 use num_traits::Zero;
+use recall_fendermint_actor_blobs_shared::params::{
+    GetGasAllowanceParams, UpdateGasAllowanceParams,
+};
+use recall_fendermint_actor_blobs_shared::state::GasAllowance;
+use recall_fendermint_vm_actor_interface::{
+    blobs::{BLOBS_ACTOR_ADDR, BLOBS_ACTOR_ID},
+    eam::EAM_ACTOR_ID,
+    system::SYSTEM_ACTOR_ADDR,
+};
 use tracing::debug;
 
 mod outputs;
@@ -710,7 +712,7 @@ where
             to: BLOBS_ACTOR_ADDR,
             sequence: 0, // irrelevant for implicit executions
             gas_limit: i64::MAX as u64,
-            method_num: fendermint_actor_blobs_shared::Method::GetGasAllowance as u64,
+            method_num: recall_fendermint_actor_blobs_shared::Method::GetGasAllowance as u64,
             params,
             value: Default::default(),
             version: Default::default(),
@@ -749,7 +751,7 @@ where
             to: BLOBS_ACTOR_ADDR,
             sequence: 0, // irrelevant for implicit executions
             gas_limit: i64::MAX as u64,
-            method_num: fendermint_actor_blobs_shared::Method::UpdateGasAllowance as u64,
+            method_num: recall_fendermint_actor_blobs_shared::Method::UpdateGasAllowance as u64,
             params,
             value: Default::default(),
             version: Default::default(),

@@ -6,10 +6,6 @@
 use ethers_core::types::{
     Eip1559TransactionRequest, NameOrAddress, Signature, TransactionRequest, H160, U256,
 };
-use fendermint_vm_actor_interface::{
-    eam::{self, EthAddress},
-    evm,
-};
 use fvm_ipld_encoding::{BytesSer, RawBytes};
 use fvm_shared::{
     address::Address,
@@ -17,6 +13,10 @@ use fvm_shared::{
     crypto::signature::Signature as FvmSignature,
     econ::TokenAmount,
     message::Message,
+};
+use recall_fendermint_vm_actor_interface::{
+    eam::{self, EthAddress},
+    evm,
 };
 
 use crate::signed::{OriginKind, SignedMessage};
@@ -153,12 +153,12 @@ mod tests {
         types::{transaction::eip2718::TypedTransaction, Bytes, TxHash},
         utils::rlp,
     };
-    use fendermint_testing::arb::ArbTokenAmount;
-    use fendermint_vm_actor_interface::eam::EthAddress;
     use fvm_shared::{
         address::Address, chainid::ChainID, crypto::signature::Signature as FvmSignature,
     };
     use quickcheck_macros::quickcheck;
+    use recall_fendermint_testing::arb::ArbTokenAmount;
+    use recall_fendermint_vm_actor_interface::eam::EthAddress;
 
     use crate::signed::OriginKind;
     use crate::{

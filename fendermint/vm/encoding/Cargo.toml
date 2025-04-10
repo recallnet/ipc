@@ -1,11 +1,10 @@
 [package]
-name = "fendermint_vm_encoding"
+name = "recall_fendermint_vm_encoding"
 description = "Utilities for encoding some of the primitive FVM types with serde"
-version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-
+version.workspace = true
 
 [dependencies]
 serde = { workspace = true }
@@ -14,4 +13,4 @@ num-traits = { workspace = true }
 
 cid = { workspace = true }
 fvm_shared = { workspace = true }
-ipc-api = { workspace = true }
+recall_ipc_api = { workspace = true }

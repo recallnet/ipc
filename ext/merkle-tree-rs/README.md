@@ -13,7 +13,7 @@ Add merkle-tree-rs to your repository, also serde and serde_json for json.
 ```
 [dependencies]
 
-merkle-tree-rs = "0.1.0"
+recall_merkle_tree_rs = "0.1.0"
 serde = "1.0.147"
 serde_json = "1.0"
 ```
@@ -21,7 +21,7 @@ serde_json = "1.0"
 ### Building a Tree
 
 ```rust
-use merkle_tree_rs::standard::StandardMerkleTree;
+use recall_merkle_tree_rs::standard::StandardMerkleTree;
 use std::fs;
 
 fn main() {
@@ -58,7 +58,7 @@ fn main() {
 Assume we're looking to generate a proof for the entry that corresponds to address `0x11...11`.
 
 ```rust
-    use merkle_tree_rs::standard::StandardMerkleTree;
+    use recall_merkle_tree_rs::standard::StandardMerkleTree;
     use std::fs;
 
     fn main() {
@@ -111,7 +111,7 @@ This is an opinionated design that we believe will offer the best out of the box
 ### `StandardMerkleTree`
 
 ```rust
-use merkle_tree_rs::standard::StandardMerkleTree,
+use recall_merkle_tree_rs::standard::StandardMerkleTree,
 ```
 
 ### `StandardMerkleTree.of`

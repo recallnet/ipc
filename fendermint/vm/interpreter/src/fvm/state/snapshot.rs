@@ -299,13 +299,13 @@ mod tests {
     use crate::fvm::store::memory::MemoryBlockstore;
     use crate::fvm::store::ReadOnlyBlockstore;
     use cid::Cid;
-    use fendermint_vm_core::Timestamp;
     use futures_util::StreamExt;
     use fvm::state_tree::{ActorState, StateTree};
     use fvm_ipld_blockstore::Blockstore;
     use fvm_shared::state::StateTreeVersion;
     use fvm_shared::version::NetworkVersion;
     use quickcheck::{Arbitrary, Gen};
+    use recall_fendermint_vm_core::Timestamp;
     use std::collections::VecDeque;
 
     fn prepare_state_tree(items: u64) -> (Cid, StateTree<MemoryBlockstore>) {

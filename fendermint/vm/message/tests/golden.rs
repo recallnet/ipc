@@ -4,9 +4,9 @@
 /// Examples of `ChainMessage`, which is what the client has to send,
 /// or at least what appears in blocks.
 mod chain {
-    use fendermint_testing::golden_cbor;
-    use fendermint_vm_message::{chain::ChainMessage, ipc::IpcMessage};
     use quickcheck::Arbitrary;
+    use recall_fendermint_testing::golden_cbor;
+    use recall_fendermint_vm_message::{chain::ChainMessage, ipc::IpcMessage};
 
     golden_cbor! { "chain", signed, |g| {
         loop {
@@ -47,9 +47,9 @@ mod chain {
 
 /// Examples of FVM messages, which is what the client needs to sign.
 mod fvm {
-    use fendermint_testing::golden_cid;
-    use fendermint_vm_message::signed::SignedMessage;
     use quickcheck::Arbitrary;
+    use recall_fendermint_testing::golden_cid;
+    use recall_fendermint_vm_message::signed::SignedMessage;
 
     golden_cid! { "fvm", message, |g| SignedMessage::arbitrary(g).message, |m| SignedMessage::cid(m).unwrap() }
 }
@@ -57,9 +57,9 @@ mod fvm {
 /// Examples of query requests the client needs to send, and client responses it will receive.
 mod query {
     mod request {
-        use fendermint_testing::golden_cbor;
-        use fendermint_vm_message::query::FvmQuery;
         use quickcheck::Arbitrary;
+        use recall_fendermint_testing::golden_cbor;
+        use recall_fendermint_vm_message::query::FvmQuery;
 
         golden_cbor! { "query/request", ipld, |g| {
             loop {
@@ -79,9 +79,9 @@ mod query {
     }
 
     mod response {
-        use fendermint_testing::golden_cbor;
-        use fendermint_vm_message::query::ActorState;
         use quickcheck::Arbitrary;
+        use recall_fendermint_testing::golden_cbor;
+        use recall_fendermint_vm_message::query::ActorState;
 
         golden_cbor! { "query/response", actor_state, |g| {
             ActorState::arbitrary(g)

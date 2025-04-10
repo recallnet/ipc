@@ -3,8 +3,8 @@
 
 use anyhow::Context;
 use ethers_core::types as et;
-use fendermint_rpc::query::QueryClient;
-use fendermint_vm_message::query::FvmQueryHeight;
+use recall_fendermint_rpc::query::QueryClient;
+use recall_fendermint_vm_message::query::FvmQueryHeight;
 use tendermint_rpc::endpoint::net_info;
 use tendermint_rpc::Client;
 

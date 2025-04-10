@@ -1,8 +1,10 @@
 [package]
 description = "The primitive types for fvm"
 edition = "2021"
-name = "ipc-types"
-version = "0.1.0"
+name = "recall_ipc_types"
+license-file.workspace = true
+repository.workspace = true
+version.workspace = true
 
 [dependencies]
 fvm_ipld_amt = { workspace = true }

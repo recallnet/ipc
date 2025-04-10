@@ -6,8 +6,8 @@ use crate::config::Subnet;
 use anyhow::anyhow;
 use fvm_shared::address::Address;
 use http::HeaderValue;
-use ipc_api::subnet_id::SubnetID;
-use ipc_types::EthAddress;
+use recall_ipc_api::subnet_id::SubnetID;
+use recall_ipc_types::EthAddress;
 use serde::de::{Error, SeqAccess};
 use serde::{Deserialize, Deserializer};
 use std::collections::HashMap;
@@ -41,7 +41,7 @@ where
     D: Deserializer<'de>,
 {
     struct Visitor;
-    impl<'de> serde::de::Visitor<'de> for Visitor {
+    impl serde::de::Visitor<'_> for Visitor {
         type Value = Address;
 
         fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
@@ -66,7 +66,7 @@ where
     D: Deserializer<'de>,
 {
     struct Visitor;
-    impl<'de> serde::de::Visitor<'de> for Visitor {
+    impl serde::de::Visitor<'_> for Visitor {
         type Value = Address;
 
         fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
@@ -89,7 +89,7 @@ where
     D: Deserializer<'de>,
 {
     struct SubnetIDVisitor;
-    impl<'de> serde::de::Visitor<'de> for SubnetIDVisitor {
+    impl serde::de::Visitor<'_> for SubnetIDVisitor {
         type Value = SubnetID;
 
         fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {

@@ -3,12 +3,12 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use anyhow::Error;
-use fendermint_actor_blobs_shared::state::{Hash, PublicKey};
-use fil_actors_runtime::runtime::Runtime;
-use fil_actors_runtime::{actor_error, ActorError};
 use fvm_shared::clock::ChainEpoch;
 use num_traits::Zero;
 use recall_actor_sdk::{declare_abi_call, TryIntoEVMEvent};
+use recall_fendermint_actor_blobs_shared::state::{Hash, PublicKey};
+use recall_fil_actors_runtime::runtime::Runtime;
+use recall_fil_actors_runtime::{actor_error, ActorError};
 use recall_sol_facade::bucket as sol;
 use recall_sol_facade::types::{SolCall, SolInterface};
 use std::collections::HashMap;
@@ -65,7 +65,7 @@ impl<'a> ObjectMetadataUpdated<'a> {
         Self { key, metadata }
     }
 }
-impl<'a> TryIntoEVMEvent for ObjectMetadataUpdated<'a> {
+impl TryIntoEVMEvent for ObjectMetadataUpdated<'_> {
     type Target = sol::Events;
     fn try_into_evm_event(self) -> Result<Self::Target, Error> {
         let metadata = fvm_ipld_encoding::to_vec(self.metadata)?;

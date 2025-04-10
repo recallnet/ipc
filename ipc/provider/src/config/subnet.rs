@@ -3,7 +3,7 @@ use std::time::Duration;
 // Copyright 2022-2024 Protocol Labs
 // SPDX-License-Identifier: MIT
 use fvm_shared::address::Address;
-use ipc_api::subnet_id::SubnetID;
+use recall_ipc_api::subnet_id::SubnetID;
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DurationSeconds};
 use url::Url;

@@ -6,7 +6,7 @@ use fvm_ipld_encoding::RawBytes;
 use fvm_shared::METHOD_CONSTRUCTOR;
 use serde_tuple::{Deserialize_tuple, Serialize_tuple};
 
-pub use fil_actors_evm_shared::uints;
+pub use recall_fil_actors_evm_shared::uints;
 
 use crate::eam::EthAddress;
 
@@ -21,13 +21,13 @@ pub enum Method {
     GetStorageAt = 5,
     InvokeContractDelegate = 6,
     // This hardcoded value is taken from https://github.com/filecoin-project/ref-fvm/blob/f4f3f340ba29b3800cd8272e34023606def23855/testing/integration/src/testkit/fevm.rs#L88-L89
-    // where it's used because of a ciruclar dependency (frc42_dispatch needs fvm_shared).
+    // where it's used because of a ciruclar dependency (recall_frc42_dispatch needs fvm_shared).
     // Here we can use it if we want, however the release cycle is a bit lagging, preventing us from using the latest ref-fvm at the moment.
-    //InvokeContract = frc42_dispatch::method_hash!("InvokeEVM"),
+    //InvokeContract = recall_frc42_dispatch::method_hash!("InvokeEVM"),
     InvokeContract = 3844450837,
 }
 
-// XXX: I don't know why the following arent' part of `fil_actors_evm_shared` :(
+// XXX: I don't know why the following arent' part of `recall_fil_actors_evm_shared` :(
 
 #[derive(Serialize_tuple, Deserialize_tuple)]
 #[serde(transparent)]

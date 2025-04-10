@@ -4,10 +4,10 @@
 use anyhow::{anyhow, Context};
 
 use cid::Cid;
-use fendermint_vm_core::chainid::HasChainID;
 use fvm::state_tree::StateTree;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::chainid::ChainID;
+use recall_fendermint_vm_core::chainid::HasChainID;
 
 use crate::fvm::store::ReadOnlyBlockstore;
 

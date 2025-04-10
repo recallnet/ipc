@@ -13,7 +13,6 @@ use crate::provider_record::{ProviderRecord, SignedProviderRecord};
 use crate::vote_record::{SignedVoteRecord, VoteRecord};
 use crate::Timestamp;
 use anyhow::anyhow;
-use ipc_api::subnet_id::SubnetID;
 use ipc_observability::emit;
 use libp2p::core::Endpoint;
 use libp2p::gossipsub::{
@@ -28,6 +27,7 @@ use libp2p::swarm::{
 };
 use libp2p::{Multiaddr, PeerId};
 use log::{debug, error, info, warn};
+use recall_ipc_api::subnet_id::SubnetID;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use tokio::time::{Instant, Interval};

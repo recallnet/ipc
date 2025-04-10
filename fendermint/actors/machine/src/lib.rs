@@ -4,17 +4,17 @@
 
 use std::collections::HashMap;
 
-pub use fil_actor_adm::Kind;
-use fil_actors_runtime::{
-    actor_error, runtime::Runtime, ActorError, ADM_ACTOR_ADDR, FIRST_EXPORTED_METHOD_NUMBER,
-    INIT_ACTOR_ADDR,
-};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{ipld_block::IpldBlock, tuple::*};
 pub use fvm_shared::METHOD_CONSTRUCTOR;
 use fvm_shared::{address::Address, MethodNum};
 use recall_actor_sdk::{
     emit_evm_event, to_delegated_address, to_id_address, to_id_and_delegated_address,
+};
+pub use recall_fil_actor_adm::Kind;
+use recall_fil_actors_runtime::{
+    actor_error, runtime::Runtime, ActorError, ADM_ACTOR_ADDR, FIRST_EXPORTED_METHOD_NUMBER,
+    INIT_ACTOR_ADDR,
 };
 use serde::{de::DeserializeOwned, Serialize};
 
@@ -41,9 +41,9 @@ pub struct InitParams {
 /// Machine initialization method number.
 pub const INIT_METHOD: MethodNum = 2;
 /// Get machine address method number.
-pub const GET_ADDRESS_METHOD: MethodNum = frc42_dispatch::method_hash!("GetAddress");
+pub const GET_ADDRESS_METHOD: MethodNum = recall_frc42_dispatch::method_hash!("GetAddress");
 /// Get machine metadata method number.
-pub const GET_METADATA_METHOD: MethodNum = frc42_dispatch::method_hash!("GetMetadata");
+pub const GET_METADATA_METHOD: MethodNum = recall_frc42_dispatch::method_hash!("GetMetadata");
 
 // TODO: Add method for changing owner from ADM actor.
 pub trait MachineActor {

@@ -7,28 +7,7 @@ use std::sync::Arc;
 use anyhow::{anyhow, bail, Context};
 use async_stm::atomically;
 use async_trait::async_trait;
-use fendermint_actor_blob_reader::{
-    CloseReadRequestParams, GetOpenReadRequestsParams, GetPendingReadRequestsParams,
-    GetReadRequestStatusParams,
-    Method::{
-        CloseReadRequest, GetOpenReadRequests, GetPendingReadRequests, GetReadRequestStatus,
-        SetReadRequestPending,
-    },
-    ReadRequestStatus, SetReadRequestPendingParams, BLOB_READER_ACTOR_ADDR,
-};
-use fendermint_actor_blobs_shared::{
-    params::{
-        FinalizeBlobParams, GetAddedBlobsParams, GetBlobStatusParams, GetPendingBlobsParams,
-        GetStatsReturn, SetBlobPendingParams,
-    },
-    state::{BlobStatus, SubscriptionId},
-    Method::{
-        DebitAccounts, FinalizeBlob, GetAddedBlobs, GetBlobStatus, GetPendingBlobs, GetStats,
-        SetBlobPending,
-    },
-};
 use fendermint_tracing::emit;
-use fendermint_vm_actor_interface::{blob_reader, blobs, ipc, system};
 use fendermint_vm_event::ParentFinalityMissingQuorum;
 use fendermint_vm_iroh_resolver::observe::{
     BlobsFinalityAddedBlobs, BlobsFinalityAddedBytes, BlobsFinalityPendingBlobs,
@@ -37,13 +16,6 @@ use fendermint_vm_iroh_resolver::observe::{
 use fendermint_vm_iroh_resolver::pool::{
     ResolveKey as IrohResolveKey, ResolvePool as IrohResolvePool,
     ResolveSource as IrohResolveSource, TaskType as IrohTaskType,
-};
-use fendermint_vm_message::{
-    chain::ChainMessage,
-    ipc::{
-        BottomUpCheckpoint, CertifiedMessage, ClosedReadRequest, FinalizedBlob, IpcMessage,
-        ParentFinality, PendingBlob, PendingReadRequest, SignedRelayedMessage,
-    },
 };
 use fendermint_vm_resolver::pool::{ResolveKey, ResolvePool};
 use fendermint_vm_topdown::{
@@ -58,6 +30,34 @@ use fvm_shared::{
 };
 use iroh::{base::key::PublicKey, blobs::Hash, net::NodeId};
 use num_traits::Zero;
+use recall_fendermint_actor_blob_reader::{
+    CloseReadRequestParams, GetOpenReadRequestsParams, GetPendingReadRequestsParams,
+    GetReadRequestStatusParams,
+    Method::{
+        CloseReadRequest, GetOpenReadRequests, GetPendingReadRequests, GetReadRequestStatus,
+        SetReadRequestPending,
+    },
+    ReadRequestStatus, SetReadRequestPendingParams, BLOB_READER_ACTOR_ADDR,
+};
+use recall_fendermint_actor_blobs_shared::{
+    params::{
+        FinalizeBlobParams, GetAddedBlobsParams, GetBlobStatusParams, GetPendingBlobsParams,
+        GetStatsReturn, SetBlobPendingParams,
+    },
+    state::{BlobStatus, SubscriptionId},
+    Method::{
+        DebitAccounts, FinalizeBlob, GetAddedBlobs, GetBlobStatus, GetPendingBlobs, GetStats,
+        SetBlobPending,
+    },
+};
+use recall_fendermint_vm_actor_interface::{blob_reader, blobs, ipc, system};
+use recall_fendermint_vm_message::{
+    chain::ChainMessage,
+    ipc::{
+        BottomUpCheckpoint, CertifiedMessage, ClosedReadRequest, FinalizedBlob, IpcMessage,
+        ParentFinality, PendingBlob, PendingReadRequest, SignedRelayedMessage,
+    },
+};
 use tokio_util::bytes;
 
 use crate::{
@@ -998,9 +998,11 @@ where
                     let to = blobs::BLOBS_ACTOR_ADDR;
                     let method_num = SetBlobPending as u64;
                     let gas_limit = env.blob_queue_gas_limit;
-                    let source =
-                        fendermint_actor_blobs_shared::state::PublicKey(*blob.source.as_bytes());
-                    let hash = fendermint_actor_blobs_shared::state::Hash(*blob.hash.as_bytes());
+                    let source = recall_fendermint_actor_blobs_shared::state::PublicKey(
+                        *blob.source.as_bytes(),
+                    );
+                    let hash =
+                        recall_fendermint_actor_blobs_shared::state::Hash(*blob.hash.as_bytes());
                     let params = SetBlobPendingParams {
                         source,
                         subscriber: blob.subscriber,
@@ -1045,7 +1047,8 @@ where
                     let to = blobs::BLOBS_ACTOR_ADDR;
                     let method_num = FinalizeBlob as u64;
                     let gas_limit = env.blob_queue_gas_limit;
-                    let hash = fendermint_actor_blobs_shared::state::Hash(*blob.hash.as_bytes());
+                    let hash =
+                        recall_fendermint_actor_blobs_shared::state::Hash(*blob.hash.as_bytes());
                     let status = if blob.succeeded {
                         BlobStatus::Resolved
                     } else {
@@ -1374,7 +1377,7 @@ fn get_blob_status<DB>(
 where
     DB: Blockstore + Clone + 'static + Send + Sync,
 {
-    let hash = fendermint_actor_blobs_shared::state::Hash(*hash.as_bytes());
+    let hash = recall_fendermint_actor_blobs_shared::state::Hash(*hash.as_bytes());
     let params = GetBlobStatusParams {
         subscriber,
         hash,
@@ -1502,7 +1505,7 @@ fn get_read_request_status<DB>(
 where
     DB: Blockstore + Clone + 'static + Send + Sync,
 {
-    let request_id = fendermint_actor_blobs_shared::state::Hash(*id.as_bytes());
+    let request_id = recall_fendermint_actor_blobs_shared::state::Hash(*id.as_bytes());
     let params = RawBytes::serialize(GetReadRequestStatusParams(request_id))?;
     let msg = create_implicit_message(
         blob_reader::BLOB_READER_ACTOR_ADDR,
@@ -1526,7 +1529,7 @@ where
     DB: Blockstore + Clone + 'static + Send + Sync,
 {
     let params = RawBytes::serialize(SetReadRequestPendingParams(
-        fendermint_actor_blobs_shared::state::Hash(*id.as_bytes()),
+        recall_fendermint_actor_blobs_shared::state::Hash(*id.as_bytes()),
     ))?;
     let gas_limit = fvm_shared::BLOCK_GAS_LIMIT;
     let msg = create_implicit_message(
@@ -1604,7 +1607,7 @@ where
     DB: Blockstore + Clone + 'static + Send + Sync,
 {
     let params = RawBytes::serialize(CloseReadRequestParams(
-        fendermint_actor_blobs_shared::state::Hash(*id.as_bytes()),
+        recall_fendermint_actor_blobs_shared::state::Hash(*id.as_bytes()),
     ))?;
     let gas_limit = fvm_shared::BLOCK_GAS_LIMIT;
     let msg = create_implicit_message(

@@ -4,14 +4,14 @@
 use std::path::PathBuf;
 
 use clap::{Args, Subcommand, ValueEnum};
-use ipc_api::subnet_id::SubnetID;
+use recall_ipc_api::subnet_id::SubnetID;
 
 use super::parse::{
     parse_eth_address, parse_full_fil, parse_network_version, parse_percentage, parse_signer_addr,
     parse_token_amount,
 };
-use fendermint_vm_genesis::SignerAddr;
 use fvm_shared::{address::Address, econ::TokenAmount, version::NetworkVersion};
+use recall_fendermint_vm_genesis::SignerAddr;
 
 #[derive(Debug, Clone, ValueEnum)]
 pub enum AccountKind {

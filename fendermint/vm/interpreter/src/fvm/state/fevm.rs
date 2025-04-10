@@ -11,12 +11,12 @@ use ethers::abi::{AbiDecode, AbiEncode, Detokenize};
 use ethers::core::types as et;
 use ethers::prelude::{decode_function_data, ContractRevert};
 use ethers::providers as ep;
-use fendermint_vm_actor_interface::{eam::EthAddress, evm, system};
-use fendermint_vm_message::conv::from_eth;
 use fvm::executor::ApplyFailure;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{BytesDe, BytesSer, RawBytes};
 use fvm_shared::{address::Address, econ::TokenAmount, error::ExitCode, message::Message};
+use recall_fendermint_vm_actor_interface::{eam::EthAddress, evm, system};
+use recall_fendermint_vm_message::conv::from_eth;
 
 use super::FvmExecState;
 
@@ -117,8 +117,8 @@ impl std::fmt::Debug for NoRevert {
 ///
 /// Example:
 /// ```no_run
-/// use fendermint_vm_actor_interface::{eam::EthAddress, ipc::GATEWAY_ACTOR_ID};
-/// use ipc_actors_abis::gateway_getter_facet::GatewayGetterFacet;
+/// use recall_fendermint_vm_actor_interface::{eam::EthAddress, ipc::GATEWAY_ACTOR_ID};
+/// use recall_ipc_actors_abis::gateway_getter_facet::GatewayGetterFacet;
 /// # use fendermint_vm_interpreter::fvm::state::fevm::{ContractCaller, NoRevert};
 /// # use fendermint_vm_interpreter::fvm::state::FvmExecState;
 /// # use fendermint_vm_interpreter::fvm::store::memory::MemoryBlockstore as DB;
@@ -329,7 +329,9 @@ fn decode_revert<E: ContractRevert>(data: &[u8]) -> Option<E> {
 #[cfg(test)]
 mod tests {
     use ethers::{contract::ContractRevert, types::Bytes};
-    use ipc_actors_abis::gateway_manager_facet::{GatewayManagerFacetErrors, InsufficientFunds};
+    use recall_ipc_actors_abis::gateway_manager_facet::{
+        GatewayManagerFacetErrors, InsufficientFunds,
+    };
 
     use crate::fvm::state::fevm::decode_revert;
 
