@@ -56,7 +56,6 @@ run-devnet-objects:
 	FM_NETWORK=test \
 	FM_OBJECTS__TRACING__CONSOLE__LEVEL=debug \
 	IROH_PATH=~/.config/iroh/objects \
-	IROH_RPC_ADDR=127.0.0.1:9956 \
 	IROH_RESOLVER_RPC_ADDR=127.0.0.1:9955 \
 	./target/release/fendermint objects run
 
