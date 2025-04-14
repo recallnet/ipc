@@ -68,30 +68,6 @@ pub fn buy_credit(rt: &impl Runtime, to: Address) -> Result<Account, ActorError>
     ))?)
 }
 
-pub fn approve_credit(
-    rt: &impl Runtime,
-    from: Address,
-    to: Address,
-    caller_allowlist: Option<HashSet<Address>>,
-    credit_limit: Option<Credit>,
-    gas_fee_limit: Option<TokenAmount>,
-    ttl: Option<ChainEpoch>,
-) -> Result<CreditApproval, ActorError> {
-    deserialize_block(extract_send_result(rt.send_simple(
-        &BLOBS_ACTOR_ADDR,
-        Method::ApproveCredit as MethodNum,
-        IpldBlock::serialize_cbor(&params::ApproveCreditParams {
-            from,
-            to,
-            caller_allowlist,
-            credit_limit,
-            gas_fee_limit,
-            ttl,
-        })?,
-        rt.message().value_received(),
-    ))?)
-}
-
 pub fn get_credit_approval(
     rt: &impl Runtime,
     from: Address,

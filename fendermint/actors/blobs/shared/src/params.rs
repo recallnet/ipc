@@ -32,8 +32,6 @@ pub struct UpdateGasAllowanceParams {
 /// Params for approving credit.
 #[derive(Clone, Debug, Serialize_tuple, Deserialize_tuple)]
 pub struct ApproveCreditParams {
-    /// Account address that is making the approval.
-    pub from: Address,
     /// Account address that is receiving the approval.
     pub to: Address,
     /// Optional restriction on caller addresses, e.g., a bucket.

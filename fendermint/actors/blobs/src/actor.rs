@@ -137,8 +137,8 @@ impl BlobsActor {
     ) -> Result<CreditApproval, ActorError> {
         rt.validate_immediate_caller_accept_any()?;
 
-        let (from_id_addr, from_delegated_addr) = to_id_and_delegated_address(rt, params.from)?;
-        require_addr_is_origin_or_caller(rt, from_id_addr)?;
+        let from_id_addr = rt.message().caller();
+        let from_delegated_addr = to_delegated_address(rt, from_id_addr)?;
 
         let config = get_config(rt)?;
 
@@ -813,17 +813,17 @@ impl BlobsActor {
                     call.returns(())
                 }
                 sol_credit::Calls::approveCredit_0(call) => {
-                    let params = call.params(rt);
+                    let params = call.params();
                     Self::approve_credit(rt, params)?;
                     call.returns(())
                 }
                 sol_credit::Calls::approveCredit_1(call) => {
-                    let params = call.params(rt);
+                    let params = call.params();
                     Self::approve_credit(rt, params)?;
                     call.returns(())
                 }
                 sol_credit::Calls::approveCredit_2(call) => {
-                    let params = call.params(rt);
+                    let params = call.params();
                     Self::approve_credit(rt, params)?;
                     call.returns(())
                 }
