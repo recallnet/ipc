@@ -6934,6 +6934,7 @@ name = "iroh_manager"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "clap 4.5.23",
  "iroh",
  "iroh-blobs",
  "iroh-quinn",

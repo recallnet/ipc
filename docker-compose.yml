@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    container_name: iroh-server
+    ports:
+      - "4919:4919/udp"
+    volumes:
+      - iroh-data:/app/iroh-data
+    environment:
+      - RUST_LOG=debug
+    networks:
+      - recall-network
+    command: ["/app/server"]
+
+  client:
+    build:
+      context: .
+      dockerfile: Dockerfile.client
+    container_name: iroh-client
+    depends_on:
+      - server
+    environment:
+      - RUST_LOG=debug
+    networks:
+      - recall-network
+    command: ["--server", "iroh-server:4919"]
+
+networks:
+  recall-network:
+    driver: bridge
+
+volumes:
+  iroh-data:
+    driver: local

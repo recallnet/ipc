@@ -6,6 +6,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+clap = { workspace = true}
 anyhow = { workspace = true }
 num-traits = { workspace = true }
 iroh = { workspace = true }
@@ -15,7 +16,18 @@ tracing = { workspace = true }
 n0-future = { workspace = true}
 quic-rpc= { workspace = true, features = ["quinn-transport", "test-utils"] }
 iroh-quinn = { workspace = true }
+tracing-subscriber = { workspace = true }
+tempfile = { workspace = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }
 tracing-subscriber = { workspace = true }
+
+
+[[bin]]
+name = "server"
+path = "src/bin/server.rs"
+
+[[bin]]
+name = "client"
+path = "src/bin/client.rs"
