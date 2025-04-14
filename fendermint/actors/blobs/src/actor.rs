@@ -212,8 +212,8 @@ impl BlobsActor {
     fn revoke_credit(rt: &impl Runtime, params: RevokeCreditParams) -> Result<(), ActorError> {
         rt.validate_immediate_caller_accept_any()?;
 
-        let (from_id_addr, from_delegated_addr) = to_id_and_delegated_address(rt, params.from)?;
-        require_addr_is_origin_or_caller(rt, from_id_addr)?;
+        let from_id_addr = rt.message().caller();
+        let from_delegated_addr = to_delegated_address(rt, from_id_addr)?;
         let (to_id_addr, to_delegated_addr) = to_id_and_delegated_address(rt, params.to)?;
 
         rt.transaction(|st: &mut State, rt| {
@@ -828,12 +828,12 @@ impl BlobsActor {
                     call.returns(())
                 }
                 sol_credit::Calls::revokeCredit_0(call) => {
-                    let params = call.params(rt);
+                    let params = call.params();
                     Self::revoke_credit(rt, params)?;
                     call.returns(())
                 }
                 sol_credit::Calls::revokeCredit_1(call) => {
-                    let params = call.params(rt);
+                    let params = call.params();
                     Self::revoke_credit(rt, params)?;
                     call.returns(())
                 }

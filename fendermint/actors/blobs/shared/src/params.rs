@@ -54,8 +54,6 @@ pub struct ApproveCreditParams {
 /// Params for revoking credit.
 #[derive(Clone, Debug, Serialize_tuple, Deserialize_tuple)]
 pub struct RevokeCreditParams {
-    /// Account address that is revoking the approval.
-    pub from: Address,
     /// Account address whose approval is being revoked.
     pub to: Address,
     /// Optional caller address to remove from the caller allowlist.

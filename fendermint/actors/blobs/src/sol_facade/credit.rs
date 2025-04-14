@@ -229,17 +229,15 @@ impl AbiCall for sol::approveCredit_2Call {
 }
 
 /// function revokeCredit(address to, address caller) external;
-impl AbiCallRuntime for sol::revokeCredit_0Call {
+impl AbiCall for sol::revokeCredit_0Call {
     type Params = RevokeCreditParams;
     type Returns = ();
     type Output = Vec<u8>;
 
-    fn params(&self, rt: &impl Runtime) -> Self::Params {
-        let from: Address = rt.message().caller();
+    fn params(&self) -> Self::Params {
         let to: Address = H160::from(self.to).into();
         let caller: Address = H160::from(self.caller).into();
         RevokeCreditParams {
-            from,
             to,
             for_caller: Some(caller),
         }
@@ -251,16 +249,14 @@ impl AbiCallRuntime for sol::revokeCredit_0Call {
 }
 
 /// function revokeCredit(address to) external;
-impl AbiCallRuntime for sol::revokeCredit_1Call {
+impl AbiCall for sol::revokeCredit_1Call {
     type Params = RevokeCreditParams;
     type Returns = ();
     type Output = Vec<u8>;
 
-    fn params(&self, rt: &impl Runtime) -> Self::Params {
-        let from: Address = rt.message().caller();
+    fn params(&self) -> Self::Params {
         let to: Address = H160::from(self.to).into();
         RevokeCreditParams {
-            from,
             to,
             for_caller: None,
         }

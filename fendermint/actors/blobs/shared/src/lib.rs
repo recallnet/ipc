@@ -101,25 +101,6 @@ pub fn has_credit_approval(
     }
 }
 
-pub fn revoke_credit(
-    rt: &impl Runtime,
-    from: Address,
-    to: Address,
-    for_caller: Option<Address>,
-) -> Result<(), ActorError> {
-    extract_send_result(rt.send_simple(
-        &BLOBS_ACTOR_ADDR,
-        Method::RevokeCredit as MethodNum,
-        IpldBlock::serialize_cbor(&params::RevokeCreditParams {
-            from,
-            to,
-            for_caller,
-        })?,
-        rt.message().value_received(),
-    ))?;
-    Ok(())
-}
-
 #[allow(clippy::too_many_arguments)]
 pub fn add_blob(
     rt: &impl Runtime,
