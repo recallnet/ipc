@@ -58,8 +58,6 @@ pub struct AddParams {
     pub metadata: HashMap<String, String>,
     /// Whether to overwrite a key if it already exists.
     pub overwrite: bool,
-    /// Account address that initiated the call
-    pub from: Address,
 }
 
 /// Params for deleting an object.

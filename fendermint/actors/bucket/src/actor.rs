@@ -50,9 +50,7 @@ impl Actor {
     fn add_object(rt: &impl Runtime, params: AddParams) -> Result<Object, ActorError> {
         rt.validate_immediate_caller_accept_any()?;
 
-        let from = to_id_address(rt, params.from, false)?;
-        require_addr_is_origin_or_caller(rt, from)?;
-
+        let from = to_id_address(rt, rt.message().caller(), false)?;
         let state = rt.state::<State>()?;
         let sub_id = get_blob_id(&state, &params.key)?;
         let key = BytesKey(params.key.clone());
@@ -86,7 +84,7 @@ impl Actor {
             // No object found, just a new blob
             add_blob(
                 rt,
-                params.from,
+                from,
                 sub_id,
                 params.hash,
                 Some(state.owner),
@@ -286,13 +284,13 @@ impl Actor {
             let output_data = match sol::parse_input(&input_data)? {
                 sol::Calls::addObject_0(call) => {
                     // function addObject(bytes32 source, string memory key, bytes32 hash, bytes32 recoveryHash, uint64 size) external;
-                    let params = call.params(rt);
+                    let params = call.params();
                     Self::add_object(rt, params)?;
                     call.returns(())
                 }
                 sol::Calls::addObject_1(call) => {
                     // function addObject(AddObjectParams memory params) external;
-                    let params = call.params(rt);
+                    let params = call.params();
                     Self::add_object(rt, params)?;
                     call.returns(())
                 }
