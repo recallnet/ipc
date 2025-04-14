@@ -172,15 +172,14 @@ impl AbiCall for sol::addObject_1Call {
     }
 }
 
-impl AbiCallRuntime for sol::deleteObjectCall {
+impl AbiCall for sol::deleteObjectCall {
     type Params = DeleteParams;
     type Returns = ();
     type Output = Vec<u8>;
 
-    fn params(&self, rt: &impl Runtime) -> Self::Params {
+    fn params(&self) -> Self::Params {
         let key: Vec<u8> = self.key.clone().into_bytes();
-        let from = rt.message().caller();
-        DeleteParams { key, from }
+        DeleteParams(key)
     }
 
     fn returns(&self, returns: Self::Returns) -> Self::Output {

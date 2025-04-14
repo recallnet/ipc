@@ -50,7 +50,7 @@ impl Actor {
     fn add_object(rt: &impl Runtime, params: AddParams) -> Result<Object, ActorError> {
         rt.validate_immediate_caller_accept_any()?;
 
-        let from = to_id_address(rt, rt.message().caller(), false)?;
+        let from = rt.message().caller();
         let state = rt.state::<State>()?;
         let sub_id = get_blob_id(&state, &params.key)?;
         let key = BytesKey(params.key.clone());
@@ -131,12 +131,12 @@ impl Actor {
     fn delete_object(rt: &impl Runtime, params: DeleteParams) -> Result<(), ActorError> {
         rt.validate_immediate_caller_accept_any()?;
 
-        let from = to_id_address(rt, params.from, false)?;
-        require_addr_is_origin_or_caller(rt, from)?;
+        let from = rt.message().caller();
+        let key = params.0;
 
         let state = rt.state::<State>()?;
-        let sub_id = get_blob_id(&state, &params.key)?;
-        let key = BytesKey(params.key);
+        let sub_id = get_blob_id(&state, &key)?;
+        let key = BytesKey(key);
         let object = state
             .get(rt.store(), &key)?
             .ok_or(ActorError::illegal_state("object not found".into()))?;
@@ -296,7 +296,7 @@ impl Actor {
                 }
                 sol::Calls::deleteObject(call) => {
                     // function deleteObject(string memory key) external;
-                    let params = call.params(rt);
+                    let params = call.params();
                     Self::delete_object(rt, params)?;
                     call.returns(())
                 }

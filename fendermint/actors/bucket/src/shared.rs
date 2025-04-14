@@ -61,14 +61,11 @@ pub struct AddParams {
 }
 
 /// Params for deleting an object.
-#[derive(Clone, Debug, Serialize_tuple, Deserialize_tuple)]
-pub struct DeleteParams {
-    /// Key of the object to delete from a bucket.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct DeleteParams(
     #[serde(with = "strict_bytes")]
-    pub key: Vec<u8>,
-    /// Account address that initiated the call
-    pub from: Address,
-}
+    pub Vec<u8>,
+);
 
 /// Params for getting an object.
 #[derive(Clone, Debug, Serialize, Deserialize)]
