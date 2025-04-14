@@ -64,8 +64,6 @@ pub struct RevokeCreditParams {
 /// Params for setting sponsor.
 #[derive(Clone, Debug, Serialize_tuple, Deserialize_tuple)]
 pub struct SetSponsorParams {
-    /// Account address that is setting a credit sponsor.
-    pub from: Address,
     /// Credit sponsor.
     /// If not present, the sponsor is unset.
     pub sponsor: Option<Address>,

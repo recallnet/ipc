@@ -268,20 +268,19 @@ impl AbiCall for sol::revokeCredit_1Call {
 }
 
 /// function setAccountSponsor(address from, address sponsor) external;
-impl AbiCallRuntime for sol::setAccountSponsorCall {
+impl AbiCall for sol::setAccountSponsorCall {
     type Params = SetSponsorParams; // FIXME SU Needs runtime for "from"
     type Returns = ();
     type Output = Vec<u8>;
 
-    fn params(&self, rt: &impl Runtime) -> Self::Params {
-        let from: Address = rt.message().caller();
+    fn params(&self) -> Self::Params {
         let sponsor = H160::from(self.sponsor);
         let sponsor: Option<Address> = if sponsor.is_null() {
             None
         } else {
             Some(sponsor.into())
         };
-        SetSponsorParams { from, sponsor }
+        SetSponsorParams { sponsor }
     }
 
     fn returns(&self, returns: Self::Returns) -> Self::Output {

@@ -237,8 +237,7 @@ impl BlobsActor {
     fn set_account_sponsor(rt: &impl Runtime, params: SetSponsorParams) -> Result<(), ActorError> {
         rt.validate_immediate_caller_accept_any()?;
 
-        let from = to_id_address(rt, params.from, true)?;
-        require_addr_is_origin_or_caller(rt, from)?;
+        let from = rt.message().caller();
         let (sponsor_id_addr, sponsor_delegated_addr) = if let Some(sponsor) = params.sponsor {
             let addrs = to_id_and_delegated_address(rt, sponsor)?;
             (Some(addrs.0), Some(addrs.1))
@@ -838,7 +837,7 @@ impl BlobsActor {
                     call.returns(())
                 }
                 sol_credit::Calls::setAccountSponsor(call) => {
-                    let params = call.params(rt);
+                    let params = call.params();
                     Self::set_account_sponsor(rt, params)?;
                     call.returns(())
                 }
