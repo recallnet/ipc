@@ -16,10 +16,7 @@ use fil_actors_runtime::{
 };
 
 use fvm_shared::address::Address;
-use recall_actor_sdk::{
-    emit_evm_event, require_addr_is_origin_or_caller, to_id_address, InputData,
-    InvokeContractParams, InvokeContractReturn,
-};
+use recall_actor_sdk::{emit_evm_event, InputData, InvokeContractParams, InvokeContractReturn};
 use recall_ipld::hamt::BytesKey;
 
 use crate::shared::{
@@ -27,7 +24,7 @@ use crate::shared::{
     BUCKET_ACTOR_NAME,
 };
 use crate::sol_facade as sol;
-use crate::sol_facade::{AbiCall, AbiCallRuntime};
+use crate::sol_facade::AbiCall;
 use crate::state::{ObjectState, State};
 use crate::{
     UpdateObjectMetadataParams, MAX_METADATA_ENTRIES, MAX_METADATA_KEY_SIZE,
@@ -216,8 +213,7 @@ impl Actor {
     ) -> Result<(), ActorError> {
         rt.validate_immediate_caller_accept_any()?;
 
-        let from = to_id_address(rt, params.from, false)?;
-        require_addr_is_origin_or_caller(rt, from)?;
+        let from = rt.message().caller();
 
         let key = BytesKey(params.key.clone());
         let state = rt.state::<State>()?;
@@ -338,7 +334,7 @@ impl Actor {
                 }
                 sol::Calls::updateObjectMetadata(call) => {
                     // function updateObjectMetadata(string memory key, KeyValue[] memory metadata) external;
-                    let params = call.params(rt);
+                    let params = call.params();
                     Self::update_object_metadata(rt, params)?;
                     call.returns(())
                 }

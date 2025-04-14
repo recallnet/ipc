@@ -4,7 +4,6 @@
 
 use anyhow::Error;
 use fendermint_actor_blobs_shared::state::{Hash, PublicKey};
-use fil_actors_runtime::runtime::Runtime;
 use fil_actors_runtime::{actor_error, ActorError};
 use fvm_shared::clock::ChainEpoch;
 use num_traits::Zero;
@@ -379,12 +378,12 @@ impl AbiCall for sol::queryObjects_4Call {
     }
 }
 
-impl AbiCallRuntime for sol::updateObjectMetadataCall {
+impl AbiCall for sol::updateObjectMetadataCall {
     type Params = UpdateObjectMetadataParams;
     type Returns = ();
     type Output = Vec<u8>;
 
-    fn params(&self, rt: &impl Runtime) -> Self::Params {
+    fn params(&self) -> Self::Params {
         let mut metadata: HashMap<String, Option<String>> = HashMap::default();
         for kv in self.metadata.iter().cloned() {
             let key = kv.key;
@@ -395,7 +394,6 @@ impl AbiCallRuntime for sol::updateObjectMetadataCall {
         UpdateObjectMetadataParams {
             key: self.key.clone().into_bytes(),
             metadata,
-            from: rt.message().caller(),
         }
     }
 
