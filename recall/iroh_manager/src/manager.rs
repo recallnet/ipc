@@ -9,6 +9,7 @@ use anyhow::Result;
 use iroh_blobs::rpc::proto::RpcService;
 use n0_future::task::AbortOnDropHandle;
 use quic_rpc::client::QuinnConnector;
+use tracing::info;
 
 use crate::{BlobsClient, IrohNode};
 
@@ -36,6 +37,8 @@ impl IrohManager {
         let (config, server_key) = quic_rpc::transport::quinn::configure_server()?;
         let endpoint = iroh_quinn::Endpoint::server(config, rpc_addr)?;
         let local_addr = endpoint.local_addr()?;
+
+        info!("Iroh RPC listening on {} ({})", local_addr, rpc_addr);
         let rpc_server = quic_rpc::transport::quinn::QuinnListener::new(endpoint)?;
         let rpc_server = quic_rpc::RpcServer::<RpcService, _>::new(rpc_server);
         let blobs = client.blobs.clone();
@@ -69,6 +72,7 @@ pub type BlobsRpcClient = iroh_blobs::rpc::client::blobs::Client<QuinnConnector<
 
 /// Connect to the given rpc listening on this address, with this key.
 pub async fn connect(remote_addr: SocketAddr) -> Result<BlobsClient> {
+    info!("iroh RPC connecting to {}", remote_addr);
     let bind_addr: SocketAddr = "127.0.0.1:0".parse()?;
     let client = quic_rpc::transport::quinn::make_insecure_client_endpoint(bind_addr)?;
     let client = QuinnConnector::<RpcService>::new(client, remote_addr, "localhost".to_string());
