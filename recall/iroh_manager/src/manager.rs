@@ -73,7 +73,7 @@ pub type BlobsRpcClient = iroh_blobs::rpc::client::blobs::Client<QuinnConnector<
 /// Connect to the given rpc listening on this address, with this key.
 pub async fn connect(remote_addr: SocketAddr) -> Result<BlobsClient> {
     info!("iroh RPC connecting to {}", remote_addr);
-    let bind_addr: SocketAddr = "127.0.0.1:0".parse()?;
+    let bind_addr: SocketAddr = "0.0.0.0:0".parse()?;
     let client = quic_rpc::transport::quinn::make_insecure_client_endpoint(bind_addr)?;
     let client = QuinnConnector::<RpcService>::new(client, remote_addr, "localhost".to_string());
     let client = quic_rpc::RpcClient::<RpcService, _>::new(client);
