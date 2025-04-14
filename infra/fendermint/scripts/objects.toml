@@ -12,7 +12,7 @@ docker run \
   --env FM_OBJECTS__TRACING__CONSOLE__LEVEL=${OBJECTS_LOG_LEVEL} \
   --env TENDERMINT_RPC_URL=http://${CMT_CONTAINER_NAME}:26657 \
   --env IROH_PATH=/data/${NODE_NAME}/iroh-objects \
-  --env IROH_RESOLVER_RPC_ADDR=`docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' ${FM_CONTAINER_NAME}`:4919 \
+  --env IROH_RESOLVER_RPC_ADDR=`docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' ${FM_CONTAINER_NAME}`:${FENDERMINT_IROH_RPC_HOST_PORT} \
   --env RUST_BACKTRACE=1 \
   ${FM_DOCKER_IMAGE} \
   --network=${FM_NETWORK} \

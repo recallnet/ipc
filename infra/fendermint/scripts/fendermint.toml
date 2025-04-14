@@ -21,6 +21,7 @@ docker run \
   --user $(id -u) \
   --network ${NETWORK_NAME} \
   --publish 127.0.0.1:${FENDERMINT_METRICS_HOST_PORT}:9184 \
+  --publish ${FENDERMINT_IROH_RPC_HOST_PORT}:4919/udp \
   --volume ${BASE_DIR}:/data \
   --volume fendermint-logs:/fendermint/logs \
   --env-file ${ENV_FILE} \
@@ -59,6 +60,7 @@ docker run \
   --volume ${BASE_DIR}:/data \
   --publish ${RESOLVER_HOST_PORT}:${RESOLVER_HOST_PORT} \
   --publish 127.0.0.1:${FENDERMINT_METRICS_HOST_PORT}:9184 \
+  --publish ${FENDERMINT_IROH_RPC_HOST_PORT}:4919/udp \
   --env FM_DATA_DIR=/data/${NODE_NAME}/fendermint/data \
   --env FM_TRACING__CONSOLE__LEVEL=${FM_LOG_LEVEL} \
   --env FM_TRACING__FILE__ENABLED=true \
@@ -115,6 +117,7 @@ docker run \
   --volume ${BASE_DIR}:/data \
   --publish ${RESOLVER_HOST_PORT}:${RESOLVER_HOST_PORT} \
   --publish 127.0.0.1:${FENDERMINT_METRICS_HOST_PORT}:9184 \
+  --publish ${FENDERMINT_IROH_RPC_HOST_PORT}:4919/udp \
   --env FM_DATA_DIR=/data/${NODE_NAME}/fendermint/data \
   --env FM_TRACING__CONSOLE__LEVEL=${FM_LOG_LEVEL} \
   --env FM_TRACING__FILE__ENABLED=true \
