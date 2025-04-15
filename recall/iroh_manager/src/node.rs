@@ -2,7 +2,7 @@
 // Copyright 2022-2024 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::net::{SocketAddrV4, SocketAddrV6};
+use std::net::{Ipv4Addr, Ipv6Addr, SocketAddrV4, SocketAddrV6};
 use std::path::Path;
 use std::time::Duration;
 
@@ -64,6 +64,9 @@ impl BlobsWrapper {
 /// GC interval duration.
 const GC_DURATION: Duration = Duration::from_secs(300);
 
+const DEFAULT_PORT_V4: u16 = 11204;
+const DEFAULT_PORT_V6: u16 = 11205;
+
 impl IrohNode {
     /// Creates a new persistent iroh node in the specified location.
     ///
@@ -85,15 +88,18 @@ impl IrohNode {
         tokio::fs::create_dir_all(&blobs_path).await?;
         let secret_key = load_secret_key(secret_key_path).await?;
 
-        let mut endpoint = Endpoint::builder().discovery_n0().secret_key(secret_key);
-        if let Some(v4) = v4_addr {
-            endpoint = endpoint.bind_addr_v4(v4);
-        }
-        if let Some(v6) = v6_addr {
-            endpoint = endpoint.bind_addr_v6(v6);
-        }
+        let v4 =
+            v4_addr.unwrap_or_else(|| SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, DEFAULT_PORT_V4));
+        let v6 = v6_addr
+            .unwrap_or_else(|| SocketAddrV6::new(Ipv6Addr::UNSPECIFIED, DEFAULT_PORT_V6, 0, 0));
 
-        let endpoint = endpoint.bind().await?;
+        let endpoint = Endpoint::builder()
+            .discovery_n0()
+            .secret_key(secret_key)
+            .bind_addr_v4(v4)
+            .bind_addr_v6(v6)
+            .bind()
+            .await?;
         let blobs = Blobs::persistent(path).await?.build(&endpoint);
         blobs.start_gc(GcConfig {
             period: GC_DURATION,

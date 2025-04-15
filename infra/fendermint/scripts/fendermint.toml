@@ -22,6 +22,8 @@ docker run \
   --network ${NETWORK_NAME} \
   --publish 127.0.0.1:${FENDERMINT_METRICS_HOST_PORT}:9184 \
   --publish ${FENDERMINT_IROH_RPC_HOST_PORT}:4919/udp \
+  --publish ${FENDERMINT_IROH_V4_PORT}:11204/udp \
+  --publish ${FENDERMINT_IROH_V6_PORT}:11205/udp \
   --volume ${BASE_DIR}:/data \
   --volume fendermint-logs:/fendermint/logs \
   --env-file ${ENV_FILE} \
@@ -61,6 +63,8 @@ docker run \
   --publish ${RESOLVER_HOST_PORT}:${RESOLVER_HOST_PORT} \
   --publish 127.0.0.1:${FENDERMINT_METRICS_HOST_PORT}:9184 \
   --publish ${FENDERMINT_IROH_RPC_HOST_PORT}:4919/udp \
+  --publish ${FENDERMINT_IROH_V4_PORT}:11204/udp \
+  --publish ${FENDERMINT_IROH_V6_PORT}:11205/udp \
   --env FM_DATA_DIR=/data/${NODE_NAME}/fendermint/data \
   --env FM_TRACING__CONSOLE__LEVEL=${FM_LOG_LEVEL} \
   --env FM_TRACING__FILE__ENABLED=true \
@@ -118,6 +122,8 @@ docker run \
   --publish ${RESOLVER_HOST_PORT}:${RESOLVER_HOST_PORT} \
   --publish 127.0.0.1:${FENDERMINT_METRICS_HOST_PORT}:9184 \
   --publish ${FENDERMINT_IROH_RPC_HOST_PORT}:4919/udp \
+  --publish ${FENDERMINT_IROH_V4_PORT}:11204/udp \
+  --publish ${FENDERMINT_IROH_V6_PORT}:11205/udp \
   --env FM_DATA_DIR=/data/${NODE_NAME}/fendermint/data \
   --env FM_TRACING__CONSOLE__LEVEL=${FM_LOG_LEVEL} \
   --env FM_TRACING__FILE__ENABLED=true \
@@ -158,10 +164,10 @@ docker run \
   --init \
   --user $(id -u) \
   --volume ${BASE_DIR}:/data \
-  --network=${NETWORK_NAME} \
+  --network ${NETWORK_NAME} \
   --env RUST_BACKTRACE=1 \
   ${FM_DOCKER_IMAGE} \
-  --network=${FM_NETWORK} \
+  --network ${FM_NETWORK} \
   ${CMD}
 """
 dependencies = ["fendermint-deps"]

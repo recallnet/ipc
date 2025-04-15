@@ -686,6 +686,7 @@ async fn download_blob(
     // Use an explicit tag so we can keep track of it
 
     let tag = Tag(format!("stored-seq-{seq_hash}").into());
+    info!("downloading {} from {:?}", tag, node_addr);
     iroh.download_with_opts(
         seq_hash,
         DownloadOptions {
