@@ -32,8 +32,6 @@ pub struct UpdateGasAllowanceParams {
 /// Params for approving credit.
 #[derive(Clone, Debug, Serialize_tuple, Deserialize_tuple)]
 pub struct ApproveCreditParams {
-    /// Account address that is making the approval.
-    pub from: Address,
     /// Account address that is receiving the approval.
     pub to: Address,
     /// Optional restriction on caller addresses, e.g., a bucket.
@@ -56,8 +54,6 @@ pub struct ApproveCreditParams {
 /// Params for revoking credit.
 #[derive(Clone, Debug, Serialize_tuple, Deserialize_tuple)]
 pub struct RevokeCreditParams {
-    /// Account address that is revoking the approval.
-    pub from: Address,
     /// Account address whose approval is being revoked.
     pub to: Address,
     /// Optional caller address to remove from the caller allowlist.
@@ -66,14 +62,10 @@ pub struct RevokeCreditParams {
 }
 
 /// Params for setting sponsor.
-#[derive(Clone, Debug, Serialize_tuple, Deserialize_tuple)]
-pub struct SetSponsorParams {
-    /// Account address that is setting a credit sponsor.
-    pub from: Address,
-    /// Credit sponsor.
-    /// If not present, the sponsor is unset.
-    pub sponsor: Option<Address>,
-}
+/// If not present, the sponsor is unset.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct SetSponsorParams(pub Option<Address>);
 
 /// Params for setting account status.
 #[derive(Clone, Debug, Serialize_tuple, Deserialize_tuple)]

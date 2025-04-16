@@ -27,21 +27,6 @@ mod sys {
     }
 }
 
-/// Returns an error if the address does not match the message origin or caller.
-pub fn require_addr_is_origin_or_caller(
-    rt: &impl Runtime,
-    address: Address,
-) -> Result<(), ActorError> {
-    let address = to_id_address(rt, address, false)?;
-    if address == rt.message().origin() || address == rt.message().caller() {
-        return Ok(());
-    }
-    Err(ActorError::illegal_argument(format!(
-        "address {} does not match origin or caller",
-        address
-    )))
-}
-
 /// Resolves ID address of an actor.
 /// If `require_delegated` is `true`, the address must be of type
 /// EVM (a Solidity contract), EthAccount (an Ethereum-style EOA), or Placeholder (a yet to be

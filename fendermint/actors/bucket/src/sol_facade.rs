@@ -4,7 +4,6 @@
 
 use anyhow::Error;
 use fendermint_actor_blobs_shared::state::{Hash, PublicKey};
-use fil_actors_runtime::runtime::Runtime;
 use fil_actors_runtime::{actor_error, ActorError};
 use fvm_shared::clock::ChainEpoch;
 use num_traits::Zero;
@@ -108,18 +107,17 @@ pub fn parse_input(input: &recall_actor_sdk::InputData) -> Result<Calls, ActorEr
         .map_err(|e| actor_error!(illegal_argument, format!("invalid call: {}", e)))
 }
 
-impl AbiCallRuntime for sol::addObject_0Call {
+impl AbiCall for sol::addObject_0Call {
     type Params = AddParams;
     type Returns = ();
     type Output = Vec<u8>;
 
-    fn params(&self, rt: &impl Runtime) -> Self::Params {
+    fn params(&self) -> Self::Params {
         let source = PublicKey(self.source.into());
         let key: Vec<u8> = self.key.clone().into_bytes();
         let hash = Hash(self.hash.into());
         let recovery_hash = Hash(self.recoveryHash.into());
         let size = self.size;
-        let from = rt.message().caller();
         AddParams {
             source,
             key,
@@ -129,7 +127,6 @@ impl AbiCallRuntime for sol::addObject_0Call {
             ttl: None,
             metadata: HashMap::default(),
             overwrite: false,
-            from,
         }
     }
 
@@ -138,11 +135,11 @@ impl AbiCallRuntime for sol::addObject_0Call {
     }
 }
 
-impl AbiCallRuntime for sol::addObject_1Call {
+impl AbiCall for sol::addObject_1Call {
     type Params = AddParams;
     type Returns = ();
     type Output = Vec<u8>;
-    fn params(&self, rt: &impl Runtime) -> Self::Params {
+    fn params(&self) -> Self::Params {
         let source = PublicKey(self.source.into());
         let key: Vec<u8> = self.key.clone().into_bytes();
         let hash = Hash(self.hash.into());
@@ -158,7 +155,6 @@ impl AbiCallRuntime for sol::addObject_1Call {
             metadata.insert(kv.key, kv.value);
         }
         let overwrite = self.overwrite;
-        let from = rt.message().caller();
         AddParams {
             source,
             key,
@@ -168,7 +164,6 @@ impl AbiCallRuntime for sol::addObject_1Call {
             ttl,
             metadata,
             overwrite,
-            from,
         }
     }
     fn returns(&self, returns: Self::Returns) -> Self::Output {
@@ -176,15 +171,14 @@ impl AbiCallRuntime for sol::addObject_1Call {
     }
 }
 
-impl AbiCallRuntime for sol::deleteObjectCall {
+impl AbiCall for sol::deleteObjectCall {
     type Params = DeleteParams;
     type Returns = ();
     type Output = Vec<u8>;
 
-    fn params(&self, rt: &impl Runtime) -> Self::Params {
+    fn params(&self) -> Self::Params {
         let key: Vec<u8> = self.key.clone().into_bytes();
-        let from = rt.message().caller();
-        DeleteParams { key, from }
+        DeleteParams(key)
     }
 
     fn returns(&self, returns: Self::Returns) -> Self::Output {
@@ -384,12 +378,12 @@ impl AbiCall for sol::queryObjects_4Call {
     }
 }
 
-impl AbiCallRuntime for sol::updateObjectMetadataCall {
+impl AbiCall for sol::updateObjectMetadataCall {
     type Params = UpdateObjectMetadataParams;
     type Returns = ();
     type Output = Vec<u8>;
 
-    fn params(&self, rt: &impl Runtime) -> Self::Params {
+    fn params(&self) -> Self::Params {
         let mut metadata: HashMap<String, Option<String>> = HashMap::default();
         for kv in self.metadata.iter().cloned() {
             let key = kv.key;
@@ -400,7 +394,6 @@ impl AbiCallRuntime for sol::updateObjectMetadataCall {
         UpdateObjectMetadataParams {
             key: self.key.clone().into_bytes(),
             metadata,
-            from: rt.message().caller(),
         }
     }
 

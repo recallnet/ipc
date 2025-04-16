@@ -21,6 +21,8 @@ pub enum Method {
     CreateExternal = 1214262202,
     UpdateDeployers = 1768606754,
     ListMetadata = 2283215593,
+    GetMachineCode = 2892692559, //= frc42_dispatch::method_hash!("GetMachineCode");
+    InvokeContract = 3844450837, //= frc42_dispatch::method_hash!("InvokeEVM")
 }
 
 /// The kinds of machines available.

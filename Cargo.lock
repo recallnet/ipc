@@ -3456,6 +3456,7 @@ name = "fendermint_actor_blobs"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "cid",
  "fendermint_actor_blobs_shared",
  "fendermint_actor_blobs_testing",
  "fendermint_actor_machine",

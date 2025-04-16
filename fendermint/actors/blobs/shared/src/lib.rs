@@ -70,7 +70,6 @@ pub fn buy_credit(rt: &impl Runtime, to: Address) -> Result<Account, ActorError>
 
 pub fn approve_credit(
     rt: &impl Runtime,
-    from: Address,
     to: Address,
     caller_allowlist: Option<HashSet<Address>>,
     credit_limit: Option<Credit>,
@@ -81,7 +80,6 @@ pub fn approve_credit(
         &BLOBS_ACTOR_ADDR,
         Method::ApproveCredit as MethodNum,
         IpldBlock::serialize_cbor(&params::ApproveCreditParams {
-            from,
             to,
             caller_allowlist,
             credit_limit,
@@ -127,18 +125,13 @@ pub fn has_credit_approval(
 
 pub fn revoke_credit(
     rt: &impl Runtime,
-    from: Address,
     to: Address,
     for_caller: Option<Address>,
 ) -> Result<(), ActorError> {
     extract_send_result(rt.send_simple(
         &BLOBS_ACTOR_ADDR,
         Method::RevokeCredit as MethodNum,
-        IpldBlock::serialize_cbor(&params::RevokeCreditParams {
-            from,
-            to,
-            for_caller,
-        })?,
+        IpldBlock::serialize_cbor(&params::RevokeCreditParams { to, for_caller })?,
         rt.message().value_received(),
     ))?;
     Ok(())

@@ -21,6 +21,7 @@ log = { workspace = true, features = ["std"] }
 num-traits = { workspace = true }
 recall_sol_facade = { workspace = true, features = ["blobs", "credit", "gas"] }
 serde = { workspace = true, features = ["derive"] }
+cid = { workspace = true }
 
 fendermint_actor_recall_config_shared = { path = "../recall_config/shared" }
 fendermint_actor_blobs_shared = { path = "./shared" }
