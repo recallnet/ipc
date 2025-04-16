@@ -2,10 +2,10 @@
 // Copyright 2022-2024 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::path::Path;
-use std::str::FromStr;
-use std::time::Instant;
-use std::{convert::Infallible, net::ToSocketAddrs, num::ParseIntError};
+use std::{
+    convert::Infallible, net::ToSocketAddrs, num::ParseIntError, path::Path, str::FromStr,
+    time::Instant,
+};
 
 use anyhow::{anyhow, Context};
 use bytes::Buf;
@@ -31,11 +31,11 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tracing::{debug, info};
 use uuid::Uuid;
+use warp::path::Tail;
 use warp::{
     filters::multipart::Part,
     http::{HeaderMap, HeaderValue, StatusCode},
     hyper::body::Body,
-    path::Tail,
     Filter, Rejection, Reply,
 };
 
@@ -87,7 +87,7 @@ cmd! {
                 .and(with_max_size(settings.max_object_size))
                 .and_then(handle_object_upload);
 
-                let objects_download = warp::path!("v1" / "objects" / String / ..)
+                let objects_download = warp::path!("v1" / "objects" / String / .. )
                 .and(warp::path::tail())
                 .and(
                     warp::get().map(|| "GET".to_string()).or(warp::head().map(|| "HEAD".to_string())).unify()
@@ -591,7 +591,15 @@ async fn handle_object_download<F: QueryClient + Send + Sync>(
     let height = height_query
         .height
         .unwrap_or(FvmQueryHeight::Committed.into());
-    let path = tail.as_str();
+
+    let path = urlencoding::decode(tail.as_str())
+        .map_err(|e| {
+            Rejection::from(BadRequest {
+                message: format!("invalid address {}: {}", address, e),
+            })
+        })?
+        .to_string();
+
     let key: Vec<u8> = path.into();
     let start_time = Instant::now();
     let maybe_object = os_get(client, address, GetParams(key.clone()), height)
