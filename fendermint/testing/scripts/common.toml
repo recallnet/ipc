@@ -33,22 +33,16 @@ ETHAPI_HOST_PORT = { script = ["${ROOT_SCRIPTS_DIR}/get_port.sh $((CMT_RPC_HOST_
 FENDERMINT_METRICS_HOST_PORT = { script = ["${ROOT_SCRIPTS_DIR}/get_port.sh $((ETHAPI_HOST_PORT+1))"], condition = { env_not_set = [
     "FENDERMINT_METRICS_HOST_PORT",
 ] } }
-IROH_RPC_HOST_PORT = { script = ["${ROOT_SCRIPTS_DIR}/get_port.sh $((FENDERMINT_METRICS_HOST_PORT+1))"], condition = { env_not_set = [
-    "IROH_RPC_HOST_PORT",
-] } }
-IROH_METRICS_HOST_PORT = { script = ["${ROOT_SCRIPTS_DIR}/get_port.sh $((IROH_RPC_HOST_PORT+1))"], condition = { env_not_set = [
-    "IROH_METRICS_HOST_PORT",
-] } }
-OBJECTS_IROH_V4_PORT={ script = ["${ROOT_SCRIPTS_DIR}/get_port.sh 11204"], condition = { env_not_set = [
+OBJECTS_IROH_V4_PORT = { script = ["${ROOT_SCRIPTS_DIR}/get_port.sh 11204"], condition = { env_not_set = [
     "OBJECTS_IROH_V4_PORT",
 ] } }
-OBJECTS_IROH_V6_PORT={ script = ["${ROOT_SCRIPTS_DIR}/get_port.sh 11205"], condition = { env_not_set = [
+OBJECTS_IROH_V6_PORT = { script = ["${ROOT_SCRIPTS_DIR}/get_port.sh 11205"], condition = { env_not_set = [
     "OBJECTS_IROH_V6_PORT",
 ] } }
-FENDERMINT_IROH_V4_PORT={ script = ["${ROOT_SCRIPTS_DIR}/get_port.sh 11214"], condition = { env_not_set = [
+FENDERMINT_IROH_V4_PORT = { script = ["${ROOT_SCRIPTS_DIR}/get_port.sh 11214"], condition = { env_not_set = [
     "FENDERMINT_IROH_V4_PORT",
 ] } }
-FENDERMINT_IROH_V6_PORT={ script = ["${ROOT_SCRIPTS_DIR}/get_port.sh 11215"], condition = { env_not_set = [
+FENDERMINT_IROH_V6_PORT = { script = ["${ROOT_SCRIPTS_DIR}/get_port.sh 11215"], condition = { env_not_set = [
     "FENDERMINT_IROH_V6_PORT",
 ] } }
 
