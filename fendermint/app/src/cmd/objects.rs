@@ -1115,43 +1115,52 @@ mod tests {
 
         let iroh = IrohNode::memory().await.unwrap();
 
-        let (hash_seq_hash, metadata_iroh_hash) =
-            simulate_blob_upload(&iroh, &b"hello world"[..]).await;
+        let test_cases = vec![
+            ("/foo/bar", "hello world"),
+            ("/foo%2Fbar", "hello world"),
+            ("/foo%3Fbar%3Fbaz.txt", "arbitrary data"),
+        ];
 
-        let mock_client = new_mock_client_with_predefined_object(hash_seq_hash, metadata_iroh_hash);
+        for (path, content) in test_cases {
+            let (hash_seq_hash, metadata_iroh_hash) =
+                simulate_blob_upload(&iroh, content.as_bytes()).await;
 
-        let result = handle_object_download(
-            "t2mnd5jkuvmsaf457ympnf3monalh3vothdd5njoy".into(),
-            warp::test::request()
-                .path("/foo/bar")
-                .filter(&warp::path::tail())
+            let mock_client =
+                new_mock_client_with_predefined_object(hash_seq_hash, metadata_iroh_hash);
+
+            let result = handle_object_download(
+                "t2mnd5jkuvmsaf457ympnf3monalh3vothdd5njoy".into(),
+                warp::test::request()
+                    .path(path)
+                    .filter(&warp::path::tail())
+                    .await
+                    .unwrap(),
+                "GET".to_string(),
+                None,
+                HeightQuery { height: Some(1) },
+                mock_client,
+                iroh.blobs_client().clone(),
+            )
+            .await;
+
+            assert!(result.is_ok(), "{:#?}", result.err());
+            let response = result.unwrap().into_response();
+            assert_eq!(response.status(), StatusCode::OK);
+            assert_eq!(
+                response
+                    .headers()
+                    .get("Content-Type")
+                    .unwrap()
+                    .to_str()
+                    .unwrap(),
+                "application/octet-stream"
+            );
+
+            let body = warp::hyper::body::to_bytes(response.into_body())
                 .await
-                .unwrap(),
-            "GET".to_string(),
-            None,
-            HeightQuery { height: Some(1) },
-            mock_client,
-            iroh.blobs_client().clone(),
-        )
-        .await;
-
-        assert!(result.is_ok(), "{:#?}", result.err());
-        let response = result.unwrap().into_response();
-        assert_eq!(response.status(), StatusCode::OK);
-        assert_eq!(
-            response
-                .headers()
-                .get("Content-Type")
-                .unwrap()
-                .to_str()
-                .unwrap(),
-            "application/octet-stream"
-        );
-
-        let body = warp::hyper::body::to_bytes(response.into_body())
-            .await
-            .unwrap();
-        assert_eq!(body, "hello world".as_bytes());
+                .unwrap();
+            assert_eq!(body, content.as_bytes());
+        }
     }
 
     #[tokio::test]
