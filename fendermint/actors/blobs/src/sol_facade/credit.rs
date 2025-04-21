@@ -15,13 +15,12 @@ use fendermint_actor_blobs_shared::{
 use fil_actors_runtime::{actor_error, runtime::Runtime, ActorError};
 use fvm_shared::{address::Address, clock::ChainEpoch, econ::TokenAmount};
 use recall_actor_sdk::{evm::TryIntoEVMEvent, util::token_to_biguint};
+pub use recall_sol_facade::credit::Calls;
 use recall_sol_facade::{
     credit as sol,
     primitives::U256,
     types::{BigUintWrapper, SolCall, SolInterface, H160},
 };
-
-pub use recall_sol_facade::credit::Calls;
 
 use crate::sol_facade::{AbiCall, AbiCallRuntime, AbiEncodeError};
 
@@ -440,7 +439,7 @@ impl AbiCall for sol::setAccountStatusCall {
             0 => AccountStatus::Default,
             1 => AccountStatus::Reduced,
             2 => AccountStatus::Extended,
-            _ => return Err(actor_error!(illegal_argument, "invalid AccountStatus")),
+            _ => return Err(actor_error!(illegal_argument, "invalid account status")),
         };
         Ok(SetAccountStatusParams {
             subscriber: subscriber.into(),

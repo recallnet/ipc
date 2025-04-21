@@ -10,7 +10,7 @@ use fvm_shared::address::Address;
 use log::info;
 use recall_ipld::hamt::{self, map::TrackedFlushResult};
 
-use crate::shared::{OpenReadRequestTuple, ReadRequest, ReadRequestStatus};
+use crate::shared::{ReadRequest, ReadRequestStatus, ReadRequestTuple};
 
 const MAX_READ_REQUEST_LEN: u32 = 1024 * 1024; // 1MB
 
@@ -66,34 +66,26 @@ impl State {
         Ok(request_id)
     }
 
-    pub fn close_read_request<BS: Blockstore>(
-        &mut self,
-        store: &BS,
-        request_id: B256,
-    ) -> Result<(), ActorError> {
-        if self.get_read_request_status(store, request_id)?.is_none() {
-            return Err(ActorError::not_found(
-                "cannot close read request, it does not exist".to_string(),
-            ));
-        }
-
-        // remove the closed request
-        let mut read_requests = self.read_requests.hamt(store)?;
-        self.read_requests
-            .save_tracked(read_requests.delete_and_flush_tracked(&request_id)?.0);
-        Ok(())
-    }
-
-    pub fn get_open_read_requests<BS: Blockstore>(
+    pub fn get_read_request_status<BS: Blockstore>(
         &self,
         store: BS,
+        id: B256,
+    ) -> Result<Option<ReadRequestStatus>, ActorError> {
+        let read_requests = self.read_requests.hamt(store)?;
+        Ok(read_requests.get(&id)?.map(|r| r.status.clone()))
+    }
+
+    pub fn get_read_requests_by_status<BS: Blockstore>(
+        &self,
+        store: BS,
+        status: ReadRequestStatus,
         size: u32,
-    ) -> Result<Vec<OpenReadRequestTuple>, ActorError> {
+    ) -> Result<Vec<ReadRequestTuple>, ActorError> {
         let read_requests = self.read_requests.hamt(store)?;
 
         let mut requests = Vec::new();
         read_requests.for_each(|id, request| {
-            if matches!(request.status, ReadRequestStatus::Open) && (requests.len() as u32) < size {
+            if request.status == status && (requests.len() as u32) < size {
                 requests.push((
                     id,
                     request.blob_hash,
@@ -107,15 +99,6 @@ impl State {
             Ok(())
         })?;
         Ok(requests)
-    }
-
-    pub fn get_read_request_status<BS: Blockstore>(
-        &self,
-        store: BS,
-        id: B256,
-    ) -> Result<Option<ReadRequestStatus>, ActorError> {
-        let read_requests = self.read_requests.hamt(store)?;
-        Ok(read_requests.get(&id)?.map(|r| r.status.clone()))
     }
 
     /// Set a read request status to pending.
@@ -140,6 +123,24 @@ impl State {
         self.read_requests
             .save_tracked(read_requests.set_and_flush_tracked(&id, request)?);
 
+        Ok(())
+    }
+
+    pub fn close_read_request<BS: Blockstore>(
+        &mut self,
+        store: &BS,
+        request_id: B256,
+    ) -> Result<(), ActorError> {
+        if self.get_read_request_status(store, request_id)?.is_none() {
+            return Err(ActorError::not_found(
+                "cannot close read request, it does not exist".to_string(),
+            ));
+        }
+
+        // remove the closed request
+        let mut read_requests = self.read_requests.hamt(store)?;
+        self.read_requests
+            .save_tracked(read_requests.delete_and_flush_tracked(&request_id)?.0);
         Ok(())
     }
 

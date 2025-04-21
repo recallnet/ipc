@@ -25,15 +25,12 @@ pub fn new_hash(size: usize) -> (B256, u64) {
     let mut rng = rand::thread_rng();
     let mut data = vec![0u8; size];
     rng.fill_bytes(&mut data);
-    (
-        B256(*iroh_base::hash::Hash::new(&data).as_bytes()),
-        size as u64,
-    )
+    (B256(*iroh_blobs::Hash::new(&data).as_bytes()), size as u64)
 }
 
 pub fn new_hash_from_vec(buf: Vec<u8>) -> (B256, u64) {
     (
-        B256(*iroh_base::hash::Hash::new(&buf).as_bytes()),
+        B256(*iroh_blobs::Hash::new(&buf).as_bytes()),
         buf.len() as u64,
     )
 }
@@ -42,7 +39,7 @@ pub fn new_metadata_hash() -> B256 {
     let mut rng = rand::thread_rng();
     let mut data = vec![0u8; 8];
     rng.fill_bytes(&mut data);
-    B256(*iroh_base::hash::Hash::new(&data).as_bytes())
+    B256(*iroh_blobs::Hash::new(&data).as_bytes())
 }
 
 pub fn new_pk() -> B256 {

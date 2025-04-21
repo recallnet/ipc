@@ -19,6 +19,7 @@ futures = { workspace = true }
 futures-util = { workspace = true }
 hex = { workspace = true }
 iroh = { workspace = true }
+iroh-blobs = { workspace = true }
 k256 = { workspace = true }
 lazy_static = { workspace = true }
 libipld = { workspace = true }
@@ -49,6 +50,7 @@ tower-abci = { workspace = true }
 tracing = { workspace = true }
 tracing-appender = { workspace = true }
 tracing-subscriber = { workspace = true }
+urlencoding = { workspace = true }
 uuid = { workspace = true }
 warp = { workspace = true }
 
@@ -99,7 +101,6 @@ iroh_manager = { path = "../../recall/iroh_manager" }
 
 [dev-dependencies]
 tempfile = { workspace = true }
-iroh-base = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 quickcheck = { workspace = true }
 quickcheck_macros = { workspace = true }
