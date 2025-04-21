@@ -5,7 +5,7 @@
 use fendermint_actor_blobs_shared::{
     blobs::{
         AddBlobParams, Blob, BlobStatus, DeleteBlobParams, GetBlobParams, OverwriteBlobParams,
-        SubscriptionId, TrimBlobExpiriesParams,
+        TrimBlobExpiriesParams,
     },
     bytes::B256,
     GetStatsReturn,
