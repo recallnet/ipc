@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use cid::Cid;
-use recall_sol_facade::timehub::Calls;
 use fendermint_actor_blobs_shared::has_credit_approval;
 use fendermint_actor_machine::MachineActor;
 use fil_actors_runtime::{
@@ -12,6 +11,7 @@ use fil_actors_runtime::{
     ActorError,
 };
 use recall_actor_sdk::{emit_evm_event, InputData, InvokeContractParams, InvokeContractReturn};
+use recall_sol_facade::timehub::Calls;
 use tracing::debug;
 
 use crate::sol_facade::{AbiCall, EventPushed};
