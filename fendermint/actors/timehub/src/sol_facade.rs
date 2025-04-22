@@ -87,7 +87,6 @@ impl AbiCall for sol::getCountCall {
     type Returns = u64;
     type Output = Vec<u8>;
     fn params(&self) -> Self::Params {
-        ()
     }
     fn returns(&self, returns: Self::Returns) -> Self::Output {
         Self::abi_encode_returns(&(returns,))
@@ -99,7 +98,6 @@ impl AbiCall for sol::getPeaksCall {
     type Returns = Vec<Cid>;
     type Output = Vec<u8>;
     fn params(&self) -> Self::Params {
-        ()
     }
     fn returns(&self, returns: Self::Returns) -> Self::Output {
         let cids = returns.iter().map(|cid| cid.to_bytes()).collect::<Vec<_>>();
@@ -112,7 +110,6 @@ impl AbiCall for sol::getRootCall {
     type Returns = Cid;
     type Output = Vec<u8>;
     fn params(&self) -> Self::Params {
-        ()
     }
     fn returns(&self, returns: Self::Returns) -> Self::Output {
         Self::abi_encode_returns(&(returns.to_bytes(),))
