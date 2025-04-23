@@ -78,7 +78,8 @@ impl<'a, BS: Blockstore> Caller<'a, BS> {
         caller_account: Account,
         sponsor: Option<Address>,
     ) -> Result<Self, ActorError> {
-        if let Some(sponsor) = sponsor {
+        let sponsor = sponsor.unwrap_or(caller);
+        if sponsor != caller {
             let delegation = Delegation::load(store, accounts, sponsor, caller, caller_account)?;
             Ok(Self::Sponsored(delegation))
         } else {
