@@ -790,6 +790,7 @@ mod tests {
             TokenAmount::from_whole(0),
             IpldBlock::serialize_cbor(&Subscription {
                 added: 0,
+                overlap: 0,
                 expiry: ChainEpoch::from(3600),
                 source: add_params.source,
                 delegate: None,
@@ -978,6 +979,7 @@ mod tests {
             TokenAmount::from_whole(0),
             IpldBlock::serialize_cbor(&Subscription {
                 added: 0,
+                overlap: 0,
                 expiry: ttl,
                 source: add_params.source,
                 delegate: None,
@@ -1079,6 +1081,7 @@ mod tests {
             TokenAmount::from_whole(0),
             IpldBlock::serialize_cbor(&Subscription {
                 added: 0,
+                overlap: 0,
                 expiry: ttl,
                 source: add_params.source,
                 delegate: None,
