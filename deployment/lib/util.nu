@@ -116,6 +116,15 @@ export def get-base-config [
   network: string, # one of "localnet", "testnet"
   fendermint_image: string,
 ] {
+  let local_commit = git rev-parse --short=7 HEAD
+  if ($fendermint_image | str contains "sha-") {
+    let fendermint_commit = $fendermint_image | str replace -r ".*sha-" ""
+    if $local_commit != $fendermint_commit {
+      print $"ERROR: local commit ($local_commit) does not match fendermint image ($fendermint_image)"
+      exit 1
+    }
+  }
+
   let wd = $workdir | path expand
   let ic = $wd | path join "ipc-config"
   const ipc_dir = path self ../..
@@ -126,7 +135,7 @@ export def get-base-config [
     ipc_src_dir: $ipc_dir
     docker_ipc_src_dir: "/fendermint/ipc"
     fendermint_image: $fendermint_image
-    setup_image: $"subnet-setup:(git rev-parse --short=7 HEAD)"
+    setup_image: $"subnet-setup:($local_commit)"
     network: $network
   }
 }

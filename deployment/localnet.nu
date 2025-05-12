@@ -62,8 +62,8 @@ def "main run" [
 
   let steps = [
     ...$build_fendermint_image
-    { name: "update_submodudles" fn: { git submodule update --init --recursive }}
     { name: "localnet_init" fn: { localnet init-state $workdir $fendermint_image}}
+    { name: "update_submodudles" fn: { git submodule update --init --recursive }}
     { name: "localnet_start_anvil" fn: {localnet run-anvil }}
     ...(steps get-create-subnet-steps $get_funds_step)
     { name: "localnet_run_node0_bootstrap" fn: {localnet run-localnet-node 0 $dc_repo $dc_branch --bootstrap}}
