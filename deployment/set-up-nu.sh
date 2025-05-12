@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 
 # This file downloads the required nushell version to ./.nu folder and adds it to the PATH.
-# Source this file.
 
 set +e
 
@@ -20,7 +19,10 @@ else
     tar xf nu.tgz
     mv nu-*/nu .
     rm -rf nu-* nu.tgz
-    export PATH=`pwd`:$PATH
+    echo "export PATH=$(pwd):\$PATH" > $nu_dir/activate.sh
+    source ./activate.sh
+
     echo "Nushell installed at $(which nu)"
     nu -c version
+    echo "Activate: source $nu_dir/activate.sh"
 fi
