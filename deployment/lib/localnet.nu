@@ -191,13 +191,11 @@ export def wait-for-cometbft [ ix: int ] {
 }
 
 # Create workdir and the config file
-export def init [
+export def init-state [
   workdir: string,
   fendermint_image: string,
   --parent-rpc-url: string = "http://localnet-anvil:8545",
   ] {
-
-  git submodule update --init --recursive
 
   let base_config = (get-base-config $workdir "localnet" $fendermint_image)
   let cfg = {
