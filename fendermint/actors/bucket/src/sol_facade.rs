@@ -268,7 +268,7 @@ impl AbiCall for sol::queryObjects_0Call {
     fn params(&self) -> Self::Params {
         let prefix = self.prefix.clone().into_bytes();
         let delimiter = self.delimiter.clone().into_bytes();
-        let start_key = if self.startKey.clone().is_empty() {
+        let start_key = if self.startKey.is_empty() {
             None
         } else {
             Some(self.startKey.clone().into_bytes())
@@ -296,7 +296,7 @@ impl AbiCall for sol::queryObjects_1Call {
     fn params(&self) -> Self::Params {
         let prefix = self.prefix.clone().into_bytes();
         let delimiter = self.delimiter.clone().into_bytes();
-        let start_key = if self.startKey.clone().is_empty() {
+        let start_key = if self.startKey.is_empty() {
             None
         } else {
             Some(self.startKey.clone().into_bytes())
