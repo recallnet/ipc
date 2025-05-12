@@ -7,7 +7,6 @@ use ./subnet.nu
 export def get-create-subnet-steps [get_funds_fn: closure] {
   [
     { name: "build_setup_image" fn: { local-files build-setup-docker-image} }
-    { name: "checkout_ipc_source" fn: { local-files checkout-ipc-source }}
     { name: "create_ipc_config" fn: { parent-chain write-ipc-cli-config }}
 
     { name: "create_supply_source_owner_key" fn: { util create-wallet "supply_source_owner"} }

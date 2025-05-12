@@ -195,10 +195,11 @@ export def init [
   workdir: string,
   fendermint_image: string,
   --parent-rpc-url: string = "http://localnet-anvil:8545",
-  --ipc-commit: string,
   ] {
 
-  let base_config = (get-base-config $workdir "localnet" $fendermint_image --ipc-commit $ipc_commit)
+  git submodule update --init --recursive
+
+  let base_config = (get-base-config $workdir "localnet" $fendermint_image)
   let cfg = {
     bottomup_check_period: 10
     docker_network: "recall-localnet"

@@ -115,7 +115,6 @@ export def get-base-config [
   workdir: string,
   network: string, # one of "localnet", "testnet"
   fendermint_image: string,
-  --ipc-commit: string,
 ] {
   if ($workdir | path exists) {
     print $"ERROR: workdir '($workdir)' already exists"
@@ -125,7 +124,6 @@ export def get-base-config [
 
   let wd = ($workdir | path expand)
   let ic = ($wd | path join "ipc-config")
-  let ipc_commit = ($ipc_commit | default ($fendermint_image | str replace -r '.*sha-' ''))
   {
     workdir: $wd
     ipc_config_dir: $ic
@@ -133,8 +131,7 @@ export def get-base-config [
     ipc_src_dir: $"($wd)-ipc"
     docker_ipc_src_dir: "/fendermint/ipc"
     fendermint_image: $fendermint_image
-    setup_image: $"subnet-setup:($ipc_commit)"
-    ipc_commit: $ipc_commit
+    setup_image: $"subnet-setup:(git rev-parse --short=7 HEAD)"
     network: $network
   }
 }

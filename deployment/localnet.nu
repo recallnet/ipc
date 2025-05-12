@@ -18,13 +18,13 @@ def "main stop" [] {
 }
 
 def "main run" [
-  fendermint_image: string,
+  --fendermint-image: string = "fendermint",
   --workdir: string = "./localnet-data",
-  --ipc-commit: string, # recallnet/ipc commit to run the subnet for, if not provided, it tries to extract from the fendermint image tag
   --node-count: int = 2, # how many nodes to run
   --dc-repo: string = "https://github.com/recallnet/recall-docker-compose.git", # recall-docker-compose repo to clone
   --dc-branch: string = "main", # recall-docker-compose branch
-  --reset,
+  --rebuild-image, # rebuild local fendermint image if --fendermint-image=fendermint, no effect otherwise
+  --reset, # delete previous data
   ] {
 
   if $reset {
@@ -34,6 +34,9 @@ def "main run" [
   let all_node_indexes = (0..($node_count - 1) | each {$in})
   let additional_node_indexes = ($all_node_indexes | skip 1)
 
+  let build_fendermint_image = (if $rebuild_image and $fendermint_image == "fendermint" {[
+    { name: "build_fendermint_image" fn: { local-files build-fendermint-image } }
+  ]} else [])
   let bootstrap_additional_nodes = ($additional_node_indexes | each { |ix| [
     { name: $"localnet_node($ix)_create_wallet" fn: { util create-wallet $"validator($ix)"} }
     ...(steps prepare-validator $"validator($ix)" 2e18)
@@ -58,7 +61,8 @@ def "main run" [
   ]
 
   let steps = [
-    { name: "localnet_init" fn: { localnet init $workdir $fendermint_image --ipc-commit $ipc_commit}}
+    ...$build_fendermint_image
+    { name: "localnet_init" fn: { localnet init $workdir $fendermint_image}}
     { name: "localnet_start_anvil" fn: {localnet run-anvil }}
     ...(steps get-create-subnet-steps $get_funds_step)
     { name: "localnet_run_node0_bootstrap" fn: {localnet run-localnet-node 0 $dc_repo $dc_branch --bootstrap}}
@@ -75,21 +79,25 @@ def "main run" [
 
 def "main create-docker-image" [
   --workdir: string = "./localnet-data",
-  fendermint_image: string,
-  --ipc-commit: string, # recallnet/ipc commit to run the subnet for, if not provided, it tries to extract from the fendermint image tag
+  --fendermint-image: string = "fendermint",
   --node-count: int = 2, # how many nodes to run
   --dc-repo: string = "https://github.com/recallnet/recall-docker-compose.git", # recall-docker-compose repo to clone
   --dc-branch: string = "main", # recall-docker-compose branch
-  --reset,
-] {
-  if $reset {
-    reset $workdir
-  }
-
+  --rebuild-image, # rebuild local fendermint image if --fendermint-image=fendermint, no effect otherwise
+  --reset, # delete previous data
+  ] {
   let shutdown_steps = (($node_count - 1)..0 | each { |ix| { name: $"docker_image_stop_localnet_($ix)" fn: {localnet stop-node $ix}} })
 
   let steps = [
-    { name: "docker_image_start_localnet" fn: {main run $fendermint_image --workdir $workdir --ipc-commit $ipc_commit --node-count $node_count --dc-repo $dc_repo --dc-branch $dc_branch} }
+    { name: "docker_image_start_localnet" fn: {(main run
+      --fendermint-image $fendermint_image
+      --workdir $workdir
+      --node-count $node_count
+      --dc-repo $dc_repo
+      --dc-branch $dc_branch
+      --rebuild-image=$rebuild_image
+      --reset=$reset
+    )} }
     ...$shutdown_steps
     { name: "docker_image_stop_anvil" fn: {localnet stop-anvil}}
     { name: "docker_image_build" fn: {localnet build-dind-image}}
@@ -107,13 +115,13 @@ def reset [workdir: string] {
 # Kill all containers of the node
 def "main kill-node" [
   ix: int, # Index of the node to kill
-] {
+  ] {
   docker ps --format json | lines | each {from json} | where Names =~ $"localnet-node-($ix)" | each {docker rm -f $in.ID}
 }
 
 def "main reset-node" [
   ix: int, # Index of the node to reset
-] {
+  ] {
   main kill-node $ix
   cd $"localnet-data/node-($ix)"
   rm -r workdir

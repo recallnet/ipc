@@ -14,19 +14,6 @@ export def add-subnet-to-ipc-config [] {
   save -f $env.state.config.ipc_config_file
 }
 
-export def checkout-ipc-source [] {
-  if ($env.state.config.ipc_src_dir | path exists) {
-    git -C $env.state.config.ipc_src_dir fetch
-  } else {
-    git clone https://github.com/recallnet/ipc.git $env.state.config.ipc_src_dir
-  }
-  cd $env.state.config.ipc_src_dir
-  git checkout $env.state.config.ipc_commit
-  git submodule update --init --recursive recall-contracts
-  git checkout -f
-  git clean -fd
-}
-
 export def write-subnet-config [dest: string, --bootstrap] {
   mut cfg = {
     address_network: "testnet"
@@ -78,6 +65,13 @@ export def build-setup-docker-image [] {
     -t $env.state.config.setup_image
     -f subnet-setup.Dockerfile .
   ]
+}
+
+export def build-fendermint-image [] {
+  if $env.state.config.fendermint_image == "fendermint" {
+    cd ../fendermint
+    make docker-build
+  }
 }
 
 export def set-fendermint-image [docker_compose_dir: string] {
