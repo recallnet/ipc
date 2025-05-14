@@ -1,0 +1,97 @@
+name: Build and Publish Localnet Image
+on:
+  # TEST ONLY
+  push:
+    branches: [ alexei/localnet-script ]
+
+  # runs on non-main branches where the fendermint image must be built locally
+  pull_request:
+
+  # runs on main branch after the fendermint image has been published
+  workflow_call:
+
+jobs:
+  build-image:
+    runs-on: self-hosted
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_PASSWORD }}
+
+      - name: Install Nushell
+        run: |
+          ./deployment/set-up-nu.sh
+          mv ./deployment/.nu/nu /usr/local/bin
+
+      - name: Get Fendermint image tag
+        id: fendermint_tag
+        run: |
+          # Check for input from manual workflow dispatch first
+          if [ -n "${{ github.event.inputs.fendermint-sha }}" ]; then
+            echo "Using SHA from workflow_dispatch input."
+            echo "FENDERMINT_TAG=sha-${{ github.event.inputs.fendermint-sha }}" >> $GITHUB_OUTPUT
+
+          # Then check for client_payload from repository_dispatch
+          elif [ -n "${{ github.event.client_payload.fendermint-sha }}" ]; then
+            echo "Using SHA from repository_dispatch payload."
+            echo "FENDERMINT_TAG=sha-${{ github.event.client_payload.fendermint-sha }}" >> $GITHUB_OUTPUT
+
+          # Fall back to Docker Hub for push events or when neither input is provided
+          else
+            echo "Fendermint SHA not provided. Using latest image tag from Docker Hub."
+            NEWEST_TAG=$(curl -s "https://hub.docker.com/v2/repositories/textile/fendermint/tags" | jq -r '.results | sort_by(.last_updated) | reverse | .[0].name')
+            echo "FENDERMINT_TAG=$NEWEST_TAG" >> $GITHUB_OUTPUT
+          fi
+          echo "Fendermint image tag: ${{ steps.fendermint_tag.outputs.FENDERMINT_TAG }}"
+
+      - name: Build Localnet Image
+        working-directory: ./deployment
+        run: |
+          set -eux
+
+          if [ "${{ github.ref }}" == "main" ]; then
+            flags="textile/fendermint:sha-$(git rev-parse --short=7 HEAD)"
+          else
+            flags="--rebuild-image"
+          fi
+
+          # Build as root to avoid permission issues
+          sudo -E ./localnet.nu create-docker-image $flags --node-count 2
+
+      - name: Push Localnet Image
+        if: ${{ github.ref == 'refs/heads/main' }}
+        run: |
+          IMAGE_NAME="textile/recall-localnet"
+          SHA_TAG=$(echo ${{ github.SHA }} | head -c 7)
+          IMAGE_TAG="${{ steps.fendermint_tag.outputs.FENDERMINT_TAG }}-$SHA_TAG"
+
+          # Tag the architecture-specific images
+          docker tag recall-localnet:amd64 "$IMAGE_NAME:$IMAGE_TAG-amd64"
+          docker tag recall-localnet:arm64 "$IMAGE_NAME:$IMAGE_TAG-arm64"
+          docker tag recall-localnet:amd64 "$IMAGE_NAME:latest-amd64"
+          docker tag recall-localnet:arm64 "$IMAGE_NAME:latest-arm64"
+
+          # Push all tags
+          docker push "$IMAGE_NAME:$IMAGE_TAG-amd64"
+          docker push "$IMAGE_NAME:$IMAGE_TAG-arm64"
+          docker push "$IMAGE_NAME:latest-amd64"
+          docker push "$IMAGE_NAME:latest-arm64"
+
+          # Create and push manifest lists
+          docker manifest create "$IMAGE_NAME:$IMAGE_TAG" \
+            "$IMAGE_NAME:$IMAGE_TAG-amd64" \
+            "$IMAGE_NAME:$IMAGE_TAG-arm64"
+          docker manifest push "$IMAGE_NAME:$IMAGE_TAG"
+
+          docker manifest create "$IMAGE_NAME:latest" \
+            "$IMAGE_NAME:latest-amd64" \
+            "$IMAGE_NAME:latest-arm64"
+          docker manifest push "$IMAGE_NAME:latest"
