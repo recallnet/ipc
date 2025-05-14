@@ -1,8 +1,9 @@
-name: Build and Publish Localnet Image
+name: Build Localnet Image
 on:
   # TEST ONLY
   push:
-    branches: [ alexei/localnet-script ]
+    branches:
+      - alexei/localnet-scripts
 
   # Runs on non-main branches where the fendermint image must be built locally
   pull_request:
