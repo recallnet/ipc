@@ -4,7 +4,7 @@ on:
   push:
     branches: [ alexei/localnet-script ]
 
-  # runs on non-main branches where the fendermint image must be built locally
+  # Runs on non-main branches where the fendermint image must be built locally
   pull_request:
 
   # runs on main branch after the fendermint image has been published
@@ -28,36 +28,16 @@ jobs:
 
       - name: Install Nushell
         run: |
+          set -e
           ./deployment/set-up-nu.sh
           mv ./deployment/.nu/nu /usr/local/bin
-
-      - name: Get Fendermint image tag
-        id: fendermint_tag
-        run: |
-          # Check for input from manual workflow dispatch first
-          if [ -n "${{ github.event.inputs.fendermint-sha }}" ]; then
-            echo "Using SHA from workflow_dispatch input."
-            echo "FENDERMINT_TAG=sha-${{ github.event.inputs.fendermint-sha }}" >> $GITHUB_OUTPUT
-
-          # Then check for client_payload from repository_dispatch
-          elif [ -n "${{ github.event.client_payload.fendermint-sha }}" ]; then
-            echo "Using SHA from repository_dispatch payload."
-            echo "FENDERMINT_TAG=sha-${{ github.event.client_payload.fendermint-sha }}" >> $GITHUB_OUTPUT
-
-          # Fall back to Docker Hub for push events or when neither input is provided
-          else
-            echo "Fendermint SHA not provided. Using latest image tag from Docker Hub."
-            NEWEST_TAG=$(curl -s "https://hub.docker.com/v2/repositories/textile/fendermint/tags" | jq -r '.results | sort_by(.last_updated) | reverse | .[0].name')
-            echo "FENDERMINT_TAG=$NEWEST_TAG" >> $GITHUB_OUTPUT
-          fi
-          echo "Fendermint image tag: ${{ steps.fendermint_tag.outputs.FENDERMINT_TAG }}"
 
       - name: Build Localnet Image
         working-directory: ./deployment
         run: |
           set -eux
 
-          if [ "${{ github.ref }}" == "main" ]; then
+          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
             flags="textile/fendermint:sha-$(git rev-parse --short=7 HEAD)"
           else
             flags="--rebuild-image"
