@@ -40,9 +40,9 @@ jobs:
           export PATH=$PWD/.nu:$PATH
 
           if [ "${{ github.ref }}" == "refs/heads/main" ]; then
-            flags="textile/fendermint:sha-$(git rev-parse --short=7 HEAD)"
+            flags="--fendermint-image textile/fendermint:sha-$(git rev-parse --short=7 HEAD)"
           else
-            flags="textile/fendermint:sha-a72edb8"
+            flags="--fendermint-image textile/fendermint:sha-a72edb8"
             # flags="--rebuild-image"
           fi
 
