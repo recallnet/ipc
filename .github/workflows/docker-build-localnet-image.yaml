@@ -37,7 +37,7 @@ jobs:
         run: |
           set -eux
 
-          export PATH=$PWD/deployment/.nu:$PATH
+          export PATH=$PWD/.nu:$PATH
 
           if [ "${{ github.ref }}" == "refs/heads/main" ]; then
             flags="textile/fendermint:sha-$(git rev-parse --short=7 HEAD)"
