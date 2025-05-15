@@ -135,6 +135,7 @@ export def run-anvil [] {
   }
   docker run ...[
     --rm -d
+    -u $"(id -u):(id -g)"
     --name localnet-anvil
     -p 127.0.0.1:8545:8545
     --network recall-localnet
