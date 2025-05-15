@@ -46,7 +46,8 @@ jobs:
           fi
 
           # Build as root to avoid permission issues
-          sudo -E ./localnet.nu create-docker-image $flags --node-count 2
+          # sudo -E ./localnet.nu create-docker-image $flags --node-count 2
+          ./localnet.nu create-docker-image $flags --node-count 2
 
       - name: Push Localnet Image
         if: ${{ github.ref == 'refs/heads/main' }}
