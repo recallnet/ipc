@@ -18,9 +18,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # - name: Set up QEMU
-      #   uses: docker/setup-qemu-action@v3
-
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
@@ -42,15 +39,13 @@ jobs:
           if [ "${{ github.ref }}" == "refs/heads/main" ]; then
             flags="--fendermint-image textile/fendermint:sha-$(git rev-parse --short=7 HEAD)"
           else
-            flags="--fendermint-image textile/fendermint:sha-a72edb8"
-            # flags="--rebuild-image"
+            flags="--rebuild-image"
           fi
 
-          # Build as root to avoid permission issues
-          # sudo -E ./localnet.nu create-docker-image $flags --node-count 2
+          ./localnet.nu create-docker-image $flags --node-count 2
 
-
-          SKIP_COMMIT_MATCH_CHECK=true ./localnet.nu create-docker-image $flags --node-count 2 --dc-branch alexei/run-as-non-root
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
 
       - name: Push Localnet Image
         if: ${{ github.ref == 'refs/heads/main' }}
