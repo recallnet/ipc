@@ -39,7 +39,7 @@ jobs:
           if [ "${{ github.ref }}" == "refs/heads/main" ]; then
             flags="--fendermint-image textile/fendermint:sha-$(git rev-parse --short=7 HEAD)"
           else
-            flags="--rebuild-image"
+            flags="--rebuild-fendermint-image"
           fi
 
           ./localnet.nu create-docker-image $flags --node-count 2

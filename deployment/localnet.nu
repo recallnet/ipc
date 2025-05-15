@@ -23,7 +23,7 @@ def "main run" [
   --node-count: int = 2, # how many nodes to run
   --dc-repo: string = "https://github.com/recallnet/recall-docker-compose.git", # recall-docker-compose repo to clone
   --dc-branch: string = "main", # recall-docker-compose branch
-  --rebuild-image, # rebuild local fendermint image if --fendermint-image=fendermint, no effect otherwise
+  --rebuild-fendermint-image, # rebuild local fendermint image if --fendermint-image=fendermint, no effect otherwise
   --reset, # delete previous data
   ] {
 
@@ -34,7 +34,7 @@ def "main run" [
   let all_node_indexes = (0..($node_count - 1) | each {$in})
   let additional_node_indexes = ($all_node_indexes | skip 1)
 
-  let build_fendermint_image = (if $rebuild_image and $fendermint_image == "fendermint" {[
+  let build_fendermint_image = (if $rebuild_fendermint_image and $fendermint_image == "fendermint" {[
     { name: "build_fendermint_image" fn: { local-files build-fendermint-image } }
   ]} else [])
   let bootstrap_additional_nodes = ($additional_node_indexes | each { |ix| [
@@ -62,8 +62,8 @@ def "main run" [
 
   let steps = [
     { name: "localnet_init" fn: { localnet init-state $workdir $fendermint_image}}
-    ...$build_fendermint_image
     { name: "update_submodudles" fn: { git submodule update --init --recursive }}
+    ...$build_fendermint_image
     { name: "localnet_start_anvil" fn: {localnet run-anvil }}
     ...(steps get-create-subnet-steps $get_funds_step)
     { name: "localnet_run_node0_bootstrap" fn: {localnet run-localnet-node 0 $dc_repo $dc_branch --bootstrap}}
@@ -84,7 +84,7 @@ def "main create-docker-image" [
   --node-count: int = 2, # how many nodes to run
   --dc-repo: string = "https://github.com/recallnet/recall-docker-compose.git", # recall-docker-compose repo to clone
   --dc-branch: string = "main", # recall-docker-compose branch
-  --rebuild-image, # rebuild local fendermint image if --fendermint-image=fendermint, no effect otherwise
+  --rebuild-fendermint-image, # rebuild local fendermint image if --fendermint-image=fendermint, no effect otherwise
   --reset, # delete previous data
   ] {
   if $reset { reset $workdir }
@@ -98,7 +98,7 @@ def "main create-docker-image" [
       --node-count $node_count
       --dc-repo $dc_repo
       --dc-branch $dc_branch
-      --rebuild-image=$rebuild_image
+      --rebuild-fendermint-image=$rebuild_fendermint_image
     )} }
     ...$shutdown_steps
     { name: "docker_image_stop_anvil" fn: {localnet stop-anvil}}
