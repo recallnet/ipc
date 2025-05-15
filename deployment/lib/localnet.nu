@@ -148,7 +148,7 @@ export def stop-anvil [] {
   docker stop localnet-anvil
 }
 
-export def build-dind-image [local_image_tag: string, push_multi_arch_tags: string] {
+export def build-dind-image [local_image_tag: any, push_multi_arch_tags: any] {
   let found = (docker buildx ls | lines | find "multi-arch-builder" | length)
   if $found == 0 {
     docker buildx create --name multi-arch-builder --driver docker-container
