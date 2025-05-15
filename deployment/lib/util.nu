@@ -15,7 +15,7 @@ export def run-in-container [...args, --denv: record] {
     ...($denv | default {} | items {|k,v| ['-e' $"($k)=($v)"]} | flatten)
 
     # Run as a current user to avoid git's dubious ownership error
-    -u (id -u)
+    -u $"(id -u):(id -g)"
 
     # forge clean tries to write HOME (/fendermint) that is ownwed by root.
     -e "HOME=/tmp/builder"
