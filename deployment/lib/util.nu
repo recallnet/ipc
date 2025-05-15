@@ -120,8 +120,10 @@ export def get-base-config [
   if ($fendermint_image | str contains "sha-") {
     let fendermint_commit = $fendermint_image | str replace -r ".*sha-" ""
     if $local_commit != $fendermint_commit {
-      print $"ERROR: local commit ($local_commit) does not match fendermint image ($fendermint_image)"
-      exit 1
+      if ($env.SKIP_COMMIT_MATCH_CHECK? | is-empty) {
+        print $"ERROR: local commit ($local_commit) does not match fendermint image ($fendermint_image)"
+        exit 1
+      }
     }
   }
 
