@@ -87,6 +87,8 @@ def "main create-docker-image" [
   --rebuild-image, # rebuild local fendermint image if --fendermint-image=fendermint, no effect otherwise
   --reset, # delete previous data
   ] {
+  if $reset { reset $workdir }
+
   let shutdown_steps = (($node_count - 1)..0 | each { |ix| { name: $"docker_image_stop_localnet_($ix)" fn: {localnet stop-node $ix}} })
 
   let steps = [
@@ -97,7 +99,6 @@ def "main create-docker-image" [
       --dc-repo $dc_repo
       --dc-branch $dc_branch
       --rebuild-image=$rebuild_image
-      --reset=$reset
     )} }
     ...$shutdown_steps
     { name: "docker_image_stop_anvil" fn: {localnet stop-anvil}}
