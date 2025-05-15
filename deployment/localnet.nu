@@ -81,10 +81,12 @@ def "main run" [
 def "main create-docker-image" [
   --workdir: string = "./localnet-data",
   --fendermint-image: string = "fendermint",
+  --rebuild-fendermint-image, # rebuild local fendermint image if --fendermint-image=fendermint, no effect otherwise
   --node-count: int = 2, # how many nodes to run
   --dc-repo: string = "https://github.com/recallnet/recall-docker-compose.git", # recall-docker-compose repo to clone
   --dc-branch: string = "main", # recall-docker-compose branch
-  --rebuild-fendermint-image, # rebuild local fendermint image if --fendermint-image=fendermint, no effect otherwise
+  --local-image-tag: string, # build a local image with the given tag
+  --push-multi-arch-tags: string, # a comma separated list of tags. If not empty, build a multi-arch image and push it to the registry.
   --reset, # delete previous data
   ] {
   if $reset { reset $workdir }
@@ -102,7 +104,7 @@ def "main create-docker-image" [
     )} }
     ...$shutdown_steps
     { name: "docker_image_stop_anvil" fn: {localnet stop-anvil}}
-    { name: "docker_image_build" fn: {localnet build-dind-image}}
+    { name: "docker_image_build" fn: {localnet build-dind-image $local_image_tag $push_multi_arch_tags }}
   ]
 
   state-engine run $workdir $steps --log-prefix "create-docker-image"

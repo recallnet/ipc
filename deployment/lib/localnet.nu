@@ -148,14 +148,20 @@ export def stop-anvil [] {
   docker stop localnet-anvil
 }
 
-export def build-dind-image [] {
+export def build-dind-image [local_image_tag: string, push_multi_arch_tags: string] {
   let found = (docker buildx ls | lines | find "multi-arch-builder" | length)
   if $found == 0 {
     docker buildx create --name multi-arch-builder --driver docker-container
   }
-  # Cannot use --load for multi-arch builds, so we build and load for each arch separately.
-  docker buildx build --builder=multi-arch-builder --platform linux/amd64 --load -t recall-localnet:amd64 -f docker/localnet.Dockerfile .
-  docker buildx build --builder=multi-arch-builder --platform linux/arm64 --load -t recall-localnet:arm64 -f docker/localnet.Dockerfile .
+
+  if ($local_image_tag | is-not-empty) {
+    docker buildx build -t $local_image_tag -f docker/localnet.Dockerfile .
+  }
+
+  if ($push_multi_arch_tags | is-not-empty) {
+    let tags = $push_multi_arch_tags | split row ',' | each {|tag| [-t $tag]} | flatten
+    docker buildx build --builder=multi-arch-builder --platform linux/amd64,linux/arm64 --push ...$tags -f docker/localnet.Dockerfile .
+  }
 }
 
 export def wait-for-sync [ ix: int ] {
