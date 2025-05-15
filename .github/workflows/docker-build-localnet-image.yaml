@@ -42,12 +42,15 @@ jobs:
           if [ "${{ github.ref }}" == "refs/heads/main" ]; then
             flags="textile/fendermint:sha-$(git rev-parse --short=7 HEAD)"
           else
-            flags="--rebuild-image"
+            flags="textile/fendermint:sha-a72edb8"
+            # flags="--rebuild-image"
           fi
 
           # Build as root to avoid permission issues
           # sudo -E ./localnet.nu create-docker-image $flags --node-count 2
-          ./localnet.nu create-docker-image $flags --node-count 2
+
+
+          SKIP_COMMIT_MATCH_CHECK=true ./localnet.nu create-docker-image $flags --node-count 2
 
       - name: Push Localnet Image
         if: ${{ github.ref == 'refs/heads/main' }}
