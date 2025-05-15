@@ -13,6 +13,14 @@ export def run-in-container [...args, --denv: record] {
     -v $"($cfg.ipc_src_dir):/fendermint/ipc"
     ...(if ("docker_network" in $cfg) { [--network $cfg.docker_network] } else {[]})
     ...($denv | default {} | items {|k,v| ['-e' $"($k)=($v)"]} | flatten)
+
+    # Run as a current user to avoid git's dubious ownership error
+    -u (id -u)
+
+    # forge clean tries to write HOME (/fendermint) that is ownwed by root.
+    -e "HOME=/tmp/builder"
+    -e "IPC_CLI_CONFIG_PATH=/fendermint/.ipc/config.toml"
+
     $cfg.setup_image
     -c ($args | str join ' ')
   ]
