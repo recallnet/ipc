@@ -45,37 +45,3 @@ jobs:
 
           flags="--fendermint-image textile/fendermint:sha-a72edb8 --push-multi-arch-tags textile/recall-localnet:alx-test3"
           SKIP_COMMIT_MATCH_CHECK=true ./localnet.nu create-docker-image $flags --node-count 2
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-        if: ${{ github.ref == 'refs/heads/main' }}
-
-      - name: Push Localnet Image
-        if: ${{ github.ref == 'refs/heads/main' }}
-        run: |
-          IMAGE_NAME="textile/recall-localnet"
-          SHA_TAG=$(echo ${{ github.SHA }} | head -c 7)
-          IMAGE_TAG="${{ steps.fendermint_tag.outputs.FENDERMINT_TAG }}-$SHA_TAG"
-
-          # Tag the architecture-specific images
-          docker tag recall-localnet:amd64 "$IMAGE_NAME:$IMAGE_TAG-amd64"
-          docker tag recall-localnet:arm64 "$IMAGE_NAME:$IMAGE_TAG-arm64"
-          docker tag recall-localnet:amd64 "$IMAGE_NAME:latest-amd64"
-          docker tag recall-localnet:arm64 "$IMAGE_NAME:latest-arm64"
-
-          # Push all tags
-          docker push "$IMAGE_NAME:$IMAGE_TAG-amd64"
-          docker push "$IMAGE_NAME:$IMAGE_TAG-arm64"
-          docker push "$IMAGE_NAME:latest-amd64"
-          docker push "$IMAGE_NAME:latest-arm64"
-
-          # Create and push manifest lists
-          docker manifest create "$IMAGE_NAME:$IMAGE_TAG" \
-            "$IMAGE_NAME:$IMAGE_TAG-amd64" \
-            "$IMAGE_NAME:$IMAGE_TAG-arm64"
-          docker manifest push "$IMAGE_NAME:$IMAGE_TAG"
-
-          docker manifest create "$IMAGE_NAME:latest" \
-            "$IMAGE_NAME:latest-amd64" \
-            "$IMAGE_NAME:latest-arm64"
-          docker manifest push "$IMAGE_NAME:latest"
