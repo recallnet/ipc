@@ -145,7 +145,16 @@ export def run-anvil [] {
 }
 
 export def stop-anvil [] {
+  # We want a graceful stop so that anvil can dump all its state to the state file.
+  # Without this wait anvil can hang on termination.
+  sleep 1sec
   docker stop localnet-anvil
+
+  # Verify the state file was created
+  if not ( $env.state.config.workdir | path join "anvil/state" | path exists) {
+    print "ERROR: anvil failed to dump its state"
+    exit 5
+  }
 }
 
 export def build-dind-image [local_image_tag: any, push_multi_arch_tags: any] {

@@ -25,16 +25,14 @@ jobs:
           password: ${{ secrets.DOCKER_HUB_PASSWORD }}
 
       - name: Install Nushell
-        run: |
-          set -e
-          ./deployment/set-up-nu.sh
+        run: ./deployment/set-up-nu.sh
 
       - name: Build Localnet Image
         working-directory: ./deployment
         run: |
           set -eux
 
-          export PATH=$PWD/.nu:$PATH
+          source ./.nu/activate.sh
 
           if [ "${{ github.ref }}" == "refs/heads/main" ]; then
             hash=$(git rev-parse --short=7 HEAD)
