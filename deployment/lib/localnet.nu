@@ -154,13 +154,17 @@ export def build-dind-image [local_image_tag: any, push_multi_arch_tags: any] {
     docker buildx create --name multi-arch-builder --driver docker-container
   }
 
-  if ($local_image_tag | is-not-empty) {
-    docker buildx build -t $local_image_tag -f docker/localnet.Dockerfile .
+  def build-local [tag:string] {
+    docker buildx build -t $tag --load -f docker/localnet.Dockerfile .
   }
 
-  if ($push_multi_arch_tags | is-not-empty) {
+  if ($local_image_tag | is-not-empty) {
+    build-local $local_image_tag
+  } else if ($push_multi_arch_tags | is-not-empty) {
     let tags = $push_multi_arch_tags | split row ',' | each {|tag| [-t $tag]} | flatten
     docker buildx build --builder=multi-arch-builder --platform linux/amd64,linux/arm64 --push ...$tags -f docker/localnet.Dockerfile .
+  } else {
+    build-local recall-localnet
   }
 }
 

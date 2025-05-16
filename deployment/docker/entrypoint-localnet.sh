@@ -35,7 +35,6 @@ cd localnet-data
 for d in node-*; do
   (
     cd $d/workdir
-    chown -R nobody ./prometheus
     docker compose up -d
   )
 done
