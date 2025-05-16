@@ -10,4 +10,4 @@ RUN set -x; \
 RUN mkdir -p /workdir
 WORKDIR /workdir
 
-CMD anvil --host 0.0.0.0 --state /workdir/state
+ENTRYPOINT ["anvil", "--host", "0.0.0.0", "--state", "/workdir/state"]
