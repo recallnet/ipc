@@ -43,7 +43,7 @@ jobs:
             flags="--rebuild-fendermint-image --local-image-tag recall-localnet"
           fi
 
-          flags="--fendermint-image textile/fendermint:sha-a72edb8 --push-multi-arch-tags textile/recall-localnet:alx-test,textile/recall-localnet:alx-test2 --dc-branch alexei/configurable-user-id"
+          flags="--fendermint-image textile/fendermint:sha-a72edb8 --push-multi-arch-tags textile/recall-localnet:alx-test3"
           SKIP_COMMIT_MATCH_CHECK=true ./localnet.nu create-docker-image $flags --node-count 2
 
       - name: Set up QEMU

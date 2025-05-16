@@ -29,7 +29,7 @@ done
 
 docker build -t anvil -f ./docker/anvil-dind.Dockerfile ./docker
 docker network create recall-localnet || true
-docker run --rm --name localnet-anvil -d --network recall-localnet -p 0.0.0.0:8545:8545 -v /workdir/localnet-data/anvil:/workdir anvil
+docker run --rm --name localnet-anvil -u nobody -d --network recall-localnet -p 0.0.0.0:8545:8545 -v /workdir/localnet-data/anvil:/workdir anvil
 
 cd localnet-data
 for d in node-*; do
