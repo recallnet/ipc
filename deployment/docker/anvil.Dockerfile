@@ -10,4 +10,4 @@ RUN set -x; \
 RUN mkdir -p /workdir
 WORKDIR /workdir
 
-CMD anvil --host 0.0.0.0 --dump-state /workdir/state
+CMD anvil --host 0.0.0.0 --state /workdir/state
