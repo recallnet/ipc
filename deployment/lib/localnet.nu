@@ -152,8 +152,6 @@ export def stop-anvil [] {
   sleep 1sec
   docker stop localnet-anvil
 
-  ^ls -la $env.state.config.workdir | print
-
   # Verify the state file was created
   if not ( $env.state.config.workdir | path join "anvil/state" | path exists) {
     print "ERROR: anvil failed to dump its state"
