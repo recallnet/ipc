@@ -133,13 +133,15 @@ export def run-anvil [] {
   if $found == 0 {
     docker network create recall-localnet
   }
+  let anvil_dir = $"($env.state.config.workdir)/anvil"
+  mkdir $anvil_dir
   docker run ...[
     --rm -d
     -u $"(id -u):(id -g)"
     --name localnet-anvil
     -p 127.0.0.1:8545:8545
     --network recall-localnet
-    -v $"($env.state.config.workdir)/anvil:/workdir"
+    -v $"($anvil_dir):/workdir"
     anvil
   ]
 }
@@ -149,6 +151,8 @@ export def stop-anvil [] {
   # Without this wait anvil can hang on termination.
   sleep 1sec
   docker stop localnet-anvil
+
+  ^ls -la $env.state.config.workdir | print
 
   # Verify the state file was created
   if not ( $env.state.config.workdir | path join "anvil/state" | path exists) {

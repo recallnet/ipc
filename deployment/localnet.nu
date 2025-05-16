@@ -62,17 +62,17 @@ def "main run" [
 
   let steps = [
     { name: "localnet_init" fn: { localnet init-state $workdir $fendermint_image}}
-    { name: "update_submodudles" fn: { git submodule update --init --recursive }}
-    ...$build_fendermint_image
+    # { name: "update_submodudles" fn: { git submodule update --init --recursive }}
+    # ...$build_fendermint_image
     { name: "localnet_start_anvil" fn: {localnet run-anvil }}
-    ...(steps get-create-subnet-steps $get_funds_step)
-    { name: "localnet_run_node0_bootstrap" fn: {localnet run-localnet-node 0 $dc_repo $dc_branch --bootstrap}}
-    { name: "localnet_node0_wait_for_cometbft" fn: { localnet wait-for-cometbft 0 }}
+    # ...(steps get-create-subnet-steps $get_funds_step)
+    # { name: "localnet_run_node0_bootstrap" fn: {localnet run-localnet-node 0 $dc_repo $dc_branch --bootstrap}}
+    # { name: "localnet_node0_wait_for_cometbft" fn: { localnet wait-for-cometbft 0 }}
 
-    ...$bootstrap_additional_nodes
-    ...(steps get-deploy-subnet-contracts-steps $set_up_contract_owner_steps)
+    # ...$bootstrap_additional_nodes
+    # ...(steps get-deploy-subnet-contracts-steps $set_up_contract_owner_steps)
 
-    ...$run_full_nodes
+    # ...$run_full_nodes
   ]
 
   state-engine run $workdir $steps --log-prefix "localnet"
@@ -102,9 +102,9 @@ def "main create-docker-image" [
       --dc-branch $dc_branch
       --rebuild-fendermint-image=$rebuild_fendermint_image
     )} }
-    ...$shutdown_steps
+    # ...$shutdown_steps
     { name: "docker_image_stop_anvil" fn: {localnet stop-anvil}}
-    { name: "docker_image_build" fn: {localnet build-dind-image $local_image_tag $push_multi_arch_tags }}
+    # { name: "docker_image_build" fn: {localnet build-dind-image $local_image_tag $push_multi_arch_tags }}
   ]
 
   state-engine run $workdir $steps --log-prefix "create-docker-image"
