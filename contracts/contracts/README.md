@@ -21,7 +21,7 @@ The IPC diamond code is based on the [diamond-1-hardhat](https://github.com/mudg
 
 The implementation uses the `AppStorage` pattern in facets and `Diamond Storage` in libraries.
 `GatewayActorStorage` and `SubnetActorStorage` are used within the `AppStorage` pattern.
-To be compatible with `ApStorage` and to be able to apply it, we are using the `LibReentrancyGuard` contract.
+To be compatible with `AppStorage` and to be able to apply it, we are using the `LibReentrancyGuard` contract.
 
 ## Getting Selectors
 
