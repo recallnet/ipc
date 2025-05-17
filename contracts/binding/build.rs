@@ -34,7 +34,7 @@ fn main() {
 
     // The list of actors we need bindings for, based on how the ipc-actor uses `abigen!`.
     // With the diamond pattern, there is a contract that holds state, and there are these facets which have the code,
-    // so we need bindings for the facets, but well (I think) use the same address with all of them.
+    // so we need bindings for the facets, but we'll (I think) use the same address for all of them.
     for contract_name in [
         "IDiamond",
         "DiamondLoupeFacet",
@@ -126,7 +126,7 @@ fn main() {
     //
     // sync the binding/src/lib.rs file to disk
     lib.sync_all().unwrap();
-    // then run rustfmt on the file (it should be available as its specifed in our toolchain
+    // then run rustfmt on the file (it should be available as its specified in our toolchain
     let mut proc = std::process::Command::new("rustfmt")
         .arg(lib_path)
         .spawn()
