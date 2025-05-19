@@ -100,8 +100,8 @@ def "main run-dind" [
   print $"export RECALL_NETWORK_CONFIG_FILE=($data_dir + "/networks.toml")"
 }
 
-# Creates a docker images containing all localnet services inside.
-def "main create-docker-image" [
+# Builds a docker image containing all localnet services inside.
+def "main build-docker-image" [
   --workdir: string = "./localnet-data",
   --fendermint-image: string = "fendermint",
   --rebuild-fendermint-image, # rebuild local fendermint image if --fendermint-image=fendermint, no effect otherwise
@@ -130,7 +130,7 @@ def "main create-docker-image" [
     { name: "docker_image_build" fn: {localnet build-dind-image $local_image_tag $push_multi_arch_tags }}
   ]
 
-  state-engine run $workdir $steps --log-prefix "create-docker-image"
+  state-engine run $workdir $steps --log-prefix "build-docker-image"
 }
 
 # Stops all localnet containers and deletes the data directory.

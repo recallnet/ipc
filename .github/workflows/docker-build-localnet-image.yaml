@@ -41,4 +41,4 @@ jobs:
             flags="--rebuild-fendermint-image --local-image-tag recall-localnet"
           fi
 
-          ./localnet.nu create-docker-image $flags --node-count 2
+          ./localnet.nu build-docker-image $flags --node-count 2
