@@ -69,8 +69,7 @@ export def build-setup-docker-image [] {
 
 export def build-fendermint-image [] {
   if $env.state.config.fendermint_image == "fendermint" {
-    cd ../fendermint
-    make docker-build
+    make -C ../fendermint docker-build
   }
 }
 
