@@ -109,7 +109,7 @@ def "main build-docker-image" [
   --dc-repo: string = "https://github.com/recallnet/recall-docker-compose.git", # recall-docker-compose repo to clone
   --dc-branch: string = "main", # recall-docker-compose branch
   --local-image-tag: string, # build a local image with the given tag
-  --push-multi-arch-tags: string, # a comma separated list of tags. If not empty, build a multi-arch image and push it to the registry.
+  --push-multi-arch-tags: string, # a comma separated list of tags (e.g. textile/recall-localnet:sha-1234567) to push to remote registry
   --reset, # delete previous data
   ] {
   if $reset { reset $workdir }
