@@ -13,10 +13,7 @@ const anvil0_pk = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f
 # See subcommands
 def main [] {}
 
-def "main stop" [] {
-  docker ps --format json | lines | each {from json} | where Names =~ $"localnet-" | each {docker rm -f $in.ID}
-}
-
+# Run all localnet services on the local docker.
 def "main run" [
   --fendermint-image: string = "fendermint",
   --workdir: string = "./localnet-data",
@@ -78,6 +75,32 @@ def "main run" [
   state-engine run $workdir $steps --log-prefix "localnet"
 }
 
+# Runs the entire localnet in a single container based on textile/recall-localnet.
+def "main run-dind" [
+  --tag: string = "latest", # tag for textile/recall-localnet
+  --data-dir: string = "./localnet-data", # where to store networks.toml and state.yml
+  ] {
+
+  docker run ...[
+    --rm -d --name localnet
+    -p 127.0.0.1:8545:8545
+    -p 127.0.0.1:8645:8645
+    -p 127.0.0.1:8001:8001
+    -p 127.0.0.1:26657:26657
+    --privileged
+    $"textile/recall-localnet:($tag)"
+  ]
+  print "Container localnet is running."
+
+  mkdir $data_dir
+  docker cp localnet:/workdir/localnet-data/networks.toml ($data_dir + "/networks.toml")
+  docker cp localnet:/workdir/localnet-data/state.yml ($data_dir + "/state.yml")
+  print "\nRun the folling lines to use with recall CLI:"
+  print "export RECALL_NETWORK=localnet"
+  print $"export RECALL_NETWORK_CONFIG_FILE=($data_dir + "/networks.toml")"
+}
+
+# Creates a docker images containing all localnet services inside.
 def "main create-docker-image" [
   --workdir: string = "./localnet-data",
   --fendermint-image: string = "fendermint",
@@ -110,19 +133,26 @@ def "main create-docker-image" [
   state-engine run $workdir $steps --log-prefix "create-docker-image"
 }
 
+# Stops all localnet containers and deletes the data directory.
 def reset [workdir: string] {
     print "resetting..."
-    docker ps --format json | lines | each {from json} | where Names =~ $"localnet-" | each {docker rm -f $in.ID}
+    main stop
     rm -rf $workdir
 }
 
-# Kill all containers of the node
+# Stops all localnet containers.
+def "main stop" [] {
+  docker ps --format json | lines | each {from json} | where Names =~ $"localnet-" | each {docker rm -f $in.ID}
+}
+
+# Kill all containers of the node.
 def "main kill-node" [
   ix: int, # Index of the node to kill
   ] {
   docker ps --format json | lines | each {from json} | where Names =~ $"localnet-node-($ix)" | each {docker rm -f $in.ID}
 }
 
+# Reset a single localnet node with a given index.
 def "main reset-node" [
   ix: int, # Index of the node to reset
   ] {
@@ -134,7 +164,7 @@ def "main reset-node" [
   docker compose up -d
 }
 
-# Get funds on subnet
+# Get funds on subnet.
 def "main get-funds" [address: string, amount: float] {
   let state = (open ./localnet-data/state.yml)
   cast send --private-key $state.faucet_owner.private_key -r http://localhost:8645 --value $amount $address
