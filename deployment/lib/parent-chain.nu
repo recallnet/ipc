@@ -232,6 +232,7 @@ export def deploy-validator-rewarder [] {
 export def "prepare-contract-stack-deployment" [] {
   run-in-container ...[
     "set -ex;"
+    $"rm -rf ($env.state.config.docker_ipc_src_dir)/node_modules;"
     cd $"($env.state.config.docker_ipc_src_dir)/contracts;"
     rm -rf "deployments;"
     "npm install;"
@@ -254,7 +255,6 @@ export def "deploy-contract-stack" [] {
   }
   let out = (run-in-container --denv $denv ...[
     "set -ex;"
-    $"rm -rf ($env.state.config.docker_ipc_src_dir)/node_modules;"
     cd $"($env.state.config.docker_ipc_src_dir)/contracts;"
     make deploy-stack $"NETWORK=($stack_network)"
     ] | tee {print} | lines)
