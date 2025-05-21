@@ -159,11 +159,11 @@ export def stop-anvil [] {
   }
 }
 
-export def stop-network [workdir: string, force: bool] {
+export def stop-network [workdir: string, --force] {
   if $force {
     docker ps -a --format json | lines | each {from json} | where Names =~ $"localnet-" | each {docker rm -f $in.ID}
   } else {
-    glob ($workdir + "/node-*") | reverse | par-each {|dir|
+    glob ($workdir + "/node-*") | reverse | each {|dir|
       cd ($dir | path join "workdir")
       docker compose down
     }

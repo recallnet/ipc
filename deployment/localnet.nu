@@ -132,23 +132,21 @@ def "main build-docker-image" [
   ] {
   if $reset { reset $workdir }
 
-  let shutdown_steps = (($node_count - 1)..0 | each { |ix| { name: $"docker_image_stop_localnet_($ix)" fn: {localnet stop-node $ix}} })
+  let state = state-engine read-state (util state-file $workdir)
 
-  let steps = [
-    { name: "docker_image_start_localnet" fn: {(main run
+  if not ($state.graceful_shutdown? | default false) {
+    (main run
       --fendermint-image $fendermint_image
       --workdir $workdir
       --node-count $node_count
       --dc-repo $dc_repo
       --dc-branch $dc_branch
       --rebuild-fendermint-image=$rebuild_fendermint_image
-    )} }
-    ...$shutdown_steps
-    { name: "docker_image_stop_anvil" fn: {localnet stop-anvil}}
-    { name: "docker_image_build" fn: {localnet build-dind-image $local_image_tag $push_multi_arch_tags }}
-  ]
+    )
+    localnet stop-network $workdir
+  }
 
-  state-engine run (util state-file $workdir) $steps --log-prefix "build-docker-image"
+  localnet build-dind-image $local_image_tag $push_multi_arch_tags
 }
 
 # Stop all localnet containers and deletes the data directory.
@@ -163,7 +161,7 @@ def "main stop" [
   --workdir: string = "./localnet-data",
   --force, # Force the removal of running containers
   ] {
-  localnet stop-network $workdir $force
+  localnet stop-network $workdir --force=$force
 }
 
 # Kill all containers of the node.
