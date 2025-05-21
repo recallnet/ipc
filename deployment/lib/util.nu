@@ -149,3 +149,5 @@ export def get-base-config [
     network: $network
   }
 }
+
+export def state-file [workdir: string] { $workdir | path join "state.yml" }

@@ -24,6 +24,8 @@ def "main run" [
   --reset, # delete previous data
   ] {
 
+  let workdir = $workdir | path expand
+
   if $reset {
     reset $workdir
   }
@@ -61,7 +63,7 @@ def "main run" [
     { name: "localnet_init" fn: { localnet init-state $workdir $fendermint_image}}
     { name: "update_submodules" fn: { git submodule update --init --recursive }}
     ...$build_fendermint_image
-    { name: "localnet_start_anvil" fn: {localnet run-anvil }}
+    { name: "localnet_start_anvil" fn: {localnet run-anvil $workdir}}
     ...(steps get-create-subnet-steps $get_funds_step)
     { name: "localnet_run_node0_bootstrap" fn: {localnet run-localnet-node 0 $dc_repo $dc_branch --bootstrap}}
     { name: "localnet_node0_wait_for_cometbft" fn: { localnet wait-for-cometbft 0 }}
@@ -72,13 +74,25 @@ def "main run" [
     ...$run_full_nodes
   ]
 
-  state-engine run $workdir $steps --log-prefix "localnet"
+  mkdir $workdir
+  let state_file = util state-file $workdir
+  if (state-engine read-state $state_file | get -i graceful_shutdown | default false) {
+    localnet run-anvil $workdir
+    glob ($workdir + "/node-*") | each {|dir|
+      cd ($dir | path join "workdir")
+      docker compose up -d
+    }
+    state-engine update-state $state_file { graceful_shutdown: false }
+  } else {
+    state-engine run $state_file $steps --log-prefix "localnet"
+  }
+  print-recall-envvars $workdir
 }
 
-# Runs the entire localnet in a single container based on textile/recall-localnet.
+# Run the entire localnet in a single container based on textile/recall-localnet.
 def "main run-dind" [
   --tag: string = "latest", # tag for textile/recall-localnet
-  --data-dir: string = "./localnet-data", # where to store networks.toml and state.yml
+  --workdir: string = "./localnet-data", # where to store networks.toml and state.yml
   ] {
 
   docker run ...[
@@ -92,15 +106,19 @@ def "main run-dind" [
   ]
   print "Container localnet is running."
 
-  mkdir $data_dir
-  docker cp localnet:/workdir/localnet-data/networks.toml ($data_dir + "/networks.toml")
-  docker cp localnet:/workdir/localnet-data/state.yml ($data_dir + "/state.yml")
-  print "\nRun the folling lines to use with recall CLI:"
-  print "export RECALL_NETWORK=localnet"
-  print $"export RECALL_NETWORK_CONFIG_FILE=($data_dir + "/networks.toml")"
+  mkdir $workdir
+  docker cp localnet:/workdir/localnet-data/networks.toml ($workdir + "/networks.toml")
+  docker cp localnet:/workdir/localnet-data/state.yml ($workdir + "/state.yml")
+  print-recall-envvars $workdir
 }
 
-# Builds a docker image containing all localnet services inside.
+def print-recall-envvars [workdir: string] {
+  print "\nRun the folling lines to use with recall CLI:"
+  print "export RECALL_NETWORK=localnet"
+  print $"export RECALL_NETWORK_CONFIG_FILE=($workdir + "/networks.toml")"
+}
+
+# Build a docker image containing all localnet services inside.
 def "main build-docker-image" [
   --workdir: string = "./localnet-data",
   --fendermint-image: string = "fendermint",
@@ -130,19 +148,22 @@ def "main build-docker-image" [
     { name: "docker_image_build" fn: {localnet build-dind-image $local_image_tag $push_multi_arch_tags }}
   ]
 
-  state-engine run $workdir $steps --log-prefix "build-docker-image"
+  state-engine run (util state-file $workdir) $steps --log-prefix "build-docker-image"
 }
 
-# Stops all localnet containers and deletes the data directory.
+# Stop all localnet containers and deletes the data directory.
 def reset [workdir: string] {
-    print "resetting..."
-    main stop
-    rm -rf $workdir
+  print "resetting..."
+  main stop --force
+  rm -rf $workdir
 }
 
-# Stops all localnet containers.
-def "main stop" [] {
-  docker ps --format json | lines | each {from json} | where Names =~ $"localnet-" | each {docker rm -f $in.ID}
+# Stop all localnet containers.
+def "main stop" [
+  --workdir: string = "./localnet-data",
+  --force, # Force the removal of running containers
+  ] {
+  localnet stop-network $workdir $force
 }
 
 # Kill all containers of the node.
@@ -165,7 +186,11 @@ def "main reset-node" [
 }
 
 # Get funds on subnet.
-def "main get-funds" [address: string, amount: float] {
-  let state = (open ./localnet-data/state.yml)
+def "main get-funds" [
+  address: string,
+  --amount: float = 5e18, # in wei units
+  --workdir: string = "./localnet-data",
+  ] {
+  let state = util state-file $workdir | open
   cast send --private-key $state.faucet_owner.private_key -r http://localhost:8645 --value $amount $address
 }

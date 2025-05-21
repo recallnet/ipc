@@ -127,13 +127,13 @@ def write-localnet-node-config [node_ix: int, bootstrap: bool] {
   $cfg | save -f $output_file
 }
 
-export def run-anvil [] {
+export def run-anvil [workdir: string] {
   docker build -t anvil -f ./docker/anvil.Dockerfile ./docker
   let found = (docker network ls | lines | find "recall-localnet" | length)
   if $found == 0 {
     docker network create recall-localnet
   }
-  let anvil_dir = $"($env.state.config.workdir)/anvil"
+  let anvil_dir = $"($workdir)/anvil"
   mkdir $anvil_dir
   docker run ...[
     --rm -d
@@ -156,6 +156,23 @@ export def stop-anvil [] {
   if not ( $env.state.config.workdir | path join "anvil/state" | path exists) {
     print "ERROR: anvil failed to dump its state"
     exit 5
+  }
+}
+
+export def stop-network [workdir: string, force: bool] {
+  if $force {
+    docker ps -a --format json | lines | each {from json} | where Names =~ $"localnet-" | each {docker rm -f $in.ID}
+  } else {
+    glob ($workdir + "/node-*") | reverse | par-each {|dir|
+      cd ($dir | path join "workdir")
+      docker compose down
+    }
+
+    let state = state-engine read-state (state-file  $workdir)
+    if (docker ps | lines | find localnet-anvil | length) == 1 {
+      stop-anvil
+    }
+    do $state.update { graceful_shutdown: true}
   }
 }
 
@@ -238,5 +255,5 @@ export def init-state [
   let state = {
     config: ($base_config | merge $cfg)
   }
-  state-engine update-state $workdir $state
+  state-engine update-state ($workdir | path join "state.yml") $state
 }

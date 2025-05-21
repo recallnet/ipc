@@ -1,25 +1,20 @@
 # Runs steps and stores the state into the given file.
 # Each step runs only once.
 export def run [
-  workdir: string,
+  state_file: string,
   steps: list<record>, # list of records (name, fn), where fn takes $state as the argument and returns a state patch record.
   --log-prefix: string,
   ] {
-  let workdir = ($workdir | path expand)
-  let state_file = (state-file $workdir)
-  let update = {|patch| update-state $workdir $patch}
-
   def log [str: string] {
     print $"(ansi '#f58c5f')== [step ($log_prefix | default "")] ($str)(ansi reset)"
   }
 
   $steps | each { |step|
-    let state = (read-state $state_file)
-    $env.state = ($state | merge {update: $update})
+    let state = read-state $state_file
     if ($step.name not-in $state.completed_steps) {
       log $step.name
       do $step.fn $state
-      update-state $workdir {completed_steps: ($state.completed_steps | insert $step.name true)}
+      update-state $state_file {completed_steps: ($state.completed_steps | insert $step.name true)}
       if ("ONE_STEP" in $env) {
         exit 0
       }
@@ -28,21 +23,22 @@ export def run [
   log "== done =="
 }
 
-def read-state [state_file: string] {
-  try {
+export def --env read-state [state_file: string] {
+  let update = {|patch| update-state $state_file $patch}
+  let state = (try {
     open $state_file
   } catch {
     {
       completed_steps: {}
     }
-  }
+  }) | merge {update: $update}
+  $env.state = $state
+  $state
 }
 
-export def update-state [workdir: string, patch: record] {
-  mkdir $workdir
-  let state_file = (state-file $workdir)
-  read-state $state_file | merge deep --strategy=append $patch | save -f $state_file
+export def update-state [state_file: string, patch: record] {
+  read-state $state_file |
+    merge deep --strategy=append $patch |
+    reject update |
+    save -f $state_file
 }
-
-
-def state-file [workdir: string] { $workdir | path join "state.yml" }
