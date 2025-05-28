@@ -6927,6 +6927,7 @@ dependencies = [
  "iroh",
  "iroh-blobs",
  "iroh-quinn",
+ "iroh-relay",
  "n0-future",
  "num-traits",
  "quic-rpc",
@@ -6934,6 +6935,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
+ "url",
 ]
 
 [[package]]

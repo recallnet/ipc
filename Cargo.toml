@@ -111,6 +111,7 @@ integer-encoding = { version = "3.0.3", default-features = false }
 iroh = "0.34"
 iroh-base = "0.34"
 iroh-blobs = { version = "0.34", features = ["rpc"] }
+iroh-relay = "0.34"
 jsonrpc-v2 = { version = "0.11", default-features = false, features = [
     "bytes-v10",
 ] }

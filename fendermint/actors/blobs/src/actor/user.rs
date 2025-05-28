@@ -840,7 +840,6 @@ mod tests {
         let f4_eth_addr = Address::new_delegated(10, &eth_addr.0).unwrap();
 
         rt.set_delegated_address(id_addr.id().unwrap(), f4_eth_addr);
-        let code_cid = ETHACCOUNT_ACTOR_CODE_ID.clone();
         rt.set_caller(*ETHACCOUNT_ACTOR_CODE_ID, id_addr);
         rt.set_origin(id_addr);
         rt.set_epoch(ChainEpoch::from(0));
@@ -858,7 +857,7 @@ mod tests {
             size: hash.1,
             ttl: Some(3600),
         };
-        expect_retrieve_bucket_code_cid(&rt, code_cid);
+        expect_retrieve_bucket_code_cid(&rt, *ETHACCOUNT_ACTOR_CODE_ID);
         expect_get_config(&rt);
         let result = rt.call::<BlobsActor>(
             Method::AddBlob as u64,
@@ -888,7 +887,7 @@ mod tests {
         rt.set_received(TokenAmount::zero());
         rt.set_epoch(ChainEpoch::from(5));
         rt.expect_validate_caller_any();
-        expect_retrieve_bucket_code_cid(&rt, code_cid);
+        expect_retrieve_bucket_code_cid(&rt, *ETHACCOUNT_ACTOR_CODE_ID);
         expect_get_config(&rt);
         expect_emitted_add_event(&rt, 5, &add_params, f4_eth_addr, add_params.size);
         let subscription = rt
@@ -937,7 +936,6 @@ mod tests {
         let f4_eth_addr = Address::new_delegated(10, &eth_addr.0).unwrap();
 
         rt.set_delegated_address(id_addr.id().unwrap(), f4_eth_addr);
-        let code_cid = ETHACCOUNT_ACTOR_CODE_ID.clone();
         rt.set_caller(*ETHACCOUNT_ACTOR_CODE_ID, id_addr);
         rt.set_origin(id_addr);
         rt.set_epoch(ChainEpoch::from(0));
@@ -960,7 +958,7 @@ mod tests {
         rt.set_balance(tokens_sent.clone());
         let tokens_required_atto = add_params.size * add_params.ttl.unwrap() as u64;
         let expected_tokens_unspent = tokens_sent.atto() - tokens_required_atto;
-        expect_retrieve_bucket_code_cid(&rt, code_cid);
+        expect_retrieve_bucket_code_cid(&rt, *ETHACCOUNT_ACTOR_CODE_ID);
         expect_get_config(&rt);
         expect_emitted_add_event(&rt, 0, &add_params, f4_eth_addr, add_params.size);
         rt.expect_send_simple(
@@ -992,7 +990,7 @@ mod tests {
             size: hash.1,
             ttl: Some(3600),
         };
-        expect_retrieve_bucket_code_cid(&rt, code_cid);
+        expect_retrieve_bucket_code_cid(&rt, *ETHACCOUNT_ACTOR_CODE_ID);
         expect_get_config(&rt);
         let response = rt.call::<BlobsActor>(
             Method::AddBlob as u64,
@@ -1017,7 +1015,7 @@ mod tests {
             size: hash.1,
             ttl: Some(3600),
         };
-        expect_retrieve_bucket_code_cid(&rt, code_cid);
+        expect_retrieve_bucket_code_cid(&rt, *ETHACCOUNT_ACTOR_CODE_ID);
         expect_get_config(&rt);
         expect_emitted_add_event(&rt, 0, &add_params, f4_eth_addr, add_params.size);
         let result = rt.call::<BlobsActor>(
@@ -1032,7 +1030,6 @@ mod tests {
     fn test_add_blob_with_sponsor() {
         setup_logs();
         let rt = construct_and_verify();
-        let code_cid = ETHACCOUNT_ACTOR_CODE_ID.clone();
 
         let token_credit_rate = BigInt::from(1000000000000000000u64);
 
@@ -1114,7 +1111,7 @@ mod tests {
             size: hash.1,
             ttl: Some(3600),
         };
-        expect_retrieve_bucket_code_cid(&rt, code_cid);
+        expect_retrieve_bucket_code_cid(&rt, *ETHACCOUNT_ACTOR_CODE_ID);
         expect_get_config(&rt);
         expect_emitted_add_event(&rt, 0, &add_params, sponsor_f4_eth_addr, add_params.size);
         let response = rt.call::<BlobsActor>(
@@ -1142,7 +1139,7 @@ mod tests {
             size: hash.1,
             ttl: Some(3600),
         };
-        expect_retrieve_bucket_code_cid(&rt, code_cid);
+        expect_retrieve_bucket_code_cid(&rt, *ETHACCOUNT_ACTOR_CODE_ID);
         expect_get_config(&rt);
         expect_emitted_add_event(&rt, 0, &add_params, sponsor_f4_eth_addr, add_params.size);
         rt.expect_send_simple(
