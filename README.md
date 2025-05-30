@@ -24,7 +24,7 @@ On MacOS:
 - Install [rust](https://www.rust-lang.org/tools/install) (if you have homebrew installed rust, you may need to uninstall that if you get errors in the build)
 - Install Cargo make: cargo install --force cargo-make
 - Install [docker](https://docs.docker.com/desktop/install/mac-install/)
-- Install [foundry](https://book.getfoundry.sh/getting-started/installation)
+- Install [foundry](https://book.getfoundry.sh/introduction/getting-started/)
 
 ## Building
 
