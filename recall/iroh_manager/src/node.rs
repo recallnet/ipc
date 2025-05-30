@@ -78,12 +78,11 @@ pub const EUC_RELAY_HOSTNAME: &str = "euc1-1.relay.recallnet.recall.iroh.link.";
 
 /// Get the default [`RelayMap`].
 pub fn default_relay_map() -> RelayMap {
-    RelayMap::from_nodes([
+    RelayMap::from_iter([
         default_use_relay_node(),
         default_usw_relay_node(),
         default_euc_relay_node(),
     ])
-    .expect("failed to create default relay map")
 }
 
 /// Get the default [`RelayNode`] for USE.
@@ -168,8 +167,7 @@ impl IrohNode {
 
         let router = Router::builder(endpoint)
             .accept(iroh_blobs::ALPN, blobs.clone())
-            .spawn()
-            .await?;
+            .spawn();
 
         let client = blobs.client().boxed();
         Ok(Self {
@@ -190,8 +188,7 @@ impl IrohNode {
 
         let router = Router::builder(endpoint)
             .accept(iroh_blobs::ALPN, blobs.clone())
-            .spawn()
-            .await?;
+            .spawn();
         let client = blobs.client().boxed();
         Ok(Self {
             router,
