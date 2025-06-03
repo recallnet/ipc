@@ -124,3 +124,9 @@ export def write-recall-cli-config [] {
 
   $cfg | save -f ($env.state.config.workdir | path join "networks.toml")
 }
+
+export def update-git-submodules [] {
+  const ipc_dir = path self ../..
+  cd $ipc_dir
+  git submodule update --init --recursive
+}
