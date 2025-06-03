@@ -95,6 +95,11 @@ def "main run-dind" [
   --workdir: string = "./localnet-data", # where to store networks.toml and state.yml
   ] {
 
+  let image = $"textile/recall-localnet:($tag)"
+  if $tag == "latest" {
+    docker pull $image
+  }
+
   docker run ...[
     --rm -d --name localnet
     -p 127.0.0.1:8545:8545
@@ -102,7 +107,7 @@ def "main run-dind" [
     -p 127.0.0.1:8001:8001
     -p 127.0.0.1:26657:26657
     --privileged
-    $"textile/recall-localnet:($tag)"
+    $image
   ]
   print "Container localnet is running."
 
