@@ -58,7 +58,7 @@ Creating a checkpoint in the ledger is performed deterministically by every full
 
 After the checkpoint has been added to the ledger *and committed in a block*, those nodes which are currently validators broadcast transactions which add their signatures using the `broadcast_signature` function of the [`checkpoint`](https://github.com/consensus-shipyard/ipc/blob/specs/fendermint/vm/interpreter/src/fvm/checkpoint.rs) module.
 
-The reason we wait for the the change to be committed is so that the transactions that add the signatures don’t get rejected by `check_tx` because they are referring to a non-existing checkpoint.
+The reason we wait for the change to be committed is so that the transactions that add the signatures don’t get rejected by `check_tx` because they are referring to a non-existing checkpoint.
 
 The signing and sending of transactions happens in the [`broadcast`](https://github.com/consensus-shipyard/ipc/blob/specs/fendermint/vm/interpreter/src/fvm/broadcast.rs) module which fetches the current nonce of the validator, estimates the gas, performs retries, etc. Because it fetches the nonce for each submission, it cannot be used in parallel.
 

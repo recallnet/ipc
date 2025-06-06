@@ -63,7 +63,7 @@ The following diagram shows a typical sequence of events within the IPLD Resolve
 
 The diagrams in this directory can be rendered with `make diagrams`.
 
-Adding the following script to `.git/hooks/pre-commit` automatically renders and checks in the images when we commit changes to the them. CI should also check that there are no uncommitted changes.
+Adding the following script to `.git/hooks/pre-commit` automatically renders and checks in the images when we commit changes to them. CI should also check that there are no uncommitted changes.
 
 ```bash
 #!/usr/bin/env bash

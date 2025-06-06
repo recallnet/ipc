@@ -17,10 +17,10 @@ The components in a nutshell:
 
 ## ABCI++
 
-We want make use of the ABCI++ interface to get more control over the voting process by implementing the new `PrepareProposal` and `ProcessProposal` methods. These are close to be [released](https://github.com/tendermint/tendermint/issues/9053) in the upcoming `v0.37` of Tendermint Core.
+We want to make use of the ABCI++ interface to get more control over the voting process by implementing the new `PrepareProposal` and `ProcessProposal` methods. These are close to be [released](https://github.com/tendermint/tendermint/issues/9053) in the upcoming `v0.37` of Tendermint Core.
 
 The best place to look up the details of the ABCI++ spec is currently at https://github.com/tendermint/tendermint/tree/v0.37.0-rc2/spec/abci
 
 Note that the spec has previously been under the `main` branch but not any more, and that it changed recently to only contain the above two extra methods, but not _vote extensions_ for the new `FinalizeBlock` method, which was supposed to replace `BeginBlock`, `DeliverTx`, `EndBlock` and I think `Commit`.
 
-The reason we want to be able to control voting is to evaludate the CIDs contained in blocks for data availability, before they are committed for execution. We can do this by simply not voting on any proposal that contains CIDs _for execution_ that are unavailable on the node of the validator. To make them available, we'll use a solution similar to [NC-Max](https://eprint.iacr.org/2020/1101) to propose CIDs _for resolution_ and inclusion in future blocks, thus moving data dissemination out of the critical path of consensus.
+The reason we want to be able to control voting is to evaluate the CIDs contained in blocks for data availability, before they are committed for execution. We can do this by simply not voting on any proposal that contains CIDs _for execution_ that are unavailable on the node of the validator. To make them available, we'll use a solution similar to [NC-Max](https://eprint.iacr.org/2020/1101) to propose CIDs _for resolution_ and inclusion in future blocks, thus moving data dissemination out of the critical path of consensus.
