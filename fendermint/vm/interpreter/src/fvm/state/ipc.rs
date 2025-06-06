@@ -304,7 +304,7 @@ impl<DB: Blockstore + Clone> GatewayCaller<DB> {
         Ok(IPCParentFinality::from(r))
     }
 
-    /// Get the Ethereum adresses of validators who signed a checkpoint.
+    /// Get the Ethereum addresses of validators who signed a checkpoint.
     pub fn checkpoint_signatories(
         &self,
         state: &mut FvmExecState<DB>,

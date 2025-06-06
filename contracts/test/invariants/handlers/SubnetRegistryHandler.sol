@@ -56,11 +56,11 @@ contract SubnetRegistryHandler is CommonBase, StdCheats, StdUtils {
 
     /// getRandomOldAddressOrNewOne returns a new random address
     function getRandomOldAddressOrNewOne(uint256 seed) internal view returns (address) {
-        uint256 lenght = ghost_owners.length();
-        if (lenght == 0 || seed % 4 == 0) {
+        uint256 length = ghost_owners.length();
+        if (length == 0 || seed % 4 == 0) {
             return msg.sender;
         } else {
-            return ghost_owners.values()[seed % lenght];
+            return ghost_owners.values()[seed % length];
         }
     }
 

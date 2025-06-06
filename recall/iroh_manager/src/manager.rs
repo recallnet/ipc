@@ -53,7 +53,7 @@ impl IrohManager {
         })
     }
 
-    /// Retrives a blob client, and starts the node if it has not started yet.
+    /// Retrieves a blob client, and starts the node if it has not started yet.
     pub fn blobs_client(&self) -> BlobsClient {
         self.client.blobs_client().boxed()
     }

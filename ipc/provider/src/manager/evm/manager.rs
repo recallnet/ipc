@@ -598,7 +598,7 @@ impl SubnetManager for EthSubnetManager {
         let token_address = payload_to_evm_address(
             subnet_supply_source
                 .token_address
-                .ok_or_else(|| anyhow!("zero adress not erc20"))?
+                .ok_or_else(|| anyhow!("zero address not erc20"))?
                 .payload(),
         )?;
         let token_contract = IERC20::new(token_address, signer.clone());

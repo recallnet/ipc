@@ -160,7 +160,7 @@ library Consensus {
         ValidatorData[] data;
     }
 
-    // The compresed representation of the activity summary for consensus-level activity suitable for embedding in a checkpoint.
+    // The compressed representation of the activity summary for consensus-level activity suitable for embedding in a checkpoint.
     struct CompressedSummary {
         AggregatedStats stats;
         /// The commitment for the validator details, so that we don't have to transmit them in full.
@@ -268,7 +268,7 @@ This command takes:
 - the block ranges in the subnet we want to scan for eligible claims.
 - the address of the validator we want to claim rewards for.
 
-The command will when scan the subnet for eligible claims within the specified block ranges, and will then submit the
+The command will then scan the subnet for eligible claims within the specified block ranges, and will then submit the
 claim to the ancestor subnet using the batch claim method to amortize the gas cost.
 
 ```bash

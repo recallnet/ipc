@@ -2,7 +2,7 @@
 
 ## IPC Actors addressing
 
-### Filecoin adressing schemes
+### Filecoin addressing schemes
 
 When the contracts described below (Gateway, Registry, Subnet) are deployed to a Filecoin network (e.g. Mainnet, Calibration), `f0`, `f2` and `f410` addresses will be assigned to them. The latter is equivalent to an Ethereum hex address.
 Detailed explanation of Filecoin addressing scheme is available in [the documentation](https://docs.filecoin.io/smart-contracts/filecoin-evm-runtime/address-types).

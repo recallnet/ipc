@@ -2,7 +2,7 @@
 
 Bottom-up checkpoints are periodically submitted to the parent subnet, carrying:
 * bottom-up messages
-* the next highest configuration number adopted form the validator changesets observed on the parent
+* the next highest configuration number adopted from the validator changesets observed on the parent
 * a multi-sig from the current validator set
 * the identity of the checkpointed block height
 
