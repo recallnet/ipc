@@ -45,7 +45,7 @@ pub trait QueryClient: Sync {
         extract_opt(res, |res| Ok(res.value))
     }
 
-    /// Query the the state of an actor.
+    /// Query the state of an actor.
     async fn actor_state(
         &self,
         address: &Address,

@@ -250,7 +250,7 @@ impl StakingState {
 
     /// Check if checkpoints can be sent to the system.
     pub fn can_checkpoint(&self) -> bool {
-        // This is a technical thing of how the the state does transitions, it's all done in the checkpoint method.
+        // This is a technical thing of how the state does transitions, it's all done in the checkpoint method.
         if !self.activated {
             return true;
         }
