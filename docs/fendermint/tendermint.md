@@ -13,7 +13,7 @@ That should be enough to get us started with Tendermint.
 
 We will need ~~Tendermint Core~~ CometBFT running and building the blockchain, and since we don't want to fork it, we can install the pre-packaged `cometbft` binary from the [releases](https://github.com/cometbft/cometbft/releases). At the time of this writing, our target is the [v0.37.1](https://github.com/cometbft/cometbft/releases/tag/v0.37.1) release, and things should work with the `v0.37.0-rc2` version of Tendermint Core as well.
 
-Alternatively, we can [install](https://github.com/cometbft/cometbft/blob/main/docs/guides/install.md) the project from source. I expect to have to dig around in the source code to understand the finer nuances, so this is what I'll do. It needs `go` 1.18 or higher [installed](https://go.dev/doc/install) (check with `go version`).
+Alternatively, we can [install](https://docs.cometbft.com/main/tutorials/install) the project from source. I expect to have to dig around in the source code to understand the finer nuances, so this is what I'll do. It needs `go` 1.18 or higher [installed](https://go.dev/doc/install) (check with `go version`).
 
 The following code downloads the source, checks out the branch with the necessary ABCI++ features, and installs it.
 ```shell
@@ -30,7 +30,7 @@ $ cometbft version
 0.37.1+2af25aea6
 ```
 
-After this we can follow the [quick start guide](https://github.com/cometbft/cometbft/blob/main/docs/guides/quick-start.md#initialization) to initialize a local node and try out the venerable `kvstore` application.
+After this we can follow the [quick start guide](https://docs.cometbft.com/main/tutorials/quick-start#initialization) to initialize a local node and try out the venerable `kvstore` application.
 
 Create the genesis files under `$HOME/.cometbft`:
 
