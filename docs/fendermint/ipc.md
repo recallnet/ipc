@@ -2,7 +2,7 @@
 
 This documentation will guide you through the different utils provided in Fendermint for the deployment of Fendermint-based IPC subnets. All node processes are run inside Docker containers in your local environment.
 
-This docs are only focused on the infrastructure deployment, for an end-to-end walk through of spawning IPC subnets refer to the [IPC quickstart](https://github.com/consensus-shipyard/ipc/blob/main/docs/quickstart-calibration.md).
+This docs are only focused on the infrastructure deployment, for an end-to-end walk through of spawning IPC subnets refer to the [IPC quickstart](https://github.com/consensus-shipyard/ipc-libs/blob/main/docs/quickstart-calibration.md).
 
 ## Prerequisites
 
