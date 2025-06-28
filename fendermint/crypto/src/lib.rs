@@ -10,7 +10,7 @@ use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 pub use libsecp256k1::{PublicKey, RecoveryId, Signature};
 
 /// A [`GeneralPurpose`] engine using the [`alphabet::STANDARD`] base64 alphabet
-/// padding bytes when writing but requireing no padding when reading.
+/// padding bytes when writing but requiring no padding when reading.
 const B64_ENGINE: GeneralPurpose = GeneralPurpose::new(
     &alphabet::STANDARD,
     GeneralPurposeConfig::new()

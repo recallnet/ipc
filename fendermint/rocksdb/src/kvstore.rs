@@ -322,7 +322,7 @@ mod tests {
         db
     }
 
-    // Not using the `#[quickcheck]` macro so I can run fewer tests becasue they are slow.
+    // Not using the `#[quickcheck]` macro so I can run fewer tests because they are slow.
     fn run_quickcheck<F: Testable>(f: F) {
         QuickCheck::new().tests(TEST_COUNT).quickcheck(f)
     }
